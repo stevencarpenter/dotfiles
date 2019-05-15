@@ -25,7 +25,7 @@ alias docker-clean-all='docker stop $(docker container ls -a -q); docker system 
 HEROKU_AC_ZSH_SETUP_PATH=/Users/stevecarpenter/Library/Caches/heroku/autocomplete/zsh_setup && test -f $HEROKU_AC_ZSH_SETUP_PATH && source $HEROKU_AC_ZSH_SETUP_PATH;
 
 # load zgen
-source "${HOME}/.zgen/zgen.zsh"
+# source "${HOME}/.zgen/zgen.zsh"
 
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
