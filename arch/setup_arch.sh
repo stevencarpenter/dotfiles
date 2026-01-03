@@ -1,17 +1,28 @@
 #!/bin/bash
+# Arch Linux setup script for dotfiles with Chezmoi
 
 set -ex
 
-# Install everything I need from pacman and their dependencies
-sudo pacman -Syu ripgrep neovim tmux less strace
+# Install core packages from pacman
+sudo pacman -Syu chezmoi age ripgrep neovim tmux less strace
 
-# Make executable and run the script to setup the /etc/zsh/zshenv
-chmod +x ~/.dotfiles/scripts/populate_sys_zshenv.sh
-bash .dotfiles/scripts/populate_sys_zshenv.sh
+# Set up age encryption key from backup
+# Note: Copy your key from 1Password to ~/.config/chezmoi/key.txt first
+if [[ ! -f ~/.config/chezmoi/key.txt ]]; then
+    echo "WARNING: Age encryption key not found at ~/.config/chezmoi/key.txt"
+    echo "Please copy your key from 1Password before running chezmoi apply"
+fi
 
-#Run unix setup script
-chmod +x ~/.dotfiles/scripts/setup_unix.sh
-zsh ~/.dotfiles/scripts/setup_unix.sh
+# Initialize chezmoi if not already done
+if [[ ! -d ~/.local/share/chezmoi ]]; then
+    chezmoi init git@github.com:stevencarpenter/dotfiles.git
+fi
 
-#Set caps lock to escape and make hitting both shifts turn on caps lock
+# Apply dotfiles
+chezmoi apply
+
+# Set caps lock to escape and make hitting both shifts turn on caps lock
 setxkbmap -option caps:escape,shift:both_capslock &
+
+echo "Arch Linux setup complete!"
+echo "Restart your shell with: exec zsh"

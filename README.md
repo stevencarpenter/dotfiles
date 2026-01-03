@@ -1,12 +1,13 @@
-# My dotfiles
+# Dotfiles
 
-This directory contains the dotfiles for my systems which are macOS or Arch(by the way)
+This directory contains the dotfiles for my systems (macOS or Arch Linux), managed with **Chezmoi** and **age encryption**.
 
 ## Requirements
 
-Ensure you have the following installed on your system
+Ensure you have the following installed on your system:
 
 ### Run Manually On Fresh OS Install for any Unix System
+
 ```shell
 # Setup ssh key
 ssh-keygen -t ed25519 -C "$USER macbook @ $EPOCHSECONDS"
@@ -15,66 +16,112 @@ ssh-keygen -t ed25519 -C "$USER macbook @ $EPOCHSECONDS"
 mkdir -p ~/projects ~/programs
 ```
 
-### Git and Stow
-#### Arch
-```
-pacman -S git stow
+### Install Chezmoi and Age
+
+#### Arch Linux
+
+```bash
+pacman -S chezmoi age
 ```
 
 #### macOS
+
 ```shell
-# Install brew and all my brew formulae and casks
+# Install Homebrew (if not present)
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 brew update && brew upgrade
 
-brew install git stow
+# Install chezmoi and age
+brew install chezmoi age
 ```
 
-### Clone this repo y La Playa
+### Setup Age Encryption Key
+
+Before initializing chezmoi, you need to set up your age encryption key from 1Password:
+
 ```shell
-# Clone my dotfiles
-git clone git@github.com:stevencarpenter/.dotfiles.git ~/
+# Create chezmoi config directory
+mkdir -p ~/.config/chezmoi
+
+# Create the age key file from your 1Password backup
+# (copy the contents of your "dotfiles-age-key" secure note)
+cat > ~/.config/chezmoi/key.txt << 'EOF'
+# created: <timestamp>
+# public key: age1462h0ed4ufkjrq0wu326l30c8hay9uewlsaudk89mgqjc5540vrqacejsz
+AGE-SECRET-KEY-<your-secret-key>
+EOF
+
+# Secure the key file
+chmod 600 ~/.config/chezmoi/key.txt
 ```
 
-On a work machine, you can clone this repo to your home directory, but make sure to run the following so we are using the correct private key for my Github.
+### Clone and Initialize
+
 ```shell
-git config --local core.sshCommand   'ssh -i ~/.ssh/id_ed25519_personal -o IdentitiesOnly=yes
+# Initialize chezmoi with this repo
+chezmoi init git@github.com:stevencarpenter/dotfiles.git
+
+# Preview what will be applied
+chezmoi diff
+
+# Apply dotfiles
+chezmoi apply
 ```
 
-## Stow plan command. Remove n for live run.
+On a work machine, configure git to use the correct SSH key:
 
 ```shell
-cd ~/.dotfiles
-stow -nvvv home  # Plan mode
-stow home        # Apply dotfiles
+cd ~/.local/share/chezmoi
+git config --local core.sshCommand 'ssh -i ~/.ssh/id_ed25519_personal -o IdentitiesOnly=yes'
+```
+
+## Common Chezmoi Commands
+
+```shell
+# Preview changes before applying
+chezmoi diff
+
+# Apply all dotfiles
+chezmoi apply
+
+# Apply with verbose output
+chezmoi apply -v
+
+# Add a new file to be managed
+chezmoi add ~/.config/some-tool/config
+
+# Add a file with encryption
+chezmoi add --encrypt ~/.config/secrets/token
+
+# Edit a managed file (opens source, applies on save)
+chezmoi edit ~/.zshrc
+
+# Update from remote repository
+chezmoi update
+
+# View managed files
+chezmoi managed
 ```
 
 ## MCP Configuration Sync
 
 This repo uses **one master MCP config** that syncs to all AI tools automatically.
 
-### Initial Setup
+### Automatic Sync
 
-After stowing, sync MCP configs once:
+MCP configs are synced automatically after `chezmoi apply` via the `run_after_sync-mcp.sh` script.
+
+### Manual Sync (if needed)
 
 ```shell
-~/.dotfiles/scripts/sync-mcp-configs.sh
+~/.local/share/chezmoi/scripts/sync-mcp-configs.sh
 ```
 
-### Auto-Sync on Git Operations
-
-Git hooks automatically run the sync when `mcp-master.json` changes:
-
-- ✅ `post-checkout` - After switching branches
-- ✅ `post-merge` - After pulling changes
-
-### Manual Updates
-
-To add/modify MCP servers:
+### Editing MCP Config
 
 ```shell
-vim home/.config/mcp/mcp-master.json  # Edit master config
-~/.dotfiles/scripts/sync-mcp-configs.sh  # Sync to all tools
+chezmoi edit ~/.config/mcp/mcp-master.json
+chezmoi apply  # Sync runs automatically
 ```
 
 This syncs to:
@@ -86,28 +133,29 @@ This syncs to:
 
 ## Environment Variables Setup
 
-This repository uses environment variables for sensitive configuration. After cloning:
+This repository uses encrypted environment variables. They are automatically decrypted when you run `chezmoi apply`.
 
-1. **Copy the template file:**
+If you need to update environment variables:
+
+1. **Edit the encrypted file:**
    ```shell
-   cp ~/.config/zsh/.env.example ~/.config/zsh/.env
+   chezmoi edit ~/.config/zsh/.env
    ```
 
-2. **Fill in your values** - Store sensitive tokens in 1Password and populate `.env` with:
-   - `SUPABASE_PROJECT_REF` - Your Supabase project reference
-   - `GITHUB_TOKEN` - GitHub Personal Access Token (for MCP, Copilot)
-   - `BRAVE_API_KEY` - Brave Search API key
-   - `OPENAI_API_KEY` - OpenAI API key (if using Codex CLI)
-   - See `.env.example` for complete list
-
-3. **Secure the file:**
+2. **Or re-add with encryption:**
    ```shell
-   chmod 600 ~/.config/zsh/.env
+   # Edit the file directly, then
+   chezmoi add --encrypt ~/.config/zsh/.env
    ```
 
-**Note:** The `.env` file is already gitignored and will never be committed to the repository.
+**Required variables** (documented in `.env.example`):
+- `SUPABASE_PROJECT_REF` - Your Supabase project reference
+- `GITHUB_TOKEN` - GitHub Personal Access Token (for MCP, Copilot)
+- `BRAVE_API_KEY` - Brave Search API key
+- `OPENAI_API_KEY` - OpenAI API key (if using Codex CLI)
 
 ## AI Tools Configuration
+
 Comprehensive setup and configuration for AI-powered development tools:
 
 - **[MCP (Model Context Protocol)](docs/ai-tools/mcp-setup.md)** - Configure AI assistants with secure access to local and remote resources
@@ -117,3 +165,20 @@ Comprehensive setup and configuration for AI-powered development tools:
 - **[Custom Terraform Instructions](docs/ai-tools/terraform-instructions.md)** - Best practices for AI-generated Terraform code
 
 See the [AI Tools documentation](docs/ai-tools/) for detailed setup guides.
+
+## New Machine Quick Start
+
+```shell
+# 1. Install chezmoi and age
+brew install chezmoi age  # macOS
+# or: pacman -S chezmoi age  # Arch
+
+# 2. Set up age key from 1Password (see instructions above)
+
+# 3. Initialize and apply
+chezmoi init git@github.com:stevencarpenter/dotfiles.git
+chezmoi apply
+
+# 4. Restart your shell
+exec zsh
+```

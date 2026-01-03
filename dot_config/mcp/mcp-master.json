@@ -7,7 +7,7 @@
         "-y",
         "@modelcontextprotocol/server-filesystem",
         "${HOME}/projects",
-        "${HOME}/.dotfiles",
+        "${HOME}/.local/share/chezmoi",
         "${HOME}/personal"
       ]
     },

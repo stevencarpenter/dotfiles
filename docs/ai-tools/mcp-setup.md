@@ -12,14 +12,13 @@ The Model Context Protocol (MCP) is an open protocol that enables AI assistants 
 
 ### Installation
 
-Use `stow` to symlink the MCP configuration from this dotfiles repository:
+Use `chezmoi` to apply the MCP configuration from this dotfiles repository:
 
 ```bash
-cd ~/.dotfiles
-stow -v home
+chezmoi apply
 ```
 
-This will create symlinks from `~/.config/mcp/` to the configuration files in this repository.
+This will deploy the configuration files to `~/.config/mcp/` and automatically sync them to all AI tools.
 
 ## Available MCP Servers
 
@@ -41,7 +40,7 @@ Read and write files within specified directories.
 
 **Default Access:**
 - `~/projects/` - Your main projects directory
-- `~/.dotfiles/` - This dotfiles repository
+- `~/.local/share/chezmoi/` - This dotfiles repository
 
 **Security Note:** Only directories explicitly listed in the configuration are accessible.
 
@@ -171,7 +170,7 @@ To grant access to additional directories, edit the `filesystem` server args:
       "-y",
       "@modelcontextprotocol/server-filesystem",
       "${HOME}/projects",
-      "${HOME}/.dotfiles",
+      "${HOME}/.local/share/chezmoi",
       "${HOME}/new-directory"
     ]
   }

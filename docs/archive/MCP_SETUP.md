@@ -1,5 +1,7 @@
 # MCP Server Setup Guide
 
+> **Note:** This documentation is archived. For current MCP setup instructions, see [docs/ai-tools/mcp-setup.md](../ai-tools/mcp-setup.md).
+
 ## Overview
 
 This guide covers setting up Model Context Protocol (MCP) servers to work with:
@@ -9,7 +11,7 @@ This guide covers setting up Model Context Protocol (MCP) servers to work with:
 
 ## Configuration Location
 
-Configuration files are managed through your dotfiles using stow:
+Configuration files are managed through your dotfiles using chezmoi:
 - **Main config**: `~/.config/mcp/mcp.json`
 - **Docker fallback**: `~/.config/mcp/mcp.docker.json`
 - **Custom instructions**: `~/.config/mcp/terraform-instructions/`
@@ -83,13 +85,12 @@ Your custom Terraform instructions are loaded from `~/.config/mcp/terraform-inst
 
 ## Setup Instructions
 
-### 1. Install Stow Your Dotfiles
+### 1. Apply Dotfiles with Chezmoi
 ```bash
-cd ~/.dotfiles
-stow home
+chezmoi apply
 ```
 
-This automatically symlinks `~/.config/mcp/mcp.json` and related files.
+This automatically deploys `~/.config/mcp/mcp.json` and related files.
 
 ### 2. IntelliJ IDEA Copilot Extension
 
@@ -165,11 +166,11 @@ env | grep -i config
 
 ### Servers Not Loading
 
-1. **Verify stow symlinks**:
+1. **Verify chezmoi deployed files**:
    ```bash
    ls -la ~/.config/mcp/
+   chezmoi managed | grep mcp
    ```
-   Should show symlinks, not copies.
 
 2. **Check NPX/UVX installation**:
    ```bash

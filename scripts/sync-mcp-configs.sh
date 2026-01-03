@@ -25,7 +25,7 @@ fi
 # Check if master config exists
 if [[ ! -f "${MASTER_CONFIG}" ]]; then
     echo "Error: Master config not found at ${MASTER_CONFIG}"
-    echo "Run 'stow home' from ~/.dotfiles directory first to deploy dotfiles"
+    echo "Run 'chezmoi apply' to deploy dotfiles first"
     exit 1
 fi
 

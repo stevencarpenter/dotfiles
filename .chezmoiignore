@@ -5,17 +5,10 @@
 .claude
 .github
 .pre-commit-config.yaml
-.stow-global-ignore
-.stow-local-ignore
 .envrc
-.dotfiles.code-workspace
 .gitignore
 README.md
 CLAUDE.md
-Makefile
 arch
-macOS
 docs
-docs-chezmoi
 scripts
-home.stow-backup

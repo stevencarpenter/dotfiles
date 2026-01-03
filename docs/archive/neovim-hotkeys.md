@@ -3,7 +3,7 @@
 This single, consolidated reference lists local keymap changes (added or overridden mappings) at the top so you can quickly see what differs from LazyVim's defaults. A summarized reference of the LazyVim defaults follows for quick lookup.
 
 Notes:
-- Local mappings and overrides live under `home/.config/nvim/lua/plugins` in this repo.
+- Local mappings and overrides live under `dot_config/nvim/lua/plugins` in this repo (chezmoi source directory).
 - The full upstream LazyVim source contains the canonical defaults; this document summarizes those defaults so you don't need snapshot copies in this repo.
 
 ## Local overrides & additions (modified from default)
@@ -261,7 +261,7 @@ These LSP-centric bindings attach buffer-locally when a server connects. The map
 
 ## LazyVim Extras
 
-The optional extras enabled in `home/.config/nvim/lazyvim.json` contribute the following additional keymaps.
+The optional extras enabled in `dot_config/nvim/lazyvim.json` contribute the following additional keymaps.
 
 ### Copilot Chat
 
@@ -368,6 +368,6 @@ neotest provides a cohesive test runner experience with DAP integration.
 
 ## Local plugin specs
 
-Local plugin specs continue to live under `home/.config/nvim/lua/plugins`. See that directory for the exact code that applies these overrides and additions.
+Local plugin specs continue to live under `dot_config/nvim/lua/plugins`. See that directory for the exact code that applies these overrides and additions.
 
 If you want to add or change mappings, edit the plugin specs in that directory; the short list of local modifications is shown at the top of this document for quick reference.
