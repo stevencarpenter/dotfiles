@@ -1016,3 +1016,4 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
+.claude/settings.local.json
