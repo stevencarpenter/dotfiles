@@ -1,0 +1,31 @@
+services:
+  dev:
+    build:
+      context: ../..
+      dockerfile: profiles/data-spark/Dockerfile
+    working_dir: /work
+    entrypoint: [ "dev-entrypoint" ]
+    command: [ "${DEV_SHELL:-/bin/zsh}" ]
+    environment:
+      DEV_UID: ${DEV_UID}
+      DEV_GID: ${DEV_GID}
+      DEV_USER: ${DEV_USER}
+      DEV_HOME: ${DEV_HOME}
+      DEV_SHELL: ${DEV_SHELL}
+      DEV_WORKDIR: ${DEV_WORKDIR}
+      HOST_HOME: ${HOST_HOME}
+      PROFILE_NAME: ${PROFILE_NAME}
+      ZDOTDIR: /home/${DEV_USER}/.config/zsh
+      SPARK_HOME: /opt/spark
+    init: true
+    volumes:
+      - ${DEV_WORKDIR:-.}:/work
+      - ${HOST_HOME}/.ssh:/home/${DEV_USER}/.ssh:ro
+      - ${HOST_HOME}/.gitconfig:/home/${DEV_USER}/.gitconfig:ro
+      - ${HOST_HOME}/.config/zsh:/home/${DEV_USER}/.config/zsh:ro
+      - ${DEV_CACHE_DIR}/${PROFILE_NAME}/ivy2:/home/${DEV_USER}/.ivy2
+      - ${DEV_CACHE_DIR}/${PROFILE_NAME}/sbt:/home/${DEV_USER}/.sbt
+      - ${DEV_CACHE_DIR}/${PROFILE_NAME}/pyspark:/home/${DEV_USER}/.cache/pyspark
+    ports:
+      # Expose Spark Web UI on port 4040
+      - "4040:4040"

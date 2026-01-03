@@ -1,0 +1,55 @@
+services:
+  dev:
+    build:
+      context: ../..
+      dockerfile: profiles/fullstack-rust-js/Dockerfile
+    working_dir: /work
+    entrypoint: [ "dev-entrypoint" ]
+    command: [ "${DEV_SHELL:-/bin/zsh}" ]
+    environment:
+      DEV_UID: ${DEV_UID}
+      DEV_GID: ${DEV_GID}
+      DEV_USER: ${DEV_USER}
+      DEV_HOME: ${DEV_HOME}
+      DEV_SHELL: ${DEV_SHELL}
+      DEV_WORKDIR: ${DEV_WORKDIR}
+      HOST_HOME: ${HOST_HOME}
+      PROFILE_NAME: ${PROFILE_NAME}
+      ZDOTDIR: /home/${DEV_USER}/.config/zsh
+      CARGO_HOME: /home/${DEV_USER}/.cargo
+      NPM_CONFIG_PREFIX: /home/${DEV_USER}/.npm-global
+    init: true
+    volumes:
+      - ${DEV_WORKDIR:-.}:/work
+      - ${HOST_HOME}/.ssh:/home/${DEV_USER}/.ssh:ro
+      - ${HOST_HOME}/.gitconfig:/home/${DEV_USER}/.gitconfig:ro
+      - ${HOST_HOME}/.config/zsh:/home/${DEV_USER}/.config/zsh:ro
+      - ${DEV_CACHE_DIR}/${PROFILE_NAME}/cargo/registry:/home/${DEV_USER}/.cargo/registry
+      - ${DEV_CACHE_DIR}/${PROFILE_NAME}/cargo/git:/home/${DEV_USER}/.cargo/git
+      - ${DEV_CACHE_DIR}/${PROFILE_NAME}/npm:/home/${DEV_USER}/.npm
+    depends_on:
+      - db
+      - redis
+    ports:
+      # Vite development server (frontend)
+      - "5173:5173"
+      # General-purpose web server (e.g., backend API, Next.js, Express)
+      - "3000:3000"
+  db:
+    image: postgres:16-alpine
+    environment:
+      # Use environment variables for database credentials. These must be set explicitly, especially for non-local use.
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - ${DEV_CACHE_DIR}/${PROFILE_NAME}/postgres:/var/lib/postgresql/data
+  redis:
+    image: redis:7-alpine
+    command: [ "redis-server", "--appendonly", "yes" ]
+    ports:
+      - "6379:6379"
+    volumes:
+      - ${DEV_CACHE_DIR}/${PROFILE_NAME}/redis:/data

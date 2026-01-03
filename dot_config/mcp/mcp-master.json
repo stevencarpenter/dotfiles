@@ -1,0 +1,63 @@
+{
+  "$schema": "https://modelcontextprotocol.io/schema/config.json",
+  "servers": {
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "${HOME}/projects",
+        "${HOME}/.dotfiles",
+        "${HOME}/personal"
+      ]
+    },
+    "memory": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-memory"
+      ]
+    },
+    "railway-mcp-server": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@railway/mcp-server"
+      ]
+    },
+    "sequential-thinking": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sequential-thinking"
+      ]
+    },
+    "github/github-mcp-server": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "x-metadata": {
+        "registry": {
+          "url": "https://api.mcp.github.com/2025-09-15/v0/servers",
+          "serverId": "ab12cd34-5678-90ef-1234-567890abcdef"
+        }
+      }
+    },
+    "com.supabase/mcp": {
+      "type": "http",
+      "url": "https://mcp.supabase.com/mcp",
+      "x-metadata": {
+        "registry": {
+          "api": {
+            "baseUrl": "https://api.mcp.github.com",
+            "version": "v0.1"
+          },
+          "mcpServer": {
+            "name": "com.supabase/mcp",
+            "version": "0.5.9"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,65 @@
+# Encrypted Environment Variables
+# This file will be encrypted by chezmoi
+
+# =============================================================================
+# AI/MCP Services
+# =============================================================================
+
+# Supabase MCP Server
+export SUPABASE_PROJECT_REF="your-project-ref-here"
+
+# GitHub Personal Access Token
+# Required for: GitHub MCP server, Copilot, etc.
+export GITHUB_TOKEN="your-github-token-here"
+
+# Brave Search API
+export BRAVE_API_KEY="BSAxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+# OpenAI API
+export OPENAI_API_KEY="sk-proj-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+{{- if eq .machine "work-mac" }}
+
+# =============================================================================
+# Work-specific Configuration
+# =============================================================================
+
+# Work-specific tokens or environment variables
+# export WORK_TOKEN="..."
+
+{{- else }}
+
+# =============================================================================
+# Personal-specific Configuration
+# =============================================================================
+
+# Personal-specific tokens or environment variables
+# export PERSONAL_TOKEN="..."
+
+{{- end }}
+
+# =============================================================================
+# AWS Configuration (if using AWS tooling)
+# =============================================================================
+
+# export AWS_SSO_ACCOUNT_ID="123456789012"
+# export AWS_SSO_DEFAULT_REGION="us-east-1"
+
+# =============================================================================
+# Other Service Tokens
+# =============================================================================
+
+# Context7 API (if using)
+# export CONTEXT7_API_KEY="your-context7-key"
+
+# Railway (if using Railway MCP server)
+# export RAILWAY_API_KEY="your-railway-key"
+
+# =============================================================================
+# Development Environment
+# =============================================================================
+
+# PostgreSQL (for dev containers)
+# export POSTGRES_USER="dev"
+# export POSTGRES_PASSWORD="dev"
+# export POSTGRES_DB="dev"

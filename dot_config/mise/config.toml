@@ -1,0 +1,40 @@
+[tools]
+# Programming Languages & Runtimes
+go = "1.25.4"
+java = "corretto-17"
+node = "latest"
+scala = "2.12"
+gradle = "9"
+maven = "latest"
+npm = "latest"
+sbt = "latest"
+mill = "latest"
+coursier = "latest"
+pnpm = "latest"
+
+# Infrastructure Tools
+argo = "latest"
+gh = "latest"
+goreleaser = "latest"
+helm = "3"
+jj = "latest"
+k9s = "latest"
+kubectl = "1.32"
+kustomize = "latest"
+lazydocker = "latest"
+lazygit = "latest"
+opencode = "latest"
+teleport-ent = "16"
+terraform = "1.14.0"
+tfenv = "latest"
+
+# Linters & Formatters
+golangci-lint = "latest"
+terraform-docs = "latest"
+tflint = "latest"
+trivy = "latest"
+yamllint = "latest"
+
+# Databases
+mysql = "8"
+duckdb = "latest"

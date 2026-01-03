@@ -1,0 +1,25 @@
+# Chezmoi Encryption Configuration
+# Files matching these patterns will be encrypted in the repo
+
+[encryption]
+# Encrypt environment variable files
+cipher = "age"
+
+[[encrypted]]
+glob = "dot_config/zsh/dot_env.tmpl"
+
+[[encrypted]]
+glob = "dot_config/zsh/dot_env"
+
+[[encrypted]]
+glob = ".envrc"
+
+# Any other secret-like files
+[[encrypted]]
+glob = "**/secret*"
+
+[[encrypted]]
+glob = "**/password*"
+
+[[encrypted]]
+glob = "**/*token*"

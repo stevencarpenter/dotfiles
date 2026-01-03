@@ -1,0 +1,5 @@
+# Ignore file for TPM because this directory is symlinked and tpm needs to chill here
+tmp/*
+plugins
+plugins/
+plugins/*

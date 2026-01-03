@@ -1,0 +1,7 @@
+# Optional path -> profile mappings. First match wins.
+# Format: <path-prefix-or-glob> <profile-name>
+# Example:
+# ${HOME}/code/my-rust-app pure-rust
+# ${HOME}/work/fullstack-* fullstack-rust-js
+
+${HOME}/personal/whistlepost fullstack-rust-js

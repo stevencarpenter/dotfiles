@@ -1,0 +1,27 @@
+services:
+  dev:
+    build:
+      context: ../..
+      dockerfile: profiles/pure-rust/Dockerfile
+    working_dir: /work
+    entrypoint: [ "dev-entrypoint" ]
+    command: [ "${DEV_SHELL:-/bin/zsh}" ]
+    environment:
+      DEV_UID: ${DEV_UID}
+      DEV_GID: ${DEV_GID}
+      DEV_USER: ${DEV_USER}
+      DEV_HOME: ${DEV_HOME}
+      DEV_SHELL: ${DEV_SHELL}
+      DEV_WORKDIR: ${DEV_WORKDIR}
+      HOST_HOME: ${HOST_HOME}
+      PROFILE_NAME: ${PROFILE_NAME}
+      ZDOTDIR: /home/${DEV_USER}/.config/zsh
+      CARGO_HOME: /home/${DEV_USER}/.cargo
+    init: true
+    volumes:
+      - ${DEV_WORKDIR:-.}:/work
+      - ${HOST_HOME}/.ssh:/home/${DEV_USER}/.ssh:ro
+      - ${HOST_HOME}/.gitconfig:/home/${DEV_USER}/.gitconfig:ro
+      - ${HOST_HOME}/.config/zsh:/home/${DEV_USER}/.config/zsh:ro
+      - ${DEV_CACHE_DIR}/cargo/registry:/home/${DEV_USER}/.cargo/registry
+      - ${DEV_CACHE_DIR}/cargo/git:/home/${DEV_USER}/.cargo/git

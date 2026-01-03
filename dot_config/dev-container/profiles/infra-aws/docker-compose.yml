@@ -1,0 +1,26 @@
+services:
+  dev:
+    build:
+      context: ../..
+      dockerfile: profiles/infra-aws/Dockerfile
+    working_dir: /work
+    entrypoint: [ "dev-entrypoint" ]
+    command: [ "${DEV_SHELL:-/bin/zsh}" ]
+    environment:
+      DEV_UID: ${DEV_UID}
+      DEV_GID: ${DEV_GID}
+      DEV_USER: ${DEV_USER}
+      DEV_HOME: ${DEV_HOME}
+      DEV_SHELL: ${DEV_SHELL}
+      DEV_WORKDIR: ${DEV_WORKDIR}
+      HOST_HOME: ${HOST_HOME}
+      PROFILE_NAME: ${PROFILE_NAME}
+      ZDOTDIR: /home/${DEV_USER}/.config/zsh
+    init: true
+    volumes:
+      - ${DEV_WORKDIR:-.}:/work
+      - ${HOST_HOME}/.ssh:/home/${DEV_USER}/.ssh:ro
+      - ${HOST_HOME}/.aws:/home/${DEV_USER}/.aws:ro
+      - ${HOST_HOME}/.gitconfig:/home/${DEV_USER}/.gitconfig:ro
+      - ${HOST_HOME}/.config/zsh:/home/${DEV_USER}/.config/zsh:ro
+      - ${DEV_CACHE_DIR}/${PROFILE_NAME}/terraform:/home/${DEV_USER}/.terraform.d
