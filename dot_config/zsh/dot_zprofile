@@ -14,6 +14,14 @@
 export SHELL_SESSION_DIR=$XDG_STATE_HOME/zsh/sessions
 export SHELL_SESSION_FILE=$SHELL_SESSION_DIR/$TERM_SESSION_ID
 
+# GitHub token from gh CLI for MCP servers and other tooling
+# This allows Claude, Codex, Copilot, and other CLI agents to use GitHub APIs
+if command -v gh &> /dev/null && gh auth status &> /dev/null; then
+    export GITHUB_TOKEN="$(gh auth token 2>/dev/null)"
+    # Claude Code's GitHub plugin expects this specific variable name
+    export GITHUB_PERSONAL_ACCESS_TOKEN="${GITHUB_TOKEN}"
+fi
+
 ## My zsh functions
 
 # Get assumed role credentials for AWS

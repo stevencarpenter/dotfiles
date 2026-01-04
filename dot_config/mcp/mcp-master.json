@@ -33,14 +33,11 @@
         "@modelcontextprotocol/server-sequential-thinking"
       ]
     },
-    "github/github-mcp-server": {
-      "type": "http",
-      "url": "https://api.githubcopilot.com/mcp/",
-      "x-metadata": {
-        "registry": {
-          "url": "https://api.mcp.github.com/2025-09-15/v0/servers",
-          "serverId": "ab12cd34-5678-90ef-1234-567890abcdef"
-        }
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_TOKEN": "${GITHUB_TOKEN}"
       }
     },
     "com.supabase/mcp": {
