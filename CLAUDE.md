@@ -115,6 +115,8 @@ The repository uses a **master MCP config** pattern:
 - **Chezmoi Integration**: Sync runs automatically after `chezmoi apply`
 - **MCP Servers**: filesystem, memory, sequential-thinking, railway, github, supabase
 
+**Note: Claude Code uses a separate plugin system** - see "Claude Code" section below.
+
 #### 2. XDG Base Directory Compliance
 
 Uses modern Linux/macOS conventions:
@@ -151,7 +153,8 @@ Sensitive configuration is encrypted and managed:
 - **Source**: `dot_config/zsh/encrypted_dot_env` - encrypted with age, stored in repo
 - **Target**: `~/.config/zsh/.env` - decrypted on apply, sourced by shell
 - **Storage**: Age encryption key backed up in 1Password (`~/.config/chezmoi/key.txt`)
-- **Required vars**: GITHUB_TOKEN, OPENAI_API_KEY, SUPABASE_PROJECT_REF, BRAVE_API_KEY, CONTEXT7_API_KEY, NPM_TOKEN, OPENROUTER_TOKEN, ATLASSIAN_API_TOKEN
+- **Required vars**: GITHUB_TOKEN, GITHUB_PERSONAL_ACCESS_TOKEN, OPENAI_API_KEY, SUPABASE_PROJECT_REF, BRAVE_API_KEY, CONTEXT7_API_KEY, NPM_TOKEN, OPENROUTER_TOKEN, ATLASSIAN_API_TOKEN
+- **Note**: `GITHUB_PERSONAL_ACCESS_TOKEN` is set as an alias to `GITHUB_TOKEN` in `.zprofile` for Claude Code compatibility
 
 ### Chezmoi Scripts
 
@@ -201,6 +204,22 @@ Configured in `.pre-commit-config.yaml`:
 - Sequential thinking server for complex reasoning
 - Filesystem access limited to specific directories
 
+#### Claude Code
+
+Claude Code uses a **separate plugin system** that is NOT managed by the master MCP config sync:
+
+- **Location**: `~/.claude/` - settings, plugins, history
+- **Plugin System**: Official plugins from `claude-plugins-official` marketplace
+- **Config Files**:
+    - `~/.claude/settings.json` - global settings and enabled plugins
+    - `~/.claude/plugins/installed_plugins.json` - installed plugin metadata
+    - `~/.claude/plugins/cache/` - cached plugin files including `.mcp.json` configs
+- **Enabled Plugins**: context7, github, supabase, greptile, playwright, feature-dev, code-review, commit-commands, frontend-design, security-guidance, LSP servers (rust-analyzer, typescript, pyright)
+- **GitHub Plugin**: Uses HTTP MCP at `https://api.githubcopilot.com/mcp/` with `GITHUB_PERSONAL_ACCESS_TOKEN`
+- **Project Settings**: `.claude/settings.local.json` in project root for per-project permissions
+
+**Important**: To modify Claude Code's MCP servers, you must use the `/mcp` command within Claude Code or edit the plugin cache directly. The master MCP config sync does not affect Claude Code.
+
 ### macOS Setup
 
 - **Brewfile**: `dot_Brewfile` - Comprehensive list of packages, casks, fonts, and formulae
@@ -244,10 +263,19 @@ Configured in `.pre-commit-config.yaml`:
 
 ### Adding or Modifying MCP Servers
 
+**For Copilot and other tools (via master config):**
+
 1. Edit `dot_config/mcp/mcp-master.json` (the master config)
 2. Run `chezmoi apply` - sync script runs automatically
 3. Or manually run `~/.local/share/chezmoi/scripts/sync-mcp-configs.sh`
 4. Verify the config is synced to all tool locations
+
+**For Claude Code (separate plugin system):**
+
+1. Use `/mcp` command in Claude Code to manage plugins
+2. Or enable/disable plugins via `/mcp enable <plugin>` and `/mcp disable <plugin>`
+3. Plugin configs are stored in `~/.claude/plugins/cache/`
+4. Note: Claude Code uses `GITHUB_PERSONAL_ACCESS_TOKEN` (aliased from `GITHUB_TOKEN` in `.zprofile`)
 
 ### Installing New Tools
 

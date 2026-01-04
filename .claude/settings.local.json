@@ -10,7 +10,8 @@
       "Bash(nvim:*)",
       "Bash(chmod:*)",
       "Bash(git fetch:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(find:*)"
     ]
   }
 }

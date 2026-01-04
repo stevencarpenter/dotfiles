@@ -2,7 +2,21 @@
 .config/tmux/plugins/**
 .git
 .idea
-.claude
+# Ignore .claude transient data (keep settings.json)
+.claude/debug
+.claude/downloads
+.claude/file-history
+.claude/history.jsonl
+.claude/ide
+.claude/plans
+.claude/plugins
+.claude/projects
+.claude/session-env
+.claude/shell-snapshots
+.claude/stats-cache.json
+.claude/statsig
+.claude/telemetry
+.claude/todos
 .github
 .pre-commit-config.yaml
 .envrc
