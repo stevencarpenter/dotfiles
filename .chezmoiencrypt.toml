@@ -3,7 +3,7 @@ cipher = "age"
 recipient = "age1462h0ed4ufkjrq0wu326l30c8hay9uewlsaudk89mgqjc5540vrqacejsz"
 
 [[encrypted]]
-glob = "dot_config/zsh/dot_env"
+glob = "dot_config/zsh/encrypted_dot_env"
 
 [[encrypted]]
 glob = ".envrc"
