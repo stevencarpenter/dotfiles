@@ -133,26 +133,44 @@ This syncs to:
 
 ## Environment Variables Setup
 
-This repository uses encrypted environment variables. They are automatically decrypted when you run `chezmoi apply`.
+This repository uses age-encrypted environment variables. The encrypted file is stored in the repo as `dot_config/zsh/encrypted_dot_env` and automatically decrypted to `~/.config/zsh/.env` when you run `chezmoi apply`.
 
-If you need to update environment variables:
+### How Chezmoi Encryption Works
 
-1. **Edit the encrypted file:**
+Chezmoi uses the `encrypted_` filename prefix to identify files that need decryption on apply:
+- **Source**: `dot_config/zsh/encrypted_dot_env` (encrypted, safe to commit)
+- **Target**: `~/.config/zsh/.env` (decrypted, never committed)
+
+The `suffix = ""` setting in `~/.config/chezmoi/chezmoi.toml` prevents chezmoi from adding a redundant `.age` extension.
+
+### Updating Environment Variables
+
+1. **Edit the decrypted target file:**
    ```shell
-   chezmoi edit ~/.config/zsh/.env
+   nvim ~/.config/zsh/.env
    ```
 
-2. **Or re-add with encryption:**
+2. **Re-encrypt and update the source:**
    ```shell
-   # Edit the file directly, then
    chezmoi add --encrypt ~/.config/zsh/.env
    ```
 
-**Required variables** (documented in `.env.example`):
-- `SUPABASE_PROJECT_REF` - Your Supabase project reference
+3. **Verify the source is encrypted before committing:**
+   ```shell
+   head -3 ~/.local/share/chezmoi/dot_config/zsh/encrypted_dot_env
+   # Should show: -----BEGIN AGE ENCRYPTED FILE-----
+   ```
+
+### Required Variables
+
 - `GITHUB_TOKEN` - GitHub Personal Access Token (for MCP, Copilot)
+- `OPENAI_API_KEY` - OpenAI API key
+- `SUPABASE_PROJECT_REF` - Supabase project reference (for MCP)
 - `BRAVE_API_KEY` - Brave Search API key
-- `OPENAI_API_KEY` - OpenAI API key (if using Codex CLI)
+- `CONTEXT7_API_KEY` - Context7 API key
+- `NPM_TOKEN` - NPM authentication token
+- `OPENROUTER_TOKEN` - OpenRouter API key
+- `ATLASSIAN_API_TOKEN` - Atlassian/Jira API token (work)
 
 ## AI Tools Configuration
 

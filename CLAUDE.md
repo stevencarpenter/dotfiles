@@ -138,19 +138,20 @@ Zsh configuration is organized in layers:
 
 Uses Chezmoi for dotfile management with age encryption:
 
-- **Naming conventions**: `dot_` prefix for dotfiles, `private_` for permissions
-- **Encryption**: Sensitive files encrypted with age (see `.chezmoiencrypt.toml`)
+- **Naming conventions**: `dot_` prefix for dotfiles, `private_` for permissions, `encrypted_` for encrypted files
+- **Encryption**: Files with `encrypted_` prefix are decrypted on apply (configured via `~/.config/chezmoi/chezmoi.toml`)
 - **Templates**: `.tmpl` suffix for templated files
 - **Scripts**: `.chezmoiscripts/` directory for automation
+- **Config**: `suffix = ""` in chezmoi.toml prevents redundant `.age` extension when adding encrypted files
 
 #### 5. Environment Variable Management
 
 Sensitive configuration is encrypted and managed:
 
-- **Encrypted**: `dot_config/zsh/dot_env` - encrypted with age, decrypted on apply
-- **Template**: `dot_config/zsh/.env.example` - documents all required variables
-- **Storage**: Age encryption key backed up in 1Password
-- **Required vars**: SUPABASE_PROJECT_REF, GITHUB_TOKEN, BRAVE_API_KEY, OPENAI_API_KEY, AWS config
+- **Source**: `dot_config/zsh/encrypted_dot_env` - encrypted with age, stored in repo
+- **Target**: `~/.config/zsh/.env` - decrypted on apply, sourced by shell
+- **Storage**: Age encryption key backed up in 1Password (`~/.config/chezmoi/key.txt`)
+- **Required vars**: GITHUB_TOKEN, OPENAI_API_KEY, SUPABASE_PROJECT_REF, BRAVE_API_KEY, CONTEXT7_API_KEY, NPM_TOKEN, OPENROUTER_TOKEN, ATLASSIAN_API_TOKEN
 
 ### Chezmoi Scripts
 
@@ -259,8 +260,19 @@ Configured in `.pre-commit-config.yaml`:
 ### Adding Encrypted Files
 
 1. Add file with encryption: `chezmoi add --encrypt ~/.config/secrets/token`
-2. File will be encrypted in source state with age
+2. File will be stored with `encrypted_` prefix in source state (e.g., `encrypted_token`)
 3. Decrypted automatically on `chezmoi apply`
+4. **Important**: Always verify the source file is encrypted before committing:
+   ```bash
+   head -3 ~/.local/share/chezmoi/path/to/encrypted_file
+   # Should show: -----BEGIN AGE ENCRYPTED FILE-----
+   ```
+
+### Updating Encrypted Files
+
+1. Edit the decrypted target file directly: `nvim ~/.config/zsh/.env`
+2. Re-add with encryption: `chezmoi add --encrypt ~/.config/zsh/.env`
+3. Verify encryption before committing
 
 ### New Machine Setup
 

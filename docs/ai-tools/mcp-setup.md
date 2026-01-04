@@ -33,7 +33,7 @@ export GITHUB_TOKEN="ghp_your_personal_access_token"
 **Create Token:**
 1. Go to GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)
 2. Generate new token with scopes: `repo`, `read:org`, `read:user`
-3. Add to your `~/.zshenv` or `~/.zshrc`
+3. Add to `~/.config/zsh/.env` (managed via chezmoi encryption - see README)
 
 ### 2. Filesystem Server
 Read and write files within specified directories.
@@ -106,7 +106,7 @@ Perform web searches using Brave Search API.
 
 **Setup:**
 1. Get API key from [Brave Search API](https://brave.com/search/api/)
-2. Add to environment:
+2. Add to `~/.config/zsh/.env` (managed via chezmoi encryption - see README):
 ```bash
 export BRAVE_API_KEY="your_brave_api_key"
 ```
@@ -214,7 +214,7 @@ Or install servers globally as shown above.
 
 ## Security Best Practices
 
-1. **Token Security**: Never commit tokens to git. Use environment variables.
+1. **Token Security**: Never commit tokens to git. Store in `~/.config/zsh/.env` which is managed via chezmoi encryption (source is `dot_config/zsh/encrypted_dot_env`).
 
 2. **Filesystem Access**: Only grant access to necessary directories.
 
