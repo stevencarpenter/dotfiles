@@ -1,5 +1,4 @@
 # Ignore non-dotfile directories and files in the repository
-.config/tmux/plugins/**
 .git
 .idea
 # Ignore .claude transient data (keep settings.json)
