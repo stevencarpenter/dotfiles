@@ -199,6 +199,27 @@ eval "$(direnv hook zsh)"
 eval "$(~/.local/bin/mise activate zsh)"
 fpath+=$(brew --prefix)/share/zsh/site-functions
 
+# Added by LM Studio CLI (lms)
+export PATH="$PATH:/Users/scarpenter/.lmstudio/bin"
+# End of LM Studio CLI section
+
+# pnpm
+export PNPM_HOME="/Users/scarpenter/Library/pnpm"
+case ":$PATH:" in
+  *":$PNPM_HOME:"*) ;;
+  *) export PATH="$PNPM_HOME:$PATH" ;;
+esac
+# pnpm end
+
+# bun
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$BUN_INSTALL/bin:$PATH"
+
+alias claude-mem='/Users/scarpenter/.bun/bin/bun "/Users/scarpenter/.claude/plugins/marketplaces/thedotmack/plugin/scripts/worker-service.cjs"'
+
+# Amp CLI
+export PATH="/Users/scarpenter/.amp/bin:$PATH"
+
 [[ -f "$HOME/.local/bin/env" ]] && . "$HOME/.local/bin/env" || true
 [[ -f "$HOME/.atuin/bin/env" ]] && . "$HOME/.atuin/bin/env" || true
 eval "$(atuin init zsh)"
