@@ -86,7 +86,8 @@ git rmwt <name>   # Remove worktree
 
 ### Directory Structure
 
-- **`dot_config/`** - XDG-compliant config directory (zsh, nvim, git, tmux, mcp, etc.)
+- **`dot_config/`** - XDG-compliant config directory (zsh, nvim, git, tmux, mcp, ralph, opencode, etc.)
+- **`dot_local/bin/`** - User executables (ralph-opencode wrapper, custom scripts). This
 - **`dot_zshenv`** - Root zsh environment file
 - **`dot_Brewfile`** - Homebrew packages, casks, and fonts
 - **`.chezmoiscripts/`** - Scripts that run during `chezmoi apply`
@@ -204,6 +205,25 @@ Configured in `.pre-commit-config.yaml`:
 - Sequential thinking server for complex reasoning
 - Filesystem access limited to specific directories
 
+#### Ralph + OpenCode
+
+- **Location**: `dot_config/ralph/` and `dot_config/opencode/`
+- **Purpose**: Autonomous coding agent with local model support (LM Studio)
+- **Components**:
+    - `ralph.json.tmpl` - Ralph loop configuration (iterations, guards, safe mode)
+    - `opencode.json.tmpl` - OpenCode agent configuration (model, providers)
+    - `rules.toml` - Permission rules for safe mode (filesystem, shell, network)
+- **Wrapper Script**: `dot_local/bin/executable_ralph-opencode` → `~/.local/bin/ralph-opencode`
+- **State Location**: `~/.local/state/ralph/` (logs, metrics, per-repo state)
+- **Commands**:
+    ```bash
+    ralph-opencode doctor           # System health check
+    ralph-opencode config show      # Show resolved configuration
+    ralph-opencode --prd ./prd.json # Run single iteration
+    ralph-opencode --prd ./prd.json --until-complete --safe  # Overnight run
+    ```
+- **Documentation**: `docs/ai-tools/ralph-opencode-setup.md`
+
 #### Claude Code
 
 Claude Code uses a **separate plugin system** that is NOT managed by the master MCP config sync:
@@ -236,6 +256,9 @@ Claude Code uses a **separate plugin system** that is NOT managed by the master 
 - `dot_config/mcp/mcp-master.json` - Master MCP server configuration (source of truth)
 - `dot_config/git/config` - Git configuration with worktree management
 - `dot_config/nvim/init.lua` - Neovim initialization
+- `dot_config/ralph/ralph.json.tmpl` - Ralph loop configuration (global defaults)
+- `dot_config/opencode/opencode.json.tmpl` - OpenCode agent configuration (models, providers)
+- `dot_config/opencode/rules.toml` - Safe mode permission rules for unattended runs
 
 ### Encryption & Security
 
@@ -247,6 +270,7 @@ Claude Code uses a **separate plugin system** that is NOT managed by the master 
 - `scripts/sync-mcp-configs.sh` - Syncs master MCP config to all AI tools
 - `.chezmoiscripts/run_after_sync-mcp.sh` - Runs sync after chezmoi apply
 - `.chezmoiscripts/darwin/run_once_setup-macos.sh` - One-time macOS setup
+- `dot_local/bin/executable_ralph-opencode` - Global wrapper for Ralph + OpenCode
 
 ### Setup & Installation
 
@@ -256,7 +280,7 @@ Claude Code uses a **separate plugin system** that is NOT managed by the master 
 ### Documentation
 
 - `README.md` - Main repository documentation
-- `docs/ai-tools/` - Setup guides for GitHub Copilot, IntelliJ, Claude/MCP, OpenAI Codex
+- `docs/ai-tools/` - Setup guides for GitHub Copilot, IntelliJ, Claude/MCP, OpenAI Codex, Ralph/OpenCode
 - `docs/archive/` - Legacy documentation
 
 ## Workflow Notes
@@ -276,6 +300,41 @@ Claude Code uses a **separate plugin system** that is NOT managed by the master 
 2. Or enable/disable plugins via `/mcp enable <plugin>` and `/mcp disable <plugin>`
 3. Plugin configs are stored in `~/.claude/plugins/cache/`
 4. Note: Claude Code uses `GITHUB_PERSONAL_ACCESS_TOKEN` (aliased from `GITHUB_TOKEN` in `.zprofile`)
+
+### Configuring Ralph + OpenCode
+
+**Global Configuration (defaults for all repos):**
+
+1. Edit templates in chezmoi source:
+   - `dot_config/ralph/ralph.json.tmpl` - Loop settings, safe mode, secrets
+   - `dot_config/opencode/opencode.json.tmpl` - Model, providers, tools
+   - `dot_config/opencode/rules.toml` - Safe mode permission rules
+2. Run `chezmoi apply` to deploy
+3. Verify with `ralph-opencode config show`
+
+**Per-Repo Overrides:**
+
+1. Create `ralph.json` in the repo root:
+   ```json
+   {
+     "opencode": { "model": "different-model" },
+     "safeMode": { "enabled": true }
+   }
+   ```
+2. Repo config overrides global; CLI flags override both
+
+**Using LM Studio (local models):**
+
+1. Start LM Studio, load a model, enable API server (port 1234)
+2. Verify: `ralph-opencode doctor`
+3. Run: `ralph-opencode --prd ./prd.json`
+
+**Overnight Runs (safe mode):**
+
+```bash
+ralph-opencode --repo /path/to/project --prd ./prd.json \
+    --until-complete --safe --max-hours 8
+```
 
 ### Installing New Tools
 

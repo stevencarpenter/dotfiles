@@ -25,12 +25,19 @@ This directory contains comprehensive documentation and configuration files for 
 - **Documentation**: [Terraform AI Instructions](./terraform-instructions.md)
 - Custom instructions for AI tools when working with Terraform code
 
+### Ralph + OpenCode
+- **Location**: `~/.config/ralph/` and `~/.config/opencode/`
+- **Documentation**: [Ralph + OpenCode Setup](./ralph-opencode-setup.md)
+- Autonomous coding agent with local model support (LM Studio)
+- Global wrapper script: `ralph-opencode` in `~/.local/bin/`
+
 ## Quick Start
 
 1. **Install MCP Servers**: Follow the [MCP Setup Guide](./mcp-setup.md)
 2. **Configure IDE**: Set up [IntelliJ IDEA Copilot](./intellij-copilot-setup.md)
 3. **Enable CLI Tools**: Install [Copilot CLI](./copilot-cli-setup.md)
-4. **Custom Instructions**: Apply [Terraform Instructions](./terraform-instructions.md)
+4. **Set up Ralph + OpenCode**: Follow the [Ralph + OpenCode Setup](./ralph-opencode-setup.md)
+5. **Custom Instructions**: Apply [Terraform Instructions](./terraform-instructions.md)
 
 ## Environment Variables
 
@@ -45,9 +52,14 @@ export OPENAI_API_KEY="your_openai_api_key"
 
 # Brave Search (optional for MCP)
 export BRAVE_API_KEY="your_brave_api_key"
+
+# Ralph + OpenCode (optional, can use config file instead)
+export RALPH_MODEL="lmstudio/qwen2.5-coder-32b-instruct"
+export RALPH_BASE_URL="http://127.0.0.1:1234/v1"
+export OPENROUTER_TOKEN="your_openrouter_token"  # For cloud models
 ```
 
-Add these to your `~/.zshrc` or `~/.zshenv` file.
+Add these to your `~/.zshrc` or `~/.zshenv` file (or better: encrypted in `~/.config/zsh/.env`).
 
 ## Support
 

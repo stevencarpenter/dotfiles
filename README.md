@@ -180,9 +180,32 @@ Comprehensive setup and configuration for AI-powered development tools:
 - **[IntelliJ IDEA Copilot](docs/ai-tools/intellij-copilot-setup.md)** - Complete GitHub Copilot setup for IntelliJ IDEA
 - **[Copilot CLI](docs/ai-tools/copilot-cli-setup.md)** - Terminal integration for GitHub Copilot
 - **[OpenAI Codex CLI](docs/ai-tools/openai-codex-cli-setup.md)** - Command-line access to OpenAI's code generation
-- **[Custom Terraform Instructions](docs/ai-tools/terraform-instructions.md)** - Best practices for AI-generated Terraform code
+- **[Ralph + OpenCode](docs/ai-tools/ralph-opencode-setup.md)** - Autonomous coding agent with LM Studio support
+- **[Custom Terraform Instructions](docs/ai-tools/terraform-instructions.md)** – Best practices for AI-generated Terraform code
 
 See the [AI Tools documentation](docs/ai-tools/) for detailed setup guides.
+
+### Ralph + OpenCode Quick Start
+
+After `chezmoi apply`, the `ralph-opencode` command is available globally:
+
+```shell
+# Check system health
+ralph-opencode doctor
+
+# Run a single iteration
+ralph-opencode --prd ./prd.json
+
+# Run overnight with safe mode
+ralph-opencode --prd ./prd.json --until-complete --safe --max-hours 8
+
+# Use with LM Studio (default)
+ralph-opencode --model qwen2.5-coder-32b-instruct --prd ./prd.json
+
+# Use with OpenRouter cloud models
+ralph-opencode --base-url https://openrouter.ai/api/v1 \
+    --model anthropic/claude-sonnet-4 --prd ./prd.json
+```
 
 ## New Machine Quick Start
 
