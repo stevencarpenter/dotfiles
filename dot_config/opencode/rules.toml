@@ -1,0 +1,105 @@
+# OpenCode Safe Mode Rules
+# Default rules for unattended/overnight runs on macOS
+# See: https://opencode.dev/docs/permissions
+
+# Filesystem restrictions
+[filesystem]
+# Allow read/write in repository root and subdirectories
+allow = [
+    "${REPO_ROOT}/**",
+    "${XDG_STATE_HOME}/opencode/**",
+    "${XDG_STATE_HOME}/ralph/**",
+    "/tmp/opencode-*/**"
+]
+
+# Deny access to sensitive directories
+deny = [
+    "~/.ssh/**",
+    "~/.gnupg/**",
+    "~/.aws/credentials",
+    "~/.config/chezmoi/key.txt",
+    "~/.netrc",
+    "**/.env",
+    "**/.env.*",
+    "**/secrets/**",
+    "**/credentials/**"
+]
+
+# Shell command restrictions
+[shell]
+# Commands that require explicit confirmation
+ask = [
+    "git push*",
+    "git reset --hard*",
+    "npm publish*",
+    "cargo publish*"
+]
+
+# Commands that are always denied
+deny = [
+    "rm -rf /",
+    "rm -rf /*",
+    "rm -rf ~",
+    "rm -rf ~/*",
+    "sudo *",
+    "curl * | bash",
+    "curl * | sh",
+    "wget * | bash",
+    "wget * | sh",
+    "chmod 777 *",
+    "dd if=*",
+    "mkfs.*",
+    "> /dev/*"
+]
+
+# Network restrictions
+[network]
+# Allowed hosts for safe mode
+allow = [
+    "127.0.0.1",
+    "localhost",
+    "api.github.com",
+    "raw.githubusercontent.com",
+    "registry.npmjs.org",
+    "crates.io",
+    "pypi.org"
+]
+
+# Deny external network calls in strict safe mode
+# (Set deny_all = true for fully offline operation)
+deny_all = false
+
+# Git restrictions
+[git]
+# Safe git operations
+allow = [
+    "git add *",
+    "git commit *",
+    "git status",
+    "git diff *",
+    "git log *",
+    "git branch *",
+    "git checkout *",
+    "git stash *"
+]
+
+# Operations requiring confirmation
+ask = [
+    "git push *",
+    "git push --force*",
+    "git reset --hard*",
+    "git clean -fd*",
+    "git rebase*"
+]
+
+# Process restrictions
+[process]
+# Maximum execution time per command (seconds)
+max_command_timeout = 300
+
+# Maximum concurrent processes
+max_concurrent = 5
+
+# Resource limits
+max_memory_mb = 4096
+max_cpu_percent = 80

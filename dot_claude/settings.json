@@ -2,7 +2,6 @@
   "permissions": {
     "defaultMode": "default"
   },
-  "model": "opus",
   "enabledPlugins": {
     "context7@claude-plugins-official": true,
     "frontend-design@claude-plugins-official": true,
@@ -13,10 +12,15 @@
     "supabase@claude-plugins-official": true,
     "security-guidance@claude-plugins-official": true,
     "playwright@claude-plugins-official": true,
-    "greptile@claude-plugins-official": true,
     "rust-analyzer-lsp@claude-plugins-official": true,
     "typescript-lsp@claude-plugins-official": true,
     "pyright-lsp@claude-plugins-official": true,
-    "ralph-wiggum@claude-plugins-official": true
-  }
+    "ralph-wiggum@claude-plugins-official": true,
+    "claude-mem@thedotmack": true,
+    "pr-review-toolkit@claude-plugins-official": true,
+    "ralph-loop@claude-plugins-official": true,
+    "lua-lsp@claude-plugins-official": true,
+    "serena@claude-plugins-official": true
+  },
+  "model": "haiku"
 }

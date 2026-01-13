@@ -22,12 +22,13 @@
 5. Reason about what you see
 ```
 
-#### 2. Build Commands
+#### 2. Build/Compile Commands
 ```bash
-# Correct approach
-cargo build 2>&1                    # isBackground=true
-cargo clippy --workspace -- -D warnings 2>&1  # isBackground=true
-cargo test --workspace 2>&1         # isBackground=true
+# Correct approach (examples for various languages)
+npm run build 2>&1                  # isBackground=true (JavaScript/TypeScript)
+python -m pytest 2>&1               # isBackground=true (Python)
+mvn clean verify 2>&1               # isBackground=true (Java/Maven)
+go test ./... 2>&1                  # isBackground=true (Go)
 ```
 
 **Never claim:**
@@ -38,9 +39,9 @@ cargo test --workspace 2>&1         # isBackground=true
 #### 3. Verification Requirements
 
 After ANY code change:
-1. ✅ Run `cargo build` (background) → verify output
-2. ✅ Run `cargo clippy --workspace -- -D warnings` (background) → verify output
-3. ✅ Run `cargo test --workspace` (background) → verify output
+1. ✅ Run build/compile command (background) → verify output
+2. ✅ Run linter/formatter checks (if applicable) → verify output
+3. ✅ Run test suite (background) → verify output
 4. ✅ Show user what you found
 5. ✅ If errors exist, show ALL errors, not summaries
 
@@ -58,12 +59,13 @@ When you see compilation/test errors:
 
 ❌ **Never do this:**
 ```bash
-cargo build 2>&1 | tail -5  # Can't see all errors
-cargo test 2>&1 | grep -E "passed"  # Might miss failures
+npm test 2>&1 | tail -5             # Can't see all errors
+go test ./... 2>&1 | grep -E "PASS" # Might miss failures
+python -m pytest 2>&1 | head -20    # Truncates output
 ```
 
 ❌ **Never claim:**
-- "Clippy is passing" before running it
+- "Linter is passing" before running it
 - "Tests are passing" without showing test count
 - "Build succeeded" based on exit code alone
 
@@ -80,21 +82,20 @@ get_terminal_output(id)
 # Take action based on evidence
 ```
 
-## Rust-Specific Workflow
+## Language-Agnostic Pre-commit Checklist
 
-### Pre-commit Checklist
 Before claiming "done":
-- [ ] `cargo build` completes without errors
-- [ ] `cargo clippy --workspace -- -D warnings` shows 0 warnings
-- [ ] `cargo test --workspace` shows all tests passing
+- [ ] Build/compile command completes without errors
+- [ ] Linter/formatter checks pass (if applicable)
+- [ ] Test suite runs and passes completely
 - [ ] Showed user the actual command outputs
 - [ ] Explained what was fixed with evidence
 
-### Common Pitfalls
-1. **Type errors**: Show the actual error, don't guess the fix
-2. **Import errors**: Check existing imports before adding
+### Common Pitfalls (All Languages)
+1. **Syntax/Type errors**: Show the actual error, don't guess the fix
+2. **Import/dependency errors**: Check existing imports before adding
 3. **Test failures**: Run tests, see actual failure, fix the cause
-4. **Clippy warnings**: Treat as errors (`-D warnings`)
+4. **Linter warnings**: Address all warnings, don't ignore them
 
 ## Git Operations
 

@@ -72,9 +72,26 @@ else
     log_info "Skipping: ${CODEX_CONFIG} (file not found)"
 fi
 
+# 6. OpenCode - inherits MCP servers if opencode supports it
+OPENCODE_CONFIG="${HOME}/.config/opencode/opencode.json"
+if [[ -f "${OPENCODE_CONFIG}" ]]; then
+    # Check if opencode config has an mcpServers section and update it
+    if jq -e '.mcpServers' "${OPENCODE_CONFIG}" &> /dev/null; then
+        jq --slurpfile master "${MASTER_CONFIG}" \
+            '.mcpServers = $master[0].servers' "${OPENCODE_CONFIG}" > "${OPENCODE_CONFIG}.tmp" && \
+            mv "${OPENCODE_CONFIG}.tmp" "${OPENCODE_CONFIG}"
+        log_success "Synced MCP servers to: ${OPENCODE_CONFIG}"
+    else
+        log_info "OpenCode config exists but has no mcpServers section"
+    fi
+else
+    log_info "Skipping: ${OPENCODE_CONFIG} (file not found)"
+fi
+
 echo ""
 log_success "MCP configuration sync complete!"
 echo ""
 echo "Next steps:"
 echo "  1. Restart AI tools to pick up new configurations"
 echo "  2. Verify with: cat ~/.config/.copilot/mcp-config.json"
+echo "  3. For Ralph/OpenCode: ralph-opencode config show"

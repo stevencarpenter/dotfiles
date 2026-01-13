@@ -1,0 +1,66 @@
+{
+  "$schema": "https://ralph.dev/schema/config.json",
+  "version": "1.0.0",
+  "runner": {
+    "default": "opencode",
+    "available": ["opencode", "claude", "codex"]
+  },
+  "opencode": {
+    "configPath": "${XDG_CONFIG_HOME}/opencode/opencode.json",
+    "baseUrl": "http://127.0.0.1:1234/v1",
+    "model": "lmstudio/qwen2.5-coder-32b-instruct",
+    "sessionMode": "fresh",
+    "timeout": 600
+  },
+  "secrets": {
+    "file": "",
+    "keychainService": "",
+    "requiredPermissions": "0600"
+  },
+  "repo": {
+    "detectGitRoot": true,
+    "stateLocation": "global",
+    "globalStateDir": "${XDG_STATE_HOME}/ralph/runs"
+  },
+  "loop": {
+    "maxIterations": 50,
+    "maxHours": 8,
+    "maxConsecutiveFailures": 3,
+    "cooldownSeconds": 5,
+    "untilComplete": false
+  },
+  "safeMode": {
+    "enabled": false,
+    "rules": {
+      "noDeleteOutsideRepo": true,
+      "noReadEnvFiles": true,
+      "noNetworkCalls": false,
+      "denyCommands": [
+        "rm -rf /",
+        "sudo rm",
+        "curl | bash",
+        "wget | bash"
+      ]
+    }
+  },
+  "logging": {
+    "level": "info",
+    "iterationLogs": true,
+    "summaryOnComplete": true,
+    "outputDir": "${XDG_STATE_HOME}/ralph/logs"
+  },
+  "metrics": {
+    "enabled": true,
+    "storageDir": "${XDG_STATE_HOME}/ralph/metrics",
+    "retentionDays": 30
+  },
+  "precedence": {
+    "order": [
+      "cli",
+      "env",
+      "repo",
+      "global",
+      "defaults"
+    ]
+  }
+}
