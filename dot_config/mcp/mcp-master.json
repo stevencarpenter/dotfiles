@@ -1,36 +1,12 @@
 {
   "$schema": "https://modelcontextprotocol.io/schema/config.json",
   "servers": {
-    "filesystem": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-filesystem",
-        "${HOME}/projects",
-        "${HOME}/.local/share/chezmoi",
-        "${HOME}/personal"
-      ]
-    },
-    "memory": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-memory"
-      ]
-    },
     "railway-mcp-server": {
       "type": "stdio",
       "command": "npx",
       "args": [
         "-y",
         "@railway/mcp-server"
-      ]
-    },
-    "sequential-thinking": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-sequential-thinking"
       ]
     },
     "github": {
@@ -40,7 +16,7 @@
         "GITHUB_TOKEN": "${GITHUB_TOKEN}"
       }
     },
-    "com.supabase/mcp": {
+    "supabase-cloud-mcp-server": {
       "type": "http",
       "url": "https://mcp.supabase.com/mcp",
       "x-metadata": {
@@ -55,6 +31,14 @@
           }
         }
       }
+    },
+    "supabase-local-mcp-server": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@supabase/mcp-server"
+      ]
     }
   }
 }
