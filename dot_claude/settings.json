@@ -9,7 +9,6 @@
     "feature-dev@claude-plugins-official": true,
     "code-review@claude-plugins-official": true,
     "commit-commands@claude-plugins-official": true,
-    "supabase@claude-plugins-official": true,
     "security-guidance@claude-plugins-official": true,
     "playwright@claude-plugins-official": true,
     "rust-analyzer-lsp@claude-plugins-official": true,
