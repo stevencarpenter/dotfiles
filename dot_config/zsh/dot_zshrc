@@ -41,6 +41,7 @@ alias zshrc='nvim $ZDOTDIR/.zshrc'
 alias zprofile='nvim $ZDOTDIR/.zprofile'
 alias adl="aws ecr get-login-password | docker login --username AWS --password-stdin ${AWS_SSO_ACCOUNT_ID}.dkr.ecr.${AWS_SSO_DEFAULT_REGION}.amazonaws.com"
 alias teeclip='tee >(pbcopy)'
+alias gss='git status -sb'
 
 # Add flags to existing aliases.
 # alias ls="${aliases[ls]:-ls} -A"
@@ -195,7 +196,6 @@ function copyfile() {
 compdef _directories md
 
 eval "$(zoxide init --cmd cd zsh)"
-eval "$(direnv hook zsh)"
 eval "$(~/.local/bin/mise activate zsh)"
 fpath+=$(brew --prefix)/share/zsh/site-functions
 

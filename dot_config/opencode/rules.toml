@@ -95,11 +95,11 @@ ask = [
 # Process restrictions
 [process]
 # Maximum execution time per command (seconds)
-max_command_timeout = 300
+max_command_timeout = 900
 
 # Maximum concurrent processes
-max_concurrent = 5
+max_concurrent = 10
 
 # Resource limits
-max_memory_mb = 4096
+max_memory_mb = 24576
 max_cpu_percent = 80
