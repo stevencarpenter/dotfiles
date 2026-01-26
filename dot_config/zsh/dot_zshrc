@@ -4,53 +4,21 @@
 #
 # Documentation: https://github.com/romkatv/zsh4humans/blob/v5/README.md.
 
-## Zshell profiling flags
-# zprof
+## Zshell profiling flags (uncomment to profile startup time)
 # zmodload zsh/zprof
 
-# Autoload functions.
+# ============================================================================
+# PRE-INIT SETUP (before z4h init)
+# ============================================================================
+
+# Autoload functions (required by AWS SSO CLI, must be before z4h init)
 autoload -Uz +X compinit && compinit
 autoload -Uz +X bashcompinit && bashcompinit
 autoload -Uz zmv
 
-# aliases
-# Note: Enclosing the value in single quotation marks (') will not expand any variables used with the command.
-# To expand the variables, use double quotation marks ("").
-alias gfp='git fetch --all && git pull'
-alias docker-clean-unused='docker system prune --all --force --volumes'
-alias docker-clean-all='docker stop $(docker container ls -a -q); docker system prune -a -f --volumes'
-alias vi='nvim'
-alias vim='nvim'
-alias nano='nvim'
-alias emacs='nvim'
-alias pacman-browse="pacman -Qq | fzf --preview 'pacman -Qil {}' --layout=reverse --bind 'enter:execute(pacman -Qil {} | less)'"
-alias tree='tree -a -I .git'
-alias l='ls -lah'
-alias la='ls -lAh'
-alias ll='ls -lh'
-alias ls='ls -G'
-alias lsa='ls -lah'
-alias sed='gsed'
-alias asp='aws-sso-profile'
-alias k='kubectl'
-alias s='stevectl'
-alias lzg='lazygit'
-alias tig='git log --reverse'
-alias lzd='lazydocker'
-alias zshrc='nvim $ZDOTDIR/.zshrc'
-alias zprofile='nvim $ZDOTDIR/.zprofile'
-alias adl="aws ecr get-login-password | docker login --username AWS --password-stdin ${AWS_SSO_ACCOUNT_ID}.dkr.ecr.${AWS_SSO_DEFAULT_REGION}.amazonaws.com"
-alias teeclip='tee >(pbcopy)'
-alias gss='git status -sb'
-
-# Add flags to existing aliases.
-# alias ls="${aliases[ls]:-ls} -A"
-
-# === z4h-managed knobs (safe to tweak only via documented zstyle/settings) ===
+# === z4h configuration (zstyles) ===
 # Periodic auto-update on Zsh startup: 'ask' or 'no'.
-# You can manually run `z4h update` to update everything.
-zstyle ':z4h:' auto-update      'no'
-# Ask whether to auto-update this often; has no effect if auto-update is 'no'.
+zstyle ':z4h:' auto-update      'yes'
 zstyle ':z4h:' auto-update-days '28'
 
 # Keyboard type: 'mac' or 'pc'.
@@ -74,25 +42,17 @@ zstyle ':z4h:fzf-complete' recurse-dirs 'yes'
 
 # Enable direnv to automatically source .envrc files.
 zstyle ':z4h:direnv'         enable 'yes'
-# Show "loading" and "unloading" notifications from direnv.
 zstyle ':z4h:direnv:success' notify 'yes'
 
-# Enable ('yes') or disable ('no') automatic teleportation of z4h over
-# SSH when connecting to these hosts.
+# Enable ('yes') or disable ('no') automatic teleportation of z4h over SSH.
 zstyle ':z4h:ssh:example-hostname1'   enable 'yes'
 zstyle ':z4h:ssh:*.example-hostname2' enable 'no'
-# The default value if none of the overrides above match the hostname.
 zstyle ':z4h:ssh:*'                   enable 'no'
 
-# Send these files over to the remote host when connecting over SSH to the
-# enabled hosts.
+# Send these files over to the remote host when connecting over SSH.
 # zstyle ':z4h:ssh:*' send-extra-files '~/$XDG_CONFIG_HOME/.nanorc' '~/.env.zsh'
 
-# Clone additional Git repositories from GitHub.
-#
-# This doesn't do anything apart from cloning the repository and keeping it
-# up-to-date. Cloned files can be used after `z4h init`. This is just an
-# example. If you don't plan to use Oh My Zsh, delete this line.
+# Clone additional Git repositories from GitHub (example).
 # z4h install ohmyzsh/ohmyzsh || return
 
 # Install or update core components (fzf, zsh-autosuggestions, etc.) and
@@ -100,45 +60,103 @@ zstyle ':z4h:ssh:*'                   enable 'no'
 # is fully initialized. Everything that requires user interaction or can
 # perform network I/O must be done above. Everything else is best done below.
 z4h init || return
-# === end z4h-managed section ===
 
-# === user customization zone (safe to edit) ===
+# ============================================================================
+# POST-INIT CUSTOMIZATION (after z4h init)
+# ============================================================================
 
-# Extend PATH.
-path=(~/bin $HOME/.local/bin $path)
-
-# Homebrew environment setup (must be early for other tools)
+# === 1. Homebrew Setup (must be early, other tools depend on it) ===
 if [[ $(uname) == "Darwin" ]]; then
   eval "$(/opt/homebrew/bin/brew shellenv)"
 fi
 
+# === 2. PATH Configuration (consolidated for clarity) ===
+path=(
+    $HOME/.opencode/bin
+    $HOME/.local/bin
+    ~/bin
+    /opt/homebrew/opt/libpq/bin
+    "/Applications/IntelliJ IDEA.app/Contents/MacOS"
+    $HOME/.lmstudio/bin
+    $HOME/.amp/bin
+    $path
+)
+
+# pnpm (special handling to avoid duplicates)
+export PNPM_HOME="$HOME/Library/pnpm"
+case ":$PATH:" in
+  *":$PNPM_HOME:"*) ;;
+  *) path=($PNPM_HOME $path) ;;
+esac
+
+# bun
+export BUN_INSTALL="$HOME/.bun"
+path=($BUN_INSTALL/bin $path)
+
+export PATH
+
+# === 3. Environment Variables ===
+export GPG_TTY=$TTY
+export NPM_CONFIG_PYTHON="$(command -v python3)"
+
 # GitHub token from gh CLI for MCP servers and other tooling
-# This allows Claude, Codex, Copilot, and other CLI agents to use GitHub APIs
 if command -v gh &> /dev/null && gh auth status &> /dev/null; then
     export GITHUB_TOKEN="$(gh auth token 2>/dev/null)"
     # Claude Code's GitHub plugin expects this specific variable name
     export GITHUB_PERSONAL_ACCESS_TOKEN="${GITHUB_TOKEN}"
 fi
 
-# Export environment variables.
-export GPG_TTY=$TTY
-export NPM_CONFIG_PYTHON="$(command -v python3)"
-export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
-export PATH="/Applications/IntelliJ IDEA.app/Contents/MacOS:$PATH"
-
-# Source additional local files if they exist.
+# === 4. Source Encrypted/Local Files (use z4h source for safety) ===
 z4h source ~/.env.zsh
-
-# Load environment variables from .env file if it exists.
 z4h source "$XDG_CONFIG_HOME"/zsh/.env
 
-# Use additional Git repositories pulled in with `z4h install`.
-#
-# This is just an example that you should delete. It does nothing useful.
-# z4h source ohmyzsh/ohmyzsh/lib/diagnostics.zsh  # source an individual file
-# z4h load   ohmyzsh/ohmyzsh/plugins/emoji-clock  # load a plugin
+# === 5. Aliases ===
+# Git aliases
+alias gfp='git fetch --all && git pull'
+alias gss='git status -sb'
 
-# Define key bindings.
+# Docker aliases
+alias docker-clean-unused='docker system prune --all --force --volumes'
+alias docker-clean-all='docker stop $(docker container ls -a -q); docker system prune -a -f --volumes'
+
+# Editor aliases
+alias vi='nvim'
+alias vim='nvim'
+alias nano='nvim'
+alias emacs='nvim'
+
+# Utility aliases
+alias tree='tree -a -I .git'
+alias l='ls -lah'
+alias la='ls -lAh'
+alias ll='ls -lh'
+alias ls='ls -G'
+alias lsa='ls -lah'
+alias sed='gsed'
+alias teeclip='tee >(pbcopy)'
+
+# Tool shortcuts
+alias k='kubectl'
+alias s='stevectl'
+alias lzg='lazygit'
+alias tig='git log --reverse'
+alias lzd='lazydocker'
+alias asp='aws-sso-profile'
+
+# Config editing
+alias zshrc='nvim $ZDOTDIR/.zshrc'
+alias zprofile='nvim $ZDOTDIR/.zprofile'
+
+# AWS/Docker
+alias adl="aws ecr get-login-password | docker login --username AWS --password-stdin ${AWS_SSO_ACCOUNT_ID}.dkr.ecr.${AWS_SSO_DEFAULT_REGION}.amazonaws.com"
+
+# Arch Linux
+alias pacman-browse="pacman -Qq | fzf --preview 'pacman -Qil {}' --layout=reverse --bind 'enter:execute(pacman -Qil {} | less)'"
+
+# Claude memory plugin
+alias claude-mem="$HOME/.bun/bin/bun \"$HOME/.claude/plugins/marketplaces/thedotmack/plugin/scripts/worker-service.cjs\""
+
+# === 6. Key Bindings (z4h specific) ===
 z4h bindkey z4h-backward-kill-word  Ctrl+Backspace     Ctrl+H
 z4h bindkey z4h-backward-kill-zword Ctrl+Alt+Backspace
 
@@ -150,17 +168,47 @@ z4h bindkey z4h-cd-forward Alt+Right  # cd into the next directory
 z4h bindkey z4h-cd-up      Alt+Up     # cd into the parent directory
 z4h bindkey z4h-cd-down    Alt+Down   # cd into a child directory
 
-# BEGIN_AWS_SSO_CLI
+# === 7. Functions ===
+# Simple utility functions
+function md() { [[ $# == 1 ]] && mkdir -p -- "$1" && cd -- "$1" }
 
+function copyfile() {
+    if ! tee "$1" >(pbcopy); then
+        echo "Error: Failed to write file or copy to clipboard" >&2
+        return 1
+    fi
+}
+
+# Yazi TUI file manager wrapper (updates shell CWD on exit)
+function y() {
+	local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
+	command yazi "$@" --cwd-file="$tmp"
+	IFS= read -r -d '' cwd < "$tmp"
+	[ "$cwd" != "$PWD" ] && [ -d "$cwd" ] && builtin cd -- "$cwd"
+	rm -f -- "$tmp"
+}
+
+# AWS SSO profile management
+function get_assumed_role_credentials() {
+    if [ $# -lt 2 ]; then
+        echo "Usage: get_assumed_role_credentials <role-arn> <session-name>"
+        echo "You must already have credentials in your environment for the account you are assuming a role in."
+        echo "Use aws-sso-profile, or asp if you are using my aliases, and select the role for the account via the autocompletion mechanism."
+        return 1
+    fi
+
+    export $(printf "AWS_ACCESS_KEY_ID=%s AWS_SECRET_ACCESS_KEY=%s AWS_SESSION_TOKEN=%s" \
+    $(aws sts assume-role \
+    --role-arn $1 \
+    --role-session-name $2 \
+    --query "Credentials.[AccessKeyId,SecretAccessKey,SessionToken]" \
+    --output text))
+}
+
+# BEGIN_AWS_SSO_CLI
 # AWS SSO requires `bashcompinit` which needs to be enabled once and
-# only once in your shell.  Hence we do not include the two lines:
-#
-# autoload -Uz +X compinit && compinit
-# autoload -Uz +X bashcompinit && bashcompinit
-#
-# If you do not already have these lines, you must COPY the lines
-# above, place it OUTSIDE of the BEGIN/END_AWS_SSO_CLI markers
-# and of course uncomment it
+# only once in your shell. The autoload lines are at the top of this file,
+# OUTSIDE of the BEGIN/END_AWS_SSO_CLI markers.
 
 __aws_sso_profile_complete() {
      local _args=${AWS_SSO_HELPER_ARGS:- -L error}
@@ -193,90 +241,47 @@ aws-sso-clear() {
     fi
     eval $(/opt/homebrew/bin/aws-sso ${=_args} eval -c)
 }
-
-compdef __aws_sso_profile_complete aws-sso-profile
-complete -C /opt/homebrew/bin/aws-sso aws-sso
 # END_AWS_SSO_CLI
 
-# Define functions and completions.
-function md() { [[ $# == 1 ]] && mkdir -p -- "$1" && cd -- "$1" }
-function copyfile() {
-    if ! tee "$1" >(pbcopy); then
-        echo "Error: Failed to write file or copy to clipboard" >&2
-        return 1
-    fi
-}
-compdef _directories md
+# === 8. Tool Initializations (after PATH is set) ===
+# These tools need to be initialized after PATH is configured
 
-# Get assumed role credentials for AWS
-# eg: get_assumed_role_credentials arn:aws:iam::666666666666:role/my-dope-role my-session-name
-function get_assumed_role_credentials {
-    if [ $# -lt 2 ]; then
-        echo "Usage: $get_assumed_role_credentials[1] <arn> <session-name>"
-        echo "You must already have credentials in your environment for the account you are assuming a role in."
-        echo "Use aws-sso-profile, or asp if you are using my aliases, and select the role for the account via the autocompletion mechanism."
-        return
-    fi
-
-    export $(printf "AWS_ACCESS_KEY_ID=%s AWS_SECRET_ACCESS_KEY=%s AWS_SESSION_TOKEN=%s" \
-    $(aws sts assume-role \
-    --role-arn $1 \
-    --role-session-name $2 \
-    --query "Credentials.[AccessKeyId,SecretAccessKey,SessionToken]" \
-    --output text))
-}
-
-# Wrapper for the yazi TUI file manager that updates the shell's CWD
-# to the directory selected in yazi. This function is intentionally
-# named "y" as a short, interactive command (previously named "yy").
-function y() {
-	local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
-	command yazi "$@" --cwd-file="$tmp"
-	IFS= read -r -d '' cwd < "$tmp"
-	[ "$cwd" != "$PWD" ] && [ -d "$cwd" ] && builtin cd -- "$cwd"
-	rm -f -- "$tmp"
-}
-
+# zoxide (smart cd)
 eval "$(zoxide init --cmd cd zsh)"
+
+# mise (polyglot runtime manager)
 eval "$(~/.local/bin/mise activate zsh)"
-fpath+=$(brew --prefix)/share/zsh/site-functions
 
-# Added by LM Studio CLI (lms)
-export PATH="$PATH:/Users/scarpenter/.lmstudio/bin"
-# End of LM Studio CLI section
-
-# pnpm
-export PNPM_HOME="/Users/scarpenter/Library/pnpm"
-case ":$PATH:" in
-  *":$PNPM_HOME:"*) ;;
-  *) export PATH="$PNPM_HOME:$PATH" ;;
-esac
-# pnpm end
-
-# bun
-export BUN_INSTALL="$HOME/.bun"
-export PATH="$BUN_INSTALL/bin:$PATH"
-
-alias claude-mem='/Users/scarpenter/.bun/bin/bun "/Users/scarpenter/.claude/plugins/marketplaces/thedotmack/plugin/scripts/worker-service.cjs"'
-
-# Amp CLI
-export PATH="/Users/scarpenter/.amp/bin:$PATH"
-
+# atuin (shell history)
 [[ -f "$HOME/.local/bin/env" ]] && . "$HOME/.local/bin/env" || true
 [[ -f "$HOME/.atuin/bin/env" ]] && . "$HOME/.atuin/bin/env" || true
 eval "$(atuin init zsh)"
 
-# Source profile.d directory if it exists
-profile_dir="${ZDOTDIR}/profile.d"
-if [[ -d "$profile_dir" && -n "$(ls -A $profile_dir)" ]]; then
-    for file in $profile_dir/*; do
+# === 9. Completions ===
+# Add Homebrew completions to fpath
+fpath+=$(brew --prefix)/share/zsh/site-functions
+
+# Set up completions for custom functions
+compdef _directories md
+compdef __aws_sso_profile_complete aws-sso-profile
+complete -C /opt/homebrew/bin/aws-sso aws-sso
+
+# === 10. Optional Integrations (last, least critical) ===
+# OrbStack: command-line tools and integration
+source ~/.orbstack/shell/init.zsh 2>/dev/null || :
+
+# Source profile.d directory if it exists (for optional per-tool configs)
+# Create with: mkdir -p ~/.config/zsh/profile.d && echo 'export FOO=bar' > ~/.config/zsh/profile.d/custom.zsh
+if [[ -d "${ZDOTDIR}/profile.d" ]]; then
+    for file in "${ZDOTDIR}"/profile.d/*.zsh(N); do
         source "$file"
     done
 fi
 
-# OrbStack: command-line tools and integration
-source ~/.orbstack/shell/init.zsh 2>/dev/null || :
-
 # Dev container orchestrator (optional)
 dev_env_file="${XDG_CONFIG_HOME:-$HOME/.config}/dev-container/dev-env.zsh"
 [[ -f "$dev_env_file" ]] && source "$dev_env_file" || true
+
+# ============================================================================
+# Profiling output (uncomment if you enabled zprof at the top)
+# zprof
