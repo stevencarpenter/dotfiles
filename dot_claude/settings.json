@@ -2,7 +2,6 @@
   "permissions": {
     "defaultMode": "default"
   },
-  "model": "haiku",
   "enabledPlugins": {
     "context7@claude-plugins-official": true,
     "frontend-design@claude-plugins-official": true,
@@ -20,5 +19,6 @@
     "pr-review-toolkit@claude-plugins-official": true,
     "ralph-loop@claude-plugins-official": true,
     "lua-lsp@claude-plugins-official": true
-  }
+  },
+  "model": "sonnet"
 }
