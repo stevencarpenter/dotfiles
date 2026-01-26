@@ -99,16 +99,41 @@ export PATH
 export GPG_TTY=$TTY
 export NPM_CONFIG_PYTHON="$(command -v python3)"
 
-# GitHub token from gh CLI for MCP servers and other tooling
-if command -v gh &> /dev/null && gh auth status &> /dev/null; then
-    export GITHUB_TOKEN="$(gh auth token 2>/dev/null)"
-    # Claude Code's GitHub plugin expects this specific variable name
-    export GITHUB_PERSONAL_ACCESS_TOKEN="${GITHUB_TOKEN}"
+# === 4. Source Encrypted/Local Files ===
+# Note: `~/.config/zsh/.env` is generated from an encrypted source; ensure vars are exported for child processes.
+z4h source ~/.env.zsh
+if [[ -r "$XDG_CONFIG_HOME/zsh/.env" ]]; then
+  set -a
+  source -- "$XDG_CONFIG_HOME/zsh/.env"
+  set +a
 fi
 
-# === 4. Source Encrypted/Local Files (use z4h source for safety) ===
-z4h source ~/.env.zsh
-z4h source "$XDG_CONFIG_HOME"/zsh/.env
+# GitHub token from gh CLI (for MCP servers and other tooling).
+#
+# Note: `gh auth status` can succeed later in the session even if it fails during
+# early shell startup (keychain/agent timing). To make this robust, we:
+# - attempt once during startup
+# - retry automatically before each prompt until it succeeds (then unregister)
+__zsh_set_github_token() {
+  [[ -n "${GITHUB_TOKEN-}" ]] && return 0
+  command -v gh >/dev/null 2>&1 || return 0
+
+  local token
+  token="$(gh auth token 2>/dev/null)" || return 0
+  [[ -n "$token" ]] || return 0
+
+  typeset -gx GITHUB_TOKEN="$token"
+  typeset -gx GITHUB_PERSONAL_ACCESS_TOKEN="${GITHUB_PERSONAL_ACCESS_TOKEN:-$token}"
+}
+
+__zsh_set_github_token_precmd() {
+  __zsh_set_github_token
+  [[ -n "${GITHUB_TOKEN-}" ]] && add-zsh-hook -d precmd __zsh_set_github_token_precmd 2>/dev/null || true
+}
+
+autoload -Uz add-zsh-hook
+__zsh_set_github_token
+add-zsh-hook -Uz precmd __zsh_set_github_token_precmd
 
 # === 5. Aliases ===
 # Git aliases

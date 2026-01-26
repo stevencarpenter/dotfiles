@@ -94,7 +94,7 @@ chezmoi add ~/.config/some-tool/config
 chezmoi add --encrypt ~/.config/secrets/token
 
 # Edit a managed file (opens source, applies on save)
-chezmoi edit ~/.zshrc
+chezmoi edit ~/.config/zsh/.zshrc
 
 # Update from remote repository
 chezmoi update
