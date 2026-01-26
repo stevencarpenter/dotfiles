@@ -107,6 +107,19 @@ z4h init || return
 # Extend PATH.
 path=(~/bin $HOME/.local/bin $path)
 
+# Homebrew environment setup (must be early for other tools)
+if [[ $(uname) == "Darwin" ]]; then
+  eval "$(/opt/homebrew/bin/brew shellenv)"
+fi
+
+# GitHub token from gh CLI for MCP servers and other tooling
+# This allows Claude, Codex, Copilot, and other CLI agents to use GitHub APIs
+if command -v gh &> /dev/null && gh auth status &> /dev/null; then
+    export GITHUB_TOKEN="$(gh auth token 2>/dev/null)"
+    # Claude Code's GitHub plugin expects this specific variable name
+    export GITHUB_PERSONAL_ACCESS_TOKEN="${GITHUB_TOKEN}"
+fi
+
 # Export environment variables.
 export GPG_TTY=$TTY
 export NPM_CONFIG_PYTHON="$(command -v python3)"
@@ -195,6 +208,35 @@ function copyfile() {
 }
 compdef _directories md
 
+# Get assumed role credentials for AWS
+# eg: get_assumed_role_credentials arn:aws:iam::666666666666:role/my-dope-role my-session-name
+function get_assumed_role_credentials {
+    if [ $# -lt 2 ]; then
+        echo "Usage: $get_assumed_role_credentials[1] <arn> <session-name>"
+        echo "You must already have credentials in your environment for the account you are assuming a role in."
+        echo "Use aws-sso-profile, or asp if you are using my aliases, and select the role for the account via the autocompletion mechanism."
+        return
+    fi
+
+    export $(printf "AWS_ACCESS_KEY_ID=%s AWS_SECRET_ACCESS_KEY=%s AWS_SESSION_TOKEN=%s" \
+    $(aws sts assume-role \
+    --role-arn $1 \
+    --role-session-name $2 \
+    --query "Credentials.[AccessKeyId,SecretAccessKey,SessionToken]" \
+    --output text))
+}
+
+# Wrapper for the yazi TUI file manager that updates the shell's CWD
+# to the directory selected in yazi. This function is intentionally
+# named "y" as a short, interactive command (previously named "yy").
+function y() {
+	local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
+	command yazi "$@" --cwd-file="$tmp"
+	IFS= read -r -d '' cwd < "$tmp"
+	[ "$cwd" != "$PWD" ] && [ -d "$cwd" ] && builtin cd -- "$cwd"
+	rm -f -- "$tmp"
+}
+
 eval "$(zoxide init --cmd cd zsh)"
 eval "$(~/.local/bin/mise activate zsh)"
 fpath+=$(brew --prefix)/share/zsh/site-functions
@@ -223,6 +265,17 @@ export PATH="/Users/scarpenter/.amp/bin:$PATH"
 [[ -f "$HOME/.local/bin/env" ]] && . "$HOME/.local/bin/env" || true
 [[ -f "$HOME/.atuin/bin/env" ]] && . "$HOME/.atuin/bin/env" || true
 eval "$(atuin init zsh)"
+
+# Source profile.d directory if it exists
+profile_dir="${ZDOTDIR}/profile.d"
+if [[ -d "$profile_dir" && -n "$(ls -A $profile_dir)" ]]; then
+    for file in $profile_dir/*; do
+        source "$file"
+    done
+fi
+
+# OrbStack: command-line tools and integration
+source ~/.orbstack/shell/init.zsh 2>/dev/null || :
 
 # Dev container orchestrator (optional)
 dev_env_file="${XDG_CONFIG_HOME:-$HOME/.config}/dev-container/dev-env.zsh"
