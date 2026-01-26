@@ -1,92 +1,105 @@
-# brew version
-hb = `brew -v`
+# Homebrew Bundle - https://github.com/Homebrew/homebrew-bundle
+# Install: brew bundle --file=~/.Brewfile
+# Audit:   brew bundle check --file=~/.Brewfile
+# Dump:    brew bundle dump --file=~/.Brewfile --force
 
-# fail if Homebrew is not installed, (or if it's not in $PATH)
-if !hb.include? "Homebrew"
-  abort("ERROR: Homebrew does not appear to be installed!")
-end
-
-# specify a directory to install
 cask_args appdir: "/Applications"
 
-# install packages
-tap "homebrew/cask" || true
+# ============================================================================
+# Shell & Core
+# ============================================================================
 brew "zsh"
 brew "zsh-completions"
 brew "bash-completion"
+
+# ============================================================================
+# CLI Tools
+# ============================================================================
+brew "age"                    # Encryption tool (for chezmoi)
+brew "bat"                    # cat with syntax highlighting
+brew "chezmoi"                # Dotfile manager
+brew "curl"
+brew "fd"                     # Fast find alternative
+brew "fzf"                    # Fuzzy finder
+brew "grex"                   # Regex generator
+brew "htop"                   # Process viewer
+brew "jq"                     # JSON processor
 brew "make"
+brew "ripgrep"                # Fast grep (rg)
+brew "tree"
+brew "watch"
+brew "wget"
+brew "xz"
+brew "yazi"                   # TUI file manager
+brew "yq"                     # YAML processor
+brew "zoxide"                 # Smart cd
+
+# ============================================================================
+# Git & Version Control
+# ============================================================================
 brew "git"
 brew "git-extras"
 brew "git-secrets"
-brew "tree"
-brew "tmux"
-brew "chezmoi"
-brew "age"
-tap "neovim/neovim" || true
-brew "neovim"
-brew "curl"
-brew "jq"
-brew "yq"
-brew "ag"
-brew "ripgrep"
-brew "xz"
-brew "wget"
-brew "lazygit"
 brew "lazydocker"
-brew "htop"
-brew "watch"
-brew "fzf"
+brew "lazygit"
+
+# ============================================================================
+# Development
+# ============================================================================
 brew "docker-completion"
-brew "fd"
-brew "zoxide"
-brew "mise"
-brew "gsed"
-brew "bat"
-brew "direnv"
-brew "yazi"
+brew "gnu-sed"                # GNU sed (gsed)
+brew "shellcheck"             # Shell script linter
+brew "tmux"
+
+# ============================================================================
+# Cloud & Infrastructure
+# ============================================================================
 brew "aws-sso-cli"
-brew "conftest"
-brew "grex"
+brew "conftest"               # Policy testing
+brew "railway"                # Railway CLI
+brew "supabase"               # Supabase CLI
 
-# Casks
-cask "slack"
-cask "orbstack"
-cask "visual-studio-code"
-cask "keeper-password-manager"
-cask "firefox@developer-edition"
-cask "zoom"
-cask "vlc"
-cask "postman"
+# ============================================================================
+# GUI Applications
+# ============================================================================
+cask "1password-cli"
 cask "bbedit"
-cask "raycast"
+cask "firefox@developer-edition"
+cask "ghostty"                # Terminal emulator
 cask "notion"
-cask "shottr"
-cask "the-unarchiver"
 cask "obsidian"
-cask "onyx"
+cask "orbstack"               # Docker/Linux VMs
+cask "postman"
+cask "raycast"                # Launcher
+cask "the-unarchiver"
+cask "visual-studio-code"
 
-# MAIN FONTS (https://fonts.google.com/)
-cask "font-anonymous-pro"      # https://www.marksimonson.com/fonts/view/anonymous-pro
-cask "font-bebas-neue"         # https://fonts.adobe.com/fonts/bebas-neue
-cask "font-courier-prime"      # https://quoteunquoteapps.com/courierprime/
-cask "font-fira-code"          # https://github.com/tonsky/FiraCode
-cask "font-ia-writer-duo"      # https://github.com/iaolo/iA-Fonts/
-cask "font-ia-writer-duospace" # https://ia.net/topics/in-search-of-the-perfect-writing-font
-cask "font-ia-writer-mono"     # https://github.com/iaolo/iA-Fonts/
-cask "font-ia-writer-quattro"  # https://ia.net/topics/a-typographic-christmas
-cask "font-inconsolata"        # https://levien.com/type/myfonts/inconsolata.html
-cask "font-input"              # https://input.djr.com/
-cask "font-intel-one-mono"     # https://github.com/intel/intel-one-mono/
-cask "font-jetbrains-mono"     # https://www.jetbrains.com/lp/mono/
-cask "font-iosevka"            # https://typeof.net/Iosevka/customizer
-cask "font-liberation"         # https://github.com/liberationfonts/liberation-fonts
-cask "font-red-hat-mono"       # https://github.com/RedHatOfficial/RedHatFont
-cask "font-ubuntu-mono"        # https://design.ubuntu.com/font
-cask "font-victor-mono"        # https://github.com/rubjo/victor-mono
+# ============================================================================
+# Fonts - Coding
+# ============================================================================
+cask "font-anonymous-pro"
+cask "font-bebas-neue"
+cask "font-courier-prime"
+cask "font-fira-code"
+cask "font-ia-writer-duo"
+cask "font-ia-writer-mono"
+cask "font-ia-writer-quattro"
+cask "font-inconsolata"
+cask "font-input"
+cask "font-intel-one-mono"
+cask "font-iosevka"
+cask "font-jetbrains-mono"
+cask "font-liberation"
+cask "font-red-hat-mono"
+cask "font-ubuntu-mono"
+cask "font-victor-mono"
 
-# NERD FONTS (https://www.nerdfonts.com/)
+# ============================================================================
+# Fonts - Nerd Fonts (patched with icons)
+# ============================================================================
 cask "font-dejavu-sans-mono-nerd-font"
 cask "font-inconsolata-go-nerd-font"
 cask "font-jetbrains-mono-nerd-font"
 cask "font-meslo-for-powerlevel10k"
 cask "font-meslo-lg-nerd-font"
+cask "font-symbols-only-nerd-font"
