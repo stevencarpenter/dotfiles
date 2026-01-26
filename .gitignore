@@ -1,4 +1,34 @@
+# Ignore all CLAUDE.md files
+**/CLAUDE.md
+
+# Except the one in the root
+!/CLAUDE.md
+
+# Serena MCP
+.serena/*
+
 */.config/nvm/*
+
+# Repo-local / machine-specific files
+.envrc
+private_dot_claude.json
+
+# Claude project transient data
+.claude/debug
+.claude/downloads
+.claude/file-history
+.claude/history.jsonl
+.claude/ide
+.claude/plans
+.claude/plugins
+.claude/projects
+.claude/session-env
+.claude/shell-snapshots
+.claude/stats-cache.json
+.claude/statsig
+.claude/telemetry
+.claude/todos
+.claude/settings.local.json
 
 ### Intellij template
 # Covers JetBrains IDEs: IntelliJ, RubyMine, PhpStorm, AppCode, PyCharm, CLion, Android Studio, WebStorm and Rider
@@ -1016,4 +1046,3 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
-.claude/settings.local.json

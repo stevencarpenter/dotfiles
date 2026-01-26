@@ -15,30 +15,6 @@
       "env": {
         "GITHUB_TOKEN": "${GITHUB_TOKEN}"
       }
-    },
-    "supabase-cloud-mcp-server": {
-      "type": "http",
-      "url": "https://mcp.supabase.com/mcp",
-      "x-metadata": {
-        "registry": {
-          "api": {
-            "baseUrl": "https://api.mcp.github.com",
-            "version": "v0.1"
-          },
-          "mcpServer": {
-            "name": "com.supabase/mcp",
-            "version": "0.5.9"
-          }
-        }
-      }
-    },
-    "supabase-local-mcp-server": {
-      "type": "stdio",
-      "command": "npx",
-      "args": [
-        "-y",
-        "@supabase/mcp-server"
-      ]
     }
   }
 }

@@ -27,7 +27,7 @@ chezmoi add ~/.config/some-tool/config
 chezmoi add --encrypt ~/.config/secrets/token
 
 # Edit a managed file (opens source, applies on save)
-chezmoi edit ~/.zshrc
+chezmoi edit ~/.config/zsh/.zshrc
 
 # Re-add a modified file
 chezmoi re-add ~/.config/some-tool/config

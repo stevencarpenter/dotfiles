@@ -1,6 +1,7 @@
 # Ignore non-dotfile directories and files in the repository
 .git
 .idea
+.chezmoiscripts/CLAUDE.md
 # Ignore .claude transient data (keep settings.json)
 .claude/debug
 .claude/downloads
@@ -25,3 +26,5 @@ CLAUDE.md
 arch
 docs
 scripts
+private_dot_claude.json
+
