@@ -54,7 +54,8 @@ local function add_queries_to_table(target_table, queries)
 end
 
 local function generate_data_source_string(target, file_type)
-	local url_string = "'" .. tostring(target) .. "'"
+	-- Escape single quotes in the path for SQL string literal
+	local url_string = "'" .. tostring(target):gsub("'", "''") .. "'"
 	if file_type == "excel" then
 		return string.format("st_read(%s)", url_string)
 	elseif file_type == "text" then
@@ -99,26 +100,35 @@ end)
 local duckdb_opener = ya.sync(function(_, arg)
 	local hovered_url = Url(get_hovered_url_string())
 	local file_type = check_file_type(hovered_url)
-	local command = "duckdb "
+
+	local args = {}
+
 	if file_type == "excel" then
-		command = string.format([[%s-cmd "install spatial;" -cmd "load spatial;" ]], command)
-		ya.dbg("command: " .. tostring(command))
+		add_queries_to_table(args, { "install spatial", "load spatial" })
+		ya.dbg("duckdb_opener: loading spatial extension for excel")
 	end
 
 	if file_type ~= "duckdb" then
-		local table_name = '\\"' .. hovered_url.stem .. '\\"'
+		-- Use quoted identifier for table name (double quotes inside SQL)
+		local table_name = '"' .. tostring(hovered_url.stem):gsub('"', '""') .. '"'
 		local data_source_string = generate_data_source_string(hovered_url, file_type)
 		local query = string.format("CREATE TABLE %s AS FROM %s;", table_name, data_source_string)
-		command = string.format('%s-cmd "%s"', command, query)
-		ya.dbg("command final: " .. tostring(command))
+		add_queries_to_table(args, query)
+		ya.dbg("duckdb_opener query: " .. query)
 	else
-		command = command .. tostring(hovered_url)
+		table.insert(args, tostring(hovered_url))
 	end
 
 	if arg ~= "-open" then
-		command = string.format("%s -ui", command)
+		table.insert(args, "-ui")
 	end
-	ya.emit("shell", { command, block = true, orphan = true, confirm = true })
+
+	local child, err = Command("duckdb"):args(args):stdin(Command.INHERIT):stdout(Command.INHERIT):stderr(Command.INHERIT):spawn()
+	if not child then
+		ya.err("Failed to spawn DuckDB: " .. tostring(err))
+		return
+	end
+	child:wait()
 end)
 
 function M:entry(job)
