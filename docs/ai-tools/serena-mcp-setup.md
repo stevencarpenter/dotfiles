@@ -17,7 +17,7 @@ Each tool receives a context-optimized Serena configuration:
 
 | Tool | Context | Config Location | Format |
 |------|---------|-----------------|--------|
-| Claude Code | `claude-code` | Built-in | MCP stdio |
+| Claude Code | `claude-code` | `~/.claude.json` | MCP stdio |
 | Codex | `codex` | `~/.codex/config.toml` | TOML |
 | GitHub Copilot | `ide` | `~/.config/github-copilot/mcp.json` | JSON |
 | Cursor | `ide` | `~/.cursor/mcp.json` | JSON |
@@ -89,7 +89,6 @@ Restart AI tools to pick up new configuration.
 
 ### Codex (TOML Format)
 - Config: `~/.codex/config.toml`
-- Encrypted in chezmoi: `dot_codex/encrypted_private_config.toml`
 - Sync: Automated context update for existing Serena config
 - Manual: Use `codex mcp add` for new servers
 

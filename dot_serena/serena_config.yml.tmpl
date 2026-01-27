@@ -76,13 +76,9 @@ token_count_estimator: TIKTOKEN_GPT4O
 # estimate the token count using the Claude Sonnet 4 tokenizer.
 # OPTIMIZED: Local token counting via tiktoken (no external API required)
 
-# The list of registered project paths (updated automatically).
+# The list of registered project paths (updated automatically by Serena).
+# Additional projects are added here when you use Serena with them.
 projects:
-- /Users/scarpenter/.local/share/chezmoi
-- /Users/scarpenter/more-bullshit/all-tables
-- /Users/scarpenter/more-bullshit/cfc
-- /Users/scarpenter/personal/whistlepost
-- /Users/scarpenter/projects/iac
-- /Users/scarpenter/projects/iac/data-lake/kafka-connect/iceberg-kafka-connect
+- {{ .chezmoi.homeDir }}/.local/share/chezmoi
 fixed_tools: []
 jetbrains_plugin_server_address: 127.0.0.1

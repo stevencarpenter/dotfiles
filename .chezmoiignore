@@ -11,7 +11,7 @@ dot_serena/CLAUDE.md
 dot_claude/CLAUDE.md
 scripts/CLAUDE.md
 docs/**/CLAUDE.md
-# Ignore .claude transient data (keep settings.json)
+# Ignore .claude transient data
 .claude/debug
 .claude/downloads
 .claude/file-history

@@ -21,5 +21,6 @@ if [[ -d "${HOME}/.cache/uv/archive-v0" ]]; then
   fi
 fi
 
-# 3) Last resort: run via uvx (may require network and can be sandbox-unfriendly).
-exec uvx --from git+https://github.com/oraios/serena serena "$@"
+# 3) Last resort: run via uvx with pinned version (may require network).
+# Pin to a specific version for security - update manually after reviewing changelogs.
+exec uvx --from 'serena==0.1.4' serena "$@"

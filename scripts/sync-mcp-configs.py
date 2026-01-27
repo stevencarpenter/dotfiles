@@ -10,6 +10,7 @@ This ensures all tools use the same MCP server definitions.
 
 from __future__ import annotations
 
+import copy
 import json
 import re
 import shutil
@@ -93,7 +94,7 @@ def ensure_codex_serena_server(config_path: Path, context: str) -> None:
     text = config_path.read_text(encoding="utf-8")
 
     section_re = re.compile(
-        r"(?ms)^[ \t]*\[mcp_servers\.serena][ \t]*\n(?P<body>.*?)(?=^[ \t]*\[|\Z)"
+        r"(?ms)^[ \t]*\[mcp_servers\.serena\][ \t]*\n(?P<body>.*?)(?=^[ \t]*\[|\Z)"
     )
     m = section_re.search(text)
 
@@ -258,12 +259,12 @@ def main() -> int:
     sync_to_locations(config, home / ".config" / ".copilot" / "mcp-config.json")
 
     # 2. GitHub Copilot (IntelliJ) - servers format (same as master)
-    config = dict(master)
+    config = copy.deepcopy(master)
     config = set_serena_context(config, "ide")
     sync_to_locations(config, home / ".config" / "github-copilot" / "intellij" / "mcp.json")
 
     # 3. GitHub Copilot (general) - servers format with IDE context
-    config = dict(master)
+    config = copy.deepcopy(master)
     config = set_serena_context(config, "ide")
     sync_to_locations(config, home / ".config" / "github-copilot" / "mcp.json")
 
@@ -309,7 +310,7 @@ def main() -> int:
     )
 
     # 8. VSCode - servers format with IDE context (XDG + legacy mirror)
-    config = dict(master)
+    config = copy.deepcopy(master)
     config = set_serena_context(config, "ide")
     sync_to_locations(
         config,
