@@ -114,7 +114,7 @@ MCP configs are synced automatically after `chezmoi apply` via the `run_after_sy
 ### Manual Sync (if needed)
 
 ```shell
-~/.local/share/chezmoi/scripts/sync-mcp-configs.sh
+uv run --script ~/.local/share/chezmoi/scripts/sync-mcp-configs.py
 ```
 
 ### Editing MCP Config

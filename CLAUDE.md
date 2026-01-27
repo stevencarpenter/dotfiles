@@ -47,7 +47,7 @@ chezmoi status
 ```bash
 # MCP configs are synced automatically after chezmoi apply
 # Manual sync (if needed):
-~/.local/share/chezmoi/scripts/sync-mcp-configs.sh
+uv run --script ~/.local/share/chezmoi/scripts/sync-mcp-configs.py
 
 # Edit master MCP config
 chezmoi edit ~/.config/mcp/mcp-master.json
@@ -112,7 +112,7 @@ The repository uses a **master MCP config** pattern:
     - `~/.config/github-copilot/mcp.json` (GitHub Copilot CLI)
     - `~/.config/.copilot/mcp-config.json` (GitHub Copilot)
     - `~/.config/github-copilot/intellij/mcp.json` (IntelliJ)
-- **Automation**: `scripts/sync-mcp-configs.sh` performs format transformation
+- **Automation**: `scripts/sync-mcp-configs.py` performs format transformation (uv standalone script)
 - **Chezmoi Integration**: Sync runs automatically after `chezmoi apply`
 - **MCP Servers**: filesystem, memory, sequential-thinking, railway, github, supabase
 
@@ -267,7 +267,7 @@ Claude Code uses a **separate plugin system** that is NOT managed by the master 
 
 ### Automation
 
-- `scripts/sync-mcp-configs.sh` - Syncs master MCP config to all AI tools
+- `scripts/sync-mcp-configs.py` - Syncs master MCP config to all AI tools (uv standalone script)
 - `.chezmoiscripts/run_after_sync-mcp.sh` - Runs sync after chezmoi apply
 - `.chezmoiscripts/darwin/run_once_setup-macos.sh` - One-time macOS setup
 - `dot_local/bin/executable_ralph-opencode` - Global wrapper for Ralph + OpenCode
@@ -291,7 +291,7 @@ Claude Code uses a **separate plugin system** that is NOT managed by the master 
 
 1. Edit `dot_config/mcp/mcp-master.json` (the master config)
 2. Run `chezmoi apply` - sync script runs automatically
-3. Or manually run `~/.local/share/chezmoi/scripts/sync-mcp-configs.sh`
+3. Or manually run `uv run --script ~/.local/share/chezmoi/scripts/sync-mcp-configs.py`
 4. Verify the config is synced to all tool locations
 
 **For Claude Code (separate plugin system):**
