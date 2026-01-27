@@ -1,7 +1,16 @@
 # Ignore non-dotfile directories and files in the repository
 .git
 .idea
+# Ignore all claude-mem generated CLAUDE.md files (keep only root CLAUDE.md for project instructions)
+**/.git/CLAUDE.md
+**/.git/**/CLAUDE.md
 .chezmoiscripts/CLAUDE.md
+dot_config/**/CLAUDE.md
+dot_codex/CLAUDE.md
+dot_serena/CLAUDE.md
+dot_claude/CLAUDE.md
+scripts/CLAUDE.md
+docs/**/CLAUDE.md
 # Ignore .claude transient data (keep settings.json)
 .claude/debug
 .claude/downloads
