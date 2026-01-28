@@ -226,19 +226,52 @@ Configured in `.pre-commit-config.yaml`:
 
 #### Claude Code
 
-Claude Code uses a **separate plugin system** that is NOT managed by the master MCP config sync:
+Claude Code uses a **separate plugin system** with version-controlled enabled plugins:
 
 - **Location**: `~/.claude/` - settings, plugins, history
 - **Plugin System**: Official plugins from `claude-plugins-official` marketplace
 - **Config Files**:
-    - `~/.claude/settings.json` - global settings and enabled plugins
+    - `~/.claude.json` - global settings (model, projects, telemetry, onboarding)
     - `~/.claude/plugins/installed_plugins.json` - installed plugin metadata
     - `~/.claude/plugins/cache/` - cached plugin files including `.mcp.json` configs
-- **Enabled Plugins**: context7, github, supabase, greptile, playwright, feature-dev, code-review, commit-commands, frontend-design, security-guidance, LSP servers (rust-analyzer, typescript, pyright)
-- **GitHub Plugin**: Uses HTTP MCP at `https://api.githubcopilot.com/mcp/` with `GITHUB_PERSONAL_ACCESS_TOKEN`
-- **Project Settings**: `.claude/settings.local.json` in project root for per-project permissions
 
-**Important**: To modify Claude Code's MCP servers, you must use the `/mcp` command within Claude Code or edit the plugin cache directly. The master MCP config sync does not affect Claude Code.
+**Plugin Version Control**
+
+Enabled plugins are now version-controlled via the MCP sync system:
+
+- **Source**: `scripts/claude-enabled-plugins.json` - canonical list of plugins to enable (not deployed by chezmoi, only used by MCP sync script)
+- **Format**: Object mapping plugin identifiers to boolean values:
+  ```json
+  {
+    "context7@claude-plugins-official": true,
+    "github@claude-plugins-official": true,
+    "feature-dev@claude-plugins-official": true,
+    ...
+  }
+  ```
+- **Sync**: Automatically merged into `~/.claude/settings.json` during MCP sync (after `chezmoi apply`)
+- **Benefits**:
+    - Plugins are tracked in git history
+    - Consistent plugin setup across machines
+    - Easy to add/remove plugins by editing the JSON file
+    - Canonical plugins override duplicates, but preserve manually-added ones
+- **Current Plugins**: context7, github, supabase, greptile, feature-dev, code-review, commit-commands, frontend-design, security-guidance, playwright, rust-analyzer-lsp, typescript-lsp, pyright-lsp, ralph-wiggum, claude-mem, pr-review-toolkit, ralph-loop, lua-lsp
+- **How It Works**: The `patch_claude_code_config()` function in `sync-mcp-configs.py` reads `scripts/claude-enabled-plugins.json` and merges the plugins into your `~/.claude/settings.json` without affecting other settings (model, permissions, onboarding state, etc.)
+
+**MCP Server Management**
+
+- **Source**: `dot_config/mcp/mcp-master.json` - master MCP server definitions
+- **Merge**: Automatically synced to Claude Code's `mcpServers` during MCP sync
+- **Servers**: serena, railway-mcp-server, github, and others defined in master config
+- **Serena Context**: Claude Code instances get `--context=claude-code` for the Serena MCP server
+
+**Project Settings**: `.claude/settings.local.json` in project root for per-project permissions
+
+**Important**: To modify the enabled plugins or MCP servers:
+1. Edit `dot_config/claude/enabled_plugins.json` for plugins
+2. Edit `dot_config/mcp/mcp-master.json` for MCP servers
+3. Run `chezmoi apply` to deploy changes
+4. MCP sync runs automatically after apply and updates your `~/.claude.json`
 
 ### macOS Setup
 

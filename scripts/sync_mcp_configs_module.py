@@ -1,11 +1,8 @@
-#!/usr/bin/env -S uv run --script
-# /// script
-# requires-python = ">=3.12"
-# dependencies = []
-# ///
 """
-Synchronize MCP configurations across different AI tool formats.
-This ensures all tools use the same MCP server definitions.
+Importable module version of sync-mcp-configs.py for testing and internal use.
+
+This module contains the core functionality of the MCP configuration sync script,
+making it possible to import and test the functions directly.
 """
 
 from __future__ import annotations
@@ -466,4 +463,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-

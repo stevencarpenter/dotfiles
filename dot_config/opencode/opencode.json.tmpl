@@ -1,0 +1,25 @@
+{{- /* OpenCode Agent Configuration Template
+Configuration for the OpenCode autonomous coding agent.
+Synced with MCP servers from the master config.
+*/ -}}
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "lmstudio": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "LM Studio (local)",
+      "options": {
+        "baseURL": "http://localhost:1234/v1"
+      },
+      "models": {
+        "qwen/qwen3-coder-30b": {
+          "name": "qwen3-coder-30b"
+        },
+        "nvidia/nemotron-3-nano": {
+          "name": "nemotron-3-nano"
+        }
+      }
+    }
+  },
+  "mcp": {}
+}

@@ -1,0 +1,56 @@
+{{- /* Codex CLI Configuration Template
+Global settings for the Codex autonomous coding agent.
+MCP servers are synced from master config via sync-mcp-configs.py
+Project trust levels and model settings are version-controlled.
+*/ -}}
+# Global Codex CLI Settings
+model = "gpt-5.2"
+model_reasoning_effort = "medium"
+
+# Trusted Projects - Codex will run autonomously in these directories
+[projects."{{ env.HOME }}/projects/stevectl"]
+trust_level = "trusted"
+
+[projects."{{ env.HOME }}/projects/mcp-local-stack"]
+trust_level = "trusted"
+
+[projects."{{ env.HOME }}/projects/emr-tui"]
+trust_level = "trusted"
+
+[projects."{{ env.HOME }}/.dotfiles"]
+trust_level = "trusted"
+
+[projects."{{ env.HOME }}/projects/iac"]
+trust_level = "trusted"
+
+[projects."{{ env.HOME }}/personal/mcp"]
+trust_level = "trusted"
+
+[projects."{{ env.HOME }}/emr-tui"]
+trust_level = "trusted"
+
+[projects."{{ env.HOME }}/personal/emr-tui"]
+trust_level = "trusted"
+
+[projects."{{ env.HOME }}/personal/pp-bot"]
+trust_level = "trusted"
+
+[projects."{{ env.HOME }}/personal/aws-tui"]
+trust_level = "trusted"
+
+[projects."{{ env.HOME }}/personal/whistlepost"]
+trust_level = "trusted"
+
+[projects."{{ env.HOME }}/personal/stevectl"]
+trust_level = "trusted"
+
+[projects."{{ env.HOME }}/projects/juno-workflows"]
+trust_level = "trusted"
+
+# UI Preferences
+[notice]
+hide_gpt5_1_migration_prompt = true
+"hide_gpt-5.1-codex-max_migration_prompt" = true
+
+# MCP Servers - Synced from master config
+# This section is populated by sync-mcp-configs.py

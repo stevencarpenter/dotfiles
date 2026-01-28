@@ -1,0 +1,59 @@
+{
+  "servers": {
+    "filesystem": {
+      "command": "node",
+      "args": ["/path/to/filesystem-mcp-server/dist/index.js"],
+      "type": "local",
+      "note": "Local filesystem access for reading and writing files"
+    },
+    "memory": {
+      "command": "node",
+      "args": ["/path/to/memory-mcp-server/dist/index.js"],
+      "type": "local"
+    },
+    "sequential-thinking": {
+      "command": "uvx",
+      "args": ["sequential-thinking"],
+      "type": "local"
+    },
+    "github": {
+      "command": "uv",
+      "args": ["run", "github-mcp"],
+      "type": "local",
+      "env": {
+        "GITHUB_TOKEN": "${GITHUB_TOKEN}"
+      }
+    },
+    "railway": {
+      "command": "npx",
+      "args": ["railway-mcp"],
+      "type": "local",
+      "env": {
+        "RAILWAY_TOKEN": "${RAILWAY_TOKEN}"
+      }
+    },
+    "supabase": {
+      "command": "npx",
+      "args": ["supabase-mcp"],
+      "type": "local",
+      "env": {
+        "SUPABASE_PROJECT_REF": "${SUPABASE_PROJECT_REF}",
+        "SUPABASE_API_KEY": "${SUPABASE_API_KEY}"
+      }
+    },
+    "serena": {
+      "command": "bash",
+      "args": [
+        "-lc",
+        "exec \"$HOME/.local/share/chezmoi/scripts/serena-mcp\" \"$@\"",
+        "serena-mcp",
+        "start-mcp-server",
+        "--project-from-cwd",
+        "--mode=interactive",
+        "--mode=editing",
+        "--language-backend=JetBrains"
+      ],
+      "type": "local"
+    }
+  }
+}

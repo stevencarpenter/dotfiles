@@ -1,0 +1,10 @@
+[tool]
+name = "codex"
+version = "1.0"
+
+[settings]
+theme = "dark"
+debug = true
+
+[extensions]
+enabled = ["markdown", "json"]
