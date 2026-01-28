@@ -1,0 +1,16 @@
+{
+  "version": "1.0",
+  "model": "claude-opus-4-5",
+  "enabledPlugins": ["github", "context7", "supabase"],
+  "mcpServers": {
+    "old_server": {
+      "command": "node",
+      "args": ["old-script.js"]
+    }
+  },
+  "recentProjects": [
+    "/Users/user/projects/project1",
+    "/Users/user/projects/project2"
+  ],
+  "theme": "light"
+}

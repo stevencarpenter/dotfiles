@@ -1,0 +1,21 @@
+{{- /* GitHub Copilot CLI Configuration Template
+Global settings for GitHub Copilot CLI.
+OAuth tokens and user authentication are preserved separately.
+*/ -}}
+{
+  "banner": "never",
+  "model": "claude-opus-4.5",
+  "render_markdown": true,
+  "theme": "auto",
+  "trusted_folders": [
+    "{{ env "HOME" }}/personal/whistlepost",
+    "{{ env "HOME" }}/projects/iac",
+    "{{ env "HOME" }}/Desktop/ralph",
+    "{{ env "HOME" }}/.local/share/chezmoi"
+  ],
+  "last_logged_in_user": {
+    "host": "https://github.com",
+    "login": "stevencarpenter"
+  },
+  "logged_in_users": []
+}
