@@ -8,8 +8,8 @@ from pathlib import Path
 import pytest
 
 from mcp_sync import (
+    deep_merge,
     load_master_config,
-    merge_claude_code_plugins,
     patch_claude_code_config,
     set_serena_context,
     sync_codex_mcp,
@@ -160,9 +160,9 @@ def test_set_serena_context_opencode_format():
     assert "--context=editor" in result["mcp"]["serena"]["args"]
 
 
-def test_transform_to_opencode_format(master_config, opencode_config_template):
+def test_transform_to_opencode_format(master_config):
     """Test transformation to OpenCode format."""
-    result = transform_to_opencode_format(master_config, opencode_config_template)
+    result = transform_to_opencode_format(master_config)
 
     assert "mcp" in result
     assert "filesystem" in result["mcp"]
@@ -172,9 +172,9 @@ def test_transform_to_opencode_format(master_config, opencode_config_template):
     assert isinstance(result["mcp"]["filesystem"]["command"], list)
 
 
-def test_transform_to_opencode_with_env(master_config, opencode_config_template):
+def test_transform_to_opencode_with_env(master_config):
     """Test OpenCode format preserves environment variables."""
-    result = transform_to_opencode_format(master_config, opencode_config_template)
+    result = transform_to_opencode_format(master_config)
 
     # github server has env
     assert "environment" in result["mcp"]["github"]
@@ -296,121 +296,41 @@ def test_edge_case_special_chars_in_args(master_config):
         }
     }
 
-    opencode_config = {"mcp": {}}
-    result = transform_to_opencode_format(config, opencode_config)
+    result = transform_to_opencode_format(config)
 
     # Should preserve the arguments exactly
     assert 'echo "hello world" && echo $VAR' in result["mcp"]["test"]["command"]
 
 
-def test_merge_claude_code_plugins_with_config(temp_home, monkeypatch_home):
-    """Test merging plugins when config file exists."""
-    # Create plugins config in scripts dir (not deployed by chezmoi)
-    chezmoi_dir = temp_home / ".local" / "share" / "chezmoi"
-    scripts_dir = chezmoi_dir / "scripts"
-    scripts_dir.mkdir(parents=True, exist_ok=True)
+def test_deep_merge_appends_list_with_plus_key():
+    """Test that deep_merge appends list values using the + suffix."""
+    base = {"enabledPlugins": ["alpha"]}
+    override = {"enabledPlugins+": ["beta", "alpha"]}
 
-    plugins_file = scripts_dir / "claude-enabled-plugins.json"
-    plugins_config = {
-        "context7@claude-plugins-official": True,
-        "github@claude-plugins-official": True,
-        "supabase@claude-plugins-official": True,
-        "greptile@claude-plugins-official": True
-    }
-    plugins_file.write_text(json.dumps(plugins_config, indent=2), encoding="utf-8")
+    result = deep_merge(base, override)
+
+    assert result["enabledPlugins"] == ["alpha", "beta"]
+
+
+def test_patch_claude_code_config_applies_override(temp_home, monkeypatch_home, master_config):
+    """Test that Claude overrides are merged into the config."""
+    claude_path = temp_home / ".claude.json"
+    claude_path.write_text(json.dumps({"mcpServers": {}, "theme": "light"}, indent=2), encoding="utf-8")
+
+    override_dir = temp_home / ".config" / "mcp" / "overrides"
+    override_dir.mkdir(parents=True, exist_ok=True)
+    override_path = override_dir / "claude.json"
+    override_path.write_text(
+        json.dumps({"theme": "dark", "enabledPlugins": {"new-plugin@source": True}}, indent=2),
+        encoding="utf-8",
+    )
 
     monkeypatch_home.setattr(Path, "home", lambda: temp_home)
+    patch_claude_code_config(master_config)
 
-    # Test merging into a config
-    claude_config = {"mcpServers": {}, "theme": "dark"}
-    result = merge_claude_code_plugins(claude_config)
-
-    assert "enabledPlugins" in result
-    assert isinstance(result["enabledPlugins"], dict)
-    assert result["enabledPlugins"]["context7@claude-plugins-official"] is True
-    assert result["enabledPlugins"]["github@claude-plugins-official"] is True
-    # Other fields preserved
+    result = json.loads(claude_path.read_text())
     assert result["theme"] == "dark"
-
-
-def test_merge_claude_code_plugins_missing_file(temp_home, monkeypatch_home):
-    """Test that missing plugins file is skipped gracefully."""
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
-
-    # No plugins file exists
-    claude_config = {"mcpServers": {}, "theme": "light"}
-    result = merge_claude_code_plugins(claude_config)
-
-    # Config unchanged
-    assert result == claude_config
-
-
-def test_merge_claude_code_plugins_malformed_json(temp_home, monkeypatch_home):
-    """Test handling of malformed JSON in plugins config."""
-    chezmoi_dir = temp_home / ".local" / "share" / "chezmoi"
-    scripts_dir = chezmoi_dir / "scripts"
-    scripts_dir.mkdir(parents=True, exist_ok=True)
-
-    plugins_file = scripts_dir / "claude-enabled-plugins.json"
-    plugins_file.write_text("{invalid json}", encoding="utf-8")
-
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
-
-    claude_config = {"mcpServers": {}}
-    result = merge_claude_code_plugins(claude_config)
-
-    # Config unchanged due to error
-    assert result == claude_config
-
-
-def test_merge_claude_code_plugins_merges_with_existing(temp_home, monkeypatch_home):
-    """Test that plugins config merges with existing enabledPlugins."""
-    chezmoi_dir = temp_home / ".local" / "share" / "chezmoi"
-    scripts_dir = chezmoi_dir / "scripts"
-    scripts_dir.mkdir(parents=True, exist_ok=True)
-
-    plugins_file = scripts_dir / "claude-enabled-plugins.json"
-    plugins_config = {
-        "new-plugin-1@source": True,
-        "new-plugin-2@source": True
-    }
-    plugins_file.write_text(json.dumps(plugins_config, indent=2), encoding="utf-8")
-
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
-
-    # Config with existing plugins
-    claude_config = {
-        "enabledPlugins": {
-            "old-plugin@source": True,
-            "keep-this@source": True
-        },
-        "mcpServers": {}
-    }
-    result = merge_claude_code_plugins(claude_config)
-
-    # Canonical plugins merged, existing preserved, canonical overrides duplicates
-    assert result["enabledPlugins"]["new-plugin-1@source"] is True
-    assert result["enabledPlugins"]["new-plugin-2@source"] is True
-    assert result["enabledPlugins"]["old-plugin@source"] is True
-    assert result["enabledPlugins"]["keep-this@source"] is True
-
-
-def test_merge_claude_code_plugins_empty_dict(temp_home, monkeypatch_home):
-    """Test handling of empty plugins dict."""
-    chezmoi_dir = temp_home / ".local" / "share" / "chezmoi"
-    scripts_dir = chezmoi_dir / "scripts"
-    scripts_dir.mkdir(parents=True, exist_ok=True)
-
-    plugins_file = scripts_dir / "claude-enabled-plugins.json"
-    plugins_file.write_text("{}", encoding="utf-8")
-
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
-
-    claude_config = {"mcpServers": {}}
-    result = merge_claude_code_plugins(claude_config)
-
-    # Empty dict not merged (per logic: if dict is empty)
-    assert "enabledPlugins" not in result
+    assert result["enabledPlugins"]["new-plugin@source"] is True
 
 
 def test_sync_opencode_mcp_with_existing_config(
@@ -436,6 +356,7 @@ def test_sync_opencode_mcp_with_existing_config(
     }
     opencode_path.write_text(json.dumps(initial_config, indent=2), encoding="utf-8")
 
+    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
     sync_opencode_mcp(master_config)
 
     result = json.loads(opencode_path.read_text())
@@ -453,14 +374,12 @@ def test_sync_opencode_mcp_with_existing_config(
 
 
 def test_sync_opencode_mcp_missing_config(temp_home, monkeypatch_home, master_config):
-    """Test syncing when OpenCode config doesn't exist."""
-    # Should not raise, just skip
+    """Test syncing creates OpenCode config when missing."""
     monkeypatch_home.setattr(Path, "home", lambda: temp_home)
     sync_opencode_mcp(master_config)
 
-    # Verify no file was created
     opencode_path = temp_home / ".config" / "opencode" / "opencode.json"
-    assert not opencode_path.exists()
+    assert opencode_path.exists()
 
 
 def test_sync_codex_mcp_with_existing_config(
@@ -488,9 +407,8 @@ hide_gpt5_1_migration_prompt = true
 
     result = codex_path.read_text(encoding="utf-8")
 
-    # Original config should be preserved
+    # Base template settings should be present
     assert 'model = "gpt-5.2"' in result
-    assert 'trust_level = "trusted"' in result
     assert "[notice]" in result
 
     # MCP servers should be added
@@ -533,14 +451,12 @@ hide_prompt = true
 
 
 def test_sync_codex_mcp_missing_config(temp_home, monkeypatch_home, master_config):
-    """Test syncing when Codex config doesn't exist."""
-    # Should not raise, just skip
+    """Test syncing creates Codex config when missing."""
     monkeypatch_home.setattr(Path, "home", lambda: temp_home)
     sync_codex_mcp(master_config, "codex")
 
-    # Verify no file was created
     codex_path = temp_home / ".codex" / "config.toml"
-    assert not codex_path.exists()
+    assert codex_path.exists()
 
 
 def test_sync_copilot_cli_preserves_auth_tokens(temp_home, monkeypatch_home):

@@ -9,7 +9,7 @@ Serena is integrated into all AI development tools via the MCP (Model Context Pr
 ### Master Configuration
 - **Source**: `~/.config/mcp/mcp-master.json`
 - **Purpose**: Single source of truth for MCP server definitions
-- **Deployment**: Auto-synced to all tools via `scripts/sync-mcp-configs.py` (uv standalone script)
+- **Deployment**: Auto-synced to all tools via the `mcp_sync` uv app
 
 ### Tool-Specific Contexts
 
@@ -33,12 +33,12 @@ The sync happens automatically after `chezmoi apply`:
 
 1. `chezmoi apply` deploys dotfiles
 2. `.chezmoiscripts/run_after_sync-mcp.sh` executes
-3. `scripts/sync-mcp-configs.py` runs (via `uv run --script`)
+3. `mcp_sync` runs (via `uv run --project`)
 4. Configs generated from master with tool-specific contexts
 
 ### Manual Sync
 ```bash
-uv run --script ~/.local/share/chezmoi/scripts/sync-mcp-configs.py
+uv run --project ~/.local/share/chezmoi/mcp_sync sync-mcp-configs
 ```
 
 ## Serena Configuration
@@ -55,10 +55,55 @@ uv run --script ~/.local/share/chezmoi/scripts/sync-mcp-configs.py
 - `--language-backend=JetBrains`: Uses paid plugin indexing
 
 ### Available Tools
-- **Semantic Code**: `find_symbol`, `get_symbols_overview`, `find_referencing_symbols`
-- **Refactoring**: `replace_symbol_body`, `insert_before_symbol`, `insert_after_symbol`
-- **Memory**: `write_memory`, `read_memory`, `list_memories`
-- **Project**: `activate_project`, `onboarding`
+
+**Semantic Code Navigation** (Recommended: Use these FIRST, before reading files)
+- **`find_symbol(symbol_name, kind?, file_path?)`** - Find exact symbol definition across codebase
+  - Fastest way to understand code - instant lookups instead of manual searching
+  - Returns: File location, line number, context
+
+- **`get_symbols_overview(file_path?)`** - Get hierarchical structure of current file or workspace
+  - Classes, functions, types, imports organized by scope
+  - Use case: Quickly understand codebase architecture
+
+- **`find_referencing_symbols(symbol_name)`** - Find ALL usages of a symbol across entire codebase
+  - Accuracy: Only matches code references (not comments/strings)
+  - Use case: Impact analysis before refactoring, understanding scope
+
+**Intelligent Refactoring** (Use when modifying code)
+- **`replace_symbol_body(symbol_name, new_body)`** - Replace implementation of any symbol
+  - Handles: Signature changes, overloads, multi-file updates automatically
+  - Use case: Optimizations, bug fixes at the source
+
+- **`insert_before_symbol(symbol_name, code)`** - Add code before a symbol
+  - Use case: Setup, initialization, pre-conditions
+
+- **`insert_after_symbol(symbol_name, code)`** - Add code after a symbol
+  - Use case: Cleanup, post-processing, followup logic
+
+**Architectural Memory** (Store knowledge for later iterations)
+- **`write_memory(key, content)`** - Store architectural decisions, design patterns, issues
+  - Examples: `"auth_pattern"`, `"db_schema_issues"`, `"refactor_blockers"`
+  - Use case: Multiple agents working on same codebase share context
+
+- **`read_memory(key)`** - Retrieve previously stored context before starting work
+  - Use this at the beginning of any task
+
+- **`list_memories()`** - View all stored architectural knowledge
+  - Quick knowledge base of what's been analyzed
+
+**Project Navigation**
+- **`activate_project(project_name/path)`** - Switch projects (monorepo support)
+- **`onboarding`** - Get project-specific guidance
+
+**⚡ Performance Comparison:**
+| Task | Serena | File Reading | Speed |
+|------|--------|--------------|-------|
+| Find function definition | `find_symbol()` | Open 5+ files | ~100x faster |
+| Find all usages | `find_referencing_symbols()` | Grep/manual search | ~50x faster |
+| Understand file structure | `get_symbols_overview()` | Scroll/read | ~20x faster |
+| Multi-location refactor | `replace_symbol_body()` | Edit each file | Coordinated, accurate |
+
+**👉 Agent Recommendation:** Use Serena tools as your PRIMARY code understanding method. Only read files for content you need to display or when Serena tools don't have the answer.
 
 ## Adding MCP Servers
 
@@ -115,7 +160,7 @@ Restart AI tools to pick up new configuration.
 
 ### Issue: Wrong Context Used
 **Cause**: Sync script context mapping
-**Solution**: Update context in `scripts/sync-mcp-configs.py`, run sync
+**Solution**: Update context in `mcp_sync`, run sync
 
 ### Issue: Tool-Specific Config Needed
 **Cause**: Master config is generic
@@ -165,7 +210,7 @@ open http://localhost:24282/dashboard/
 - [MCP Protocol](https://modelcontextprotocol.io/)
 - [Serena Documentation](https://oraios.github.io/serena/)
 - [Chezmoi MCP Setup](./mcp-setup.md)
-- [Sync Script](../../scripts/sync-mcp-configs.py)
+- Sync app: `mcp_sync`
 
 ---
 

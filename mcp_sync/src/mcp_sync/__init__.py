@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from .sync import (
+    deep_merge,
     load_master_config,
-    merge_claude_code_plugins,
     patch_claude_code_config,
     run_sync,
     main,
@@ -21,7 +21,7 @@ from .sync import (
 
 __all__ = [
     "load_master_config",
-    "merge_claude_code_plugins",
+    "deep_merge",
     "patch_claude_code_config",
     "run_sync",
     "main",

@@ -198,7 +198,7 @@ Later session: Retrieve to avoid re-reading 600 lines
 
 ### Core Plugins (Version Controlled)
 
-Located in `scripts/claude-enabled-plugins.json`, automatically synced to `~/.claude/settings.json`:
+Located in `dot_config/mcp/overrides/claude.json`, automatically synced to `~/.claude.json`:
 
 | Plugin | Purpose | When to Use |
 |--------|---------|-------------|
@@ -308,7 +308,7 @@ Does it require deep reasoning?
    - Better than manual tool invocation
 
 6. **Start tasks with uv**
-   - `uv run sync-mcp-configs` keeps MCP servers in sync across tools
+   - `uv run --project ~/.local/share/chezmoi/mcp_sync sync-mcp-configs` keeps MCP servers in sync across tools
    - `uv run ruff check scripts tests` enforces consistent formatting and lint rules
    - `uv run pytest tests/ -v` verifies the sync logic before deployment
 
@@ -342,7 +342,7 @@ Does it require deep reasoning?
 - Single source of truth for servers
 - Synced to all tools after `chezmoi apply`
 
-**Claude Code Plugins**: `scripts/claude-enabled-plugins.json`
+**Claude Code Plugins**: `dot_config/mcp/overrides/claude.json`
 - Version-controlled plugin list
 - Automatically merged on sync
 - Manually add new discoveries

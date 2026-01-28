@@ -121,7 +121,7 @@ The helper is also available as a standalone uv script for compatibility with th
 helper in `.chezmoiscripts`:
 
 ```shell
-uv run --script ~/.local/share/chezmoi/scripts/sync-mcp-configs.py
+uv run --project ~/.local/share/chezmoi/mcp_sync sync-mcp-configs
 ```
 
 ### Editing MCP Config

@@ -78,22 +78,6 @@ def claude_config_template():
 
 
 @pytest.fixture
-def opencode_config_template():
-    """Template OpenCode config."""
-    return {
-        "model": "gpt-4",
-        "providers": ["openai"],
-        "mcp": {
-            "filesystem": {
-                "command": ["old", "filesystem"],
-                "enabled": True,
-                "timeout": 30000
-            }
-        }
-    }
-
-
-@pytest.fixture
 def master_config_file(temp_home, master_config):
     """Create a master config file in temp home."""
     config_dir = temp_home / ".config" / "mcp"

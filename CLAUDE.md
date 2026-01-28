@@ -47,7 +47,7 @@ chezmoi status
 ```bash
 # MCP configs are synced automatically after chezmoi apply
 # Manual sync (if needed):
-uv run --script ~/.local/share/chezmoi/scripts/sync-mcp-configs.py
+uv run --project ~/.local/share/chezmoi/mcp_sync sync-mcp-configs
 
 # Edit master MCP config
 chezmoi edit ~/.config/mcp/mcp-master.json
@@ -112,7 +112,7 @@ The repository uses a **master MCP config** pattern:
     - `~/.config/github-copilot/mcp.json` (GitHub Copilot CLI)
     - `~/.config/.copilot/mcp-config.json` (GitHub Copilot)
     - `~/.config/github-copilot/intellij/mcp.json` (IntelliJ)
-- **Automation**: `scripts/sync-mcp-configs.py` performs format transformation (uv standalone script)
+- **Automation**: `mcp_sync` uv app performs format transformation
 - **Chezmoi Integration**: Sync runs automatically after `chezmoi apply`
 - **MCP Servers**: filesystem, memory, sequential-thinking, railway, github, supabase
 
@@ -237,9 +237,9 @@ Claude Code uses a **separate plugin system** with version-controlled enabled pl
 
 **Plugin Version Control**
 
-Enabled plugins are now version-controlled via the MCP sync system:
+Enabled plugins are now version-controlled via the MCP override system:
 
-- **Source**: `scripts/claude-enabled-plugins.json` - canonical list of plugins to enable (not deployed by chezmoi, only used by MCP sync script)
+- **Source**: `dot_config/mcp/overrides/claude.json` - canonical list of plugins to enable
 - **Format**: Object mapping plugin identifiers to boolean values:
   ```json
   {
@@ -249,14 +249,14 @@ Enabled plugins are now version-controlled via the MCP sync system:
     ...
   }
   ```
-- **Sync**: Automatically merged into `~/.claude/settings.json` during MCP sync (after `chezmoi apply`)
+- **Sync**: Merged into `~/.claude.json` during MCP sync (after `chezmoi apply`)
 - **Benefits**:
     - Plugins are tracked in git history
     - Consistent plugin setup across machines
     - Easy to add/remove plugins by editing the JSON file
     - Canonical plugins override duplicates, but preserve manually-added ones
 - **Current Plugins**: context7, github, supabase, greptile, feature-dev, code-review, commit-commands, frontend-design, security-guidance, playwright, rust-analyzer-lsp, typescript-lsp, pyright-lsp, ralph-wiggum, claude-mem, pr-review-toolkit, ralph-loop, lua-lsp
-- **How It Works**: The `patch_claude_code_config()` function in `sync-mcp-configs.py` reads `scripts/claude-enabled-plugins.json` and merges the plugins into your `~/.claude/settings.json` without affecting other settings (model, permissions, onboarding state, etc.)
+- **How It Works**: The `patch_claude_code_config()` function merges `dot_config/mcp/overrides/claude.json` into `~/.claude.json` without affecting other settings (model, permissions, onboarding state, etc.)
 
 **MCP Server Management**
 
@@ -268,10 +268,131 @@ Enabled plugins are now version-controlled via the MCP sync system:
 **Project Settings**: `.claude/settings.local.json` in project root for per-project permissions
 
 **Important**: To modify the enabled plugins or MCP servers:
-1. Edit `dot_config/claude/enabled_plugins.json` for plugins
+1. Edit `dot_config/mcp/overrides/claude.json` for plugins
 2. Edit `dot_config/mcp/mcp-master.json` for MCP servers
 3. Run `chezmoi apply` to deploy changes
 4. MCP sync runs automatically after apply and updates your `~/.claude.json`
+
+#### Serena MCP Server - Semantic Code Intelligence
+
+**⭐ Serena is your primary tool for intelligent code understanding and refactoring. Leverage it extensively!**
+
+Serena provides semantic code understanding powered by the **JetBrains IDE plugin** - giving you access to production-grade IDE indexing without needing a separate language server setup.
+
+**What You Have:**
+- **Full IDE-Level Code Intelligence**: Powered by IntelliJ's actual code indexer (used by JetBrains professionals daily)
+- **Multi-Language Support**: Works with any language JetBrains supports (Java, Python, Kotlin, Go, JavaScript, TypeScript, C++, Rust, etc.)
+- **Fast Lookups**: No LSP startup time - queries are instant thanks to persistent IDE indexing
+- **Accurate Refactoring**: Rename symbols across entire codebase with perfect accuracy
+
+**Available Tools - Use These Liberally:**
+
+**Semantic Code Navigation:**
+- **`find_symbol(symbol_name, kind?, file_path?)`** - Find exact symbol definition. Use this FIRST before reading files.
+  - Example: Find where a function is defined instead of searching file-by-file
+  - Use case: Understanding unfamiliar code, tracing origin of utilities
+
+- **`get_symbols_overview(file_path?)`** - Get structure of current file/workspace
+  - Returns: Functions, classes, types, imports - organized hierarchically
+  - Use case: Quick codebase orientation, understanding architecture
+
+- **`find_referencing_symbols(symbol_name)`** - Find ALL usages across codebase
+  - Use case: Impact analysis before refactoring, understanding scope of changes
+  - Better than grep: Only matches actual code references, not comments/strings
+
+**Intelligent Refactoring (Use These When Modifying Code):**
+- **`replace_symbol_body(symbol_name, new_body)`** - Replace function/method implementation
+  - Automatically handles: Signature changes, overload resolution, multi-file updates
+  - Use case: Optimizing algorithms, fixing bugs at the root
+
+- **`insert_before_symbol(symbol_name, code)`** - Add code before a symbol
+  - Use case: Adding setup code, initialization, pre-conditions
+
+- **`insert_after_symbol(symbol_name, code)`** - Add code after a symbol
+  - Use case: Adding cleanup, post-processing, followup logic
+
+**Architectural Memory (Store Decisions for Later Iterations):**
+- **`write_memory(key, content)`** - Store architectural decisions, design patterns, discovered issues
+  - Examples:
+    - `write_memory("auth_pattern", "Uses JWT tokens stored in sessionStorage")`
+    - `write_memory("db_schema_todo", "Need to add indexes on users.email and orders.created_at")`
+  - Use case: Multiple agents working on same codebase need shared context
+
+- **`read_memory(key)`** - Retrieve previously stored context
+  - Use this BEFORE starting to understand prior analysis
+
+- **`list_memories()`** - See all stored architectural knowledge
+  - Use case: Quick knowledge base of what's been learned
+
+**Project Navigation:**
+- **`activate_project(project_name/path)`** - Switch projects (if working in monorepo or multiple repos)
+- **`onboarding`** - Get project-specific guidance
+
+**⚙️ Recommended Agent Workflow:**
+
+1. **Exploration Phase**:
+   ```
+   get_symbols_overview() → understand structure
+   find_symbol(target) → locate key pieces
+   find_referencing_symbols(key_fn) → understand usage
+   read_memory() → load prior analysis
+   ```
+
+2. **Planning Phase**:
+   ```
+   write_memory("refactor_plan", "...") → document plan
+   find_referencing_symbols() → identify all impact points
+   ```
+
+3. **Implementation Phase**:
+   ```
+   replace_symbol_body() or insert_before/after → make changes
+   find_referencing_symbols() → verify impact
+   ```
+
+4. **Documentation Phase**:
+   ```
+   write_memory("decision", "...") → record for next iteration
+   ```
+
+**📊 Monitoring & Dashboard:**
+
+Serena runs a web dashboard at `http://localhost:24282/dashboard/` showing:
+- Active tool calls and their results
+- Token usage statistics (accurate via local tiktoken)
+- Performance metrics
+- Project indexing status
+- Error logs
+
+**💡 Performance Tips:**
+
+1. **Use symbol tools BEFORE reading files**: `find_symbol()` is 10x faster than opening files
+2. **Leverage find_referencing_symbols()**: Tells you everywhere a symbol is used - perfect for impact analysis
+3. **Batch refactoring**: Use `replace_symbol_body()` for multi-location fixes instead of file-by-file edits
+4. **Store decisions early**: `write_memory()` from first iteration so later agents don't re-investigate
+5. **Trust JetBrains backend**: It has same accuracy as IntelliJ refactoring - renames will work perfectly across codebase
+
+**🎯 When to Use Serena (Recommended: Always):**
+
+| Task | Tool | Why |
+|------|------|-----|
+| Understanding unfamiliar code | `find_symbol()`, `get_symbols_overview()` | Instant answers, no file reading |
+| Finding usages | `find_referencing_symbols()` | Exact results, handles overloads |
+| Renaming something | `replace_symbol_body()` | Perfect accuracy across codebase |
+| Multi-location fixes | `insert_before/after_symbol()` | Coordinated changes |
+| Code review | `find_referencing_symbols()` | Understand impact |
+| Architectural decisions | `write_memory()` + `read_memory()` | Persistent knowledge |
+
+**⚠️ Prerequisites:**
+
+- JetBrains IDE (IntelliJ, PyCharm, WebStorm, etc.) must be running
+- Project must be open in IDE (same folder as working directory)
+- IDE indexing must complete (watch status bar for "Scanning...")
+
+**Configuration:**
+- Set via: `~/.serena/serena_config.yml` (already configured with `language_backend: JetBrains`)
+- Per-session override: Available via MCP context injection (handled automatically)
+- Dashboard: Accessible at `http://localhost:24282/dashboard/`
 
 ### macOS Setup
 
@@ -300,7 +421,7 @@ Enabled plugins are now version-controlled via the MCP sync system:
 
 ### Automation
 
-- `scripts/sync-mcp-configs.py` - Syncs master MCP config to all AI tools (uv standalone script)
+- `mcp_sync` - Syncs master MCP config to all AI tools (uv app)
 - `.chezmoiscripts/run_after_sync-mcp.sh` - Runs sync after chezmoi apply
 - `.chezmoiscripts/darwin/run_once_setup-macos.sh` - One-time macOS setup
 - `dot_local/bin/executable_ralph-opencode` - Global wrapper for Ralph + OpenCode
@@ -324,7 +445,7 @@ Enabled plugins are now version-controlled via the MCP sync system:
 
 1. Edit `dot_config/mcp/mcp-master.json` (the master config)
 2. Run `chezmoi apply` - sync script runs automatically
-3. Or manually run `uv run --script ~/.local/share/chezmoi/scripts/sync-mcp-configs.py`
+3. Or manually run `uv run --project ~/.local/share/chezmoi/mcp_sync sync-mcp-configs`
 4. Verify the config is synced to all tool locations
 
 **For Claude Code (separate plugin system):**

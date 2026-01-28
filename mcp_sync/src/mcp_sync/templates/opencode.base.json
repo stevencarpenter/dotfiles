@@ -1,7 +1,3 @@
-{{- /* OpenCode Agent Configuration Template
-Configuration for the OpenCode autonomous coding agent.
-Synced with MCP servers from the master config.
-*/ -}}
 {
   "$schema": "https://opencode.ai/config.json",
   "provider": {

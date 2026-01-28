@@ -145,7 +145,6 @@ Available fixtures in `conftest.py`:
 - **`master_config`** - Sample master MCP configuration dict
 - **`master_config_file`** - Master config file in temp home
 - **`claude_config_template`** - Sample Claude Code config
-- **`opencode_config_template`** - Sample OpenCode config
 - **`monkeypatch_home`** - Monkeypatch that replaces `Path.home()`
 
 ## Test Data

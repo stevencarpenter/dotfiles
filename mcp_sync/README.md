@@ -38,6 +38,19 @@ uv run sync-mcp-configs --master /path/to/mcp-master.json --home /tmp/home
 - Claude Code
 - OpenCode
 
+## Overrides
+
+Add per-tool overrides under `~/.config/mcp/overrides/<tool>.json`.
+Overrides are deep-merged after the base template and generated MCP config.
+
+List append syntax: use a `+` suffix on a key to append unique items:
+
+```json
+{
+  "enabledPlugins+": ["my-plugin@source"]
+}
+```
+
 ## Development
 
 Install dev deps and run tests:

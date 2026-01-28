@@ -25,6 +25,7 @@ def test_full_sync_workflow_all_targets(temp_home, monkeypatch_home, master_conf
         ".config/github-copilot/intellij/mcp.json",
         ".config/github-copilot/mcp.json",
         ".config/mcp/mcp_config.json",
+        ".config/opencode/opencode.json",
         ".config/cursor/mcp.json",
         ".config/vscode/mcp.json",
         ".config/junie/mcp/mcp.json",
@@ -124,12 +125,11 @@ def test_full_sync_env_vars_preserved(temp_home, monkeypatch_home, master_config
     assert "env" in github_server
     assert github_server["env"]["GITHUB_TOKEN"] == "${GITHUB_TOKEN}"
 
-    # Check OpenCode format (if config created)
+    # Check OpenCode format
     opencode_path = temp_home / ".config/opencode/opencode.json"
-    if opencode_path.exists():
-        opencode_config = json.loads(opencode_path.read_text())
-        if "mcp" in opencode_config and "github" in opencode_config["mcp"]:
-            assert "environment" in opencode_config["mcp"]["github"]
+    opencode_config = json.loads(opencode_path.read_text())
+    if "mcp" in opencode_config and "github" in opencode_config["mcp"]:
+        assert "environment" in opencode_config["mcp"]["github"]
 
 
 def test_sync_with_existing_claude_config(
@@ -161,10 +161,8 @@ def test_sync_with_existing_claude_config(
     assert "github" in result["enabledPlugins"]
 
 
-def test_sync_with_existing_opencode_config(
-    temp_home, monkeypatch_home, master_config_file, opencode_config_template
-):
-    """Integration test: existing OpenCode config is updated."""
+def test_sync_with_existing_opencode_config(temp_home, monkeypatch_home, master_config_file):
+    """Integration test: existing OpenCode config is overwritten from base template."""
 
     monkeypatch_home.setattr(Path, "home", lambda: temp_home)
 
@@ -173,7 +171,8 @@ def test_sync_with_existing_opencode_config(
     opencode_dir.mkdir(parents=True, exist_ok=True)
     opencode_path = opencode_dir / "opencode.json"
     opencode_path.write_text(
-        json.dumps(opencode_config_template, indent=2), encoding="utf-8"
+        json.dumps({"model": "gpt-4", "providers": ["openai"], "mcp": {}}, indent=2),
+        encoding="utf-8",
     )
 
     exit_code = main()
@@ -181,6 +180,9 @@ def test_sync_with_existing_opencode_config(
     assert exit_code == 0
 
     result = json.loads(opencode_path.read_text())
+
+    # Base template should be present
+    assert "provider" in result
 
     # Should have updated mcp section
     assert "mcp" in result
@@ -192,9 +194,9 @@ def test_sync_with_existing_opencode_config(
     # IDE context
     assert "--context=ide" in result["mcp"]["serena"]["args"]
 
-    # Other config preserved
-    assert result["model"] == "gpt-4"
-    assert "openai" in result["providers"]
+    # Prior custom fields should be overwritten
+    assert "model" not in result
+    assert "providers" not in result
 
 
 def test_sync_missing_master_config(temp_home, monkeypatch_home):
@@ -225,6 +227,7 @@ def test_sync_with_codex_config(temp_home, monkeypatch_home, master_config_file)
     result = codex_config.read_text()
     assert "[mcp_servers.serena]" in result
     assert "--context=codex" in result
+    assert 'model = "gpt-5.2"' in result
 
 
 def test_junie_gets_agent_context(temp_home, monkeypatch_home, master_config_file):
