@@ -3,14 +3,11 @@
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
-
-from sync_mcp_configs_module import main
+from mcp_sync import main
 
 
 def test_full_sync_workflow_all_targets(temp_home, monkeypatch_home, master_config_file):

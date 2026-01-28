@@ -1,18 +1,13 @@
-"""Unit and integration tests for sync-mcp-configs.py script."""
+"""Unit and integration tests for the MCP sync package."""
 
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
-from typing import Any
 
 import pytest
 
-# Add scripts directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
-
-from sync_mcp_configs_module import (
+from mcp_sync import (
     load_master_config,
     merge_claude_code_plugins,
     patch_claude_code_config,

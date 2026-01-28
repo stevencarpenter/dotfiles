@@ -5,12 +5,15 @@
 **/.git/CLAUDE.md
 **/.git/**/CLAUDE.md
 .chezmoiscripts/CLAUDE.md
+.chezmoiignore/**/*.md
 dot_config/**/CLAUDE.md
 dot_codex/CLAUDE.md
 dot_serena/CLAUDE.md
 dot_claude/CLAUDE.md
 scripts/CLAUDE.md
 docs/**/CLAUDE.md
+
+
 # Ignore .claude transient data
 .claude/debug
 .claude/downloads

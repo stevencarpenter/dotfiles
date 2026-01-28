@@ -307,6 +307,11 @@ Does it require deep reasoning?
    - Designed for integrated IDE work
    - Better than manual tool invocation
 
+6. **Start tasks with uv**
+   - `uv run sync-mcp-configs` keeps MCP servers in sync across tools
+   - `uv run ruff check scripts tests` enforces consistent formatting and lint rules
+   - `uv run pytest tests/ -v` verifies the sync logic before deployment
+
 ### ❌ DON'Ts
 
 1. **Don't use Serena for**
@@ -379,4 +384,3 @@ Does it require deep reasoning?
 - **Ralph/OpenCode**: `docs/ai-tools/ralph-opencode-setup.md`
 - **Architecture**: `CLAUDE.md` project overview
 - **Tests**: `tests/` for tool usage examples
-

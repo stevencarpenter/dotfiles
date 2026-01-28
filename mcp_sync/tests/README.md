@@ -1,6 +1,6 @@
 # MCP Sync Configuration Tests
 
-This directory contains comprehensive tests for `scripts/sync-mcp-configs.py`, the MCP configuration synchronization script.
+This directory contains comprehensive tests for the `mcp_sync` CLI, which syncs MCP configuration files.
 
 ## Test Structure
 
@@ -26,8 +26,22 @@ uv pip install pytest pytest-cov
 uv run pytest tests/ -v
 
 # Run with coverage report
-uv run pytest tests/ -v --cov=scripts/sync-mcp-configs --cov-report=html
+uv run pytest tests/ -v --cov=mcp_sync --cov-report=html
 ```
+
+### uv helper commands
+
+- Run the sync tool via the uv project entrypoint:
+
+  ```bash
+  uv run sync-mcp-configs
+  ```
+
+- Lint and format Python sources:
+
+  ```bash
+uv run ruff check mcp_sync tests
+  ```
 
 ### Run Specific Test Suites
 
@@ -180,13 +194,13 @@ Current coverage targets:
 View HTML coverage report:
 
 ```bash
-uv run pytest tests/ --cov=scripts/sync-mcp-configs --cov-report=html
+uv run pytest tests/ --cov=mcp_sync --cov-report=html
 open htmlcov/index.html
 ```
 
 ## Known Limitations
 
-1. **Import Strategy**: Due to the shebang in `sync-mcp-configs.py`, tests import the module dynamically by adding the scripts directory to `sys.path`. This prevents static analysis tools from resolving imports.
+1. **Import Strategy**: Tests import the `mcp_sync` package directly, which is simple because the project root is available to pytest.
 
 2. **Mocking**: Tests use `monkeypatch` from pytest and temporary directories to avoid filesystem side effects.
 
@@ -215,6 +229,7 @@ uv run pytest tests/ -v --tb=short --junit-xml=test-results.xml
 
 ## Related Documentation
 
-- Main script: `scripts/sync-mcp-configs.py`
+- Main module: `mcp_sync`
+- CLI entrypoint: `sync-mcp-configs`
 - MCP setup: `docs/ai-tools/serena-mcp-setup.md`
 - CLAUDE.md: Project guidelines and architecture

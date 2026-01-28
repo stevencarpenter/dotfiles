@@ -816,9 +816,6 @@ FodyWeavers.xsd
 *.log.*
 *.sig
 
-pkg/
-src/
-
 ### macOS template
 # General
 .DS_Store
