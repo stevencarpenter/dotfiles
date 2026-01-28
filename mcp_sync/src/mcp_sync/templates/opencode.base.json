@@ -13,9 +13,12 @@
         },
         "nvidia/nemotron-3-nano": {
           "name": "nemotron-3-nano"
+        },
+        "zai-org/glm-4.7-flash": {
+          "name": "glm-4.7-flash"
         }
       }
-    }
-  },
-  "mcp": {}
+    },
+    "mcp": {}
+  }
 }
