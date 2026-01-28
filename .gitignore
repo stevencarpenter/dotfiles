@@ -1043,3 +1043,6 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
+
+# Serena project settings
+.serena/
