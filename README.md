@@ -136,7 +136,18 @@ This syncs to:
 - `~/.config/.copilot/mcp-config.json` (GitHub Copilot)
 - `~/.config/github-copilot/mcp.json` (GitHub Copilot CLI)
 - `~/.config/github-copilot/intellij/mcp.json` (IntelliJ)
-- `~/.config/mcp/mcp_config.json` (Claude/other tools)
+- `~/.config/mcp/mcp_config.json` (Claude/other tools
+
+### Linting and Testing
+
+Use the uv-first tooling that ships with this project:
+
+```shell
+uv run ruff check scripts tests
+uv run pytest tests/ -v
+```
+
+If you need to run a specific suite or module, add arguments after `pytest` (e.g., `uv run pytest tests/test_sync_mcp_configs.py -v`).
 
 ### Linting and Testing
 

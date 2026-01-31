@@ -1,9 +1,12 @@
 # Ignore non-dotfile directories and files in the repository
 .git
 .idea
+
 # Ignore all claude-mem generated CLAUDE.md files (keep only root CLAUDE.md for project instructions)
 **/.git/CLAUDE.md
 **/.git/**/CLAUDE.md
+!CLAUDE.md
+
 .chezmoiscripts/CLAUDE.md
 .chezmoiignore/**/*.md
 dot_config/**/CLAUDE.md
@@ -45,5 +48,5 @@ scripts
 private_dot_claude.json
 
 # Ignore copilot generated garbage. Fuck you copilot, Microsoft, pedophile Bill Gates.
-.config/.copilot/*
-
+**/.copilot/**/*
+**/.config/**/*copilot**/**

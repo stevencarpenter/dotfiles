@@ -11,7 +11,6 @@ from string import Template as StringTemplate
 from string.templatelib import Template
 from typing import Any, Callable
 
-
 type JsonDict = dict[str, Any]
 type Transform = Callable[[JsonDict], JsonDict]
 
