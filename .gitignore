@@ -1046,3 +1046,8 @@ cython_debug/
 
 # Serena project settings
 .serena/
+
+# Ignore all CLAUDE.md files for claude mem
+**/*CLAUDE.md
+# Except the one in the root
+!CLAUDE.md

@@ -10,7 +10,9 @@ import pytest
 from mcp_sync import main
 
 
-def test_full_sync_workflow_all_targets(temp_home, monkeypatch_home, master_config_file):
+def test_full_sync_workflow_all_targets(
+    temp_home, monkeypatch_home, master_config_file
+):
     """Integration test: full sync to all target locations."""
     # Mock Path.home() to return temp_home
     monkeypatch_home.setattr(Path, "home", lambda: temp_home)
@@ -40,7 +42,9 @@ def test_full_sync_workflow_all_targets(temp_home, monkeypatch_home, master_conf
         assert isinstance(config, dict)
 
 
-def test_full_sync_copilot_format_has_tools_array(temp_home, monkeypatch_home, master_config_file):
+def test_full_sync_copilot_format_has_tools_array(
+    temp_home, monkeypatch_home, master_config_file
+):
     """Integration test: verify Copilot format includes tools array."""
 
     monkeypatch_home.setattr(Path, "home", lambda: temp_home)
@@ -56,18 +60,21 @@ def test_full_sync_copilot_format_has_tools_array(temp_home, monkeypatch_home, m
         assert server_config["tools"] == ["*"]
 
 
-def test_full_sync_generic_mcp_has_schema(temp_home, monkeypatch_home, master_config_file):
+def test_full_sync_generic_mcp_has_schema(
+    temp_home, monkeypatch_home, master_config_file
+):
     """Integration test: verify generic MCP format has schema."""
 
     monkeypatch_home.setattr(Path, "home", lambda: temp_home)
     main()
 
-    generic_config = json.loads(
-        (temp_home / ".config/mcp/mcp_config.json").read_text()
-    )
+    generic_config = json.loads((temp_home / ".config/mcp/mcp_config.json").read_text())
 
     assert "$schema" in generic_config
-    assert generic_config["$schema"] == "https://modelcontextprotocol.io/schema/config.json"
+    assert (
+        generic_config["$schema"]
+        == "https://modelcontextprotocol.io/schema/config.json"
+    )
 
 
 def test_full_sync_ide_context_applied(temp_home, monkeypatch_home, master_config_file):
@@ -84,14 +91,14 @@ def test_full_sync_ide_context_applied(temp_home, monkeypatch_home, master_confi
     assert "--context=ide" in serena_args
 
     # Check VSCode
-    vscode_config = json.loads(
-        (temp_home / ".config/vscode/mcp.json").read_text()
-    )
+    vscode_config = json.loads((temp_home / ".config/vscode/mcp.json").read_text())
     serena_args = vscode_config.get("servers", {}).get("serena", {}).get("args", [])
     assert "--context=ide" in serena_args
 
 
-def test_full_sync_cursor_legacy_mirror(temp_home, monkeypatch_home, master_config_file):
+def test_full_sync_cursor_legacy_mirror(
+    temp_home, monkeypatch_home, master_config_file
+):
     """Integration test: Cursor config is mirrored to legacy location."""
 
     monkeypatch_home.setattr(Path, "home", lambda: temp_home)
@@ -141,7 +148,9 @@ def test_sync_with_existing_claude_config(
 
     # Create existing Claude config
     claude_path = temp_home / ".claude.json"
-    claude_path.write_text(json.dumps(claude_config_template, indent=2), encoding="utf-8")
+    claude_path.write_text(
+        json.dumps(claude_config_template, indent=2), encoding="utf-8"
+    )
 
     exit_code = main()
 
@@ -161,7 +170,9 @@ def test_sync_with_existing_claude_config(
     assert "github" in result["enabledPlugins"]
 
 
-def test_sync_with_existing_opencode_config(temp_home, monkeypatch_home, master_config_file):
+def test_sync_with_existing_opencode_config(
+    temp_home, monkeypatch_home, master_config_file
+):
     """Integration test: existing OpenCode config is overwritten from base template."""
 
     monkeypatch_home.setattr(Path, "home", lambda: temp_home)
@@ -191,8 +202,9 @@ def test_sync_with_existing_opencode_config(temp_home, monkeypatch_home, master_
     # OpenCode format should use command array
     assert isinstance(result["mcp"]["filesystem"]["command"], list)
 
-    # IDE context
-    assert "--context=ide" in result["mcp"]["serena"]["args"]
+    # IDE context in command array (OpenCode doesn't use separate args field)
+    assert "--context=ide" in result["mcp"]["serena"]["command"]
+    assert "args" not in result["mcp"]["serena"]
 
     # Prior custom fields should be overwritten
     assert "model" not in result
@@ -218,7 +230,7 @@ def test_sync_with_codex_config(temp_home, monkeypatch_home, master_config_file)
     codex_dir = temp_home / ".codex"
     codex_dir.mkdir(parents=True, exist_ok=True)
     codex_config = codex_dir / "config.toml"
-    codex_config.write_text("[tool]\nname = \"codex\"\n", encoding="utf-8")
+    codex_config.write_text('[tool]\nname = "codex"\n', encoding="utf-8")
 
     exit_code = main()
 
@@ -236,9 +248,7 @@ def test_junie_gets_agent_context(temp_home, monkeypatch_home, master_config_fil
     monkeypatch_home.setattr(Path, "home", lambda: temp_home)
     main()
 
-    junie_config = json.loads(
-        (temp_home / ".config/junie/mcp/mcp.json").read_text()
-    )
+    junie_config = json.loads((temp_home / ".config/junie/mcp/mcp.json").read_text())
 
     serena_args = junie_config.get("mcpServers", {}).get("serena", {}).get("args", [])
     assert "--context=agent" in serena_args
@@ -251,9 +261,7 @@ def test_lmstudio_gets_desktop_context(temp_home, monkeypatch_home, master_confi
     monkeypatch_home.setattr(Path, "home", lambda: temp_home)
     main()
 
-    lm_config = json.loads(
-        (temp_home / ".config/lmstudio/mcp.json").read_text()
-    )
+    lm_config = json.loads((temp_home / ".config/lmstudio/mcp.json").read_text())
 
     serena_args = lm_config.get("mcpServers", {}).get("serena", {}).get("args", [])
     assert "--context=desktop-app" in serena_args

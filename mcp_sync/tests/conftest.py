@@ -23,29 +23,20 @@ def master_config():
         "servers": {
             "filesystem": {
                 "command": "node",
-                "args": [
-                    "/path/to/filesystem-mcp-server/dist/index.js"
-                ],
+                "args": ["/path/to/filesystem-mcp-server/dist/index.js"],
                 "type": "local",
-                "note": "Local filesystem access"
+                "note": "Local filesystem access",
             },
             "memory": {
                 "command": "node",
-                "args": [
-                    "/path/to/memory-mcp-server/dist/index.js"
-                ],
-                "type": "local"
+                "args": ["/path/to/memory-mcp-server/dist/index.js"],
+                "type": "local",
             },
             "github": {
                 "command": "uv",
-                "args": [
-                    "run",
-                    "github-mcp"
-                ],
+                "args": ["run", "github-mcp"],
                 "type": "local",
-                "env": {
-                    "GITHUB_TOKEN": "${GITHUB_TOKEN}"
-                }
+                "env": {"GITHUB_TOKEN": "${GITHUB_TOKEN}"},
             },
             "serena": {
                 "command": "bash",
@@ -53,10 +44,10 @@ def master_config():
                     "-lc",
                     'exec "$HOME/.local/share/chezmoi/scripts/serena-mcp" "$@"',
                     "serena-mcp",
-                    "start-mcp-server"
+                    "start-mcp-server",
                 ],
-                "type": "local"
-            }
+                "type": "local",
+            },
         }
     }
 
@@ -68,12 +59,7 @@ def claude_config_template():
         "version": "1.0",
         "model": "claude-opus-4-5",
         "enabledPlugins": ["github", "context7"],
-        "mcpServers": {
-            "old_server": {
-                "command": "old",
-                "args": ["old"]
-            }
-        }
+        "mcpServers": {"old_server": {"command": "old", "args": ["old"]}},
     }
 
 

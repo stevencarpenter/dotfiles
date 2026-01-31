@@ -46,7 +46,9 @@ class SyncTarget:
 
     def sync(self, master: JsonDict, home: Path | None = None) -> None:
         config = self.build(master, home=home)
-        sync_to_locations(config, self.destination, self.legacy_dir, self.legacy_destination)
+        sync_to_locations(
+            config, self.destination, self.legacy_dir, self.legacy_destination
+        )
 
 
 def _render(template: Template | str) -> str:
@@ -139,7 +141,7 @@ def _load_override(key: str, home: Path | None) -> JsonDict:
 
 def set_serena_context(config: JsonDict, context: str) -> JsonDict:
     serena: JsonDict | None = None
-    use_command_key = False
+    use_command_only = False
 
     servers = _ensure_mapping(config.get("servers"))
     mcp_servers = _ensure_mapping(config.get("mcpServers"))
@@ -151,16 +153,21 @@ def set_serena_context(config: JsonDict, context: str) -> JsonDict:
         serena = mcp_servers["serena"]
     elif "serena" in mcp:
         serena = mcp["serena"]
-        if isinstance(serena.get("command"), list):
-            serena["args"] = list(serena["command"])
-            use_command_key = True
+        # OpenCode format: command is an array containing [cmd, ...args]
+        # No separate args field - modify command directly
+        if isinstance(serena.get("command"), list) and "args" not in serena:
+            use_command_only = True
 
     if serena is None:
         return config
 
-    args = serena.get("args", [])
-    if not isinstance(args, list):
-        return config
+    # Determine which field holds the arguments
+    if use_command_only:
+        args = list(serena.get("command", []))
+    else:
+        args = serena.get("args", [])
+        if not isinstance(args, list):
+            return config
 
     context_arg = f"--context={context}"
     for idx, arg in enumerate(args):
@@ -170,10 +177,10 @@ def set_serena_context(config: JsonDict, context: str) -> JsonDict:
     else:
         args.append(context_arg)
 
-    serena["args"] = args
-
-    if use_command_key:
-        config["mcp"]["serena"]["command"] = args
+    if use_command_only:
+        serena["command"] = args
+    else:
+        serena["args"] = args
 
     return config
 
@@ -218,7 +225,9 @@ def deep_merge(base: JsonDict, override: JsonDict) -> JsonDict:
     return result
 
 
-def sync_codex_mcp(master: JsonDict, context: str = "codex", home: Path | None = None) -> None:
+def sync_codex_mcp(
+    master: JsonDict, context: str = "codex", home: Path | None = None
+) -> None:
     home_path = _home_dir(home)
     codex_config_path = home_path / ".codex" / "config.toml"
     base_text = _load_text_template("codex", home_path)
@@ -236,7 +245,9 @@ def sync_codex_mcp(master: JsonDict, context: str = "codex", home: Path | None =
 
     codex_config_path.parent.mkdir(parents=True, exist_ok=True)
     codex_config_path.write_text(text, encoding="utf-8")
-    log_success(f"Synced MCP servers to: {codex_config_path} (Serena context: {context})")
+    log_success(
+        f"Synced MCP servers to: {codex_config_path} (Serena context: {context})"
+    )
 
 
 def _toml_string(value: str) -> str:
@@ -262,12 +273,12 @@ def _render_codex_mcp_section(servers: JsonDict, context: str) -> str:
 
         env = server.get("env")
         if isinstance(env, dict):
-            env_parts = [f"{key} = {_toml_string(str(value))}" for key, value in env.items()]
+            env_parts = [
+                f"{key} = {_toml_string(str(value))}" for key, value in env.items()
+            ]
             lines.append(f"environment = {{ {', '.join(env_parts)} }}")
 
     return "\n".join(lines) + "\n"
-
-
 
 
 def sync_copilot_cli_config(home: Path | None = None) -> None:
@@ -291,12 +302,16 @@ def sync_copilot_cli_config(home: Path | None = None) -> None:
                     "last_logged_in_user": backup_config.get("last_logged_in_user"),
                 }
             except (json.JSONDecodeError, OSError):
-                log_info(f"Skipping auth restore: {copilot_backup_path} (invalid or missing)")
+                log_info(
+                    f"Skipping auth restore: {copilot_backup_path} (invalid or missing)"
+                )
 
         if auth_tokens:
             deployed_config["logged_in_users"] = auth_tokens.get("logged_in_users", [])
             if auth_tokens.get("last_logged_in_user"):
-                deployed_config["last_logged_in_user"] = auth_tokens["last_logged_in_user"]
+                deployed_config["last_logged_in_user"] = auth_tokens[
+                    "last_logged_in_user"
+                ]
 
         _write_json(copilot_config_path, deployed_config)
         _write_json(copilot_backup_path, deployed_config)
@@ -326,7 +341,10 @@ def patch_claude_code_config(master: JsonDict, home: Path | None = None) -> None
     claude_cfg = _load_json(claude_path)
 
     servers = _normalize_servers(master)
-    servers = {key: {k: v for k, v in val.items() if k != "note"} for key, val in servers.items()}
+    servers = {
+        key: {k: v for k, v in val.items() if k != "note"}
+        for key, val in servers.items()
+    }
 
     existing = _ensure_mapping(claude_cfg.get("mcpServers"))
     claude_cfg["mcpServers"] = {**existing, **servers}
@@ -409,9 +427,7 @@ def sync_opencode_mcp(master: JsonDict, home: Path | None = None) -> None:
         override_key="opencode",
     )
     target.sync(master, home=home_path)
-    log_success(
-        f"Synced MCP servers to: {target.destination} (Serena context: ide)"
-    )
+    log_success(f"Synced MCP servers to: {target.destination} (Serena context: ide)")
 
 
 def _build_targets(home: Path) -> list[SyncTarget]:
@@ -500,7 +516,9 @@ def _build_targets(home: Path) -> list[SyncTarget]:
 
 def run_sync(master_path: Path | None = None, home: Path | None = None) -> int:
     home_path = home or Path.home()
-    master_config_path = master_path or home_path / ".config" / "mcp" / "mcp-master.json"
+    master_config_path = (
+        master_path or home_path / ".config" / "mcp" / "mcp-master.json"
+    )
 
     if not master_config_path.is_file():
         log_error(f"Master config not found at {master_config_path}")

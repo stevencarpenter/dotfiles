@@ -79,14 +79,7 @@ def test_transform_to_mcpservers_format(master_config):
 
 def test_set_serena_context_servers_format():
     """Test adding Serena context to servers format."""
-    config = {
-        "servers": {
-            "serena": {
-                "command": "bash",
-                "args": ["-lc", "echo hello"]
-            }
-        }
-    }
+    config = {"servers": {"serena": {"command": "bash", "args": ["-lc", "echo hello"]}}}
 
     result = set_serena_context(config, "test-context")
 
@@ -96,12 +89,7 @@ def test_set_serena_context_servers_format():
 def test_set_serena_context_mcp_servers_format():
     """Test adding Serena context to mcpServers format."""
     config = {
-        "mcpServers": {
-            "serena": {
-                "command": "bash",
-                "args": ["-lc", "echo hello"]
-            }
-        }
+        "mcpServers": {"serena": {"command": "bash", "args": ["-lc", "echo hello"]}}
     }
 
     result = set_serena_context(config, "ide")
@@ -115,7 +103,7 @@ def test_set_serena_context_replaces_existing():
         "servers": {
             "serena": {
                 "command": "bash",
-                "args": ["--context=old-context", "other-arg"]
+                "args": ["--context=old-context", "other-arg"],
             }
         }
     }
@@ -130,14 +118,7 @@ def test_set_serena_context_replaces_existing():
 
 def test_set_serena_context_missing_serena():
     """Test that config without Serena is unchanged."""
-    config = {
-        "servers": {
-            "filesystem": {
-                "command": "node",
-                "args": []
-            }
-        }
-    }
+    config = {"servers": {"filesystem": {"command": "node", "args": []}}}
 
     result = set_serena_context(config, "test")
 
@@ -146,18 +127,14 @@ def test_set_serena_context_missing_serena():
 
 
 def test_set_serena_context_opencode_format():
-    """Test adding Serena context to OpenCode format."""
-    config = {
-        "mcp": {
-            "serena": {
-                "command": ["bash", "-lc", "echo"]
-            }
-        }
-    }
+    """Test adding Serena context to OpenCode format (command-only, no args)."""
+    config = {"mcp": {"serena": {"command": ["bash", "-lc", "echo"]}}}
 
     result = set_serena_context(config, "editor")
 
-    assert "--context=editor" in result["mcp"]["serena"]["args"]
+    # OpenCode format uses command array only, no separate args field
+    assert "--context=editor" in result["mcp"]["serena"]["command"]
+    assert "args" not in result["mcp"]["serena"]
 
 
 def test_transform_to_opencode_format(master_config):
@@ -212,7 +189,6 @@ def test_sync_to_locations_with_legacy(temp_home, monkeypatch_home):
     assert xdg_target.read_text() == legacy_target.read_text()
 
 
-
 def test_patch_claude_code_config_missing(temp_home, monkeypatch_home, master_config):
     """Test that missing Claude Code config is skipped gracefully."""
     # No ~/.claude.json file exists
@@ -229,7 +205,9 @@ def test_patch_claude_code_config_merges_servers(
 ):
     """Test that Claude Code config merges MCP servers (old + new)."""
     claude_path = temp_home / ".claude.json"
-    claude_path.write_text(json.dumps(claude_config_template, indent=2), encoding="utf-8")
+    claude_path.write_text(
+        json.dumps(claude_config_template, indent=2), encoding="utf-8"
+    )
 
     patch_claude_code_config(master_config)
 
@@ -247,14 +225,7 @@ def test_patch_claude_code_config_sets_serena_context(
     temp_home, monkeypatch_home, master_config
 ):
     """Test that Claude Code Serena gets claude-code context."""
-    claude_config = {
-        "mcpServers": {
-            "serena": {
-                "command": "bash",
-                "args": []
-            }
-        }
-    }
+    claude_config = {"mcpServers": {"serena": {"command": "bash", "args": []}}}
 
     claude_path = temp_home / ".claude.json"
     claude_path.write_text(json.dumps(claude_config, indent=2), encoding="utf-8")
@@ -291,7 +262,7 @@ def test_edge_case_special_chars_in_args(master_config):
         "servers": {
             "test": {
                 "command": "bash",
-                "args": ["-c", 'echo "hello world" && echo $VAR']
+                "args": ["-c", 'echo "hello world" && echo $VAR'],
             }
         }
     }
@@ -312,16 +283,22 @@ def test_deep_merge_appends_list_with_plus_key():
     assert result["enabledPlugins"] == ["alpha", "beta"]
 
 
-def test_patch_claude_code_config_applies_override(temp_home, monkeypatch_home, master_config):
+def test_patch_claude_code_config_applies_override(
+    temp_home, monkeypatch_home, master_config
+):
     """Test that Claude overrides are merged into the config."""
     claude_path = temp_home / ".claude.json"
-    claude_path.write_text(json.dumps({"mcpServers": {}, "theme": "light"}, indent=2), encoding="utf-8")
+    claude_path.write_text(
+        json.dumps({"mcpServers": {}, "theme": "light"}, indent=2), encoding="utf-8"
+    )
 
     override_dir = temp_home / ".config" / "mcp" / "overrides"
     override_dir.mkdir(parents=True, exist_ok=True)
     override_path = override_dir / "claude.json"
     override_path.write_text(
-        json.dumps({"theme": "dark", "enabledPlugins": {"new-plugin@source": True}}, indent=2),
+        json.dumps(
+            {"theme": "dark", "enabledPlugins": {"new-plugin@source": True}}, indent=2
+        ),
         encoding="utf-8",
     )
 
@@ -419,9 +396,7 @@ hide_gpt5_1_migration_prompt = true
     assert "--context=codex" in result
 
 
-def test_sync_codex_mcp_removes_old_servers(
-    temp_home, monkeypatch_home, master_config
-):
+def test_sync_codex_mcp_removes_old_servers(temp_home, monkeypatch_home, master_config):
     """Test that old MCP server sections are removed."""
     codex_dir = temp_home / ".codex"
     codex_dir.mkdir(parents=True, exist_ok=True)
