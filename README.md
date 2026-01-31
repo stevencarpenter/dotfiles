@@ -149,6 +149,17 @@ uv run pytest tests/ -v
 
 If you need to run a specific suite or module, add arguments after `pytest` (e.g., `uv run pytest tests/test_sync_mcp_configs.py -v`).
 
+### Linting and Testing
+
+Use the uv-first tooling that ships with this project:
+
+```shell
+uv run ruff check scripts tests
+cd mcp_sync && uv run pytest tests/ -v
+```
+
+If you need to run a specific suite or module, add arguments after `pytest` (e.g., `uv run pytest tests/test_sync_mcp_configs.py -v`).
+
 ## Environment Variables Setup
 
 This repository uses age-encrypted environment variables. The encrypted file is stored in the repo as `dot_config/zsh/encrypted_dot_env` and automatically decrypted to `~/.config/zsh/.env` when you run `chezmoi apply`.

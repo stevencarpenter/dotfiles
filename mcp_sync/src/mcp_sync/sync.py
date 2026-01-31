@@ -11,7 +11,6 @@ from string import Template as StringTemplate
 from string.templatelib import Template
 from typing import Any, Callable
 
-
 type JsonDict = dict[str, Any]
 type Transform = Callable[[JsonDict], JsonDict]
 
@@ -64,7 +63,7 @@ def _render(template: Template | str) -> str:
 
 
 def _log(prefix: str, message: str) -> None:
-    print(_render(t"{prefix} {message}"))
+    print(_render(f"{prefix} {message}"))
 
 
 def log_success(message: str) -> None:

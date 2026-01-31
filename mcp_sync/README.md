@@ -47,7 +47,9 @@ List append syntax: use a `+` suffix on a key to append unique items:
 
 ```json
 {
-  "enabledPlugins+": ["my-plugin@source"]
+  "enabledPlugins+": {
+    "my-plugin@source": true
+  }
 }
 ```
 
