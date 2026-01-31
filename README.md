@@ -114,7 +114,14 @@ MCP configs are synced automatically after `chezmoi apply` via the `run_after_sy
 ### Manual Sync (if needed)
 
 ```shell
-~/.local/share/chezmoi/scripts/sync-mcp-configs.sh
+uv run sync-mcp-configs
+```
+
+The helper is also available as a standalone uv script for compatibility with the `run_after_sync-mcp.sh`
+helper in `.chezmoiscripts`:
+
+```shell
+uv run --project ~/.local/share/chezmoi/mcp_sync sync-mcp-configs
 ```
 
 ### Editing MCP Config
@@ -130,6 +137,17 @@ This syncs to:
 - `~/.config/github-copilot/mcp.json` (GitHub Copilot CLI)
 - `~/.config/github-copilot/intellij/mcp.json` (IntelliJ)
 - `~/.config/mcp/mcp_config.json` (Claude/other tools)
+
+### Linting and Testing
+
+Use the uv-first tooling that ships with this project:
+
+```shell
+uv run ruff check scripts tests
+cd mcp_sync && uv run pytest tests/ -v
+```
+
+If you need to run a specific suite or module, add arguments after `pytest` (e.g., `uv run pytest tests/test_sync_mcp_configs.py -v`).
 
 ## Environment Variables Setup
 

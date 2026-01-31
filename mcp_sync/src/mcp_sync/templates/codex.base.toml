@@ -1,0 +1,52 @@
+# Global Codex CLI Settings
+model = "gpt-5.2"
+model_reasoning_effort = "medium"
+
+# Trusted Projects - Codex will run autonomously in these directories
+[projects."$HOME/projects/stevectl"]
+trust_level = "trusted"
+
+[projects."$HOME/projects/mcp-local-stack"]
+trust_level = "trusted"
+
+[projects."$HOME/projects/emr-tui"]
+trust_level = "trusted"
+
+[projects."$HOME/.dotfiles"]
+trust_level = "trusted"
+
+[projects."$HOME/projects/iac"]
+trust_level = "trusted"
+
+[projects."$HOME/personal/mcp"]
+trust_level = "trusted"
+
+[projects."$HOME/emr-tui"]
+trust_level = "trusted"
+
+[projects."$HOME/personal/emr-tui"]
+trust_level = "trusted"
+
+[projects."$HOME/personal/pp-bot"]
+trust_level = "trusted"
+
+[projects."$HOME/personal/aws-tui"]
+trust_level = "trusted"
+
+[projects."$HOME/personal/whistlepost"]
+trust_level = "trusted"
+
+[projects."$HOME/personal/stevectl"]
+trust_level = "trusted"
+
+[projects."$HOME/projects/juno-workflows"]
+trust_level = "trusted"
+
+# UI Preferences
+[notice]
+hide_gpt5_1_migration_prompt = true
+"hide_gpt-5.1-codex-max_migration_prompt" = true
+
+# MCP Servers - Synced from master config
+# This section is populated by sync-mcp-configs
+

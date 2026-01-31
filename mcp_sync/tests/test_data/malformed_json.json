@@ -1,0 +1,8 @@
+{
+  "servers": {
+    "filesystem": {
+      "command": "node"
+      "args": []  // Missing comma, invalid JSON
+    }
+  }
+}

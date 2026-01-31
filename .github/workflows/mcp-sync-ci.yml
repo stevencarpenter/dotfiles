@@ -1,0 +1,38 @@
+name: MCP Sync CI
+
+on:
+  push:
+    paths:
+      - "mcp_sync/**"
+      - ".github/workflows/mcp-sync-ci.yml"
+  pull_request:
+    paths:
+      - "mcp_sync/**"
+      - ".github/workflows/mcp-sync-ci.yml"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Lint with ruff
+        working-directory: mcp_sync
+        run: |
+          uv run --extra dev ruff check src tests
+          uv run --extra dev ruff format --check src tests
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Run tests
+        working-directory: mcp_sync
+        run: uv run --extra dev pytest --cov=mcp_sync --cov-report=term-missing
