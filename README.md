@@ -136,7 +136,7 @@ This syncs to:
 - `~/.config/.copilot/mcp-config.json` (GitHub Copilot)
 - `~/.config/github-copilot/mcp.json` (GitHub Copilot CLI)
 - `~/.config/github-copilot/intellij/mcp.json` (IntelliJ)
-- `~/.config/mcp/mcp_config.json` (Claude/other tools)
+- `~/.config/mcp/mcp_config.json` (Claude/other tools
 
 ### Linting and Testing
 

@@ -43,3 +43,7 @@ arch
 docs
 scripts
 private_dot_claude.json
+
+# Ignore copilot generated garbage. Fuck you copilot, Microsoft, pedophile Bill Gates.
+**/.copilot/**/*
+**/.config/**/*copilot**/**
