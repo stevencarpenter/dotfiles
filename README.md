@@ -144,7 +144,7 @@ Use the uv-first tooling that ships with this project:
 
 ```shell
 uv run ruff check scripts tests
-uv run pytest tests/ -v
+cd mcp_sync && uv run pytest tests/ -v
 ```
 
 If you need to run a specific suite or module, add arguments after `pytest` (e.g., `uv run pytest tests/test_sync_mcp_configs.py -v`).
