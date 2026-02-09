@@ -40,20 +40,6 @@
         "SUPABASE_PROJECT_REF": "${SUPABASE_PROJECT_REF}",
         "SUPABASE_API_KEY": "${SUPABASE_API_KEY}"
       }
-    },
-    "serena": {
-      "command": "bash",
-      "args": [
-        "-lc",
-        "exec \"$HOME/.local/share/chezmoi/scripts/serena-mcp\" \"$@\"",
-        "serena-mcp",
-        "start-mcp-server",
-        "--project-from-cwd",
-        "--mode=interactive",
-        "--mode=editing",
-        "--language-backend=JetBrains"
-      ],
-      "type": "local"
     }
   }
 }

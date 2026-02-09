@@ -6,7 +6,6 @@ import json
 from pathlib import Path
 
 import pytest
-
 from mcp_sync import main
 
 
@@ -77,25 +76,6 @@ def test_full_sync_generic_mcp_has_schema(
     )
 
 
-def test_full_sync_ide_context_applied(temp_home, monkeypatch_home, master_config_file):
-    """Integration test: IDE tools get IDE context in Serena args."""
-
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
-    main()
-
-    # Check GitHub Copilot
-    copilot_config = json.loads(
-        (temp_home / ".config/github-copilot/mcp.json").read_text()
-    )
-    serena_args = copilot_config.get("servers", {}).get("serena", {}).get("args", [])
-    assert "--context=ide" in serena_args
-
-    # Check VSCode
-    vscode_config = json.loads((temp_home / ".config/vscode/mcp.json").read_text())
-    serena_args = vscode_config.get("servers", {}).get("serena", {}).get("args", [])
-    assert "--context=ide" in serena_args
-
-
 def test_full_sync_cursor_legacy_mirror(
     temp_home, monkeypatch_home, master_config_file
 ):
@@ -162,9 +142,6 @@ def test_sync_with_existing_claude_config(
     assert "filesystem" in result["mcpServers"]
     assert "old_server" in result["mcpServers"]
 
-    # Claude Code context
-    assert "--context=claude-code" in result["mcpServers"]["serena"]["args"]
-
     # Other config preserved
     assert result["model"] == "claude-opus-4-5"
     assert "github" in result["enabledPlugins"]
@@ -202,10 +179,6 @@ def test_sync_with_existing_opencode_config(
     # OpenCode format should use command array
     assert isinstance(result["mcp"]["filesystem"]["command"], list)
 
-    # IDE context in command array (OpenCode doesn't use separate args field)
-    assert "--context=ide" in result["mcp"]["serena"]["command"]
-    assert "args" not in result["mcp"]["serena"]
-
     # Prior custom fields should be overwritten
     assert "model" not in result
     assert "providers" not in result
@@ -222,7 +195,7 @@ def test_sync_missing_master_config(temp_home, monkeypatch_home):
 
 
 def test_sync_with_codex_config(temp_home, monkeypatch_home, master_config_file):
-    """Integration test: Codex config created with Serena server."""
+    """Integration test: Codex config created with MCP servers."""
 
     monkeypatch_home.setattr(Path, "home", lambda: temp_home)
 
@@ -237,34 +210,7 @@ def test_sync_with_codex_config(temp_home, monkeypatch_home, master_config_file)
     assert exit_code == 0
 
     result = codex_config.read_text()
-    assert "[mcp_servers.serena]" in result
-    assert "--context=codex" in result
     assert 'model = "gpt-5.2"' in result
-
-
-def test_junie_gets_agent_context(temp_home, monkeypatch_home, master_config_file):
-    """Integration test: Junie gets agent context, not IDE context."""
-
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
-    main()
-
-    junie_config = json.loads((temp_home / ".config/junie/mcp/mcp.json").read_text())
-
-    serena_args = junie_config.get("mcpServers", {}).get("serena", {}).get("args", [])
-    assert "--context=agent" in serena_args
-    assert "--context=ide" not in serena_args
-
-
-def test_lmstudio_gets_desktop_context(temp_home, monkeypatch_home, master_config_file):
-    """Integration test: LM Studio gets desktop-app context."""
-
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
-    main()
-
-    lm_config = json.loads((temp_home / ".config/lmstudio/mcp.json").read_text())
-
-    serena_args = lm_config.get("mcpServers", {}).get("serena", {}).get("args", [])
-    assert "--context=desktop-app" in serena_args
 
 
 def test_sync_idempotency(temp_home, monkeypatch_home, master_config_file):

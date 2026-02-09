@@ -6,12 +6,10 @@ import json
 from pathlib import Path
 
 import pytest
-
 from mcp_sync import (
     deep_merge,
     load_master_config,
     patch_claude_code_config,
-    set_serena_context,
     sync_codex_mcp,
     sync_copilot_cli_config,
     sync_opencode_mcp,
@@ -75,66 +73,6 @@ def test_transform_to_mcpservers_format(master_config):
 
     assert "mcpServers" in result
     assert "filesystem" in result["mcpServers"]
-
-
-def test_set_serena_context_servers_format():
-    """Test adding Serena context to servers format."""
-    config = {"servers": {"serena": {"command": "bash", "args": ["-lc", "echo hello"]}}}
-
-    result = set_serena_context(config, "test-context")
-
-    assert "--context=test-context" in result["servers"]["serena"]["args"]
-
-
-def test_set_serena_context_mcp_servers_format():
-    """Test adding Serena context to mcpServers format."""
-    config = {
-        "mcpServers": {"serena": {"command": "bash", "args": ["-lc", "echo hello"]}}
-    }
-
-    result = set_serena_context(config, "ide")
-
-    assert "--context=ide" in result["mcpServers"]["serena"]["args"]
-
-
-def test_set_serena_context_replaces_existing():
-    """Test that existing context is replaced."""
-    config = {
-        "servers": {
-            "serena": {
-                "command": "bash",
-                "args": ["--context=old-context", "other-arg"],
-            }
-        }
-    }
-
-    result = set_serena_context(config, "new-context")
-    args = result["servers"]["serena"]["args"]
-
-    assert "--context=new-context" in args
-    assert "--context=old-context" not in args
-    assert "other-arg" in args
-
-
-def test_set_serena_context_missing_serena():
-    """Test that config without Serena is unchanged."""
-    config = {"servers": {"filesystem": {"command": "node", "args": []}}}
-
-    result = set_serena_context(config, "test")
-
-    # Should be unchanged
-    assert result == config
-
-
-def test_set_serena_context_opencode_format():
-    """Test adding Serena context to OpenCode format (command-only, no args)."""
-    config = {"mcp": {"serena": {"command": ["bash", "-lc", "echo"]}}}
-
-    result = set_serena_context(config, "editor")
-
-    # OpenCode format uses command array only, no separate args field
-    assert "--context=editor" in result["mcp"]["serena"]["command"]
-    assert "args" not in result["mcp"]["serena"]
 
 
 def test_transform_to_opencode_format(master_config):
@@ -219,21 +157,6 @@ def test_patch_claude_code_config_merges_servers(
     # Master servers should also be present
     assert "filesystem" in result["mcpServers"]
     assert "github" in result["mcpServers"]
-
-
-def test_patch_claude_code_config_sets_serena_context(
-    temp_home, monkeypatch_home, master_config
-):
-    """Test that Claude Code Serena gets claude-code context."""
-    claude_config = {"mcpServers": {"serena": {"command": "bash", "args": []}}}
-
-    claude_path = temp_home / ".claude.json"
-    claude_path.write_text(json.dumps(claude_config, indent=2), encoding="utf-8")
-
-    patch_claude_code_config(master_config)
-
-    result = json.loads(claude_path.read_text())
-    assert "--context=claude-code" in result["mcpServers"]["serena"]["args"]
 
 
 def test_empty_master_config_handling(master_config_file, temp_home, monkeypatch_home):
@@ -346,9 +269,6 @@ def test_sync_opencode_mcp_with_existing_config(
     assert "mcp" in result
     assert "filesystem" in result["mcp"]
 
-    # Serena should have IDE context
-    assert "--context=ide" in result["mcp"]["serena"]["command"]
-
 
 def test_sync_opencode_mcp_missing_config(temp_home, monkeypatch_home, master_config):
     """Test syncing creates OpenCode config when missing."""
@@ -380,7 +300,7 @@ hide_gpt5_1_migration_prompt = true
     codex_path.write_text(initial_config, encoding="utf-8")
 
     monkeypatch_home.setattr(Path, "home", lambda: temp_home)
-    sync_codex_mcp(master_config, "codex")
+    sync_codex_mcp(master_config)
 
     result = codex_path.read_text(encoding="utf-8")
 
@@ -390,10 +310,6 @@ hide_gpt5_1_migration_prompt = true
 
     # MCP servers should be added
     assert "[mcp_servers.filesystem]" in result
-    assert "[mcp_servers.serena]" in result
-
-    # Serena should have codex context
-    assert "--context=codex" in result
 
 
 def test_sync_codex_mcp_removes_old_servers(temp_home, monkeypatch_home, master_config):
@@ -415,7 +331,7 @@ hide_prompt = true
     codex_path.write_text(initial_config, encoding="utf-8")
 
     monkeypatch_home.setattr(Path, "home", lambda: temp_home)
-    sync_codex_mcp(master_config, "codex")
+    sync_codex_mcp(master_config)
 
     result = codex_path.read_text(encoding="utf-8")
 
@@ -428,7 +344,7 @@ hide_prompt = true
 def test_sync_codex_mcp_missing_config(temp_home, monkeypatch_home, master_config):
     """Test syncing creates Codex config when missing."""
     monkeypatch_home.setattr(Path, "home", lambda: temp_home)
-    sync_codex_mcp(master_config, "codex")
+    sync_codex_mcp(master_config)
 
     codex_path = temp_home / ".codex" / "config.toml"
     assert codex_path.exists()

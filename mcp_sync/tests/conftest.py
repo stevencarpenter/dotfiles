@@ -38,16 +38,6 @@ def master_config():
                 "type": "local",
                 "env": {"GITHUB_TOKEN": "${GITHUB_TOKEN}"},
             },
-            "serena": {
-                "command": "bash",
-                "args": [
-                    "-lc",
-                    'exec "$HOME/.local/share/chezmoi/scripts/serena-mcp" "$@"',
-                    "serena-mcp",
-                    "start-mcp-server",
-                ],
-                "type": "local",
-            },
         }
     }
 

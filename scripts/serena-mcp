@@ -1,6 +1,0 @@
-#!/bin/bash
-# Serena MCP wrapper script
-# Launches Serena MCP server via uvx from official GitHub repository
-# Per https://oraios.github.io/serena/ - recommended setup using JetBrains backend
-
-exec uvx --from git+https://github.com/oraios/serena serena "$@"

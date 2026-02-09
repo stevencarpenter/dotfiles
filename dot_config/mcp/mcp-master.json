@@ -1,21 +1,6 @@
 {
   "$schema": "https://modelcontextprotocol.io/schema/config.json",
   "servers": {
-    "serena": {
-      "type": "stdio",
-      "command": "bash",
-      "args": [
-        "-lc",
-        "exec \"$HOME/.local/share/chezmoi/scripts/serena-mcp\" \"$@\"",
-        "serena-mcp",
-        "start-mcp-server",
-        "--project-from-cwd",
-        "--mode=interactive",
-        "--mode=editing",
-        "--language-backend=JetBrains"
-      ],
-      "note": "Context is tool-specific - see sync script for overrides"
-    },
     "railway-mcp-server": {
       "type": "stdio",
       "command": "npx",
