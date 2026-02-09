@@ -12,6 +12,10 @@
 # Repo-local / machine-specific files
 .envrc
 private_dot_claude.json
+chezmoi-threat-model.md
+*threat-model*.md
+**/security_best_practices_report.md
+**/mcp-sync-mitigation-plan.md
 
 # Claude project transient data
 .claude/debug
