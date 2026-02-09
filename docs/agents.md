@@ -6,7 +6,6 @@ This document provides a comprehensive guide to all MCP servers and tools availa
 
 | Tool | Type | Best For | Status |
 |------|------|----------|--------|
-| **Serena** | MCP Server | Code understanding, semantic search, refactoring | ⚡ Always available in IDE |
 | **GitHub** | MCP Server | Repository operations, PR management, issue handling | ✅ Configured globally |
 | **Filesystem** | MCP Server | File reading, writing, organization | ✅ Core capability |
 | **Railway** | MCP Server | Deployment status, logs, environment management | ✅ Project-specific |
@@ -18,41 +17,7 @@ This document provides a comprehensive guide to all MCP servers and tools availa
 
 ## MCP Servers
 
-### 1. **Serena** ⭐ PRIMARY CODE UNDERSTANDING
-
-**Location**: `~/.local/share/chezmoi/scripts/serena-mcp`
-**Mode**: Interactive, available in IDE (IntelliJ with Claude Code)
-**Context**: `claude-code` (when used via Claude Code)
-
-**Capabilities**:
-- 🔍 Semantic code search across entire codebase
-- 📍 Symbol resolution and navigation
-- 🔗 Cross-reference finding
-- 🏗️ Type hierarchy traversal
-- 🧬 Code pattern analysis
-- 📝 Docstring and documentation extraction
-
-**When to Use**:
-- ✅ Understanding architecture and code relationships
-- ✅ Finding where functions are used
-- ✅ Exploring type hierarchies
-- ✅ Discovering patterns in the codebase
-- ✅ Refactoring with full context
-- ✅ Complex code analysis tasks
-
-**When NOT to Use**:
-- ❌ Simple regex pattern matching (use Grep/Glob)
-- ❌ Reading a single file (use Read tool)
-- ❌ Generic text search (use Grep)
-
-**Example Usage**:
-```
-Need to: Find all places where `syncToLocations()` is called
-Tool: Serena `find_referencing_symbols`
-Result: Complete call graph with context
-```
-
-### 2. **GitHub** 📊 REPOSITORY & COLLABORATION
+### 1. **GitHub** 📊 REPOSITORY & COLLABORATION
 
 **Location**: Git repository at `stevencarpenter/dotfiles` (and others)
 **Auth**: Requires `GITHUB_TOKEN`
@@ -79,29 +44,7 @@ Tool: GitHub `create_pull_request`
 Include: Title, description, base/head branches
 ```
 
-### 3. **Filesystem** 📁 FILE OPERATIONS
-
-**Capabilities**:
-- 📖 Read files and directories
-- ✍️ Write and edit files
-- 📂 Directory creation and traversal
-- 🔄 File organization and movement
-- 🗑️ File deletion
-
-**Permissions**: Limited to project directories + config files
-**When to Use**:
-- ✅ Reading configuration files
-- ✅ Writing test data
-- ✅ Organizing project files
-- ✅ Creating new modules or utilities
-- ✅ Backup or data manipulation
-
-**When NOT to Use**:
-- ❌ Code navigation (use Serena)
-- ❌ Pattern search (use Grep)
-- ❌ Semantic understanding (use Serena)
-
-### 4. **Railway** 🚂 DEPLOYMENT & INFRASTRUCTURE
+### 2. **Railway** 🚂 DEPLOYMENT & INFRASTRUCTURE
 
 **Location**: Railway.app integration
 **Auth**: Requires `RAILWAY_TOKEN`
@@ -113,7 +56,8 @@ Include: Title, description, base/head branches
 - 📈 Service monitoring
 
 **Projects Configured**:
-- `clawdbot` - TypeScript bot deployment
+
+- `whistlepost` - Rust monolith for train enthusiasts
 
 **When to Use**:
 - ✅ Checking deployment status
@@ -129,108 +73,12 @@ Tool: Railway `get-logs` with deployment ID
 Result: Full build and deployment logs
 ```
 
-### 5. **Memory (Claude Memory)** 🧠 SESSION PERSISTENCE
-
-**Capabilities**:
-- 💾 Store observations and findings
-- 🔄 Retrieve previous session context
-- 📚 Organize knowledge by topic
-- 🔍 Search memory entries
-- ⏱️ Timeline-based context retrieval
-
-**When to Use**:
-- ✅ After completing significant research
-- ✅ Documenting architectural decisions
-- ✅ Storing temporary findings
-- ✅ Cross-session knowledge sharing
-- ✅ Avoiding re-analysis of the same code
-
-**Example Usage**:
-```
-After analyzing MCP sync script:
-Tool: Memory `write_memory`
-Name: "mcp_sync_architecture"
-Content: Summary of findings and patterns
-Later session: Retrieve to avoid re-reading 600 lines
-```
-
-### 6. **Sequential Thinking** 🤔 COMPLEX REASONING
-
-**Capabilities**:
-- 🧩 Multi-step problem decomposition
-- 🔀 Branching analysis paths
-- 📊 Trade-off evaluation
-- 🎯 Goal-oriented reasoning
-- ✓ Verification steps
-
-**When to Use**:
-- ✅ Complex architectural decisions
-- ✅ Multi-option trade-off analysis
-- ✅ Debugging subtle issues
-- ✅ Performance optimization decisions
-- ✅ Security review and analysis
-
-**When NOT to Use**:
-- ❌ Simple, straightforward tasks
-- ❌ Already understood problems
-- ❌ Time-sensitive changes
-
-### 7. **Supabase** 🗄️ DATABASE & BACKEND (Project-Specific)
-
-**Location**: Whistlepost project integration
-**Auth**: Requires `SUPABASE_PROJECT_REF`, `SUPABASE_API_KEY`
-**Capabilities**:
-- 📊 Database schema inspection
-- 🔍 Query building and testing
-- 🔐 Row-level security management
-- 📈 Realtime subscriptions
-- 🔑 Authentication setup
-
-**When to Use**:
-- ✅ In Whistlepost project context
-- ✅ Database schema exploration
-- ✅ Query testing
-- ✅ Authentication troubleshooting
-
----
-
-## Claude Code Plugin Ecosystem
-
-### Core Plugins (Version Controlled)
-
-Located in `dot_config/mcp/overrides/claude.json`, automatically synced to `~/.claude.json`:
-
-| Plugin | Purpose | When to Use |
-|--------|---------|-------------|
-| **context7** | API documentation | Researching library APIs and methods |
-| **github** | Repository operations | PR/issue management, code search |
-| **supabase** | Backend/database | Database schema, queries, auth |
-| **greptile** | Code search | Finding code patterns across repos |
-| **feature-dev** | Guided development | Complex feature implementation |
-| **code-review** | PR analysis | Automated code review feedback |
-| **commit-commands** | Git automation | Creating commits, pushing changes |
-| **frontend-design** | UI/UX creation | Building frontend components |
-| **security-guidance** | Security analysis | Vulnerability assessment |
-| **playwright** | Browser automation | Web testing, UI interaction |
-| **rust-analyzer-lsp** | Rust language server | Rust code analysis |
-| **typescript-lsp** | TypeScript language server | TypeScript/JavaScript code |
-| **pyright-lsp** | Python language server | Python code analysis |
-| **ralph-wiggum** | Agentic coding | Autonomous code generation |
-| **claude-mem** | Memory persistence | Cross-session context |
-| **pr-review-toolkit** | Comprehensive PR review | Professional code review |
-| **ralph-loop** | Loop agent automation | Iterative agent workflows |
-| **lua-lsp** | Lua language server | Lua configuration files |
-
----
-
-## Decision Trees: Which Tool to Use?
-
 ### I need to understand code
 
 ```
 Is the code in the current project?
 ├─ YES, and I need semantic understanding
-│  └─ Use: SERENA (find_referencing_symbols, find_symbol, type_hierarchy)
+│  └─ Use: Grep, Glob, or finder tools
 ├─ YES, and I just need to read it
 │  └─ Use: Read tool or Filesystem
 └─ NO, searching across GitHub
@@ -256,7 +104,7 @@ Is it about GitHub operations?
 ```
 Is this about code relationships?
 ├─ YES, complex multi-file architecture
-│  ├─ Use: SERENA (jet_brains_find_referencing_symbols)
+│  ├─ Use: Grep, Glob, or finder tools
 │  └─ Use: MEMORY (write findings for later)
 ├─ Simple pattern matching
 │  └─ Use: Grep or Glob tools
@@ -282,10 +130,10 @@ Does it require deep reasoning?
 
 ### ✅ DO's
 
-1. **Use Serena first** for code understanding
-   - It's always available in IDE
-   - Provides semantic context
-   - Better than generic grep
+1. **Use appropriate search tools** for code understanding
+   - Grep for exact matches
+   - Glob for file patterns
+   - finder for semantic searches
 
 2. **Store architectural decisions in Memory**
    - Write findings after major analysis
@@ -294,11 +142,9 @@ Does it require deep reasoning?
 
 3. **Use context-appropriate tools**
    - Don't use GitHub to read local files
-   - Don't use Serena for simple regex
    - Match tool to task complexity
 
 4. **Check tool availability**
-   - Serena requires IDE + IntelliJ
    - GitHub requires GITHUB_TOKEN
    - Railway requires RAILWAY_TOKEN
 
@@ -314,10 +160,10 @@ Does it require deep reasoning?
 
 ### ❌ DON'Ts
 
-1. **Don't use Serena for**
-   - Simple string matching (use Grep)
-   - Reading single files (use Read)
-   - Generic pattern search (use Glob)
+1. **Don't use wrong tool for the job**
+   - Simple string matching → use Grep
+   - Reading single files → use Read
+   - Generic pattern search → use Glob
 
 2. **Don't skip Memory**
    - After 30+ minutes of research
@@ -325,7 +171,6 @@ Does it require deep reasoning?
    - Before complex refactoring
 
 3. **Don't ignore context limits**
-   - Serena helps reduce token usage
    - Memory stores findings efficiently
    - Use them to stay within budget
 
@@ -356,11 +201,6 @@ Does it require deep reasoning?
 
 ## Troubleshooting
 
-**Serena not available?**
-- Check IntelliJ is connected to Claude Code
-- Verify `--context=claude-code` in config
-- Ensure `scripts/serena-mcp` exists
-
 **GitHub operations failing?**
 - Verify `GITHUB_TOKEN` is set
 - Check token has required scopes
@@ -380,7 +220,7 @@ Does it require deep reasoning?
 
 ## References
 
-- **MCP Setup**: `docs/ai-tools/serena-mcp-setup.md`
+- **MCP Setup**: `docs/ai-tools/`
 - **Ralph/OpenCode**: `docs/ai-tools/ralph-opencode-setup.md`
 - **Architecture**: `CLAUDE.md` project overview
 - **Tests**: `tests/` for tool usage examples

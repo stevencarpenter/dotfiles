@@ -82,13 +82,6 @@ path=(
     $path
 )
 
-# pnpm (special handling to avoid duplicates)
-export PNPM_HOME="$HOME/Library/pnpm"
-case ":$PATH:" in
-  *":$PNPM_HOME:"*) ;;
-  *) path=($PNPM_HOME $path) ;;
-esac
-
 # bun
 export BUN_INSTALL="$HOME/.bun"
 path=($BUN_INSTALL/bin $path)

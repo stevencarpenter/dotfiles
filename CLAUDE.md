@@ -64,7 +64,6 @@ The sync tool reads `dot_config/mcp/mcp-master.json` and generates tool-specific
 - **Templates**: `mcp_sync/src/mcp_sync/templates/` — base config templates per tool
 - **Transform functions** in `sync.py`: `transform_to_copilot_format()`, `transform_to_generic_mcp_format()`, `transform_to_mcpservers_format()`, `transform_to_opencode_format()`
 - **Deep merge**: base template + generated config + overrides, with later values winning
-- **Serena context**: Each tool gets its own context string injected (e.g., `"claude-code"`)
 
 The sync runs automatically after `chezmoi apply` via `.chezmoiscripts/run_after_sync-mcp.sh`.
 
@@ -75,7 +74,7 @@ The sync runs automatically after `chezmoi apply` via `.chezmoiscripts/run_after
 - `.chezmoiscripts/` — Post-apply hooks (MCP sync, macOS setup)
 - `dot_config/zsh/` — Zsh config; `encrypted_dot_env` holds API keys
 - `dot_config/nvim/` — Neovim config (LazyVim)
-- `scripts/` — Utility scripts (e.g., `serena-mcp` wrapper)
+- `scripts/` — Utility scripts
 - `docs/ai-tools/` — Setup guides for MCP, Copilot, Ralph, etc.
 
 ### Encrypted Secrets

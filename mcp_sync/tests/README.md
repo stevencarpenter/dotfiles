@@ -60,8 +60,6 @@ uv run pytest tests/test_sync_mcp_configs.py::test_load_master_config_valid -v
 
 ```bash
 # Run only tests matching a pattern
-uv run pytest tests/ -k "serena" -v
-
 # Run tests excluding a pattern
 uv run pytest tests/ -k "not opencode" -v
 ```
@@ -83,23 +81,13 @@ Tests individual functions in isolation:
   - `test_transform_to_mcpservers_format` - mcpServers format
   - `test_transform_to_opencode_format` - OpenCode format with env vars
 
-- **Serena Context Handling**
-  - `test_set_serena_context_servers_format` - servers format context injection
-  - `test_set_serena_context_mcp_servers_format` - mcpServers format context
-  - `test_set_serena_context_opencode_format` - OpenCode format context
-  - `test_set_serena_context_replaces_existing` - Context replacement logic
-  - `test_set_serena_context_missing_serena` - Missing Serena handling
-
 - **File Operations**
   - `test_sync_to_locations_creates_parent_dirs` - Directory creation
   - `test_sync_to_locations_with_legacy` - Legacy path mirroring
-  - `test_ensure_codex_serena_server_creates_section` - TOML section creation
-  - `test_ensure_codex_serena_server_updates_existing` - TOML section updates
 
 - **Claude Code Integration**
   - `test_patch_claude_code_config_missing` - Missing config handling
   - `test_patch_claude_code_config_merges_servers` - MCP server merging
-  - `test_patch_claude_code_config_sets_serena_context` - Serena context setting
 
 - **Edge Cases**
   - `test_empty_master_config_handling` - Empty servers handling
@@ -153,7 +141,7 @@ Sample configuration files in `test_data/`:
 
 - **`sample_master_config.json`** - Full master configuration example
 - **`malformed_json.json`** - Invalid JSON for error testing
-- **`codex_config_before.toml`** - Codex config before Serena sync
+- **`codex_config_before.toml`** - Codex config before sync
 - **`claude_config_sample.json`** - Claude Code config example
 - **`opencode_config_sample.json`** - OpenCode config example
 
@@ -230,5 +218,5 @@ uv run pytest tests/ -v --tb=short --junit-xml=test-results.xml
 
 - Main module: `mcp_sync`
 - CLI entrypoint: `sync-mcp-configs`
-- MCP setup: `docs/ai-tools/serena-mcp-setup.md`
+- MCP setup: `docs/ai-tools/`
 - CLAUDE.md: Project guidelines and architecture

@@ -22,7 +22,6 @@ class SyncTarget:
     name: str
     destination: Path
     transform: Transform
-    context: str | None = None
     template_key: str | None = None
     override_key: str | None = None
     legacy_dir: Path | None = None
@@ -34,8 +33,6 @@ class SyncTarget:
 
         base = _load_json_template(template_key, home)
         generated = self.transform(copy.deepcopy(master))
-        if self.context:
-            generated = set_serena_context(generated, self.context)
 
         config = deep_merge(base, generated)
         overrides = _load_override(override_key, home)
@@ -138,52 +135,6 @@ def _load_override(key: str, home: Path | None) -> JsonDict:
         return {}
 
 
-def set_serena_context(config: JsonDict, context: str) -> JsonDict:
-    serena: JsonDict | None = None
-    use_command_only = False
-
-    servers = _ensure_mapping(config.get("servers"))
-    mcp_servers = _ensure_mapping(config.get("mcpServers"))
-    mcp = _ensure_mapping(config.get("mcp"))
-
-    if "serena" in servers:
-        serena = servers["serena"]
-    elif "serena" in mcp_servers:
-        serena = mcp_servers["serena"]
-    elif "serena" in mcp:
-        serena = mcp["serena"]
-        # OpenCode format: command is an array containing [cmd, ...args]
-        # No separate args field - modify command directly
-        if isinstance(serena.get("command"), list) and "args" not in serena:
-            use_command_only = True
-
-    if serena is None:
-        return config
-
-    # Determine which field holds the arguments
-    if use_command_only:
-        args = list(serena.get("command", []))
-    else:
-        args = serena.get("args", [])
-        if not isinstance(args, list):
-            return config
-
-    context_arg = f"--context={context}"
-    for idx, arg in enumerate(args):
-        if isinstance(arg, str) and arg.startswith("--context="):
-            args[idx] = context_arg
-            break
-    else:
-        args.append(context_arg)
-
-    if use_command_only:
-        serena["command"] = args
-    else:
-        serena["args"] = args
-
-    return config
-
-
 def _identity(master: JsonDict) -> JsonDict:
     return master
 
@@ -224,9 +175,7 @@ def deep_merge(base: JsonDict, override: JsonDict) -> JsonDict:
     return result
 
 
-def sync_codex_mcp(
-    master: JsonDict, context: str = "codex", home: Path | None = None
-) -> None:
+def sync_codex_mcp(master: JsonDict, home: Path | None = None) -> None:
     home_path = _home_dir(home)
     codex_config_path = home_path / ".codex" / "config.toml"
     base_text = _load_text_template("codex", home_path)
@@ -239,21 +188,19 @@ def sync_codex_mcp(
     if isinstance(overrides.get("servers"), dict):
         servers = deep_merge(servers, overrides["servers"])
 
-    mcp_section = _render_codex_mcp_section(servers, context)
+    mcp_section = _render_codex_mcp_section(servers)
     text = base_text.rstrip() + "\n" + mcp_section
 
     codex_config_path.parent.mkdir(parents=True, exist_ok=True)
     codex_config_path.write_text(text, encoding="utf-8")
-    log_success(
-        f"Synced MCP servers to: {codex_config_path} (Serena context: {context})"
-    )
+    log_success(f"Synced MCP servers to: {codex_config_path}")
 
 
 def _toml_string(value: str) -> str:
     return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
-def _render_codex_mcp_section(servers: JsonDict, context: str) -> str:
+def _render_codex_mcp_section(servers: JsonDict) -> str:
     lines: list[str] = ["", "# MCP Servers"]
 
     for name, server in servers.items():
@@ -262,11 +209,6 @@ def _render_codex_mcp_section(servers: JsonDict, context: str) -> str:
         lines.append(f"command = {_toml_string(str(server.get('command', '')))}")
 
         args = list(server.get("args", []) or [])
-        if name == "serena":
-            context_arg = f"--context={context}"
-            if context_arg not in args:
-                args.append(context_arg)
-
         args_str = ", ".join(_toml_string(str(arg)) for arg in args)
         lines.append(f"args = [{args_str}]")
 
@@ -347,13 +289,12 @@ def patch_claude_code_config(master: JsonDict, home: Path | None = None) -> None
 
     existing = _ensure_mapping(claude_cfg.get("mcpServers"))
     claude_cfg["mcpServers"] = {**existing, **servers}
-    claude_cfg = set_serena_context(claude_cfg, "claude-code")
     overrides = _load_override("claude", home_path)
     if overrides:
         claude_cfg = deep_merge(claude_cfg, overrides)
 
     _write_json(claude_path, claude_cfg)
-    log_success(f"Synced: {claude_path} (Serena context: claude-code)")
+    log_success(f"Synced: {claude_path}")
 
 
 def sync_to_locations(
@@ -421,12 +362,11 @@ def sync_opencode_mcp(master: JsonDict, home: Path | None = None) -> None:
         name="opencode",
         destination=home_path / ".config" / "opencode" / "opencode.json",
         transform=transform_to_opencode_format,
-        context="ide",
         template_key="opencode",
         override_key="opencode",
     )
     target.sync(master, home=home_path)
-    log_success(f"Synced MCP servers to: {target.destination} (Serena context: ide)")
+    log_success(f"Synced MCP servers to: {target.destination}")
 
 
 def _build_targets(home: Path) -> list[SyncTarget]:
@@ -435,7 +375,6 @@ def _build_targets(home: Path) -> list[SyncTarget]:
             name="copilot-xdg",
             destination=home / ".config" / ".copilot" / "mcp-config.json",
             transform=transform_to_copilot_format,
-            context="ide",
             template_key="copilot",
             override_key="copilot",
         ),
@@ -443,7 +382,6 @@ def _build_targets(home: Path) -> list[SyncTarget]:
             name="github-copilot-intellij",
             destination=home / ".config" / "github-copilot" / "intellij" / "mcp.json",
             transform=_identity,
-            context="ide",
             template_key="github-copilot",
             override_key="github-copilot",
         ),
@@ -451,7 +389,6 @@ def _build_targets(home: Path) -> list[SyncTarget]:
             name="github-copilot",
             destination=home / ".config" / "github-copilot" / "mcp.json",
             transform=_identity,
-            context="ide",
             template_key="github-copilot",
             override_key="github-copilot",
         ),
@@ -466,7 +403,6 @@ def _build_targets(home: Path) -> list[SyncTarget]:
             name="opencode",
             destination=home / ".config" / "opencode" / "opencode.json",
             transform=transform_to_opencode_format,
-            context="ide",
             template_key="opencode",
             override_key="opencode",
         ),
@@ -474,7 +410,6 @@ def _build_targets(home: Path) -> list[SyncTarget]:
             name="cursor",
             destination=home / ".config" / "cursor" / "mcp.json",
             transform=transform_to_mcpservers_format,
-            context="ide",
             legacy_dir=home / ".cursor",
             legacy_destination=home / ".cursor" / "mcp.json",
             template_key="cursor",
@@ -484,7 +419,6 @@ def _build_targets(home: Path) -> list[SyncTarget]:
             name="vscode",
             destination=home / ".config" / "vscode" / "mcp.json",
             transform=_identity,
-            context="ide",
             legacy_dir=home / ".vscode",
             legacy_destination=home / ".vscode" / "mcp.json",
             template_key="vscode",
@@ -494,7 +428,6 @@ def _build_targets(home: Path) -> list[SyncTarget]:
             name="junie",
             destination=home / ".config" / "junie" / "mcp" / "mcp.json",
             transform=transform_to_mcpservers_format,
-            context="agent",
             legacy_dir=home / ".junie",
             legacy_destination=home / ".junie" / "mcp" / "mcp.json",
             template_key="junie",
@@ -504,7 +437,6 @@ def _build_targets(home: Path) -> list[SyncTarget]:
             name="lmstudio",
             destination=home / ".config" / "lmstudio" / "mcp.json",
             transform=transform_to_mcpservers_format,
-            context="desktop-app",
             legacy_dir=home / ".lmstudio",
             legacy_destination=home / ".lmstudio" / "mcp.json",
             template_key="lmstudio",
@@ -530,7 +462,7 @@ def run_sync(master_path: Path | None = None, home: Path | None = None) -> int:
     for target in _build_targets(home_path):
         target.sync(master, home=home_path)
 
-    sync_codex_mcp(master, "codex", home=home_path)
+    sync_codex_mcp(master, home=home_path)
     patch_claude_code_config(master, home=home_path)
     sync_copilot_cli_config(home=home_path)
 
