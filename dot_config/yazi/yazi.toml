@@ -16,3 +16,4 @@ prepend_previewers = [
 
 [mgr]
 ratio = [1, 1, 5]
+
