@@ -9,6 +9,7 @@ prepend_previewers = [
   { url = "*.zstd.parquet", run = "duckdb" },
   { url = "*.txt", run = "duckdb" },
   { url = "*.xlsx", run = "duckdb" },
+  { url = "*.avro", run = "duckdb" },
   { url = "*.db", run = "duckdb" },
   { url = "*.duckdb", run = "duckdb" },
 ]

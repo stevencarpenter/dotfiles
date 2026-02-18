@@ -58,6 +58,8 @@ local function generate_data_source_string(target, file_type)
 	local url_string = "'" .. tostring(target):gsub("'", "''") .. "'"
 	if file_type == "excel" then
 		return string.format("st_read(%s)", url_string)
+    elseif file_type == "avro" then
+        return string.format("read_avro(%s)", url_string)
 	elseif file_type == "text" then
 		return string.format("read_csv(%s)", url_string)
 	else
@@ -72,6 +74,7 @@ local extension_map = {
 	json = "json",
 	parquet = "parquet",
 	xlsx = "excel",
+	avro = "avro",
 	duckdb = "duckdb",
 	db = "duckdb",
 }
@@ -128,6 +131,9 @@ local duckdb_opener = ya.sync(function(_, arg)
 	if file_type == "excel" then
 		add_queries_to_table(args, { "install spatial", "load spatial" })
 		ya.dbg("duckdb_opener: loading spatial extension for excel")
+	elseif file_type == "avro" then
+		add_queries_to_table(args, { "install avro", "load avro" })
+		ya.dbg("duckdb_opener: loading avro extension")
 	end
 
 	if file_type ~= "duckdb" then
@@ -319,6 +325,8 @@ local function run_query(job, query, target, file_type)
 		table.insert(args, tostring(target))
 	elseif file_type == "excel" then
 		add_queries_to_table(args, { "install spatial", "load spatial" })
+	elseif file_type == "avro" then
+		add_queries_to_table(args, { "install avro", "load avro" })
 	end
 
 	-- Duckbox config
