@@ -151,7 +151,7 @@ local duckdb_opener = ya.sync(function(_, arg)
 		table.insert(args, "-ui")
 	end
 
-	local child, err = Command("duckdb"):args(args):stdin(Command.INHERIT):stdout(Command.INHERIT):stderr(Command.INHERIT):spawn()
+	local child, err = Command("duckdb"):arg(args):stdin(Command.INHERIT):stdout(Command.INHERIT):stderr(Command.INHERIT):spawn()
 	if not child then
 		ya.err("Failed to spawn DuckDB: " .. tostring(err))
 		return
