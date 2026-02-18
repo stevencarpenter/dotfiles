@@ -97,6 +97,28 @@ local get_hovered_url_string = ya.sync(function()
 	return tostring(cx.active.current.hovered.url)
 end)
 
+local function toggle_preview_mode(target_url)
+    local mode = get_opts("mode")
+    local new_mode = (mode == "summarized") and "standard" or "summarized"
+    set_opts("mode", new_mode)
+    set_opts("mode_changed", true)
+    set_opts("scrolled_columns", 0)
+
+    local only_if = target_url
+    if not only_if then
+        local hovered = get_hovered_url_string()
+        if hovered and hovered ~= "" then
+            only_if = Url(hovered)
+        end
+    end
+
+    if only_if then
+        ya.emit("peek", { 50, only_if = only_if })
+    else
+        ya.emit("peek", { 50 })
+    end
+end
+
 local duckdb_opener = ya.sync(function(_, arg)
 	local hovered_url = Url(get_hovered_url_string())
 	local file_type = check_file_type(hovered_url)
@@ -133,6 +155,10 @@ end)
 
 function M:entry(job)
 	local arg = job.args and job.args[1]
+	if arg == "-toggle" then
+		return toggle_preview_mode(nil)
+	end
+
 	if arg ~= "+1" and arg ~= "-1" then
 		return duckdb_opener(arg)
 	end
@@ -737,6 +763,10 @@ end
 
 -- Preload summarized and standard preview caches
 function M:preload(job)
+	if not job or not job.file or not job.file.url then
+		return true
+	end
+
 	if is_plain_text(job, nil) then
 		return true
 	end
@@ -801,13 +831,7 @@ function M:seek(job)
 	local new_skip = current_skip + units
 
 	if new_skip < 0 then
-		-- Toggle preview mode
-		local mode = get_opts("mode")
-		local new_mode = (mode == "summarized") and "standard" or "summarized"
-		set_opts("mode", new_mode)
-		set_opts("mode_changed", true)
-		-- Trigger re-peek
-		ya.emit("peek", { OFFSET_BASE, only_if = job.file.url })
+		toggle_preview_mode(job.file.url)
 	else
 		ya.emit("peek", { new_skip + OFFSET_BASE, only_if = job.file.url })
 	end
