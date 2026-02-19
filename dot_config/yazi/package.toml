@@ -1,12 +1,12 @@
 [[plugin.deps]]
-use = "wylie102/duckdb"
-rev = "3f8c863"
-hash = "87b9233a74325e95011670ed20bbd0d4"
+use = "yazi-rs/plugins:toggle-pane"
+rev = "25918dc"
+hash = "8a7c58225816a163a6e8730c0adafbc8"
 
 [[plugin.deps]]
-use = "yazi-rs/plugins:toggle-pane"
-rev = "6c71385"
-hash = "8a7c58225816a163a6e8730c0adafbc8"
+use = "stevencarpenter/duckdb"
+rev = "6400cbd"
+hash = "f13f090804d20cc32461bf7e07980b25"
 
 [[flavor.deps]]
 use = "gosxrgxx/flexoki-dark"

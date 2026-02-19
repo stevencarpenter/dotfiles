@@ -1,0 +1,24 @@
+[[mgr.prepend_keymap]]
+on = "H"
+run = "plugin duckdb -1"
+desc = "DuckDB preview: scroll one column left"
+
+[[mgr.prepend_keymap]]
+on = "L"
+run = "plugin duckdb +1"
+desc = "DuckDB preview: scroll one column right"
+
+[[mgr.prepend_keymap]]
+on = "J"
+run = "seek 5"
+desc = "Preview: scroll down"
+
+[[mgr.prepend_keymap]]
+on = "K"
+run = "seek -5"
+desc = "Preview: scroll up (or toggle duckdb mode at top)"
+
+[[mgr.prepend_keymap]]
+on = ["g", "m"]
+run = "plugin duckdb -toggle"
+desc = "DuckDB preview: toggle summarized/raw data mode"
