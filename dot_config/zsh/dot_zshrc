@@ -387,3 +387,4 @@ dev_env_file="${XDG_CONFIG_HOME:-$HOME/.config}/dev-container/dev-env.zsh"
 # ============================================================================
 # Profiling output (uncomment if you enabled zprof at the top)
 # zprof
+
