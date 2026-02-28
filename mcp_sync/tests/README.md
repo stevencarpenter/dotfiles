@@ -13,20 +13,20 @@ This directory contains comprehensive tests for the `mcp_sync` CLI, which syncs 
 
 ### Prerequisites
 
-Install test dependencies:
+From the `mcp_sync/` project root, install dev dependencies:
 
 ```bash
-uv pip install pytest pytest-cov
+uv sync --group dev
 ```
 
 ### Run All Tests
 
 ```bash
 # Run all tests with verbose output
-uv run pytest tests/ -v
+uv run pytest -v
 
 # Run with coverage report
-uv run pytest tests/ -v --cov=mcp_sync --cov-report=html
+uv run pytest -v --cov=mcp_sync --cov-report=html
 ```
 
 ### uv helper commands
@@ -40,7 +40,8 @@ uv run pytest tests/ -v --cov=mcp_sync --cov-report=html
 - Lint and format Python sources:
 
   ```bash
-uv run ruff check mcp_sync tests
+
+uv run ruff check src tests
   ```
 
 ### Run Specific Test Suites
@@ -61,7 +62,7 @@ uv run pytest tests/test_sync_mcp_configs.py::test_load_master_config_valid -v
 ```bash
 # Run only tests matching a pattern
 # Run tests excluding a pattern
-uv run pytest tests/ -k "not opencode" -v
+uv run pytest -k "not opencode" -v
 ```
 
 ## Test Coverage

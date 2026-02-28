@@ -55,9 +55,10 @@ List append syntax: use a `+` suffix on a key to append unique items:
 
 ## Development
 
-Install dev deps and run tests:
+Install dev deps and run checks:
 
 ```bash
-uv pip install -e .[dev]
+uv sync --group dev
+uv run ruff check src tests
 uv run pytest -v
 ```

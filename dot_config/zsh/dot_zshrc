@@ -201,17 +201,31 @@ function copyfile() {
 }
 
 function codax() {
-    local codax_project="$HOME/.local/share/chezmoi/codax"
+    local token_auditor_project="$HOME/.local/share/chezmoi/token_auditor"
     command codex "$@"
     local codex_rc=$?
 
-    if [[ -d "$codax_project" ]]; then
-        uv run --project "$codax_project" codax || echo "codax: failed to print session usage audit" >&2
+    if [[ -d "$token_auditor_project" ]]; then
+        uv run --project "$token_auditor_project" token-auditor --provider codex || echo "codax: failed to print session usage audit" >&2
     else
-        echo "codax: project not found at $codax_project" >&2
+        echo "codax: project not found at $token_auditor_project" >&2
     fi
 
     return $codex_rc
+}
+
+function claade() {
+    local token_auditor_project="$HOME/.local/share/chezmoi/token_auditor"
+    command claude "$@"
+    local claude_rc=$?
+
+    if [[ -d "$token_auditor_project" ]]; then
+        uv run --project "$token_auditor_project" token-auditor --provider claude --cwd "$PWD" || echo "claade: failed to print session usage audit" >&2
+    else
+        echo "claade: project not found at $token_auditor_project" >&2
+    fi
+
+    return $claude_rc
 }
 
 # Yazi TUI file manager wrapper (updates shell CWD on exit)
@@ -358,11 +372,13 @@ source ~/.orbstack/shell/init.zsh 2>/dev/null || :
 
 # Source profile.d directory if it exists (for optional per-tool configs)
 # Create with: mkdir -p ~/.config/zsh/profile.d && echo 'export FOO=bar' > ~/.config/zsh/profile.d/custom.zsh
-if [[ -d "${ZDOTDIR}/profile.d" ]]; then
-    for file in "${ZDOTDIR}"/profile.d/*.zsh(N); do
-        source "$file"
-    done
-fi
+# Note: I am not using this myself yet but it is a nice convention for users to drop in additional config files without modifying the main .zshrc.
+# It also keeps this file cleaner and more focused on core configuration and critical tool setup. --AI (maybe I will use it myself in the future)
+#if [[ -d "${ZDOTDIR}/profile.d" ]]; then
+#    for file in "${ZDOTDIR}"/profile.d/*.zsh(N); do
+#        source "$file"
+#    done
+#fi
 
 # Dev container orchestrator (optional)
 dev_env_file="${XDG_CONFIG_HOME:-$HOME/.config}/dev-container/dev-env.zsh"

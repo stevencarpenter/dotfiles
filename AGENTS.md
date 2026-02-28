@@ -23,6 +23,7 @@ Use these commands from repo root unless noted:
 ## Coding Style & Naming Conventions
 
 - Python: 4-space indentation, `snake_case` for modules/functions, `PascalCase` for classes.
+- Python docstrings: use verbose Google-style docstrings for classes/functions with typed `Args:` and `Returns:` sections; include `Raises:` when relevant.
 - Tests: `test_*.py` filenames and `test_*` function names (enforced by pre-commit).
 - Chezmoi source naming: keep `dot_` prefixes for managed dotfiles and `encrypted_` for age-encrypted sources.
 - Prefer small, focused edits; keep scripts idempotent and safe to re-run.
