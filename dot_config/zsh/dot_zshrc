@@ -200,6 +200,20 @@ function copyfile() {
     fi
 }
 
+function codax() {
+    local codax_project="$HOME/.local/share/chezmoi/codax"
+    command codex "$@"
+    local codex_rc=$?
+
+    if [[ -d "$codax_project" ]]; then
+        uv run --project "$codax_project" codax || echo "codax: failed to print session usage audit" >&2
+    else
+        echo "codax: project not found at $codax_project" >&2
+    fi
+
+    return $codex_rc
+}
+
 # Yazi TUI file manager wrapper (updates shell CWD on exit)
 function y() {
 	local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
