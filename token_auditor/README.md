@@ -69,6 +69,17 @@ Codex token semantics:
 - Codex CLI's inline footer can show a smaller `total` because it commonly reports `uncached_input + output`, while this auditor reports the session usage
   values from the log.
 
+## Architecture
+
+`token_auditor` follows a pure-core/impure-shell split:
+
+- `core/`: pure parsing, reduction, pricing, rendering, and session-selection logic.
+- `shell/`: filesystem, environment, and terminal capability adapters only.
+- `main.py`: thin CLI orchestration plus compatibility wrappers:
+  `parse_codex_session_usage`, `parse_claude_session_usage`, and `main`.
+
+This keeps side effects at process boundaries while preserving the existing CLI and output contract.
+
 ## Color Output
 
 Text output supports an Everforest-inspired ANSI palette.

@@ -1,141 +1,25 @@
 """Token and cost auditing CLI for local Codex and Claude session transcripts."""
 
 import argparse
-import json
 import logging
-import os
-import re
 import sys
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import SupportsIndex, SupportsInt
 
 from _logging import configure
-
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
-
-PROJECT_NAME = "token-auditor"
-CODEX_SESSION_GLOB = "sessions/*/*/*/rollout-*.jsonl"
-CLAUDE_SESSION_GLOB = "projects/*/*.jsonl"
-
-TOKEN_PRICING_USD_PER_1M: dict[str, dict[str, dict[str, float]]] = {
-    "codex": {
-        # OpenAI API pricing source:
-        # https://openai.com/api/pricing
-        "gpt-5-codex": {
-            "input_tokens": 1.250,
-            "cached_input_tokens": 0.125,
-            "output_tokens": 10.000,
-            "cache_creation_input_tokens": 0.0,
-        },
-        "gpt-5.1-codex": {
-            "input_tokens": 1.750,
-            "cached_input_tokens": 0.175,
-            "output_tokens": 14.000,
-            "cache_creation_input_tokens": 0.0,
-        },
-        "gpt-5.1-codex-mini": {
-            "input_tokens": 0.400,
-            "cached_input_tokens": 0.040,
-            "output_tokens": 3.200,
-            "cache_creation_input_tokens": 0.0,
-        },
-        "gpt-5.2-codex": {
-            "input_tokens": 1.750,
-            "cached_input_tokens": 0.175,
-            "output_tokens": 14.000,
-            "cache_creation_input_tokens": 0.0,
-        },
-        "gpt-5.2-codex-mini": {
-            "input_tokens": 0.400,
-            "cached_input_tokens": 0.040,
-            "output_tokens": 3.200,
-            "cache_creation_input_tokens": 0.0,
-        },
-        "gpt-5.3-codex": {
-            "input_tokens": 1.750,
-            "cached_input_tokens": 0.175,
-            "output_tokens": 14.000,
-            "cache_creation_input_tokens": 0.0,
-        },
-    },
-    "claude": {
-        # Anthropic API pricing source:
-        # https://www.anthropic.com/pricing
-        "claude-opus-4-6": {
-            "input_tokens": 5.00,
-            "cached_input_tokens": 0.50,
-            "cache_creation_input_tokens": 6.25,
-            "output_tokens": 25.00,
-        },
-        "claude-sonnet-4-6": {
-            "input_tokens": 3.00,
-            "cached_input_tokens": 0.30,
-            "cache_creation_input_tokens": 3.75,
-            "output_tokens": 15.00,
-        },
-        "claude-haiku-4-5": {
-            "input_tokens": 1.00,
-            "cached_input_tokens": 0.10,
-            "cache_creation_input_tokens": 1.25,
-            "output_tokens": 5.00,
-        },
-    },
-}
-
-MODEL_PRICING_ALIASES: dict[str, dict[str, str]] = {
-    "codex": {
-        # Temporary fallback for snapshot models not yet listed on pricing page.
-        "gpt-5.3-codex-mini": "gpt-5.2-codex-mini",
-    },
-    "claude": {
-        "claude-opus-4-5": "claude-opus-4-6",
-        "claude-sonnet-4-5": "claude-sonnet-4-6",
-        "claude-haiku-4-5-20251001": "claude-haiku-4-5",
-    },
-}
-
-MODEL_PRICING_PREFIX_ALIASES: dict[str, tuple[tuple[str, str], ...]] = {
-    "codex": (),
-    "claude": (
-        ("claude-opus-4-5", "claude-opus-4-6"),
-        ("claude-sonnet-4-5", "claude-sonnet-4-6"),
-        ("claude-haiku-4-5", "claude-haiku-4-5"),
-    ),
-}
-
-# Reasoning tokens are billed as output tokens.
-# Source: https://platform.openai.com/docs/guides/reasoning
-REASONING_EFFORT_MULTIPLIER: dict[str, float] = {
-    "none": 1.0,
-    "low": 1.0,
-    "medium": 1.0,
-    "high": 1.0,
-    "xhigh": 1.0,
-}
-
-# Everforest-inspired terminal colors (ANSI 256-color palette approximations).
-EVERFOREST_HEADER_COLOR_256 = 108
-EVERFOREST_SECTION_COLOR_256 = 109
-EVERFOREST_MUTED_COLOR_256 = 245
-EVERFOREST_GRADIENT_256 = (108, 109, 110, 142, 143, 150, 179, 180, 181)
-
-# ---------------------------------------------------------------------------
-# Logging
-# ---------------------------------------------------------------------------
+from core.claude import parse_claude_events
+from core.codex import parse_codex_events
+from core.constants import CLAUDE_SESSION_GLOB, CODEX_SESSION_GLOB, PROJECT_NAME
+from core.jsonl import decode_jsonl_lines
+from core.pricing import calculate_costs, resolve_pricing_model
+from core.render import decide_color_enabled, format_tokens, format_usd, paint, render_json_audit, render_text_audit
+from core.session_resolution import choose_claude_session_path, claude_project_dir, claude_project_slug, latest_path
+from core.types import AuditRecord, SessionParseError
+from core.utils import safe_int
+from shell.io_adapters import env_value, glob_paths, has_env, is_tty, path_exists, read_lines, sorted_paths_by_mtime
 
 log = logging.getLogger(__name__)
-
-
-class SessionParseError(Exception):
-    """Signal that a session JSONL transcript cannot be decoded into valid events."""
-
-
-# ---------------------------------------------------------------------------
-# CLI
-# ---------------------------------------------------------------------------
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -146,36 +30,12 @@ def build_parser() -> argparse.ArgumentParser:
             path overrides, output format controls, and logging options.
     """
     parser = argparse.ArgumentParser(description="Print token usage audit for Codex/Claude sessions.")
-    parser.add_argument(
-        "--provider",
-        choices=("codex", "claude"),
-        default="codex",
-        help="Session provider to audit (default: codex).",
-    )
-    parser.add_argument(
-        "--codex-home",
-        default="~/.codex",
-        help="Codex home directory (default: ~/.codex).",
-    )
-    parser.add_argument(
-        "--claude-home",
-        default="~/.claude",
-        help="Claude home directory (default: ~/.claude).",
-    )
-    parser.add_argument(
-        "--cwd",
-        default=str(Path.cwd()),
-        help="Current workspace path for provider-specific session lookup.",
-    )
-    parser.add_argument(
-        "--session-file",
-        help="Specific session JSONL file to audit.",
-    )
-    parser.add_argument(
-        "--json",
-        action="store_true",
-        help="Output JSON instead of key/value text.",
-    )
+    parser.add_argument("--provider", choices=("codex", "claude"), default="codex", help="Session provider to audit (default: codex).")
+    parser.add_argument("--codex-home", default="~/.codex", help="Codex home directory (default: ~/.codex).")
+    parser.add_argument("--claude-home", default="~/.claude", help="Claude home directory (default: ~/.claude).")
+    parser.add_argument("--cwd", default=str(Path.cwd()), help="Current workspace path for provider-specific session lookup.")
+    parser.add_argument("--session-file", help="Specific session JSONL file to audit.")
+    parser.add_argument("--json", action="store_true", help="Output JSON instead of key/value text.")
     parser.add_argument(
         "--log-level",
         default="WARNING",
@@ -199,107 +59,74 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     return build_parser().parse_args(argv)
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
 def _safe_int(value: str | bytes | bytearray | SupportsInt | SupportsIndex) -> int:
-    """Convert a dynamic value to an integer while guarding against bad inputs.
+    """Compatibility wrapper around core integer coercion helpers.
 
     Args:
-        value (str | bytes | bytearray | SupportsInt | SupportsIndex): Input
-            value that may be numeric already or safely coercible to an int.
+        value (str | bytes | bytearray | SupportsInt | SupportsIndex): Dynamic
+            value that may be integer-like and safe to coerce.
 
     Returns:
-        int: Parsed integer value, or ``0`` when conversion fails.
+        int: Parsed integer value, or ``0`` on coercion failures.
     """
-    try:
-        return int(value)
-    except TypeError, ValueError:
-        return 0
+    return safe_int(value)
 
 
 def _find_latest_session_file(base_dir: Path, session_glob: str) -> Path | None:
-    """Return the newest session file that matches a provider-specific glob.
+    """Find the newest matching session file under a base directory.
 
     Args:
-        base_dir (Path): Root directory containing session subdirectories.
-        session_glob (str): Glob pattern used to discover JSONL session files.
+        base_dir (Path): Root directory containing provider session logs.
+        session_glob (str): Glob pattern used to discover candidate sessions.
 
     Returns:
-        Path | None: Most recently modified matching file, or ``None`` when no
-            matching session logs are found under ``base_dir``.
+        Path | None: Latest matching session file or ``None`` when no matches
+            exist for the provided glob pattern.
     """
-    files = sorted(base_dir.glob(session_glob), key=lambda path: path.stat().st_mtime)
-    return files[-1] if files else None
+    candidates = sorted_paths_by_mtime(glob_paths(base_dir, session_glob))
+    return latest_path(candidates, lambda path: path.stat().st_mtime)
 
 
 def _claude_project_slug(cwd: Path) -> str:
-    """Convert a workspace path into Claude's filesystem-safe project slug.
+    """Compatibility wrapper that exposes Claude project slug normalization.
 
     Args:
-        cwd (Path): Workspace directory to normalize for Claude storage paths.
+        cwd (Path): Workspace path to normalize into Claude slug format.
 
     Returns:
-        str: Slugified representation of the resolved workspace path.
+        str: Filesystem-safe Claude project slug derived from the path.
     """
-    normalized = str(cwd.expanduser().resolve())
-    return re.sub(r"[^A-Za-z0-9]", "-", normalized)
+    return claude_project_slug(cwd)
 
 
 def _find_latest_claude_session_file(claude_home: Path, cwd: Path) -> Path | None:
-    """Find the latest Claude session preferring current project logs first.
+    """Find the most recent Claude session using project-first resolution.
 
     Args:
-        claude_home (Path): Base Claude home directory containing ``projects``.
-        cwd (Path): Current workspace used to determine project-specific logs.
+        claude_home (Path): Base Claude home directory containing projects.
+        cwd (Path): Current workspace path used to derive project slug.
 
     Returns:
-        Path | None: Latest project-local session file, or the latest global
-            Claude session file when project-local files are unavailable.
+        Path | None: Latest project-specific session, or latest global session
+            when project-local transcripts are unavailable.
     """
-    project_dir = claude_home / "projects" / _claude_project_slug(cwd)
-    project_files = sorted(project_dir.glob("*.jsonl"), key=lambda path: path.stat().st_mtime) if project_dir.exists() else []
-    if project_files:
-        return project_files[-1]
-    return _find_latest_session_file(claude_home, CLAUDE_SESSION_GLOB)
+    project_dir = claude_project_dir(claude_home, cwd)
+    project_paths = sorted_paths_by_mtime(glob_paths(project_dir, "*.jsonl")) if path_exists(project_dir) else ()
+    global_paths = sorted_paths_by_mtime(glob_paths(claude_home, CLAUDE_SESSION_GLOB))
+    return choose_claude_session_path(project_paths, global_paths, lambda path: path.stat().st_mtime)
 
 
 def _resolve_pricing_model(provider: str, model: str) -> str:
-    """Resolve a model name to the canonical key used in pricing tables.
+    """Compatibility wrapper for pure pricing-model resolution.
 
     Args:
-        provider (str): Provider name (``"codex"`` or ``"claude"``) selecting
-            provider-specific aliases and prefix-matching behavior.
-        model (str): Raw model string captured from a session transcript.
+        provider (str): Provider name selecting pricing table namespaces.
+        model (str): Raw model identifier as reported in session logs.
 
     Returns:
-        str: Canonical pricing model key when a mapping is known; otherwise an
-            empty string indicating that the model has no pricing entry.
+        str: Canonical pricing model key when known, otherwise ``""``.
     """
-    normalized = model.strip().lower()
-    if not normalized:
-        return ""
-
-    provider_pricing = TOKEN_PRICING_USD_PER_1M.get(provider, {})
-    if normalized in provider_pricing:
-        return normalized
-
-    provider_aliases = MODEL_PRICING_ALIASES.get(provider, {})
-    if normalized in provider_aliases:
-        return provider_aliases[normalized]
-
-    for prefix, target in MODEL_PRICING_PREFIX_ALIASES.get(provider, ()):
-        if normalized.startswith(prefix):
-            return target
-
-    if provider == "codex":
-        for priced_model in provider_pricing:
-            if normalized.startswith(f"{priced_model}-"):
-                return priced_model
-
-    return ""
+    return resolve_pricing_model(provider, model)
 
 
 def _calculate_costs(
@@ -312,413 +139,145 @@ def _calculate_costs(
         output_tokens: int,
         reasoning_output_tokens: int,
 ) -> dict[str, float]:
-    """Compute cost components from token counts using provider pricing rules.
+    """Compatibility wrapper for pure pricing arithmetic helpers.
 
     Args:
-        provider (str): Provider that determines billing semantics.
-        pricing_model (str): Canonical model key used to lookup rate tables.
-        reasoning_effort (str): Reasoning effort level affecting output billing.
-        input_tokens (int): Total input tokens reported by usage metadata.
+        provider (str): Provider namespace for pricing semantics.
+        pricing_model (str): Canonical model key in provider pricing tables.
+        reasoning_effort (str): Reasoning effort that may affect output billing.
+        input_tokens (int): Total input tokens from provider usage metadata.
         cached_input_tokens (int): Input tokens billed at cached rates.
-        cache_creation_input_tokens (int): Input tokens for cache creation.
-        output_tokens (int): Total output tokens reported by usage metadata.
+        cache_creation_input_tokens (int): Input tokens used to create cache.
+        output_tokens (int): Total output tokens from provider usage metadata.
         reasoning_output_tokens (int): Output tokens attributed to reasoning.
 
     Returns:
-        dict[str, float]: USD cost breakdown for each token category and the
-            aggregate session total.
+        dict[str, float]: Detailed USD cost breakdown for the session.
     """
-    provider_pricing = TOKEN_PRICING_USD_PER_1M.get(provider, {})
-    if pricing_model not in provider_pricing:
-        return {
-            "input_cost_usd": 0.0,
-            "cached_input_cost_usd": 0.0,
-            "cache_creation_input_cost_usd": 0.0,
-            "output_cost_usd": 0.0,
-            "reasoning_output_cost_usd": 0.0,
-            "session_total_cost_usd": 0.0,
-        }
-
-    pricing = provider_pricing[pricing_model]
-    effort_multiplier = REASONING_EFFORT_MULTIPLIER.get(reasoning_effort, 1.0)
-
-    billable_input_tokens = max(0, input_tokens - cached_input_tokens - cache_creation_input_tokens) if provider == "codex" else max(0, input_tokens)
-
-    non_reasoning_output_tokens = max(0, output_tokens - reasoning_output_tokens)
-
-    input_cost = billable_input_tokens * (pricing["input_tokens"] / 1_000_000)
-    cached_input_cost = cached_input_tokens * (pricing["cached_input_tokens"] / 1_000_000)
-    cache_creation_input_cost = cache_creation_input_tokens * (pricing["cache_creation_input_tokens"] / 1_000_000)
-    output_cost = non_reasoning_output_tokens * (pricing["output_tokens"] / 1_000_000)
-    reasoning_output_cost = reasoning_output_tokens * (pricing["output_tokens"] / 1_000_000) * effort_multiplier
-    session_total_cost = input_cost + cached_input_cost + cache_creation_input_cost + output_cost + reasoning_output_cost
-
-    return {
-        "input_cost_usd": input_cost,
-        "cached_input_cost_usd": cached_input_cost,
-        "cache_creation_input_cost_usd": cache_creation_input_cost,
-        "output_cost_usd": output_cost,
-        "reasoning_output_cost_usd": reasoning_output_cost,
-        "session_total_cost_usd": session_total_cost,
-    }
-
-
-# ---------------------------------------------------------------------------
-# Audits
-# ---------------------------------------------------------------------------
-
-
-def parse_codex_session_usage(session_file: Path) -> dict[str, str | int | float] | None:
-    """Parse Codex session JSONL events into a normalized audit payload.
-
-    Args:
-        session_file (Path): JSONL transcript containing Codex session events.
-
-    Returns:
-        dict[str, str | int | float] | None: Structured token and cost summary
-            for the session, or ``None`` if no token usage events are present.
-
-    Raises:
-        SessionParseError: Raised when any line in the session file is invalid
-            JSON and therefore cannot be parsed into an event payload.
-    """
-    session_id = ""
-    timestamp = ""
-    model = ""
-    reasoning_effort = ""
-    usage: dict[str, int] | None = None
-
-    with session_file.open("r", encoding="utf-8", errors="ignore") as handle:
-        for line_number, line in enumerate(handle, start=1):
-            try:
-                event = json.loads(line)
-            except json.JSONDecodeError as exc:
-                raise SessionParseError(f"Malformed JSON in session file: {session_file} (line {line_number})") from exc
-
-            if event.get("type") == "session_meta":
-                payload = event.get("payload") or {}
-                session_id = str(payload.get("id", session_id))
-
-            if event.get("type") == "turn_context":
-                payload = event.get("payload") or {}
-                model = str(payload.get("model", model))
-                collaboration_mode = payload.get("collaboration_mode") or {}
-                settings = collaboration_mode.get("settings") or {}
-                reasoning_effort = str(settings.get("reasoning_effort", payload.get("effort", reasoning_effort)))
-
-            if event.get("type") == "event_msg":
-                payload = event.get("payload") or {}
-                if payload.get("type") != "token_count":
-                    continue
-
-                info = payload.get("info") or {}
-                total_usage = info.get("total_token_usage") or {}
-                if not total_usage:
-                    continue
-
-                usage = {
-                    "input_tokens": _safe_int(total_usage.get("input_tokens", 0)),
-                    "cached_input_tokens": _safe_int(total_usage.get("cached_input_tokens", 0)),
-                    "cache_creation_input_tokens": _safe_int(total_usage.get("cache_creation_input_tokens", 0)),
-                    "output_tokens": _safe_int(total_usage.get("output_tokens", 0)),
-                    "reasoning_output_tokens": _safe_int(total_usage.get("reasoning_output_tokens", 0)),
-                    "total_tokens": _safe_int(total_usage.get("total_tokens", 0)),
-                }
-                timestamp = str(event.get("timestamp", timestamp))
-
-    if usage is None:
-        return None
-
-    if usage["total_tokens"] == 0:
-        usage["total_tokens"] = usage["input_tokens"] + usage["cached_input_tokens"] + usage["cache_creation_input_tokens"] + usage["output_tokens"]
-
-    pricing_model = _resolve_pricing_model("codex", model)
-    costs = _calculate_costs(
-        provider="codex",
+    return calculate_costs(
+        provider=provider,
         pricing_model=pricing_model,
         reasoning_effort=reasoning_effort,
-        input_tokens=usage["input_tokens"],
-        cached_input_tokens=usage["cached_input_tokens"],
-        cache_creation_input_tokens=usage["cache_creation_input_tokens"],
-        output_tokens=usage["output_tokens"],
-        reasoning_output_tokens=usage["reasoning_output_tokens"],
+        input_tokens=input_tokens,
+        cached_input_tokens=cached_input_tokens,
+        cache_creation_input_tokens=cache_creation_input_tokens,
+        output_tokens=output_tokens,
+        reasoning_output_tokens=reasoning_output_tokens,
     )
 
-    return {
-        "provider": "codex",
-        "session_id": session_id,
-        "session_file": str(session_file),
-        "timestamp": timestamp,
-        "model": model,
-        "reasoning_effort": reasoning_effort,
-        "pricing_model": pricing_model,
-        **usage,
-        **costs,
-    }
 
-
-def parse_claude_session_usage(session_file: Path) -> dict[str, str | int | float] | None:
-    """Parse Claude session JSONL logs into a provider-aligned audit payload.
+def parse_codex_session_usage(session_file: Path) -> AuditRecord | None:
+    """Parse a Codex JSONL session file into the normalized audit payload.
 
     Args:
-        session_file (Path): JSONL transcript containing Claude message events.
+        session_file (Path): Path to a Codex session JSONL transcript.
 
     Returns:
-        dict[str, str | int | float] | None: Aggregated token and cost summary
-            for deduplicated Claude messages, or ``None`` when usage is absent.
+        AuditRecord | None: Normalized usage/cost audit payload, or ``None``
+            when no token usage events are present.
 
     Raises:
-        SessionParseError: Raised when any JSONL line cannot be decoded into a
-            valid event record.
+        SessionParseError: Raised when any session line fails JSON decoding.
     """
-    session_id = ""
-    deduped_messages: dict[str, dict[str, str | int]] = {}
-
-    with session_file.open("r", encoding="utf-8", errors="ignore") as handle:
-        for line_number, line in enumerate(handle, start=1):
-            try:
-                event = json.loads(line)
-            except json.JSONDecodeError as exc:
-                raise SessionParseError(f"Malformed JSON in session file: {session_file} (line {line_number})") from exc
-
-            session_id = str(event.get("sessionId", session_id))
-            message = event.get("message")
-            if not isinstance(message, dict):
-                continue
-
-            usage = message.get("usage")
-            if not isinstance(usage, dict):
-                continue
-
-            message_id = str(message.get("id") or f"line-{line_number}")
-            deduped_messages[message_id] = {
-                "model": str(message.get("model", "")),
-                "timestamp": str(event.get("timestamp", "")),
-                "input_tokens": _safe_int(usage.get("input_tokens", 0)),
-                "cached_input_tokens": _safe_int(usage.get("cache_read_input_tokens", 0)),
-                "cache_creation_input_tokens": _safe_int(usage.get("cache_creation_input_tokens", 0)),
-                "output_tokens": _safe_int(usage.get("output_tokens", 0)),
-            }
-
-    if not deduped_messages:
-        return None
-
-    input_tokens = sum(int(message["input_tokens"]) for message in deduped_messages.values())
-    cached_input_tokens = sum(int(message["cached_input_tokens"]) for message in deduped_messages.values())
-    cache_creation_input_tokens = sum(int(message["cache_creation_input_tokens"]) for message in deduped_messages.values())
-    output_tokens = sum(int(message["output_tokens"]) for message in deduped_messages.values())
-
-    timestamps = sorted(str(message["timestamp"]) for message in deduped_messages.values())
-    timestamp = timestamps[-1] if timestamps else ""
-
-    models = sorted({str(message["model"]) for message in deduped_messages.values() if str(message["model"])})
-    if len(models) == 1:
-        model = models[0]
-        pricing_model = _resolve_pricing_model("claude", model)
-    elif len(models) > 1:
-        model = "mixed"
-        pricing_model = "mixed"
-    else:
-        model = ""
-        pricing_model = ""
-
-    if pricing_model != "mixed":
-        costs = _calculate_costs(
-            provider="claude",
-            pricing_model=pricing_model,
-            reasoning_effort="",
-            input_tokens=input_tokens,
-            cached_input_tokens=cached_input_tokens,
-            cache_creation_input_tokens=cache_creation_input_tokens,
-            output_tokens=output_tokens,
-            reasoning_output_tokens=0,
-        )
-    else:
-        costs = {
-            "input_cost_usd": 0.0,
-            "cached_input_cost_usd": 0.0,
-            "cache_creation_input_cost_usd": 0.0,
-            "output_cost_usd": 0.0,
-            "reasoning_output_cost_usd": 0.0,
-            "session_total_cost_usd": 0.0,
-        }
-        for message in deduped_messages.values():
-            message_model = str(message["model"])
-            message_pricing_model = _resolve_pricing_model("claude", message_model)
-            message_costs = _calculate_costs(
-                provider="claude",
-                pricing_model=message_pricing_model,
-                reasoning_effort="",
-                input_tokens=int(message["input_tokens"]),
-                cached_input_tokens=int(message["cached_input_tokens"]),
-                cache_creation_input_tokens=int(message["cache_creation_input_tokens"]),
-                output_tokens=int(message["output_tokens"]),
-                reasoning_output_tokens=0,
-            )
-            for key, value in message_costs.items():
-                costs[key] += value
-
-    return {
-        "provider": "claude",
-        "session_id": session_id,
-        "session_file": str(session_file),
-        "timestamp": timestamp,
-        "model": model,
-        "reasoning_effort": "",
-        "pricing_model": pricing_model,
-        "input_tokens": input_tokens,
-        "cached_input_tokens": cached_input_tokens,
-        "cache_creation_input_tokens": cache_creation_input_tokens,
-        "output_tokens": output_tokens,
-        "reasoning_output_tokens": 0,
-        "total_tokens": input_tokens + cached_input_tokens + cache_creation_input_tokens + output_tokens,
-        **costs,
-    }
+    lines = read_lines(session_file)
+    events = decode_jsonl_lines(lines, session_file)
+    return parse_codex_events(events, session_file)
 
 
-# ---------------------------------------------------------------------------
-# Output
-# ---------------------------------------------------------------------------
+def parse_claude_session_usage(session_file: Path) -> AuditRecord | None:
+    """Parse a Claude JSONL session file into the normalized audit payload.
+
+    Args:
+        session_file (Path): Path to a Claude session JSONL transcript.
+
+    Returns:
+        AuditRecord | None: Normalized usage/cost audit payload, or ``None``
+            when no usage-bearing assistant messages are present.
+
+    Raises:
+        SessionParseError: Raised when any session line fails JSON decoding.
+    """
+    lines = read_lines(session_file)
+    events = decode_jsonl_lines(lines, session_file)
+    return parse_claude_events(events, session_file)
 
 
 def _should_use_color(stream: object | None = None) -> bool:
-    """Determine whether ANSI color output should be enabled for this run.
+    """Compute color mode using environment and stream capabilities.
 
     Args:
-        stream (object | None): Optional output stream override. When omitted,
-            the function inspects ``sys.stdout`` for terminal capabilities.
+        stream (object | None): Optional stream override for TTY detection.
 
     Returns:
-        bool: ``True`` when color output is explicitly enabled or supported by
-            the active terminal configuration, otherwise ``False``.
+        bool: ``True`` when ANSI color output should be enabled.
     """
-    color_mode = os.getenv("TOKEN_AUDITOR_COLOR", "auto").strip().lower()
-    if color_mode == "always":
-        return True
-    if color_mode == "never" or os.getenv("NO_COLOR") is not None:
-        return False
-
     output_stream = stream if stream is not None else sys.stdout
-    is_tty = bool(getattr(output_stream, "isatty", lambda: False)())
-    return is_tty and os.getenv("TERM", "").lower() != "dumb"
+    return decide_color_enabled(
+        color_mode=env_value("TOKEN_AUDITOR_COLOR", "auto"),
+        no_color=has_env("NO_COLOR"),
+        is_tty=is_tty(output_stream),
+        term=env_value("TERM", ""),
+    )
 
 
 def _paint(text: str, color_code_256: int, enabled: bool) -> str:
-    """Wrap text with ANSI 256-color escape codes when color output is active.
+    """Compatibility wrapper around the pure ANSI painter.
 
     Args:
-        text (str): Plain text to colorize for terminal output.
+        text (str): Text payload to colorize when enabled.
         color_code_256 (int): ANSI 256-color palette index to apply.
-        enabled (bool): Flag indicating whether colorization should occur.
+        enabled (bool): Whether ANSI styling should be applied.
 
     Returns:
-        str: Colorized text when enabled, or the original text unchanged.
+        str: Styled text when enabled, otherwise the original text.
     """
-    return f"\x1b[38;5;{color_code_256}m{text}\x1b[0m" if enabled else text
+    return paint(text, color_code_256, enabled)
 
 
 def _format_usd(value: float) -> str:
-    """Format a USD monetary value using compact, human-readable precision.
+    """Compatibility wrapper around USD formatting helper.
 
     Args:
-        value (float): Numeric cost value denominated in United States dollars.
+        value (float): Numeric cost value denominated in US dollars.
 
     Returns:
-        str: Dollar-prefixed value with trailing zeros trimmed for readability.
+        str: Human-readable USD representation with commas and trimmed zeros.
     """
-    return f"${value:,.9f}".rstrip("0").rstrip(".")
+    return format_usd(value)
 
 
 def _format_tokens(value: int) -> str:
-    """Format token counts with separators and a consistent ``tokens`` suffix.
+    """Compatibility wrapper around token count formatting helper.
 
     Args:
-        value (int): Raw token count value from usage metrics.
+        value (int): Raw token count value.
 
     Returns:
-        str: Human-friendly token count string with thousands separators.
+        str: Human-readable token count string with separators.
     """
-    return f"{value:,} tokens"
+    return format_tokens(value)
 
 
-def _print_rows(rows: Sequence[tuple[str, str]], use_color: bool, color_offset: int = 0) -> None:
-    """Render aligned label/value rows with optional gradient-based colors.
+def _print_text_audit(audit: AuditRecord) -> None:
+    """Render and emit the human-readable audit report to standard output.
 
     Args:
-        rows (Sequence[tuple[str, str]]): Ordered list of label/value display
-            pairs to render.
-        use_color (bool): Whether ANSI colors should be applied to labels.
-        color_offset (int): Gradient index offset used to vary section colors.
+        audit (AuditRecord): Normalized token/cost audit payload.
 
     Returns:
-        None: The function writes formatted rows directly to standard output.
+        None: The rendered report is printed to standard output.
     """
-    for idx, (label, value) in enumerate(rows):
-        label_color = EVERFOREST_GRADIENT_256[(idx + color_offset) % len(EVERFOREST_GRADIENT_256)]
-        print(f"  {_paint(f'{label:<20}', label_color, use_color)} {value}")
-
-
-def _print_text_audit(audit: dict[str, str | int | float]) -> None:
-    """Print a rich, human-readable audit report with token and cost sections.
-
-    Args:
-        audit (dict[str, str | int | float]): Normalized audit payload produced
-            by one of the provider-specific parsing functions.
-
-    Returns:
-        None: The function emits formatted report text to standard output.
-    """
-    use_color = _should_use_color()
-    provider = str(audit["provider"]).capitalize()
-    title = f"{provider} Token Audit"
-    print(_paint(title, EVERFOREST_HEADER_COLOR_256, use_color))
-    print(_paint("-" * len(title), EVERFOREST_MUTED_COLOR_256, use_color))
-
-    summary_rows = (
-        ("Session ID", str(audit["session_id"])),
-        ("Session File", str(audit["session_file"])),
-        ("Timestamp", str(audit["timestamp"])),
-        ("Model", str(audit["model"])),
-        ("Pricing Model", str(audit["pricing_model"])),
-        ("Reasoning Effort", str(audit["reasoning_effort"]) or "n/a"),
-    )
-    _print_rows(summary_rows, use_color)
-    print()
-
-    print(_paint("Token Usage", EVERFOREST_SECTION_COLOR_256, use_color))
-    token_rows = (
-        ("Input Tokens", _format_tokens(int(audit["input_tokens"]))),
-        ("Cached Input", _format_tokens(int(audit["cached_input_tokens"]))),
-        ("Cache Creation", _format_tokens(int(audit["cache_creation_input_tokens"]))),
-        ("Output Tokens", _format_tokens(int(audit["output_tokens"]))),
-        ("Reasoning Output", _format_tokens(int(audit["reasoning_output_tokens"]))),
-        ("Total Tokens", _format_tokens(int(audit["total_tokens"]))),
-    )
-    _print_rows(token_rows, use_color, color_offset=1)
-    print()
-
-    print(_paint("Estimated Cost (USD)", EVERFOREST_SECTION_COLOR_256, use_color))
-    cost_rows = (
-        ("Input Cost", _format_usd(float(audit["input_cost_usd"]))),
-        ("Cached Input", _format_usd(float(audit["cached_input_cost_usd"]))),
-        ("Cache Creation", _format_usd(float(audit["cache_creation_input_cost_usd"]))),
-        ("Output Cost", _format_usd(float(audit["output_cost_usd"]))),
-        ("Reasoning Output", _format_usd(float(audit["reasoning_output_cost_usd"]))),
-        ("Total Cost", _format_usd(float(audit["session_total_cost_usd"]))),
-    )
-    _print_rows(cost_rows, use_color, color_offset=2)
+    print(render_text_audit(audit, _should_use_color()))
 
 
 def _resolve_session_file(args: argparse.Namespace) -> Path | None:
-    """Resolve which session file should be audited from parsed CLI options.
+    """Resolve the session file path for the provider and lookup options.
 
     Args:
-        args (argparse.Namespace): Parsed command-line arguments for provider
-            selection, optional explicit session path, and home directories.
+        args (argparse.Namespace): Parsed CLI arguments controlling resolution.
 
     Returns:
-        Path | None: Explicit path or discovered latest session file, or
-            ``None`` when no matching session logs can be found.
+        Path | None: Explicit path override or discovered latest session file.
     """
     if args.session_file:
         return Path(args.session_file).expanduser()
@@ -732,20 +291,14 @@ def _resolve_session_file(args: argparse.Namespace) -> Path | None:
     return _find_latest_session_file(codex_home, CODEX_SESSION_GLOB)
 
 
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
-
-
 def main(argv: Sequence[str] | None = None) -> int:
-    """Run the token-auditor CLI flow and return a process-style exit code.
+    """Run the token-auditor CLI orchestration and return process exit code.
 
     Args:
-        argv (Sequence[str] | None): Optional argument vector override. When
-            omitted, arguments are parsed from ``sys.argv``.
+        argv (Sequence[str] | None): Optional argument vector override.
 
     Returns:
-        int: ``0`` on success, or ``1`` when session discovery/parsing fails.
+        int: ``0`` on success, ``1`` when discovery or parsing fails.
     """
     args = parse_args(argv)
     configure(args.log_level)
@@ -753,18 +306,20 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     session_file = _resolve_session_file(args)
     if session_file is None:
-        if args.provider == "claude":
-            print("No Claude session files found.", file=sys.stderr)
-        else:
-            print("No Codex session files found.", file=sys.stderr)
+        print("No Claude session files found." if args.provider == "claude" else "No Codex session files found.", file=sys.stderr)
         return 1
 
-    if not session_file.exists():
+    if not path_exists(session_file):
         print(f"Session file not found: {session_file}", file=sys.stderr)
         return 1
 
+    parsers: dict[str, Callable[[Path], AuditRecord | None]] = {
+        "codex": parse_codex_session_usage,
+        "claude": parse_claude_session_usage,
+    }
+
     try:
-        audit = parse_claude_session_usage(session_file) if args.provider == "claude" else parse_codex_session_usage(session_file)
+        audit = parsers[args.provider](session_file)
     except SessionParseError as exc:
         print(str(exc), file=sys.stderr)
         return 1
@@ -773,11 +328,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"No token usage data found in session file: {session_file}", file=sys.stderr)
         return 1
 
-    if args.json:
-        print(json.dumps(audit, sort_keys=True))
-    else:
-        _print_text_audit(audit)
-
+    serializer: Callable[[AuditRecord], str] = render_json_audit if args.json else (lambda payload: render_text_audit(payload, _should_use_color()))
+    print(serializer(audit))
     return 0
 
 

@@ -22,7 +22,7 @@ dev = [
 managed = true
 
 [tool.pytest.ini_options]
-addopts = "--cov=main --cov=_logging --cov-report=term-missing --cov-fail-under=100"
+addopts = "--cov=main --cov=_logging --cov=core --cov=shell --cov-report=term-missing --cov-fail-under=100"
 
 [tool.ruff]
 target-version = "py314"
@@ -38,7 +38,7 @@ branch = true
 exclude_lines = ["if __name__ == .__main__.:"]
 
 [tool.hatch.build.targets.wheel]
-include = ["main.py", "_logging.py"]
+include = ["main.py", "_logging.py", "core/**/*.py", "shell/**/*.py"]
 
 [build-system]
 requires = ["hatchling"]
