@@ -145,7 +145,7 @@ Use the uv-first tooling that ships with this project:
 
 ```shell
 cd mcp_sync && uv run ruff check src tests && uv run pytest -v
-cd ../token_auditor && uv run ruff check . && uv run python -m pytest -v
+cd token_auditor && uv run ruff check . && uv run pytest -v
 ```
 
 ## Environment Variables Setup

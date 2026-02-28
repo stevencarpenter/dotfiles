@@ -1,6 +1,6 @@
 # token-auditor
 
-CLI utility that prints a token/cost audit for local Codex and Claude sessions.
+CLI utility that prints token and cost audits for local Codex and Claude sessions.
 
 ## Setup
 
@@ -8,39 +8,95 @@ CLI utility that prints a token/cost audit for local Codex and Claude sessions.
 uv sync
 ```
 
-## Usage
+## CLI Usage
 
-Canonical command:
+Canonical entrypoint:
 
 ```bash
 uv run --project . token-auditor
-uv run --project . token-auditor --provider codex
-uv run --project . token-auditor --provider claude
-uv run --project . token-auditor --provider claude --cwd "$PWD"
-uv run --project . token-auditor --json
-uv run --project . token-auditor --session-file /path/to/session.jsonl
 ```
 
-Compatibility alias:
+Compatibility alias (same behavior):
 
 ```bash
 uv run --project . codax
 ```
 
+Common examples:
+
+```bash
+uv run --project . token-auditor --provider codex
+uv run --project . token-auditor --provider claude
+uv run --project . token-auditor --provider claude --cwd "$PWD"
+uv run --project . token-auditor --session-file /path/to/session.jsonl
+uv run --project . token-auditor --json
+```
+
+Supported flags:
+
+- `--provider {codex,claude}`: provider to audit (default: `codex`).
+- `--codex-home`: Codex home for session discovery (default: `~/.codex`).
+- `--claude-home`: Claude home for session discovery (default: `~/.claude`).
+- `--cwd`: workspace path used for Claude project-scoped lookup (default: current working directory).
+- `--session-file`: explicit JSONL file path override. When present, discovery is skipped.
+- `--json`: emit machine-readable JSON output instead of text.
+- `--log-level`: logging verbosity (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`).
+
+## Session Discovery
+
+- Codex defaults to latest `~/.codex/sessions/*/*/*/rollout-*.jsonl`.
+- Claude defaults to latest project-scoped file first:
+  `~/.claude/projects/<cwd-slug>/*.jsonl`.
+- If no Claude project-scoped file exists, it falls back to latest
+  `~/.claude/projects/*/*.jsonl`.
+
+## Output Schema
+
 Text and JSON output include:
 
-- `provider`, `model`, `reasoning_effort`, `pricing_model`
-- `input_tokens`, `cached_input_tokens`, `cache_creation_input_tokens`, `output_tokens`, `reasoning_output_tokens`, `total_tokens`
-- `input_cost_usd`, `cached_input_cost_usd`, `cache_creation_input_cost_usd`, `output_cost_usd`, `reasoning_output_cost_usd`, `session_total_cost_usd`
+- Identity: `provider`, `session_id`, `session_file`, `timestamp`, `model`, `pricing_model`, `reasoning_effort`.
+- Token counts (integer tokens): `input_tokens`, `cached_input_tokens`, `cache_creation_input_tokens`, `output_tokens`, `reasoning_output_tokens`,
+  `total_tokens`.
+- Costs (USD): `input_cost_usd`, `cached_input_cost_usd`, `cache_creation_input_cost_usd`, `output_cost_usd`, `reasoning_output_cost_usd`,
+  `session_total_cost_usd`.
+
+Codex token semantics:
+
+- In Codex session logs, `input_tokens` already includes cached tokens.
+- `cached_input_tokens` is a subset of `input_tokens`.
+- Billable uncached input for pricing is calculated as:
+  `input_tokens - cached_input_tokens - cache_creation_input_tokens`.
+- Codex CLI's inline footer can show a smaller `total` because it commonly reports `uncached_input + output`, while this auditor reports the session usage
+  values from the log.
+
+## Color Output
+
+Text output supports an Everforest-inspired ANSI palette.
+
+- `TOKEN_AUDITOR_COLOR=auto` (default): color only when stdout is a TTY.
+- `TOKEN_AUDITOR_COLOR=always`: force color output.
+- `TOKEN_AUDITOR_COLOR=never`: disable color output.
+- `NO_COLOR` also disables color output.
+
+## zsh Wrappers
+
+`dot_config/zsh/dot_zshrc` defines:
+
+- `codax`: runs `codex "$@"`, then runs:
+  `uv run --project ~/.local/share/chezmoi/token_auditor token-auditor --provider codex`
+- `claade`: runs `claude "$@"`, then runs:
+  `uv run --project ~/.local/share/chezmoi/token_auditor token-auditor --provider claude --cwd "$PWD"`
+- The `claade` function name is intentional to mirror `codax` naming and avoid clobbering the `claude` command name.
+- Both wrappers preserve the original `codex`/`claude` exit code and print a warning if audit invocation fails.
 
 ## Development
 
 ```bash
 uv sync --group dev
-uv run python -m pytest  # run tests
-uv run ruff check .    # lint
-uv run ruff format .   # format
-uv run ty check .      # type check
+uv run pytest -v
+uv run ruff check .
+uv run ruff format .
+uv run ty check .
 ```
 
 ### Docstring Standard
@@ -49,12 +105,3 @@ uv run ty check .      # type check
 - Include typed `Args:` and `Returns:` sections for callables.
 - Include a typed `Raises:` section when exceptions are part of behavior.
 - `tests/test_main.py` enforces this for `main.py` and `_logging.py`.
-
-## zsh Wrappers
-
-`dot_config/zsh/dot_zshrc` defines:
-
-1. `codax`: runs `codex "$@"`, then audits latest Codex session via
-   `uv run --project ~/.local/share/chezmoi/token_auditor token-auditor --provider codex`
-2. `claade`: runs `claude "$@"`, then audits latest Claude session for current workspace via
-   `uv run --project ~/.local/share/chezmoi/token_auditor token-auditor --provider claude --cwd "$PWD"`
