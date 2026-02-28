@@ -1716,5 +1716,55 @@
 # Tell `p10k configure` which file it should overwrite.
 typeset -g POWERLEVEL9K_CONFIG_FILE=${${(%):-%x}:a}
 
+################################################################
+# === Custom Steve Single-Line Left-Only Configuration Override ===
+################################################################
+
+# --- Single line ---
+typeset -g POWERLEVEL9K_PROMPT_ADD_NEWLINE=false
+typeset -g POWERLEVEL9K_MULTILINE_FIRST_PROMPT_GAP_CHAR=' '
+
+# --- Left prompt layout (no os_icon) ---
+typeset -g POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(
+  aws
+  kubecontext
+  dir
+  vcs
+  virtualenv
+  prompt_char
+)
+
+# --- No right prompt ---
+typeset -g POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS=()
+
+# --- AWS visible only when typing AWS commands/wrappers ---
+typeset -g POWERLEVEL9K_AWS_SHOW_ON_COMMAND='aws|aws-sso|asp'
+
+# --- Kube visibility rules ---
+typeset -g POWERLEVEL9K_KUBECONTEXT_SHOW_ON_COMMAND='kubectl|helm|kubens|kubectx|oc|k9s|helmfile|flux|fluxctl|stern|kubeseal|skaffold|kubent|kubecolor|cmctl|sparkctl'
+typeset -g POWERLEVEL9K_KUBECONTEXT_SHOW_ON_DIR='~/projects/configuration(|/*)'
+
+# --- Shorten kube context ---
+function my_kube_short() {
+  emulate -L zsh
+  local name=${P9K_KUBECONTEXT_NAME:-$P9K_CONTENT}
+  local short=${name%%.*}
+  local ns=${P9K_KUBECONTEXT_NAMESPACE:-}
+
+  if [[ -n $ns && $ns != default ]]; then
+    print -r -- "${short} ⎈ ${ns}"
+  else
+    print -r -- "${short}"
+  fi
+}
+typeset -g POWERLEVEL9K_KUBECONTEXT_DEFAULT_CONTENT_EXPANSION='$(my_kube_short)'
+
+# --- Transient prompt for clean copy/paste ---
+typeset -g POWERLEVEL9K_TRANSIENT_PROMPT=off
+
+################################################################
+# === End Custom Override ===
+################################################################
+
 (( ${#p10k_config_opts} )) && setopt ${p10k_config_opts[@]}
 'builtin' 'unset' 'p10k_config_opts'

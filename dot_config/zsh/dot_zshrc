@@ -236,6 +236,55 @@ __aws_sso_profile_complete() {
     _multi_parts : "($(/opt/homebrew/bin/aws-sso ${=_args} list --csv Profile))"
 }
 
+__aws_profile_from_args() {
+    emulate -L zsh
+    local prev=''
+    local arg=''
+    for arg in "$@"; do
+        if [[ "$prev" == "--profile" || "$prev" == "-p" ]]; then
+            print -r -- "$arg"
+            return 0
+        fi
+        case "$arg" in
+            --profile=*)
+                print -r -- "${arg#--profile=}"
+                return 0
+                ;;
+            -p?*)
+                print -r -- "${arg#-p}"
+                return 0
+                ;;
+            --profile|-p)
+                prev="$arg"
+                continue
+                ;;
+        esac
+        prev=''
+    done
+    return 1
+}
+
+aws-sso() {
+    local _bin=/opt/homebrew/bin/aws-sso
+    command "$_bin" "$@"
+    local rc=$?
+    if (( rc != 0 )); then
+        return $rc
+    fi
+
+    if (( ${argv[(I)login]} )); then
+        local profile
+        profile="$(__aws_profile_from_args "$@")"
+        if [[ -n "$profile" ]]; then
+            export AWS_SSO_PROFILE="$profile"
+        fi
+        export AWS_DEFAULT_PROFILE=default
+    elif (( ${argv[(I)logout]} || ${argv[(I)clear]} )); then
+        unset AWS_SSO_PROFILE
+        unset AWS_DEFAULT_PROFILE
+    fi
+}
+
 aws-sso-profile() {
     local _args=${AWS_SSO_HELPER_ARGS:- -L error}
     if [ -n "$AWS_PROFILE" ]; then
@@ -252,6 +301,7 @@ aws-sso-profile() {
     if [ "$AWS_SSO_PROFILE" != "$1" ]; then
         return 1
     fi
+    export AWS_DEFAULT_PROFILE=default
 }
 
 aws-sso-clear() {
@@ -261,6 +311,7 @@ aws-sso-clear() {
         return 1
     fi
     eval $(/opt/homebrew/bin/aws-sso ${=_args} eval -c)
+    unset AWS_DEFAULT_PROFILE
 }
 # END_AWS_SSO_CLI
 
