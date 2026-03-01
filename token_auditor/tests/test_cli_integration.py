@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 import pytest
+
 from core.types import SessionParseError
 from main import (
     _calculate_costs,
