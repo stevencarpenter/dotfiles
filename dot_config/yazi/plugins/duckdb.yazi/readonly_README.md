@@ -326,7 +326,7 @@ This should be placed in your home directory ([duckdb docs](https://duckdb.org/d
 You can customize the colors of the preview using the following options
 
 ```
-.highlight_colors layout gray 
+.highlight_colors layout gray
 .highlight_colors column_name magenta bold
 .highlight_colors column_type gray
 .highlight_colors string_value cyan
