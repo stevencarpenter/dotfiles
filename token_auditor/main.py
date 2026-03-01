@@ -130,14 +130,14 @@ def _resolve_pricing_model(provider: str, model: str) -> str:
 
 
 def _calculate_costs(
-        provider: str,
-        pricing_model: str,
-        reasoning_effort: str,
-        input_tokens: int,
-        cached_input_tokens: int,
-        cache_creation_input_tokens: int,
-        output_tokens: int,
-        reasoning_output_tokens: int,
+    provider: str,
+    pricing_model: str,
+    reasoning_effort: str,
+    input_tokens: int,
+    cached_input_tokens: int,
+    cache_creation_input_tokens: int,
+    output_tokens: int,
+    reasoning_output_tokens: int,
 ) -> dict[str, float]:
     """Compatibility wrapper for pure pricing arithmetic helpers.
 

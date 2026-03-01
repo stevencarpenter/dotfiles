@@ -110,6 +110,8 @@ uv run ruff format .
 uv run ty check .
 ```
 
+`ruff check --fix` does not run the formatter. CI also runs `uv run ruff format --check .`, so run format locally (or use `../scripts/test-token-auditor-ci.sh`) before pushing.
+
 ### Docstring Standard
 
 - Use verbose Google-style docstrings for classes and functions.

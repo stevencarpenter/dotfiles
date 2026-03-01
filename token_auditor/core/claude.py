@@ -83,9 +83,9 @@ def _latest_timestamp(deduped_snapshots: Mapping[str, ClaudeMessageSnapshot]) ->
 
 
 def compute_claude_costs(
-        deduped_snapshots: Mapping[str, ClaudeMessageSnapshot],
-        aggregate: TokenUsage,
-        pricing_model: str,
+    deduped_snapshots: Mapping[str, ClaudeMessageSnapshot],
+    aggregate: TokenUsage,
+    pricing_model: str,
 ) -> CostBreakdown:
     """Compute Claude costs either from aggregate totals or per-message mixed models."""
     if pricing_model != "mixed":
@@ -119,9 +119,9 @@ def compute_claude_costs(
 
 
 def finalize_claude_audit(
-        session_id: str,
-        deduped_snapshots: Mapping[str, ClaudeMessageSnapshot],
-        session_file: Path,
+    session_id: str,
+    deduped_snapshots: Mapping[str, ClaudeMessageSnapshot],
+    session_file: Path,
 ) -> AuditRecord:
     """Build the normalized Claude audit payload from deduped snapshots."""
     aggregate = aggregate_claude_usage(deduped_snapshots)

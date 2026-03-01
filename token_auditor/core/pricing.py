@@ -43,14 +43,14 @@ def zero_costs() -> CostBreakdown:
 
 
 def calculate_costs(
-        provider: str,
-        pricing_model: str,
-        reasoning_effort: str,
-        input_tokens: int,
-        cached_input_tokens: int,
-        cache_creation_input_tokens: int,
-        output_tokens: int,
-        reasoning_output_tokens: int,
+    provider: str,
+    pricing_model: str,
+    reasoning_effort: str,
+    input_tokens: int,
+    cached_input_tokens: int,
+    cache_creation_input_tokens: int,
+    output_tokens: int,
+    reasoning_output_tokens: int,
 ) -> CostBreakdown:
     """Compute session cost components using provider-specific billing rules."""
     provider_pricing = TOKEN_PRICING_USD_PER_1M.get(provider, {})
