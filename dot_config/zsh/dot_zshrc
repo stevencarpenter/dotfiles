@@ -193,6 +193,11 @@ function c() {
   emulate -L zsh
   setopt pipefail
 
+  if (( $# == 0 )); then
+    echo "Usage: c <command> [args...]" >&2
+    return 2
+  fi
+
   local tmpfile
   tmpfile="$(mktemp -t zshcap.XXXXXX)" || return 1
 

@@ -1,6 +1,6 @@
 # token-auditor
 
-CLI utility that prints token and cost audits for local Codex, Claude, OpenCode, and Amp sessions.
+CLI utility that prints token and cost audits for local Codex, Claude, and OpenCode sessions.
 
 ## Setup
 
@@ -29,18 +29,16 @@ uv run --project . token-auditor --provider codex
 uv run --project . token-auditor --provider claude
 uv run --project . token-auditor --provider claude --cwd "$PWD"
 uv run --project . token-auditor --provider opencode --cwd "$PWD"
-uv run --project . token-auditor --provider amp --cwd "$PWD"
 uv run --project . token-auditor --session-file /path/to/session.jsonl
 uv run --project . token-auditor --json
 ```
 
 Supported flags:
 
-- `--provider {codex,claude,opencode,amp,copilot}`: provider to audit (default: `codex`).
+- `--provider {codex,claude,opencode,copilot}`: provider to audit (default: `codex`).
 - `--codex-home`: Codex home for session discovery (default: `~/.codex`).
 - `--claude-home`: Claude home for session discovery (default: `~/.claude`).
 - `--opencode-db`: OpenCode SQLite path (default: `~/.local/share/opencode/opencode.db`).
-- `--amp-threads-dir`: Amp thread directory (default: `~/.local/share/amp/threads`).
 - `--cwd`: workspace path used for Claude project-scoped lookup (default: current working directory).
 - `--session-file`: explicit provider source path override. When present, discovery is skipped.
 - `--json`: emit machine-readable JSON output instead of text.
@@ -57,8 +55,6 @@ Supported flags:
   `~/.claude/projects/*/*.jsonl`.
 - OpenCode reads from `--opencode-db` and selects the latest session whose
   assistant `path.cwd`/`path.root` matches `--cwd` (fallback: latest global session).
-- Amp defaults to latest thread in `--amp-threads-dir` containing the `--cwd`
-  path (fallback: latest thread by mtime).
 
 ## Output Schema
 
@@ -75,7 +71,6 @@ Cost source semantics:
 
 - `estimated`: USD is derived from pricing tables.
 - `provider_billed`: USD comes from provider-billed telemetry (OpenCode).
-- `hybrid`: estimated USD plus provider-native billed unit passthrough (Amp credits).
 
 Codex token semantics:
 
