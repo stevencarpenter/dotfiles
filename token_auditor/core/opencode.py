@@ -98,12 +98,7 @@ def extract_opencode_usage_row(row: JsonEvent) -> OpencodeUsageRow | None:
 def _is_cwd_match(row: OpencodeUsageRow, cwd: Path) -> bool:
     """Return whether the row belongs to the requested workspace path."""
     cwd_text = str(cwd)
-    return (
-        _is_path_prefix(cwd_text, row.cwd)
-        or _is_path_prefix(cwd_text, row.root)
-        or _is_path_prefix(row.cwd, cwd_text)
-        or _is_path_prefix(row.root, cwd_text)
-    )
+    return _is_path_prefix(cwd_text, row.cwd) or _is_path_prefix(cwd_text, row.root) or _is_path_prefix(row.cwd, cwd_text) or _is_path_prefix(row.root, cwd_text)
 
 
 def choose_opencode_session_id(rows: tuple[OpencodeUsageRow, ...], cwd: Path) -> str:
