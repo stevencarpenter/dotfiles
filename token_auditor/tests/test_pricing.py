@@ -63,16 +63,19 @@ def test_calculate_costs_for_claude_uses_direct_input_tokens() -> None:
 
 
 def test_calculate_costs_returns_zero_breakdown_for_unknown_pricing_models() -> None:
-    assert calculate_costs(
-        provider="claude",
-        pricing_model="",
-        reasoning_effort="",
-        input_tokens=1,
-        cached_input_tokens=2,
-        cache_creation_input_tokens=3,
-        output_tokens=4,
-        reasoning_output_tokens=0,
-    ) == zero_costs()
+    assert (
+            calculate_costs(
+                provider="claude",
+                pricing_model="",
+                reasoning_effort="",
+                input_tokens=1,
+                cached_input_tokens=2,
+                cache_creation_input_tokens=3,
+                output_tokens=4,
+                reasoning_output_tokens=0,
+            )
+            == zero_costs()
+    )
 
 
 def test_safe_int_handles_invalid_inputs() -> None:
