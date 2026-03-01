@@ -9,3 +9,11 @@ def safe_int(value: Any) -> int:
         return int(value)
     except TypeError, ValueError:
         return 0
+
+
+def safe_float(value: Any) -> float:
+    """Convert dynamic inputs to floats while tolerating malformed values."""
+    try:
+        return float(value)
+    except TypeError, ValueError:
+        return 0.0

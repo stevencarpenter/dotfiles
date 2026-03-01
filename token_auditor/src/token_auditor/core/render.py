@@ -3,8 +3,8 @@
 import json
 from collections.abc import Sequence
 
-from core.constants import EVERFOREST_GRADIENT_256, EVERFOREST_HEADER_COLOR_256, EVERFOREST_MUTED_COLOR_256, EVERFOREST_SECTION_COLOR_256
-from core.types import AuditRecord
+from token_auditor.core.constants import EVERFOREST_GRADIENT_256, EVERFOREST_HEADER_COLOR_256, EVERFOREST_MUTED_COLOR_256, EVERFOREST_SECTION_COLOR_256
+from token_auditor.core.types import AuditRecord
 
 
 def decide_color_enabled(color_mode: str, no_color: bool, is_tty: bool, term: str) -> bool:
@@ -35,12 +35,13 @@ def format_tokens(value: int) -> str:
 def format_summary_rows(audit: AuditRecord) -> tuple[tuple[str, str], ...]:
     """Build summary display rows for provider/session metadata fields."""
     return (
-        ("Session ID", str(audit["session_id"])),
-        ("Session File", str(audit["session_file"])),
-        ("Timestamp", str(audit["timestamp"])),
-        ("Model", str(audit["model"])),
-        ("Pricing Model", str(audit["pricing_model"])),
-        ("Reasoning Effort", str(audit["reasoning_effort"]) or "n/a"),
+        ("Session ID", str(audit.get("session_id", ""))),
+        ("Session File", str(audit.get("session_file", ""))),
+        ("Timestamp", str(audit.get("timestamp", ""))),
+        ("Model", str(audit.get("model", ""))),
+        ("Pricing Model", str(audit.get("pricing_model", ""))),
+        ("Reasoning Effort", str(audit.get("reasoning_effort", "")) or "n/a"),
+        ("Cost Source", str(audit.get("cost_source", "estimated"))),
     )
 
 
@@ -58,14 +59,20 @@ def format_token_rows(audit: AuditRecord) -> tuple[tuple[str, str], ...]:
 
 def format_cost_rows(audit: AuditRecord) -> tuple[tuple[str, str], ...]:
     """Build USD cost rows formatted for human-readable text output."""
-    return (
+    rows = [
         ("Input Cost", format_usd(float(audit["input_cost_usd"]))),
         ("Cached Input", format_usd(float(audit["cached_input_cost_usd"]))),
         ("Cache Creation", format_usd(float(audit["cache_creation_input_cost_usd"]))),
         ("Output Cost", format_usd(float(audit["output_cost_usd"]))),
         ("Reasoning Output", format_usd(float(audit["reasoning_output_cost_usd"]))),
         ("Total Cost", format_usd(float(audit["session_total_cost_usd"]))),
-    )
+    ]
+    provider_billed_unit = str(audit.get("provider_billed_unit", ""))
+    if provider_billed_unit:
+        provider_billed_total = float(audit.get("provider_billed_total", 0.0))
+        billed_value = format_usd(provider_billed_total) if provider_billed_unit == "usd" else f"{provider_billed_total:g} {provider_billed_unit}"
+        rows.append(("Provider Billed", billed_value))
+    return tuple(rows)
 
 
 def _render_rows(rows: Sequence[tuple[str, str]], use_color: bool, color_offset: int = 0) -> list[str]:

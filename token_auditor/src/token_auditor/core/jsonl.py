@@ -4,7 +4,7 @@ import json
 from collections.abc import Sequence
 from pathlib import Path
 
-from core.types import JsonEvent, SessionParseError
+from token_auditor.core.types import JsonEvent, SessionParseError
 
 
 def decode_jsonl_lines(lines: Sequence[str], session_file: Path) -> tuple[JsonEvent, ...]:

@@ -3,6 +3,7 @@
 PROJECT_NAME = "token-auditor"
 CODEX_SESSION_GLOB = "sessions/*/*/*/rollout-*.jsonl"
 CLAUDE_SESSION_GLOB = "projects/*/*.jsonl"
+OPENCODE_DB_DEFAULT = "~/.local/share/opencode/opencode.db"
 
 TOKEN_PRICING_USD_PER_1M: dict[str, dict[str, dict[str, float]]] = {
     "codex": {
@@ -63,6 +64,7 @@ TOKEN_PRICING_USD_PER_1M: dict[str, dict[str, dict[str, float]]] = {
             "output_tokens": 5.00,
         },
     },
+    "opencode": {},
 }
 
 MODEL_PRICING_ALIASES: dict[str, dict[str, str]] = {
@@ -74,6 +76,7 @@ MODEL_PRICING_ALIASES: dict[str, dict[str, str]] = {
         "claude-sonnet-4-5": "claude-sonnet-4-6",
         "claude-haiku-4-5-20251001": "claude-haiku-4-5",
     },
+    "opencode": {},
 }
 
 MODEL_PRICING_PREFIX_ALIASES: dict[str, tuple[tuple[str, str], ...]] = {
@@ -83,6 +86,7 @@ MODEL_PRICING_PREFIX_ALIASES: dict[str, tuple[tuple[str, str], ...]] = {
         ("claude-sonnet-4-5", "claude-sonnet-4-6"),
         ("claude-haiku-4-5", "claude-haiku-4-5"),
     ),
+    "opencode": (),
 }
 
 REASONING_EFFORT_MULTIPLIER: dict[str, float] = {

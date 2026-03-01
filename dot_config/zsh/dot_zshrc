@@ -146,11 +146,9 @@ alias emacs='nvim'
 
 # Utility aliases
 alias tree='tree -a -I .git'
-alias l='ls -lah'
 alias la='ls -lAh'
 alias ll='ls -lh'
 alias ls='ls -G'
-alias lsa='ls -lah'
 alias sed='gsed'
 alias teeclip='tee >(pbcopy)'
 
@@ -189,10 +187,46 @@ z4h bindkey z4h-cd-down    Alt+Down   # cd into a child directory
 
 # === 7. Functions ===
 # Simple utility functions
+
+# Get complete command output with header and exit code, copied to clipboard (for easy sharing in chat, etc.)
+function c() {
+  emulate -L zsh
+  setopt pipefail
+
+  if (( $# == 0 )); then
+    echo "Usage: c <command> [args...]" >&2
+    return 2
+  fi
+
+  local tmpfile
+  tmpfile="$(mktemp -t zshcap.XXXXXX)" || return 1
+
+  local cmd="$*"
+  local cwd="${PWD/#$HOME/~}"
+  local ts
+  ts="$(date '+%Y-%m-%d %H:%M:%S')"
+
+  # Run command; capture stdout+stderr; still show live output
+  "$@" 2>&1 | tee "$tmpfile"
+  local rc=${pipestatus[1]}  # exit code of the command (not tee)
+
+  # Copy Slack-safe text (no Nerd Font glyphs)
+  {
+    print -r -- "$cwd$ $cmd"
+    cat "$tmpfile"
+  } | pbcopy
+
+  rm -f "$tmpfile"
+  return $rc
+}
+
 function md() { [[ $# == 1 ]] && mkdir -p -- "$1" && cd -- "$1" }
 
+# Git "whoops" function: create a new branch at the current HEAD, then reset the current branch back one commit.
+# Useful for quickly undoing a mistaken commit while preserving the changes in a new branch.
 function goops() { git branch "$1" && git reset --hard HEAD~1 }
 
+# Copy a file to the clipboard and also save it to disk (for easy sharing of files in chat, etc.)
 function copyfile() {
     if ! tee "$1" >(pbcopy); then
         echo "Error: Failed to write file or copy to clipboard" >&2
@@ -200,33 +234,41 @@ function copyfile() {
     fi
 }
 
-function codax() {
+# Wrappers for LLM CLI tools that run the command, then run a token audit on the session afterward.
+# The audit looks for provider-specific environment variables and CLI args to determine which provider to audit for.
+# The audit tool is configured to look for sessions started in the current working directory, so the wrapper
+# can optionally pass the CWD to the auditor if the tool being wrapped does not have a --cwd option itself (e.g. Claude).
+function _run_with_token_audit() {
+    local wrapper_name="$1"
+    local command_name="$2"
+    local provider="$3"
+    local use_cwd="$4"
+    shift 4
+
     local token_auditor_project="$HOME/.local/share/chezmoi/token_auditor"
-    command codex "$@"
-    local codex_rc=$?
+    command "$command_name" "$@"
+    local command_rc=$?
 
     if [[ -d "$token_auditor_project" ]]; then
-        uv run --project "$token_auditor_project" token-auditor --provider codex || echo "codax: failed to print session usage audit" >&2
+        local -a audit_cmd=(
+            uv run --project "$token_auditor_project"
+            token-auditor --provider "$provider"
+        )
+        if [[ "$use_cwd" == "1" ]]; then
+            audit_cmd+=(--cwd "$PWD")
+        fi
+        "${audit_cmd[@]}" || echo "${wrapper_name}: failed to print session usage audit" >&2
     else
-        echo "codax: project not found at $token_auditor_project" >&2
+        echo "${wrapper_name}: project not found at $token_auditor_project" >&2
     fi
 
-    return $codex_rc
+    return $command_rc
 }
 
-function claade() {
-    local token_auditor_project="$HOME/.local/share/chezmoi/token_auditor"
-    command claude "$@"
-    local claude_rc=$?
-
-    if [[ -d "$token_auditor_project" ]]; then
-        uv run --project "$token_auditor_project" token-auditor --provider claude --cwd "$PWD" || echo "claade: failed to print session usage audit" >&2
-    else
-        echo "claade: project not found at $token_auditor_project" >&2
-    fi
-
-    return $claude_rc
-}
+# Wrappers for specific tools. The provider and whether to pass the CWD to the auditor are configured based on the tool's characteristics and typical usage patterns.
+function codax() { _run_with_token_audit codax codex codex 0 "$@" }
+function claade() { _run_with_token_audit claade claude claude 1 "$@" }
+function opencade() { _run_with_token_audit opencade opencode opencode 1 "$@" }
 
 # Yazi TUI file manager wrapper (updates shell CWD on exit)
 function y() {

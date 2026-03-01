@@ -1,23 +1,26 @@
-"""Token and cost auditing CLI for local Codex and Claude session transcripts."""
+"""Token and cost auditing CLI for local Codex, Claude, and OpenCode transcripts."""
 
 import argparse
+import json
 import logging
+import sqlite3
 import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import SupportsIndex, SupportsInt
 
-from _logging import configure
-from core.claude import parse_claude_events
-from core.codex import parse_codex_events
-from core.constants import CLAUDE_SESSION_GLOB, CODEX_SESSION_GLOB, PROJECT_NAME
-from core.jsonl import decode_jsonl_lines
-from core.pricing import calculate_costs, resolve_pricing_model
-from core.render import decide_color_enabled, format_tokens, format_usd, paint, render_json_audit, render_text_audit
-from core.session_resolution import choose_claude_session_path, claude_project_dir, claude_project_slug, latest_path
-from core.types import AuditRecord, SessionParseError
-from core.utils import safe_int
-from shell.io_adapters import env_value, glob_paths, has_env, is_tty, path_exists, read_lines, sorted_paths_by_mtime
+from token_auditor._logging import configure
+from token_auditor.core.claude import parse_claude_events
+from token_auditor.core.codex import parse_codex_events
+from token_auditor.core.constants import CLAUDE_SESSION_GLOB, CODEX_SESSION_GLOB, OPENCODE_DB_DEFAULT, PROJECT_NAME
+from token_auditor.core.jsonl import decode_jsonl_lines
+from token_auditor.core.opencode import parse_opencode_rows
+from token_auditor.core.pricing import calculate_costs, resolve_pricing_model
+from token_auditor.core.render import decide_color_enabled, format_tokens, format_usd, paint, render_json_audit, render_text_audit
+from token_auditor.core.session_resolution import choose_claude_session_path, claude_project_dir, claude_project_slug, latest_path
+from token_auditor.core.types import AuditRecord, SessionParseError
+from token_auditor.core.utils import safe_int
+from token_auditor.shell.io_adapters import env_value, glob_paths, has_env, is_tty, path_exists, read_lines, sorted_paths_by_mtime
 
 log = logging.getLogger(__name__)
 
@@ -29,12 +32,18 @@ def build_parser() -> argparse.ArgumentParser:
         argparse.ArgumentParser: Configured parser with provider selection,
             path overrides, output format controls, and logging options.
     """
-    parser = argparse.ArgumentParser(description="Print token usage audit for Codex/Claude sessions.")
-    parser.add_argument("--provider", choices=("codex", "claude"), default="codex", help="Session provider to audit (default: codex).")
+    parser = argparse.ArgumentParser(description="Print token usage audits for local Codex/Claude/OpenCode sessions.")
+    parser.add_argument(
+        "--provider",
+        choices=("codex", "claude", "opencode", "copilot"),
+        default="codex",
+        help="Session provider to audit (default: codex).",
+    )
     parser.add_argument("--codex-home", default="~/.codex", help="Codex home directory (default: ~/.codex).")
     parser.add_argument("--claude-home", default="~/.claude", help="Claude home directory (default: ~/.claude).")
+    parser.add_argument("--opencode-db", default=OPENCODE_DB_DEFAULT, help=f"OpenCode SQLite database path (default: {OPENCODE_DB_DEFAULT}).")
     parser.add_argument("--cwd", default=str(Path.cwd()), help="Current workspace path for provider-specific session lookup.")
-    parser.add_argument("--session-file", help="Specific session JSONL file to audit.")
+    parser.add_argument("--session-file", help="Specific provider session source path to audit.")
     parser.add_argument("--json", action="store_true", help="Output JSON instead of key/value text.")
     parser.add_argument(
         "--log-level",
@@ -202,6 +211,51 @@ def parse_claude_session_usage(session_file: Path) -> AuditRecord | None:
     return parse_claude_events(events, session_file)
 
 
+def parse_opencode_session_usage(session_file: Path, cwd: Path) -> AuditRecord | None:
+    """Parse an OpenCode SQLite message store into the normalized audit payload.
+
+    Args:
+        session_file (Path): Path to the OpenCode SQLite database.
+        cwd (Path): Current workspace path used for OpenCode session scoping.
+
+    Returns:
+        AuditRecord | None: Normalized usage/cost audit payload, or ``None``
+            when no usage-bearing assistant rows are present.
+
+    Raises:
+        SessionParseError: Raised when any OpenCode message row contains
+            malformed JSON payload data.
+    """
+    rows: list[dict[str, object]] = []
+    connection = sqlite3.connect(str(session_file))
+    try:
+        cursor = connection.execute(
+            """
+            SELECT session_id, time_created, data
+            FROM message
+            ORDER BY time_created ASC
+            """
+        )
+        for session_id, time_created, data in cursor.fetchall():
+            try:
+                parsed_data = json.loads(str(data))
+            except json.JSONDecodeError as exc:
+                raise SessionParseError(f"Malformed JSON in OpenCode message row ({session_file}): {exc}") from exc
+            rows.append(
+                {
+                    "session_id": str(session_id),
+                    "time_created": int(time_created),
+                    "data": parsed_data,
+                }
+            )
+    except sqlite3.DatabaseError as exc:
+        raise SessionParseError(f"Failed to read OpenCode database ({session_file}): {exc}") from exc
+    finally:
+        connection.close()
+
+    return parse_opencode_rows(tuple(rows), session_file, cwd)
+
+
 def _should_use_color(stream: object | None = None) -> bool:
     """Compute color mode using environment and stream capabilities.
 
@@ -287,6 +341,9 @@ def _resolve_session_file(args: argparse.Namespace) -> Path | None:
         cwd = Path(args.cwd).expanduser()
         return _find_latest_claude_session_file(claude_home, cwd)
 
+    if args.provider == "opencode":
+        return Path(args.opencode_db).expanduser()
+
     codex_home = Path(args.codex_home).expanduser()
     return _find_latest_session_file(codex_home, CODEX_SESSION_GLOB)
 
@@ -304,18 +361,34 @@ def main(argv: Sequence[str] | None = None) -> int:
     configure(args.log_level)
     log.debug("Starting %s", PROJECT_NAME)
 
+    if args.provider == "copilot":
+        print(
+            "Copilot provider is not supported: no stable structured local usage/cost schema exists for completed sessions. "
+            "Re-enable only when Copilot exposes deterministic machine-readable usage fields.",
+            file=sys.stderr,
+        )
+        return 1
+
     session_file = _resolve_session_file(args)
     if session_file is None:
-        print("No Claude session files found." if args.provider == "claude" else "No Codex session files found.", file=sys.stderr)
+        if args.provider == "claude":
+            print("No Claude session files found.", file=sys.stderr)
+        else:
+            print("No Codex session files found.", file=sys.stderr)
         return 1
 
     if not path_exists(session_file):
-        print(f"Session file not found: {session_file}", file=sys.stderr)
+        if args.provider == "opencode":
+            print(f"OpenCode database not found: {session_file}", file=sys.stderr)
+        else:
+            print(f"Session file not found: {session_file}", file=sys.stderr)
         return 1
 
+    cwd = Path(args.cwd).expanduser()
     parsers: dict[str, Callable[[Path], AuditRecord | None]] = {
         "codex": parse_codex_session_usage,
         "claude": parse_claude_session_usage,
+        "opencode": lambda source: parse_opencode_session_usage(source, cwd),
     }
 
     try:

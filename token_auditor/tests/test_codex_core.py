@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from core.codex import extract_codex_event_delta, finalize_codex_state, parse_codex_events, reduce_codex_state
-from core.types import CodexState, TokenUsage
+from token_auditor.core.codex import extract_codex_event_delta, finalize_codex_state, parse_codex_events, reduce_codex_state
+from token_auditor.core.types import CodexState, TokenUsage
 
 
 def test_extract_codex_event_delta_reads_session_and_turn_metadata() -> None:

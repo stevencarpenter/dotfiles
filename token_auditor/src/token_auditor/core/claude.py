@@ -4,9 +4,9 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import cast
 
-from core.pricing import calculate_costs, resolve_pricing_model, zero_costs
-from core.types import AuditRecord, ClaudeMessageSnapshot, CostBreakdown, JsonEvent, TokenUsage
-from core.utils import safe_int
+from token_auditor.core.pricing import calculate_costs, resolve_pricing_model, zero_costs
+from token_auditor.core.types import AuditRecord, ClaudeMessageSnapshot, CostBreakdown, JsonEvent, TokenUsage
+from token_auditor.core.utils import safe_int
 
 
 def _mapping(value: object) -> Mapping[str, object]:
@@ -142,6 +142,9 @@ def finalize_claude_audit(
         "output_tokens": aggregate.output_tokens,
         "reasoning_output_tokens": 0,
         "total_tokens": aggregate.total_tokens,
+        "cost_source": "estimated",
+        "provider_billed_total": 0.0,
+        "provider_billed_unit": "",
         **costs,
     }
 

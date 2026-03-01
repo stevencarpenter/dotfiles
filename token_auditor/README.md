@@ -1,6 +1,6 @@
 # token-auditor
 
-CLI utility that prints token and cost audits for local Codex and Claude sessions.
+CLI utility that prints token and cost audits for local Codex, Claude, and OpenCode sessions.
 
 ## Setup
 
@@ -28,19 +28,23 @@ Common examples:
 uv run --project . token-auditor --provider codex
 uv run --project . token-auditor --provider claude
 uv run --project . token-auditor --provider claude --cwd "$PWD"
+uv run --project . token-auditor --provider opencode --cwd "$PWD"
 uv run --project . token-auditor --session-file /path/to/session.jsonl
 uv run --project . token-auditor --json
 ```
 
 Supported flags:
 
-- `--provider {codex,claude}`: provider to audit (default: `codex`).
+- `--provider {codex,claude,opencode,copilot}`: provider to audit (default: `codex`).
 - `--codex-home`: Codex home for session discovery (default: `~/.codex`).
 - `--claude-home`: Claude home for session discovery (default: `~/.claude`).
+- `--opencode-db`: OpenCode SQLite path (default: `~/.local/share/opencode/opencode.db`).
 - `--cwd`: workspace path used for Claude project-scoped lookup (default: current working directory).
-- `--session-file`: explicit JSONL file path override. When present, discovery is skipped.
+- `--session-file`: explicit provider source path override. When present, discovery is skipped.
 - `--json`: emit machine-readable JSON output instead of text.
 - `--log-level`: logging verbosity (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`).
+
+`copilot` is intentionally rejected with an error message: Copilot currently lacks a stable structured local usage/cost schema for completed sessions.
 
 ## Session Discovery
 
@@ -49,16 +53,24 @@ Supported flags:
   `~/.claude/projects/<cwd-slug>/*.jsonl`.
 - If no Claude project-scoped file exists, it falls back to latest
   `~/.claude/projects/*/*.jsonl`.
+- OpenCode reads from `--opencode-db` and selects the latest session whose
+  assistant `path.cwd`/`path.root` matches `--cwd` (fallback: latest global session).
 
 ## Output Schema
 
 Text and JSON output include:
 
 - Identity: `provider`, `session_id`, `session_file`, `timestamp`, `model`, `pricing_model`, `reasoning_effort`.
+- Cost metadata: `cost_source`, `provider_billed_total`, `provider_billed_unit`.
 - Token counts (integer tokens): `input_tokens`, `cached_input_tokens`, `cache_creation_input_tokens`, `output_tokens`, `reasoning_output_tokens`,
   `total_tokens`.
 - Costs (USD): `input_cost_usd`, `cached_input_cost_usd`, `cache_creation_input_cost_usd`, `output_cost_usd`, `reasoning_output_cost_usd`,
   `session_total_cost_usd`.
+
+Cost source semantics:
+
+- `estimated`: USD is derived from pricing tables.
+- `provider_billed`: USD comes from provider-billed telemetry (OpenCode).
 
 Codex token semantics:
 
@@ -73,9 +85,9 @@ Codex token semantics:
 
 `token_auditor` follows a pure-core/impure-shell split:
 
-- `core/`: pure parsing, reduction, pricing, rendering, and session-selection logic.
-- `shell/`: filesystem, environment, and terminal capability adapters only.
-- `main.py`: thin CLI orchestration plus compatibility wrappers:
+- `src/token_auditor/core/`: pure parsing, reduction, pricing, rendering, and session-selection logic.
+- `src/token_auditor/shell/`: filesystem, environment, and terminal capability adapters only.
+- `src/token_auditor/main.py`: thin CLI orchestration plus compatibility wrappers:
   `parse_codex_session_usage`, `parse_claude_session_usage`, and `main`.
 
 This keeps side effects at process boundaries while preserving the existing CLI and output contract.
@@ -97,8 +109,10 @@ Text output supports an Everforest-inspired ANSI palette.
   `uv run --project ~/.local/share/chezmoi/token_auditor token-auditor --provider codex`
 - `claade`: runs `claude "$@"`, then runs:
   `uv run --project ~/.local/share/chezmoi/token_auditor token-auditor --provider claude --cwd "$PWD"`
+- `opencade`: runs `opencode "$@"`, then runs:
+  `uv run --project ~/.local/share/chezmoi/token_auditor token-auditor --provider opencode --cwd "$PWD"`
 - The `claade` function name is intentional to mirror `codax` naming and avoid clobbering the `claude` command name.
-- Both wrappers preserve the original `codex`/`claude` exit code and print a warning if audit invocation fails.
+- All wrappers preserve the original command exit code and print a warning if audit invocation fails.
 
 ## Development
 
@@ -117,4 +131,4 @@ uv run ty check .
 - Use verbose Google-style docstrings for classes and functions.
 - Include typed `Args:` and `Returns:` sections for callables.
 - Include a typed `Raises:` section when exceptions are part of behavior.
-- `tests/test_main.py` enforces this for `main.py` and `_logging.py`.
+- `tests/test_logging.py` and CLI integration tests enforce this for `src/token_auditor/main.py` and `src/token_auditor/_logging.py`.

@@ -2,8 +2,8 @@
 
 import pytest
 
-from core.pricing import calculate_costs, resolve_pricing_model, zero_costs
-from core.utils import safe_int
+from token_auditor.core.pricing import calculate_costs, resolve_pricing_model, zero_costs
+from token_auditor.core.utils import safe_int
 
 
 def test_resolve_pricing_model_matches_direct_table_entries() -> None:
