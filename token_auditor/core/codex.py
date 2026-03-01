@@ -125,6 +125,9 @@ def finalize_codex_state(state: CodexState, session_file: Path) -> AuditRecord |
         "output_tokens": usage.output_tokens,
         "reasoning_output_tokens": usage.reasoning_output_tokens,
         "total_tokens": usage.total_tokens,
+        "cost_source": "estimated",
+        "provider_billed_total": 0.0,
+        "provider_billed_unit": "",
         **costs,
     }
 

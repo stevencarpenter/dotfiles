@@ -1,6 +1,6 @@
 # token-auditor
 
-CLI utility that prints token and cost audits for local Codex and Claude sessions.
+CLI utility that prints token and cost audits for local Codex, Claude, OpenCode, and Amp sessions.
 
 ## Setup
 
@@ -28,19 +28,25 @@ Common examples:
 uv run --project . token-auditor --provider codex
 uv run --project . token-auditor --provider claude
 uv run --project . token-auditor --provider claude --cwd "$PWD"
+uv run --project . token-auditor --provider opencode --cwd "$PWD"
+uv run --project . token-auditor --provider amp --cwd "$PWD"
 uv run --project . token-auditor --session-file /path/to/session.jsonl
 uv run --project . token-auditor --json
 ```
 
 Supported flags:
 
-- `--provider {codex,claude}`: provider to audit (default: `codex`).
+- `--provider {codex,claude,opencode,amp,copilot}`: provider to audit (default: `codex`).
 - `--codex-home`: Codex home for session discovery (default: `~/.codex`).
 - `--claude-home`: Claude home for session discovery (default: `~/.claude`).
+- `--opencode-db`: OpenCode SQLite path (default: `~/.local/share/opencode/opencode.db`).
+- `--amp-threads-dir`: Amp thread directory (default: `~/.local/share/amp/threads`).
 - `--cwd`: workspace path used for Claude project-scoped lookup (default: current working directory).
-- `--session-file`: explicit JSONL file path override. When present, discovery is skipped.
+- `--session-file`: explicit provider source path override. When present, discovery is skipped.
 - `--json`: emit machine-readable JSON output instead of text.
 - `--log-level`: logging verbosity (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`).
+
+`copilot` is intentionally rejected with an error message: Copilot currently lacks a stable structured local usage/cost schema for completed sessions.
 
 ## Session Discovery
 
@@ -49,16 +55,27 @@ Supported flags:
   `~/.claude/projects/<cwd-slug>/*.jsonl`.
 - If no Claude project-scoped file exists, it falls back to latest
   `~/.claude/projects/*/*.jsonl`.
+- OpenCode reads from `--opencode-db` and selects the latest session whose
+  assistant `path.cwd`/`path.root` matches `--cwd` (fallback: latest global session).
+- Amp defaults to latest thread in `--amp-threads-dir` containing the `--cwd`
+  path (fallback: latest thread by mtime).
 
 ## Output Schema
 
 Text and JSON output include:
 
 - Identity: `provider`, `session_id`, `session_file`, `timestamp`, `model`, `pricing_model`, `reasoning_effort`.
+- Cost metadata: `cost_source`, `provider_billed_total`, `provider_billed_unit`.
 - Token counts (integer tokens): `input_tokens`, `cached_input_tokens`, `cache_creation_input_tokens`, `output_tokens`, `reasoning_output_tokens`,
   `total_tokens`.
 - Costs (USD): `input_cost_usd`, `cached_input_cost_usd`, `cache_creation_input_cost_usd`, `output_cost_usd`, `reasoning_output_cost_usd`,
   `session_total_cost_usd`.
+
+Cost source semantics:
+
+- `estimated`: USD is derived from pricing tables.
+- `provider_billed`: USD comes from provider-billed telemetry (OpenCode).
+- `hybrid`: estimated USD plus provider-native billed unit passthrough (Amp credits).
 
 Codex token semantics:
 

@@ -1,23 +1,27 @@
-"""Token and cost auditing CLI for local Codex and Claude session transcripts."""
+"""Token and cost auditing CLI for local Codex, Claude, OpenCode, and Amp transcripts."""
 
 import argparse
+import json
 import logging
+import sqlite3
 import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import SupportsIndex, SupportsInt
 
 from _logging import configure
+from core.amp import parse_amp_thread_payload
 from core.claude import parse_claude_events
 from core.codex import parse_codex_events
-from core.constants import CLAUDE_SESSION_GLOB, CODEX_SESSION_GLOB, PROJECT_NAME
+from core.constants import AMP_THREAD_GLOB, AMP_THREADS_DIR_DEFAULT, CLAUDE_SESSION_GLOB, CODEX_SESSION_GLOB, OPENCODE_DB_DEFAULT, PROJECT_NAME
 from core.jsonl import decode_jsonl_lines
+from core.opencode import parse_opencode_rows
 from core.pricing import calculate_costs, resolve_pricing_model
 from core.render import decide_color_enabled, format_tokens, format_usd, paint, render_json_audit, render_text_audit
 from core.session_resolution import choose_claude_session_path, claude_project_dir, claude_project_slug, latest_path
 from core.types import AuditRecord, SessionParseError
 from core.utils import safe_int
-from shell.io_adapters import env_value, glob_paths, has_env, is_tty, path_exists, read_lines, sorted_paths_by_mtime
+from shell.io_adapters import env_value, glob_paths, has_env, is_tty, path_exists, path_mtime, read_lines, sorted_paths_by_mtime
 
 log = logging.getLogger(__name__)
 
@@ -29,12 +33,19 @@ def build_parser() -> argparse.ArgumentParser:
         argparse.ArgumentParser: Configured parser with provider selection,
             path overrides, output format controls, and logging options.
     """
-    parser = argparse.ArgumentParser(description="Print token usage audit for Codex/Claude sessions.")
-    parser.add_argument("--provider", choices=("codex", "claude"), default="codex", help="Session provider to audit (default: codex).")
+    parser = argparse.ArgumentParser(description="Print token usage audits for local Codex/Claude/OpenCode/Amp sessions.")
+    parser.add_argument(
+        "--provider",
+        choices=("codex", "claude", "opencode", "amp", "copilot"),
+        default="codex",
+        help="Session provider to audit (default: codex).",
+    )
     parser.add_argument("--codex-home", default="~/.codex", help="Codex home directory (default: ~/.codex).")
     parser.add_argument("--claude-home", default="~/.claude", help="Claude home directory (default: ~/.claude).")
+    parser.add_argument("--opencode-db", default=OPENCODE_DB_DEFAULT, help=f"OpenCode SQLite database path (default: {OPENCODE_DB_DEFAULT}).")
+    parser.add_argument("--amp-threads-dir", default=AMP_THREADS_DIR_DEFAULT, help=f"Amp thread directory (default: {AMP_THREADS_DIR_DEFAULT}).")
     parser.add_argument("--cwd", default=str(Path.cwd()), help="Current workspace path for provider-specific session lookup.")
-    parser.add_argument("--session-file", help="Specific session JSONL file to audit.")
+    parser.add_argument("--session-file", help="Specific provider session source path to audit.")
     parser.add_argument("--json", action="store_true", help="Output JSON instead of key/value text.")
     parser.add_argument(
         "--log-level",
@@ -202,6 +213,72 @@ def parse_claude_session_usage(session_file: Path) -> AuditRecord | None:
     return parse_claude_events(events, session_file)
 
 
+def parse_opencode_session_usage(session_file: Path, cwd: Path) -> AuditRecord | None:
+    """Parse an OpenCode SQLite message store into the normalized audit payload.
+
+    Args:
+        session_file (Path): Path to the OpenCode SQLite database.
+        cwd (Path): Current workspace path used for OpenCode session scoping.
+
+    Returns:
+        AuditRecord | None: Normalized usage/cost audit payload, or ``None``
+            when no usage-bearing assistant rows are present.
+
+    Raises:
+        SessionParseError: Raised when any OpenCode message row contains
+            malformed JSON payload data.
+    """
+    rows: list[dict[str, object]] = []
+    connection = sqlite3.connect(str(session_file))
+    try:
+        cursor = connection.execute(
+            """
+            SELECT session_id, time_created, data
+            FROM message
+            ORDER BY time_created ASC
+            """
+        )
+        for session_id, time_created, data in cursor.fetchall():
+            try:
+                parsed_data = json.loads(str(data))
+            except json.JSONDecodeError as exc:
+                raise SessionParseError(f"Malformed JSON in OpenCode message row ({session_file}): {exc}") from exc
+            rows.append(
+                {
+                    "session_id": str(session_id),
+                    "time_created": int(time_created),
+                    "data": parsed_data,
+                }
+            )
+    except sqlite3.DatabaseError as exc:
+        raise SessionParseError(f"Failed to read OpenCode database ({session_file}): {exc}") from exc
+    finally:
+        connection.close()
+
+    return parse_opencode_rows(tuple(rows), session_file, cwd)
+
+
+def parse_amp_session_usage(session_file: Path) -> AuditRecord | None:
+    """Parse an Amp thread JSON file into the normalized audit payload.
+
+    Args:
+        session_file (Path): Path to an Amp thread JSON file.
+
+    Returns:
+        AuditRecord | None: Normalized usage/cost audit payload, or ``None``
+            when no usage-bearing assistant messages are present.
+
+    Raises:
+        SessionParseError: Raised when the Amp thread file cannot be decoded
+            as valid JSON.
+    """
+    try:
+        payload = json.loads(session_file.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise SessionParseError(f"Malformed JSON in session file: {session_file}: {exc}") from exc
+    return parse_amp_thread_payload(payload, session_file)
+
+
 def _should_use_color(stream: object | None = None) -> bool:
     """Compute color mode using environment and stream capabilities.
 
@@ -287,6 +364,29 @@ def _resolve_session_file(args: argparse.Namespace) -> Path | None:
         cwd = Path(args.cwd).expanduser()
         return _find_latest_claude_session_file(claude_home, cwd)
 
+    if args.provider == "opencode":
+        return Path(args.opencode_db).expanduser()
+
+    if args.provider == "amp":
+        cwd = Path(args.cwd).expanduser()
+        amp_threads_dir = Path(args.amp_threads_dir).expanduser()
+        thread_paths = sorted_paths_by_mtime(glob_paths(amp_threads_dir, AMP_THREAD_GLOB))
+        if not thread_paths:
+            return None
+
+        candidates: list[tuple[Path, str]] = []
+        for thread_path in thread_paths:
+            try:
+                candidates.append((thread_path, thread_path.read_text(encoding="utf-8", errors="ignore")))
+            except OSError:
+                continue
+        if not candidates:
+            return latest_path(thread_paths, path_mtime)
+
+        cwd_text = str(cwd)
+        matching_paths = tuple(path for path, content in candidates if cwd_text in content)
+        return latest_path(matching_paths, path_mtime) if matching_paths else latest_path(tuple(path for path, _ in candidates), path_mtime)
+
     codex_home = Path(args.codex_home).expanduser()
     return _find_latest_session_file(codex_home, CODEX_SESSION_GLOB)
 
@@ -304,18 +404,37 @@ def main(argv: Sequence[str] | None = None) -> int:
     configure(args.log_level)
     log.debug("Starting %s", PROJECT_NAME)
 
+    if args.provider == "copilot":
+        print(
+            "Copilot provider is not supported: no stable structured local usage/cost schema exists for completed sessions. "
+            "Re-enable only when Copilot exposes deterministic machine-readable usage fields.",
+            file=sys.stderr,
+        )
+        return 1
+
     session_file = _resolve_session_file(args)
     if session_file is None:
-        print("No Claude session files found." if args.provider == "claude" else "No Codex session files found.", file=sys.stderr)
+        if args.provider == "claude":
+            print("No Claude session files found.", file=sys.stderr)
+        elif args.provider == "amp":
+            print("No Amp thread files found.", file=sys.stderr)
+        else:
+            print("No Codex session files found.", file=sys.stderr)
         return 1
 
     if not path_exists(session_file):
-        print(f"Session file not found: {session_file}", file=sys.stderr)
+        if args.provider == "opencode":
+            print(f"OpenCode database not found: {session_file}", file=sys.stderr)
+        else:
+            print(f"Session file not found: {session_file}", file=sys.stderr)
         return 1
 
+    cwd = Path(args.cwd).expanduser()
     parsers: dict[str, Callable[[Path], AuditRecord | None]] = {
         "codex": parse_codex_session_usage,
         "claude": parse_claude_session_usage,
+        "opencode": lambda source: parse_opencode_session_usage(source, cwd),
+        "amp": parse_amp_session_usage,
     }
 
     try:

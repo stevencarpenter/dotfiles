@@ -2,8 +2,11 @@
 
 import json
 import runpy
+import sqlite3
 import sys
+from argparse import Namespace
 from pathlib import Path
+from typing import TypedDict
 
 import pytest
 
@@ -16,13 +19,60 @@ from main import (
     _paint,
     _print_text_audit,
     _resolve_pricing_model,
+    _resolve_session_file,
     _safe_int,
     _should_use_color,
     main,
+    parse_amp_session_usage,
     parse_claude_session_usage,
     parse_codex_session_usage,
+    parse_opencode_session_usage,
 )
 from tests.conftest import write_session_file
+
+
+class OpenCodeRow(TypedDict):
+    """Typed OpenCode message row used to create SQLite fixtures."""
+
+    session_id: str
+    time_created: int
+    data: dict[str, object]
+
+
+def write_opencode_db(path: Path, rows: list[OpenCodeRow]) -> None:
+    """Create an OpenCode SQLite fixture with deterministic message rows."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    connection = sqlite3.connect(str(path))
+    try:
+        connection.execute(
+            """
+            CREATE TABLE message (
+                id TEXT PRIMARY KEY,
+                session_id TEXT NOT NULL,
+                time_created INTEGER NOT NULL,
+                time_updated INTEGER NOT NULL,
+                data TEXT NOT NULL
+            )
+            """
+        )
+        for index, row in enumerate(rows, start=1):
+            payload = json.dumps(row["data"], sort_keys=True)
+            connection.execute(
+                """
+                INSERT INTO message (id, session_id, time_created, time_updated, data)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    f"msg-{index}",
+                    str(row["session_id"]),
+                    int(row["time_created"]),
+                    int(row["time_created"]),
+                    payload,
+                ),
+            )
+        connection.commit()
+    finally:
+        connection.close()
 
 
 def test_parse_codex_session_usage_parses_file_through_wrapper(tmp_path: Path) -> None:
@@ -91,6 +141,70 @@ def test_parse_claude_session_usage_parses_file_through_wrapper(tmp_path: Path) 
     assert usage["session_id"] == "claude-1"
 
 
+def test_parse_opencode_session_usage_parses_file_through_wrapper(tmp_path: Path) -> None:
+    db_path = tmp_path / "opencode.db"
+    write_opencode_db(
+        db_path,
+        [
+            {
+                "session_id": "opencode-1",
+                "time_created": 100,
+                "data": {
+                    "role": "assistant",
+                    "modelID": "model-a",
+                    "cost": 1.5,
+                    "path": {"cwd": "/repo/workspace", "root": "/repo"},
+                    "time": {"completed": "2026-02-28T09:00:00Z"},
+                    "tokens": {
+                        "input": 10,
+                        "output": 2,
+                        "reasoning": 0,
+                        "cache": {"read": 3, "write": 1},
+                        "total": 16,
+                    },
+                },
+            },
+        ],
+    )
+
+    usage = parse_opencode_session_usage(db_path, Path("/repo/workspace"))
+    assert usage is not None
+    assert usage["provider"] == "opencode"
+    assert usage["session_id"] == "opencode-1"
+    assert usage["session_total_cost_usd"] == pytest.approx(1.5)
+
+
+def test_parse_amp_session_usage_parses_file_through_wrapper(tmp_path: Path) -> None:
+    session_file = tmp_path / "T-amp.json"
+    session_file.write_text(
+        json.dumps(
+            {
+                "id": "T-amp",
+                "messages": [
+                    {
+                        "role": "assistant",
+                        "messageId": 1,
+                        "usage": {
+                            "model": "claude-haiku-4-5-20251001",
+                            "inputTokens": 5,
+                            "outputTokens": 1,
+                            "cacheReadInputTokens": 0,
+                            "cacheCreationInputTokens": 0,
+                            "totalInputTokens": 5,
+                        },
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    usage = parse_amp_session_usage(session_file)
+    assert usage is not None
+    assert usage["provider"] == "amp"
+    assert usage["session_id"] == "T-amp"
+
+
 def test_parse_wrappers_raise_on_malformed_json(tmp_path: Path) -> None:
     bad_codex = tmp_path / "codex-bad.jsonl"
     bad_codex.write_text('{"type":"session_meta"}\n{malformed\n', encoding="utf-8")
@@ -98,11 +212,48 @@ def test_parse_wrappers_raise_on_malformed_json(tmp_path: Path) -> None:
     bad_claude = tmp_path / "claude-bad.jsonl"
     bad_claude.write_text('{"sessionId":"x"}\n{malformed\n', encoding="utf-8")
 
+    bad_amp = tmp_path / "amp-bad.json"
+    bad_amp.write_text("{malformed-json\n", encoding="utf-8")
+
+    bad_opencode = tmp_path / "opencode-bad.db"
+    write_opencode_db(
+        bad_opencode,
+        [
+            {
+                "session_id": "bad",
+                "time_created": 1,
+                "data": {
+                    "role": "assistant",
+                    "modelID": "model",
+                    "path": {"cwd": "/tmp", "root": "/tmp"},
+                    "tokens": {"input": 1, "output": 1, "cache": {"read": 0, "write": 0}, "total": 2},
+                },
+            }
+        ],
+    )
+    connection = sqlite3.connect(str(bad_opencode))
+    try:
+        connection.execute("UPDATE message SET data = '{malformed-json' WHERE id = 'msg-1'")
+        connection.commit()
+    finally:
+        connection.close()
+
     with pytest.raises(SessionParseError, match="Malformed JSON in session file"):
         parse_codex_session_usage(bad_codex)
 
     with pytest.raises(SessionParseError, match="Malformed JSON in session file"):
         parse_claude_session_usage(bad_claude)
+
+    with pytest.raises(SessionParseError, match="Malformed JSON in session file"):
+        parse_amp_session_usage(bad_amp)
+
+    with pytest.raises(SessionParseError, match="Malformed JSON in OpenCode message row"):
+        parse_opencode_session_usage(bad_opencode, Path("/tmp"))
+
+    invalid_sqlite = tmp_path / "not-a-db.sqlite"
+    invalid_sqlite.write_text("definitely not sqlite", encoding="utf-8")
+    with pytest.raises(SessionParseError, match="Failed to read OpenCode database"):
+        parse_opencode_session_usage(invalid_sqlite, Path("/tmp"))
 
 
 def test_compatibility_wrappers_delegate_to_core_helpers(capsys) -> None:
@@ -282,6 +433,129 @@ def test_main_claude_falls_back_to_global_latest(tmp_path: Path, capsys) -> None
     assert "Session ID" in out and "fallback-session" in out
 
 
+def test_main_prints_latest_opencode_session_audit(tmp_path: Path, capsys) -> None:
+    db_path = tmp_path / "opencode.db"
+    write_opencode_db(
+        db_path,
+        [
+            {
+                "session_id": "session-a",
+                "time_created": 100,
+                "data": {
+                    "role": "assistant",
+                    "modelID": "model-a",
+                    "cost": 0.25,
+                    "path": {"cwd": "/repo/workspace", "root": "/repo"},
+                    "time": {"completed": "2026-02-28T10:00:00Z"},
+                    "tokens": {
+                        "input": 10,
+                        "output": 2,
+                        "reasoning": 0,
+                        "cache": {"read": 3, "write": 1},
+                        "total": 16,
+                    },
+                },
+            },
+            {
+                "session_id": "session-b",
+                "time_created": 200,
+                "data": {
+                    "role": "assistant",
+                    "modelID": "model-b",
+                    "cost": 4.0,
+                    "path": {"cwd": "/other", "root": "/other"},
+                    "time": {"completed": "2026-02-28T10:10:00Z"},
+                    "tokens": {
+                        "input": 100,
+                        "output": 10,
+                        "reasoning": 0,
+                        "cache": {"read": 0, "write": 0},
+                        "total": 110,
+                    },
+                },
+            },
+        ],
+    )
+
+    rc = main(["--provider", "opencode", "--opencode-db", str(db_path), "--cwd", "/repo/workspace"])
+    out = capsys.readouterr().out
+
+    assert rc == 0
+    assert "Opencode Token Audit" in out
+    assert "Session ID" in out and "session-a" in out
+    assert "Total Cost" in out and "$0.25" in out
+    assert "Provider Billed" in out and "$0.25" in out
+
+
+def test_main_prints_latest_amp_session_audit_prefers_cwd_thread(tmp_path: Path, capsys) -> None:
+    threads_dir = tmp_path / "threads"
+    threads_dir.mkdir(parents=True)
+    cwd = "/repo/workspace"
+
+    match_thread = threads_dir / "T-match.json"
+    match_thread.write_text(
+        json.dumps(
+            {
+                "id": "T-match",
+                "messages": [
+                    {"role": "user", "content": [{"type": "text", "text": "/repo/workspace"}]},
+                    {
+                        "role": "assistant",
+                        "messageId": 1,
+                        "usage": {
+                            "model": "claude-haiku-4-5-20251001",
+                            "inputTokens": 10,
+                            "outputTokens": 2,
+                            "cacheReadInputTokens": 0,
+                            "cacheCreationInputTokens": 0,
+                            "totalInputTokens": 10,
+                            "credits": 3.0,
+                        },
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    latest_non_match = threads_dir / "T-latest.json"
+    latest_non_match.write_text(
+        json.dumps(
+            {
+                "id": "T-latest",
+                "messages": [
+                    {"role": "user", "content": [{"type": "text", "text": "/other/project"}]},
+                    {
+                        "role": "assistant",
+                        "messageId": 1,
+                        "usage": {
+                            "model": "claude-haiku-4-5-20251001",
+                            "inputTokens": 999,
+                            "outputTokens": 1,
+                            "cacheReadInputTokens": 0,
+                            "cacheCreationInputTokens": 0,
+                            "totalInputTokens": 999,
+                            "credits": 9.0,
+                        },
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    match_thread.touch()
+    latest_non_match.touch()
+
+    rc = main(["--provider", "amp", "--amp-threads-dir", str(threads_dir), "--cwd", cwd])
+    out = capsys.readouterr().out
+
+    assert rc == 0
+    assert "Amp Token Audit" in out
+    assert "Session ID" in out and "T-match" in out
+    assert "Provider Billed" in out and "3 credits" in out
+
+
 def test_main_prints_json_when_requested(tmp_path: Path, capsys) -> None:
     session_file = tmp_path / "rollout-2.jsonl"
     write_session_file(
@@ -335,11 +609,58 @@ def test_main_failure_paths(tmp_path: Path, capsys) -> None:
     assert rc_claude == 1
     assert "No Claude session files found." in err_claude
 
+    rc_amp = main(["--provider", "amp", "--amp-threads-dir", str(tmp_path / "threads")])
+    err_amp = capsys.readouterr().err
+    assert rc_amp == 1
+    assert "No Amp thread files found." in err_amp
+
+    rc_opencode = main(["--provider", "opencode", "--opencode-db", str(tmp_path / "missing-opencode.db")])
+    err_opencode = capsys.readouterr().err
+    assert rc_opencode == 1
+    assert "OpenCode database not found" in err_opencode
+
+    rc_copilot = main(["--provider", "copilot"])
+    err_copilot = capsys.readouterr().err
+    assert rc_copilot == 1
+    assert "Copilot provider is not supported" in err_copilot
+
     missing = tmp_path / "missing.jsonl"
     rc_missing = main(["--session-file", str(missing)])
     err_missing = capsys.readouterr().err
     assert rc_missing == 1
     assert "Session file not found" in err_missing
+
+
+def test_resolve_session_file_amp_falls_back_to_latest_when_thread_reads_fail(tmp_path: Path, monkeypatch) -> None:
+    threads_dir = tmp_path / "threads"
+    threads_dir.mkdir(parents=True)
+    older = threads_dir / "T-older.json"
+    newer = threads_dir / "T-newer.json"
+    older.write_text("{}", encoding="utf-8")
+    newer.write_text("{}", encoding="utf-8")
+
+    original_read_text = Path.read_text
+
+    def flaky_read_text(self: Path, *args, **kwargs) -> str:
+        if self in {older, newer}:
+            raise OSError("simulated read failure")
+        return original_read_text(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", flaky_read_text)
+
+    args = Namespace(
+        session_file=None,
+        provider="amp",
+        claude_home=str(tmp_path / ".claude"),
+        cwd=str(tmp_path / "workspace"),
+        opencode_db=str(tmp_path / "opencode.db"),
+        amp_threads_dir=str(threads_dir),
+        codex_home=str(tmp_path / ".codex"),
+    )
+
+    resolved = _resolve_session_file(args)
+    assert resolved is not None
+    assert resolved.name in {"T-older.json", "T-newer.json"}
 
 
 def test_main_fails_when_session_has_no_usage_or_malformed_json(tmp_path: Path, capsys) -> None:

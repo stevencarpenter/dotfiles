@@ -228,6 +228,34 @@ function claade() {
     return $claude_rc
 }
 
+function opencade() {
+    local token_auditor_project="$HOME/.local/share/chezmoi/token_auditor"
+    command opencode "$@"
+    local opencode_rc=$?
+
+    if [[ -d "$token_auditor_project" ]]; then
+        uv run --project "$token_auditor_project" token-auditor --provider opencode --cwd "$PWD" || echo "opencade: failed to print session usage audit" >&2
+    else
+        echo "opencade: project not found at $token_auditor_project" >&2
+    fi
+
+    return $opencode_rc
+}
+
+function aamp() {
+    local token_auditor_project="$HOME/.local/share/chezmoi/token_auditor"
+    command amp "$@"
+    local amp_rc=$?
+
+    if [[ -d "$token_auditor_project" ]]; then
+        uv run --project "$token_auditor_project" token-auditor --provider amp --cwd "$PWD" || echo "aamp: failed to print session usage audit" >&2
+    else
+        echo "aamp: project not found at $token_auditor_project" >&2
+    fi
+
+    return $amp_rc
+}
+
 # Yazi TUI file manager wrapper (updates shell CWD on exit)
 function y() {
 	local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd

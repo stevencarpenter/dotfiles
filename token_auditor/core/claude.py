@@ -142,6 +142,9 @@ def finalize_claude_audit(
         "output_tokens": aggregate.output_tokens,
         "reasoning_output_tokens": 0,
         "total_tokens": aggregate.total_tokens,
+        "cost_source": "estimated",
+        "provider_billed_total": 0.0,
+        "provider_billed_unit": "",
         **costs,
     }
 
