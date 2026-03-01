@@ -1,0 +1,71 @@
+name: Dotfiles Hygiene CI
+
+on:
+  push:
+    paths:
+      - ".github/workflows/dotfiles-hygiene-ci.yml"
+      - ".pre-commit-config.yaml"
+      - ".chezmoiignore"
+      - ".chezmoiscripts/**"
+      - "dot_*"
+      - "dot_config/**"
+      - "scripts/**"
+      - "README.md"
+  pull_request:
+    paths:
+      - ".github/workflows/dotfiles-hygiene-ci.yml"
+      - ".pre-commit-config.yaml"
+      - ".chezmoiignore"
+      - ".chezmoiscripts/**"
+      - "dot_*"
+      - "dot_config/**"
+      - "scripts/**"
+      - "README.md"
+
+jobs:
+  hygiene:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install pre-commit
+        run: python -m pip install --upgrade pip pre-commit
+
+      - name: Run pre-commit checks
+        run: pre-commit run --all-files
+
+      - name: Validate MCP master config structure
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("dot_config/mcp/mcp-master.json")
+          data = json.loads(path.read_text(encoding="utf-8"))
+
+          if not isinstance(data, dict):
+              raise SystemExit("mcp-master.json must be a JSON object")
+
+          servers = data.get("servers")
+          if not isinstance(servers, dict) or not servers:
+              raise SystemExit("mcp-master.json must define a non-empty 'servers' object")
+
+          for server_name, server_config in servers.items():
+              if not isinstance(server_config, dict):
+                  raise SystemExit(f"Server '{server_name}' must be a JSON object")
+              if server_config.get("type") == "stdio" and not server_config.get("command"):
+                  raise SystemExit(f"Server '{server_name}' uses stdio but has no 'command'")
+          PY
+
+      - name: Shell syntax checks
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' file; do
+            bash -n "${file}"
+          done < <(find .chezmoiscripts scripts -type f -name "*.sh" -print0)

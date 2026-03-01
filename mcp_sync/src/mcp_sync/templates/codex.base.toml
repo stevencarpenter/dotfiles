@@ -49,4 +49,3 @@ hide_gpt5_1_migration_prompt = true
 
 # MCP Servers - Synced from master config
 # This section is populated by sync-mcp-configs
-

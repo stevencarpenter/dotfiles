@@ -1,4 +1,7 @@
 [tools]
+# Version policy:
+# - Pin critical automation/security tools to explicit versions for reproducibility.
+# - Use "latest" only for lower-risk tools where faster updates are preferred.
 # Programming Languages & Runtimes
 go = "1.26.0"
 java = "corretto-25"
@@ -13,7 +16,7 @@ pnpm = "latest"
 
 # Infrastructure Tools
 argo = "latest"
-gh = "latest"
+gh = "2.87.3"
 goreleaser = "latest"
 helm = "4"
 jj = "latest"

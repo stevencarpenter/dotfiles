@@ -5,6 +5,7 @@ repos:
       - id: check-yaml
       - id: check-toml
       - id: check-json
+        exclude: ^mcp_sync/tests/test_data/malformed_json\.json$
       - id: check-added-large-files
       - id: check-case-conflict
       - id: check-ast
@@ -12,6 +13,8 @@ repos:
       - id: detect-private-key
       - id: forbid-new-submodules
       - id: name-tests-test
+        args:
+          - --pytest-test-first
       - id: end-of-file-fixer
       - id: trailing-whitespace
       - id: detect-aws-credentials
@@ -19,4 +22,4 @@ repos:
           - "--allow-missing-credentials"
 
 default_language_version:
-  python: python3.12
+  python: python3.14
