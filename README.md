@@ -6,6 +6,9 @@ This directory contains the dotfiles for my systems (macOS or Arch Linux), manag
 
 Ensure you have the following installed on your system:
 
+- Python 3.14+ (required by `mcp_sync/` and `token_auditor/`)
+- `uv` (used by sync hooks and Python tooling)
+
 ### Run Manually On Fresh OS Install for any Unix System
 
 ```shell
@@ -111,6 +114,9 @@ This repo uses **one master MCP config** that syncs to all AI tools automaticall
 
 MCP configs are synced automatically after `chezmoi apply` via the `run_after_sync-mcp.sh` script.
 
+- By default, missing `uv` or sync failures emit warnings so first-time machine bootstrap can continue.
+- Set `MCP_SYNC_STRICT=1` before running `chezmoi apply` to make sync failures fail fast.
+
 ### Manual Sync (if needed)
 
 ```shell
@@ -149,6 +155,19 @@ cd token_auditor && uv run ruff check . && uv run ruff format --check . && uv ru
 ./scripts/test-mcp-sync-ci.sh
 ./scripts/test-token-auditor-ci.sh
 ```
+
+## Tool Version Policy
+
+`dot_config/mise/config.toml` uses a mixed strategy:
+
+- Pin critical tools (for example `gh`, `kubectl`, `terraform`) to explicit versions for reproducibility.
+- Use `latest` only for lower-risk utilities where fast updates are preferred.
+
+Suggested monthly routine:
+
+1. Review and bump pinned versions in `dot_config/mise/config.toml`.
+2. Run `chezmoi diff` and your relevant test scripts.
+3. Apply with `chezmoi apply -v` after validation.
 
 ## Environment Variables Setup
 
