@@ -11,6 +11,6 @@ fi
 
 cd "${MCP_SYNC_DIR}"
 
-uv run --extra dev ruff check src tests
+uv run --extra dev ruff check --fix src tests
 uv run --extra dev ruff format --check src tests
 uv run --extra dev pytest --cov=mcp_sync --cov-report=term-missing
