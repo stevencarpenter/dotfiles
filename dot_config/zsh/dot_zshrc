@@ -138,6 +138,7 @@ alias docker-clean-unused='docker system prune --all --force --volumes'
 alias docker-clean-all='docker stop $(docker container ls -a -q); docker system prune -a -f --volumes'
 
 # Editor aliases
+alias v='nvim'
 alias vi='nvim'
 alias vim='nvim'
 alias nano='nvim'
@@ -190,11 +191,41 @@ z4h bindkey z4h-cd-down    Alt+Down   # cd into a child directory
 # Simple utility functions
 function md() { [[ $# == 1 ]] && mkdir -p -- "$1" && cd -- "$1" }
 
+function goops() { git branch "$1" && git reset --hard HEAD~1 }
+
 function copyfile() {
     if ! tee "$1" >(pbcopy); then
         echo "Error: Failed to write file or copy to clipboard" >&2
         return 1
     fi
+}
+
+function codax() {
+    local token_auditor_project="$HOME/.local/share/chezmoi/token_auditor"
+    command codex "$@"
+    local codex_rc=$?
+
+    if [[ -d "$token_auditor_project" ]]; then
+        uv run --project "$token_auditor_project" token-auditor --provider codex || echo "codax: failed to print session usage audit" >&2
+    else
+        echo "codax: project not found at $token_auditor_project" >&2
+    fi
+
+    return $codex_rc
+}
+
+function claade() {
+    local token_auditor_project="$HOME/.local/share/chezmoi/token_auditor"
+    command claude "$@"
+    local claude_rc=$?
+
+    if [[ -d "$token_auditor_project" ]]; then
+        uv run --project "$token_auditor_project" token-auditor --provider claude --cwd "$PWD" || echo "claade: failed to print session usage audit" >&2
+    else
+        echo "claade: project not found at $token_auditor_project" >&2
+    fi
+
+    return $claude_rc
 }
 
 # Yazi TUI file manager wrapper (updates shell CWD on exit)
@@ -233,6 +264,55 @@ __aws_sso_profile_complete() {
     _multi_parts : "($(/opt/homebrew/bin/aws-sso ${=_args} list --csv Profile))"
 }
 
+__aws_profile_from_args() {
+    emulate -L zsh
+    local prev=''
+    local arg=''
+    for arg in "$@"; do
+        if [[ "$prev" == "--profile" || "$prev" == "-p" ]]; then
+            print -r -- "$arg"
+            return 0
+        fi
+        case "$arg" in
+            --profile=*)
+                print -r -- "${arg#--profile=}"
+                return 0
+                ;;
+            -p?*)
+                print -r -- "${arg#-p}"
+                return 0
+                ;;
+            --profile|-p)
+                prev="$arg"
+                continue
+                ;;
+        esac
+        prev=''
+    done
+    return 1
+}
+
+aws-sso() {
+    local _bin=/opt/homebrew/bin/aws-sso
+    command "$_bin" "$@"
+    local rc=$?
+    if (( rc != 0 )); then
+        return $rc
+    fi
+
+    if (( ${argv[(I)login]} )); then
+        local profile
+        profile="$(__aws_profile_from_args "$@")"
+        if [[ -n "$profile" ]]; then
+            export AWS_SSO_PROFILE="$profile"
+        fi
+        export AWS_DEFAULT_PROFILE=default
+    elif (( ${argv[(I)logout]} || ${argv[(I)clear]} )); then
+        unset AWS_SSO_PROFILE
+        unset AWS_DEFAULT_PROFILE
+    fi
+}
+
 aws-sso-profile() {
     local _args=${AWS_SSO_HELPER_ARGS:- -L error}
     if [ -n "$AWS_PROFILE" ]; then
@@ -249,6 +329,7 @@ aws-sso-profile() {
     if [ "$AWS_SSO_PROFILE" != "$1" ]; then
         return 1
     fi
+    export AWS_DEFAULT_PROFILE=default
 }
 
 aws-sso-clear() {
@@ -258,6 +339,7 @@ aws-sso-clear() {
         return 1
     fi
     eval $(/opt/homebrew/bin/aws-sso ${=_args} eval -c)
+    unset AWS_DEFAULT_PROFILE
 }
 # END_AWS_SSO_CLI
 
@@ -290,6 +372,8 @@ source ~/.orbstack/shell/init.zsh 2>/dev/null || :
 
 # Source profile.d directory if it exists (for optional per-tool configs)
 # Create with: mkdir -p ~/.config/zsh/profile.d && echo 'export FOO=bar' > ~/.config/zsh/profile.d/custom.zsh
+# Note: I am not using this myself yet but it is a nice convention for users to drop in additional config files without modifying the main .zshrc.
+# It also keeps this file cleaner and more focused on core configuration and critical tool setup. --AI (maybe I will use it myself in the future)
 if [[ -d "${ZDOTDIR}/profile.d" ]]; then
     for file in "${ZDOTDIR}"/profile.d/*.zsh(N); do
         source "$file"
