@@ -116,8 +116,6 @@ Text output supports an Everforest-inspired ANSI palette.
   `uv run --project ~/.local/share/chezmoi/token_auditor token-auditor --provider claude --cwd "$PWD"`
 - `opencade`: runs `opencode "$@"`, then runs:
   `uv run --project ~/.local/share/chezmoi/token_auditor token-auditor --provider opencode --cwd "$PWD"`
-- `aamp`: runs `amp "$@"`, then runs:
-  `uv run --project ~/.local/share/chezmoi/token_auditor token-auditor --provider amp --cwd "$PWD"`
 - The `claade` function name is intentional to mirror `codax` naming and avoid clobbering the `claude` command name.
 - All wrappers preserve the original command exit code and print a warning if audit invocation fails.
 

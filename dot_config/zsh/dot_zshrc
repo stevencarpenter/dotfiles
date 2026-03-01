@@ -187,10 +187,41 @@ z4h bindkey z4h-cd-down    Alt+Down   # cd into a child directory
 
 # === 7. Functions ===
 # Simple utility functions
+
+# Get complete command output with header and exit code, copied to clipboard (for easy sharing in chat, etc.)
+function c() {
+  emulate -L zsh
+  setopt pipefail
+
+  local tmpfile
+  tmpfile="$(mktemp -t zshcap.XXXXXX)" || return 1
+
+  local cmd="$*"
+  local cwd="${PWD/#$HOME/~}"
+  local ts
+  ts="$(date '+%Y-%m-%d %H:%M:%S')"
+
+  # Run command; capture stdout+stderr; still show live output
+  "$@" 2>&1 | tee "$tmpfile"
+  local rc=${pipestatus[1]}  # exit code of the command (not tee)
+
+  # Copy Slack-safe text (no Nerd Font glyphs)
+  {
+    print -r -- "$cwd$ $cmd"
+    cat "$tmpfile"
+  } | pbcopy
+
+  rm -f "$tmpfile"
+  return $rc
+}
+
 function md() { [[ $# == 1 ]] && mkdir -p -- "$1" && cd -- "$1" }
 
+# Git "whoops" function: create a new branch at the current HEAD, then reset the current branch back one commit.
+# Useful for quickly undoing a mistaken commit while preserving the changes in a new branch.
 function goops() { git branch "$1" && git reset --hard HEAD~1 }
 
+# Copy a file to the clipboard and also save it to disk (for easy sharing of files in chat, etc.)
 function copyfile() {
     if ! tee "$1" >(pbcopy); then
         echo "Error: Failed to write file or copy to clipboard" >&2
@@ -198,6 +229,10 @@ function copyfile() {
     fi
 }
 
+# Wrappers for LLM CLI tools that run the command, then run a token audit on the session afterward.
+# The audit looks for provider-specific environment variables and CLI args to determine which provider to audit for.
+# The audit tool is configured to look for sessions started in the current working directory, so the wrapper
+# can optionally pass the CWD to the auditor if the tool being wrapped does not have a --cwd option itself (e.g. Claude).
 function _run_with_token_audit() {
     local wrapper_name="$1"
     local command_name="$2"
@@ -225,10 +260,10 @@ function _run_with_token_audit() {
     return $command_rc
 }
 
+# Wrappers for specific tools. The provider and whether to pass the CWD to the auditor are configured based on the tool's characteristics and typical usage patterns.
 function codax() { _run_with_token_audit codax codex codex 0 "$@" }
 function claade() { _run_with_token_audit claade claude claude 1 "$@" }
 function opencade() { _run_with_token_audit opencade opencode opencode 1 "$@" }
-function aamp() { _run_with_token_audit aamp amp amp 1 "$@" }
 
 # Yazi TUI file manager wrapper (updates shell CWD on exit)
 function y() {
