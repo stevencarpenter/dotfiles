@@ -374,11 +374,11 @@ source ~/.orbstack/shell/init.zsh 2>/dev/null || :
 # Create with: mkdir -p ~/.config/zsh/profile.d && echo 'export FOO=bar' > ~/.config/zsh/profile.d/custom.zsh
 # Note: I am not using this myself yet but it is a nice convention for users to drop in additional config files without modifying the main .zshrc.
 # It also keeps this file cleaner and more focused on core configuration and critical tool setup. --AI (maybe I will use it myself in the future)
-#if [[ -d "${ZDOTDIR}/profile.d" ]]; then
-#    for file in "${ZDOTDIR}"/profile.d/*.zsh(N); do
-#        source "$file"
-#    done
-#fi
+if [[ -d "${ZDOTDIR}/profile.d" ]]; then
+    for file in "${ZDOTDIR}"/profile.d/*.zsh(N); do
+        source "$file"
+    done
+fi
 
 # Dev container orchestrator (optional)
 dev_env_file="${XDG_CONFIG_HOME:-$HOME/.config}/dev-container/dev-env.zsh"
@@ -387,4 +387,3 @@ dev_env_file="${XDG_CONFIG_HOME:-$HOME/.config}/dev-container/dev-env.zsh"
 # ============================================================================
 # Profiling output (uncomment if you enabled zprof at the top)
 # zprof
-

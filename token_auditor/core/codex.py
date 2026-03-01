@@ -89,7 +89,7 @@ def _ensure_total_tokens(usage: TokenUsage) -> TokenUsage:
         cache_creation_input_tokens=usage.cache_creation_input_tokens,
         output_tokens=usage.output_tokens,
         reasoning_output_tokens=usage.reasoning_output_tokens,
-        total_tokens=usage.input_tokens + usage.cached_input_tokens + usage.cache_creation_input_tokens + usage.output_tokens,
+        total_tokens=usage.input_tokens + usage.output_tokens,
     )
 
 

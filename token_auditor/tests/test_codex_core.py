@@ -131,7 +131,7 @@ def test_finalize_codex_state_recomputes_total_tokens_when_missing() -> None:
 
     usage = finalize_codex_state(state, Path("/tmp/codex-missing-total.jsonl"))
     assert usage is not None
-    assert usage["total_tokens"] == 6
+    assert usage["total_tokens"] == 5
 
 
 def test_parse_codex_events_returns_none_when_usage_absent() -> None:
