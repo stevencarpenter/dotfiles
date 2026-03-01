@@ -3,8 +3,8 @@
 import json
 from collections.abc import Sequence
 
-from core.constants import EVERFOREST_GRADIENT_256, EVERFOREST_HEADER_COLOR_256, EVERFOREST_MUTED_COLOR_256, EVERFOREST_SECTION_COLOR_256
-from core.types import AuditRecord
+from token_auditor.core.constants import EVERFOREST_GRADIENT_256, EVERFOREST_HEADER_COLOR_256, EVERFOREST_MUTED_COLOR_256, EVERFOREST_SECTION_COLOR_256
+from token_auditor.core.types import AuditRecord
 
 
 def decide_color_enabled(color_mode: str, no_color: bool, is_tty: bool, term: str) -> bool:

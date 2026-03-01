@@ -3,7 +3,7 @@
 import logging
 import sys
 
-from _logging import LOG_FORMAT, configure
+from token_auditor._logging import LOG_FORMAT, configure
 
 
 def test_configure_calls_basic_config_with_expected_parameters(monkeypatch) -> None:

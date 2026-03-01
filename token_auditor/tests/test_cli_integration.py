@@ -9,8 +9,9 @@ from typing import TypedDict
 
 import pytest
 
-from core.types import SessionParseError
-from main import (
+from tests.conftest import write_session_file
+from token_auditor.core.types import SessionParseError
+from token_auditor.main import (
     _calculate_costs,
     _claude_project_slug,
     _format_tokens,
@@ -25,7 +26,6 @@ from main import (
     parse_codex_session_usage,
     parse_opencode_session_usage,
 )
-from tests.conftest import write_session_file
 
 
 class OpenCodeRow(TypedDict):
@@ -561,6 +561,7 @@ def test_should_use_color_modes(monkeypatch) -> None:
 
 def test_main_dunder_entrypoint_help(monkeypatch) -> None:
     monkeypatch.setattr(sys, "argv", ["main.py", "--help"])
+    sys.modules.pop("token_auditor.main", None)
     with pytest.raises(SystemExit) as excinfo:
-        runpy.run_module("main", run_name="__main__")
+        runpy.run_module("token_auditor.main", run_name="__main__")
     assert excinfo.value.code == 0

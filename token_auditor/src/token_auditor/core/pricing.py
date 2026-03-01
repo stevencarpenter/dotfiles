@@ -1,7 +1,7 @@
 """Pure pricing model resolution and cost arithmetic for token_auditor."""
 
-from core.constants import MODEL_PRICING_ALIASES, MODEL_PRICING_PREFIX_ALIASES, REASONING_EFFORT_MULTIPLIER, TOKEN_PRICING_USD_PER_1M
-from core.types import CostBreakdown
+from token_auditor.core.constants import MODEL_PRICING_ALIASES, MODEL_PRICING_PREFIX_ALIASES, REASONING_EFFORT_MULTIPLIER, TOKEN_PRICING_USD_PER_1M
+from token_auditor.core.types import CostBreakdown
 
 
 def resolve_pricing_model(provider: str, model: str) -> str:

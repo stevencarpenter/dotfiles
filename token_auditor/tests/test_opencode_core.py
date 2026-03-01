@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from core import opencode as opencode_module
-from core.opencode import choose_opencode_session_id, parse_opencode_rows
+from token_auditor.core import opencode as opencode_module
+from token_auditor.core.opencode import choose_opencode_session_id, parse_opencode_rows
 
 
 def test_parse_opencode_rows_prefers_latest_matching_cwd_and_recomputes_missing_totals() -> None:

@@ -5,9 +5,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
-from core.pricing import zero_costs
-from core.types import AuditRecord, JsonEvent
-from core.utils import safe_float, safe_int
+from token_auditor.core.pricing import zero_costs
+from token_auditor.core.types import AuditRecord, JsonEvent
+from token_auditor.core.utils import safe_float, safe_int
 
 
 @dataclass(frozen=True)

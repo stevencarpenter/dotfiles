@@ -4,9 +4,9 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import cast
 
-from core.pricing import calculate_costs, resolve_pricing_model, zero_costs
-from core.types import AuditRecord, ClaudeMessageSnapshot, CostBreakdown, JsonEvent, TokenUsage
-from core.utils import safe_int
+from token_auditor.core.pricing import calculate_costs, resolve_pricing_model, zero_costs
+from token_auditor.core.types import AuditRecord, ClaudeMessageSnapshot, CostBreakdown, JsonEvent, TokenUsage
+from token_auditor.core.utils import safe_int
 
 
 def _mapping(value: object) -> Mapping[str, object]:

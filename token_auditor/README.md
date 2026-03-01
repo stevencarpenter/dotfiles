@@ -85,9 +85,9 @@ Codex token semantics:
 
 `token_auditor` follows a pure-core/impure-shell split:
 
-- `core/`: pure parsing, reduction, pricing, rendering, and session-selection logic.
-- `shell/`: filesystem, environment, and terminal capability adapters only.
-- `main.py`: thin CLI orchestration plus compatibility wrappers:
+- `src/token_auditor/core/`: pure parsing, reduction, pricing, rendering, and session-selection logic.
+- `src/token_auditor/shell/`: filesystem, environment, and terminal capability adapters only.
+- `src/token_auditor/main.py`: thin CLI orchestration plus compatibility wrappers:
   `parse_codex_session_usage`, `parse_claude_session_usage`, and `main`.
 
 This keeps side effects at process boundaries while preserving the existing CLI and output contract.
@@ -131,4 +131,4 @@ uv run ty check .
 - Use verbose Google-style docstrings for classes and functions.
 - Include typed `Args:` and `Returns:` sections for callables.
 - Include a typed `Raises:` section when exceptions are part of behavior.
-- `tests/test_main.py` enforces this for `main.py` and `_logging.py`.
+- `tests/test_logging.py` and CLI integration tests enforce this for `src/token_auditor/main.py` and `src/token_auditor/_logging.py`.

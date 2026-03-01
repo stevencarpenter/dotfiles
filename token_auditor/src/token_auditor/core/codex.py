@@ -5,9 +5,9 @@ from functools import reduce
 from pathlib import Path
 from typing import cast
 
-from core.pricing import calculate_costs, resolve_pricing_model
-from core.types import AuditRecord, CodexDelta, CodexState, JsonEvent, TokenUsage
-from core.utils import safe_int
+from token_auditor.core.pricing import calculate_costs, resolve_pricing_model
+from token_auditor.core.types import AuditRecord, CodexDelta, CodexState, JsonEvent, TokenUsage
+from token_auditor.core.utils import safe_int
 
 
 def _mapping(value: object) -> Mapping[str, object]:

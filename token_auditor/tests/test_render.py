@@ -2,7 +2,7 @@
 
 import json
 
-from core.render import (
+from token_auditor.core.render import (
     decide_color_enabled,
     format_cost_rows,
     format_summary_rows,

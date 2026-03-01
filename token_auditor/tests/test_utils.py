@@ -1,6 +1,6 @@
 """Unit tests for utility coercion helpers."""
 
-from core.utils import safe_float, safe_int
+from token_auditor.core.utils import safe_float, safe_int
 
 
 def test_safe_int_returns_zero_for_malformed_values() -> None:

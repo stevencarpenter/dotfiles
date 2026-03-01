@@ -9,18 +9,18 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import SupportsIndex, SupportsInt
 
-from _logging import configure
-from core.claude import parse_claude_events
-from core.codex import parse_codex_events
-from core.constants import CLAUDE_SESSION_GLOB, CODEX_SESSION_GLOB, OPENCODE_DB_DEFAULT, PROJECT_NAME
-from core.jsonl import decode_jsonl_lines
-from core.opencode import parse_opencode_rows
-from core.pricing import calculate_costs, resolve_pricing_model
-from core.render import decide_color_enabled, format_tokens, format_usd, paint, render_json_audit, render_text_audit
-from core.session_resolution import choose_claude_session_path, claude_project_dir, claude_project_slug, latest_path
-from core.types import AuditRecord, SessionParseError
-from core.utils import safe_int
-from shell.io_adapters import env_value, glob_paths, has_env, is_tty, path_exists, read_lines, sorted_paths_by_mtime
+from token_auditor._logging import configure
+from token_auditor.core.claude import parse_claude_events
+from token_auditor.core.codex import parse_codex_events
+from token_auditor.core.constants import CLAUDE_SESSION_GLOB, CODEX_SESSION_GLOB, OPENCODE_DB_DEFAULT, PROJECT_NAME
+from token_auditor.core.jsonl import decode_jsonl_lines
+from token_auditor.core.opencode import parse_opencode_rows
+from token_auditor.core.pricing import calculate_costs, resolve_pricing_model
+from token_auditor.core.render import decide_color_enabled, format_tokens, format_usd, paint, render_json_audit, render_text_audit
+from token_auditor.core.session_resolution import choose_claude_session_path, claude_project_dir, claude_project_slug, latest_path
+from token_auditor.core.types import AuditRecord, SessionParseError
+from token_auditor.core.utils import safe_int
+from token_auditor.shell.io_adapters import env_value, glob_paths, has_env, is_tty, path_exists, read_lines, sorted_paths_by_mtime
 
 log = logging.getLogger(__name__)
 
