@@ -51,24 +51,24 @@ description, and file path so you can open the source for full instructions when
 ### Available skills
 
 - brainstorming: You MUST use this before any creative work - creating features, building components, adding functionality, or modifying behavior. Explores user
-  intent, requirements and design before implementation. (file: `/Users/scarpenter/.codex/superpowers/skills/brainstorming/SKILL.md`)
+  intent, requirements and design before implementation. (file: `$CODEX_HOME/superpowers/skills/brainstorming/SKILL.md`)
 - cloudflare-deploy: Deploy applications and infrastructure to Cloudflare using Workers, Pages, and related platform services. Use when the user asks to deploy,
-  host, publish, or set up a project on Cloudflare. (file: `/Users/scarpenter/.codex/skills/cloudflare-deploy/SKILL.md`)
+  host, publish, or set up a project on Cloudflare. (file: `$CODEX_HOME/skills/cloudflare-deploy/SKILL.md`)
 - dev-browser: Browser automation with persistent page state. Use when users ask to navigate websites, fill forms, take screenshots, extract web data, test web
   apps, or automate browser workflows. Trigger phrases include "go to [url]", "click on", "fill out the form", "take a screenshot", "scrape", "automate", "test
-  the website", "log into", or any browser interaction request. (file: `/Users/scarpenter/.codex/skills/dev-browser/SKILL.md`)
+  the website", "log into", or any browser interaction request. (file: `$CODEX_HOME/skills/dev-browser/SKILL.md`)
 - dispatching-parallel-agents: Use when facing 2+ independent tasks that can be worked on without shared state or sequential dependencies (file:
-  `/Users/scarpenter/.codex/superpowers/skills/dispatching-parallel-agents/SKILL.md`)
+  `$CODEX_HOME/superpowers/skills/dispatching-parallel-agents/SKILL.md`)
 - executing-plans: Use when you have a written implementation plan to execute in a separate session with review checkpoints (file:
-  `/Users/scarpenter/.codex/superpowers/skills/executing-plans/SKILL.md`)
+  `$CODEX_HOME/superpowers/skills/executing-plans/SKILL.md`)
 - finishing-a-development-branch: Use when implementation is complete, all tests pass, and you need to decide how to integrate the work - guides completion of
   development work by presenting structured options for merge, PR, or cleanup (file:
-  `/Users/scarpenter/.codex/superpowers/skills/finishing-a-development-branch/SKILL.md`)
+  `$CODEX_HOME/superpowers/skills/finishing-a-development-branch/SKILL.md`)
 - gh-address-comments: Help address review/issue comments on the open GitHub PR for the current branch using gh CLI; verify gh auth first and prompt the user to
-  authenticate if not logged in. (file: `/Users/scarpenter/.codex/skills/gh-address-comments/SKILL.md`)
+  authenticate if not logged in. (file: `$CODEX_HOME/skills/gh-address-comments/SKILL.md`)
 - gh-fix-ci: Inspect GitHub PR checks with gh, pull failing GitHub Actions logs, summarize failure context, then create a fix plan and implement after user
   approval. Use when a user asks to debug or fix failing PR CI/CD checks on GitHub Actions and wants a plan + code changes; for external checks (e.g.,
-  Buildkite), only report the details URL and mark them out of scope. (file: `/Users/scarpenter/.codex/skills/gh-fix-ci/SKILL.md`)
+  Buildkite), only report the details URL and mark them out of scope. (file: `$CODEX_HOME/skills/gh-fix-ci/SKILL.md`)
 - notion-knowledge-capture: Capture conversations and decisions into structured Notion pages; use when turning chats/notes into wiki entries, how-tos,
   decisions, or FAQs with proper linking. (file: `/Users/scarpenter/.codex/skills/notion-knowledge-capture/SKILL.md`)
 - notion-meeting-intelligence: Prepare meeting materials with Notion context and Codex research; use when gathering context, drafting agendas/pre-reads, and
