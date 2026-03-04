@@ -1,0 +1,62 @@
+asp
+aws-sso login
+hisroty
+history
+cat rus.json
+read rus.json
+cat rus.json | parse
+open rus.json
+open rus.json | select Parameters
+open rus.json | select Parameters | select iceberg
+open rus.json | select Name
+tsh
+caraspace nu
+la
+ls 
+la
+fuck
+^update 
+time zsh -i -c exit
+nu --help
+nu --lsp
+ls
+lsp
+la
+ls
+brew ls
+brew update nushell
+brew upgrade nushell
+pwd
+fzf
+cd dotfiles
+zoxide cd dotfiles
+zoxide dotfiles
+zoxide
+z dotfiles
+z chezmoi
+cd chezmoi
+zoxide dotfiles
+history
+cat ~/.config/zsh/.zsh_history
+cat ~/.config/zsh/.zsh_history | nu
+cat ~/.config/zsh/.zsh_history | cut
+head ~/.config/zsh/.zsh_history
+open ~/.config/zsh/.zsh_history<\n>| lines<\n>| where ($it | str contains ";")<\n>| parse ": {ts}:{dur};{cmd}"<\n>| get cmd<\n>| str trim<\n>| split row " "<\n>| skip while ($it | str contains "=")<\n>| get 0<\n>| where ($it | is-not-empty)<\n>| group-by<\n>| transpose command uses<\n>| update uses { |row| $row.uses | length }<\n>| sort-by uses -r
+open ~/.config/zsh/.zsh_history<\n>| lines<\n>| where { |l| $l | str contains ";" }<\n>| parse ": {ts}:{dur};{cmd}"<\n>| get cmd<\n>| str trim<\n>| split row " "<\n>| skip while { |x| $x | str contains "=" }<\n>| if ($in | get 0) == "sudo" { $in | get 1 } else { $in | get 0 }<\n>| group-by<\n>| transpose command uses<\n>| update uses { |row| $row.uses | length }<\n>| sort-by uses -r
+open ~/.config/zsh/.zsh_history<\n>| lines<\n>| where { |l| $l | str contains ";" }<\n>| parse ": {ts}:{dur};{cmd}"<\n>| get cmd<\n>| str trim<\n>| split row " "<\n>| skip while { |x| $x | str contains "=" }<\n>| get 0<\n>| where { |c| $c | is-not-empty }<\n>| group-by<\n>| transpose command uses<\n>| update uses { |row| $row.uses | length }<\n>| sort-by uses -r
+open ~/.config/zsh/.zsh_history<\n>| lines<\n>| where { |l| $l | str contains ";" }<\n>| parse ": {ts}:{dur};{cmd}"<\n>| get cmd<\n>| str trim<\n>| split row " "<\n>| skip while { |x| $x | str contains "=" }<\n>| if ($in | get 0) == "sudo" { $in | get 1 } else { $in | get 0 }<\n>| group-by<\n>| transpose command uses<\n>| update uses { |row| $row.uses | length }<\n>| sort-by uses -r
+open ~/.config/zsh/.zsh_history<\n>| lines<\n>| where { |l| $l | str contains ";" }<\n>| parse ": {ts}:{dur};{cmd}"<\n>| get cmd<\n>| each { |c|<\n>    let tokens = ($c | str trim | split row " ")<\n>    let tokens2 = ($tokens | skip while { |x| $x | str contains "=" })<\n>    if ($tokens2 | is-empty) { null }<\n>    else if (($tokens2 | get 0) == "sudo" and ($tokens2 | length) > 1) { $tokens2 | get 1 }<\n>    else { $tokens2 | get 0 }<\n>  }<\n>| where { |x| $x != null and ($x | str length) > 0 }<\n>| group-by<\n>| transpose command rows<\n>| update rows { |r| $r.rows | length }<\n>| rename command uses<\n>| sort-by uses -r
+open ~/.config/zsh/.zsh_history<\n>| lines<\n>| where { |l| $l | str contains ";" }<\n>| parse ": {ts}:{dur};{cmd}"<\n>| get cmd<\n>| each { |c|<\n>    let tokens = ($c | str trim | split row " " | skip while { |x| $x | str contains "=" })<\n>    if ($tokens | is-empty) { null }<\n>    else if (($tokens | get 0) == "sudo" and ($tokens | length) > 1) { $tokens | get 1 }<\n>    else { $tokens | get 0 }<\n>  }<\n>| where { |x| $x != null }<\n>| sort<\n>| uniq -c<\n>| rename uses command<\n>| sort-by uses -r
+nu update
+nu --version
+open ~/.config/zsh/.zsh_history<\n>| lines<\n>| where { |l| $l | str contains ";" }<\n>| parse ": {ts}:{dur};{cmd}"<\n>| get cmd<\n>| each { |c|<\n>    let tokens = ($c | str trim | split row " " | skip while { |x| $x | str contains "=" })<\n><\n>    if ($tokens | is-empty) {<\n>      null<\n>    } else {<\n>      let first = ($tokens | get 0)<\n>      if ($first == "sudo" and ($tokens | length) > 1) {<\n>        $tokens | get 1<\n>      } else {<\n>        $first<\n>      }<\n>    }<\n>  }<\n>| where { |x| $x != null }<\n>| sort<\n>| uniq -c<\n>| rename uses command<\n>| sort-by uses -r
+open ~/.config/zsh/.zsh_history<\n>| lines<\n>| where { |l| $l | str contains ";" }<\n>| parse ": {ts}:{dur};{cmd}"<\n>| get cmd<\n>| each { |c|<\n>    let tokens = ($c | str trim | split row " " | skip while { |x| $x | str contains "=" })<\n><\n>    if ($tokens | is-empty) {<\n>      null<\n>    } else {<\n>      let first = ($tokens | get 0)<\n>      if ($first == "sudo" and ($tokens | length) > 1) {<\n>        $tokens | get 1<\n>      } else {<\n>        $first<\n>      }<\n>    }<\n>  }<\n>| where { |x| $x != null }<\n>| sort<\n>| uniq -c<\n>| sort-by uses -r
+open ~/.config/zsh/.zsh_history<\n>| lines<\n>| where { |l| $l | str contains ";" }<\n>| parse ": {ts}:{dur};{cmd}"<\n>| get cmd<\n>| each { |c|<\n>    let tokens = ($c | str trim | split row " " | skip while { |x| $x | str contains "=" })<\n><\n>    if ($tokens | is-empty) {<\n>      null<\n>    } else {<\n>      let first = ($tokens | get 0)<\n>      if ($first == "sudo" and ($tokens | length) > 1) {<\n>        $tokens | get 1<\n>      } else {<\n>        $first<\n>      }<\n>    }<\n>  }<\n>| where { |x| $x != null }<\n>| sort<\n>| uniq -c
+open ~/.config/zsh/.zsh_history<\n>| lines<\n>| where { |l| $l | str contains ";" }<\n>| parse ": {ts}:{dur};{cmd}"<\n>| get cmd<\n>| each { |c|<\n>    let tokens = ($c | str trim | split row " " | skip while { |x| $x | str contains "=" })<\n><\n>    if ($tokens | is-empty) {<\n>      null<\n>    } else {<\n>      let first = ($tokens | get 0)<\n>      if ($first == "sudo" and ($tokens | length) > 1) {<\n>        $tokens | get 1<\n>      } else {<\n>        $first<\n>      }<\n>    }<\n>  }<\n>| where { |x| $x != null }<\n>| sort<\n>| uniq -c<\n>| rename value command<\n>| sort-by uses -r
+open ~/.config/zsh/.zsh_history<\n>| lines<\n>| where { |l| $l | str contains ";" }<\n>| parse ": {ts}:{dur};{cmd}"<\n>| get cmd<\n>| each { |c|<\n>    let tokens = ($c | str trim | split row " " | skip while { |x| $x | str contains "=" })<\n><\n>    if ($tokens | is-empty) {<\n>      null<\n>    } else {<\n>      let first = ($tokens | get 0)<\n>      if ($first == "sudo" and ($tokens | length) > 1) {<\n>        $tokens | get 1<\n>      } else {<\n>        $first<\n>      }<\n>    }<\n>  }<\n>| where { |x| $x != null }<\n>| sort<\n>| uniq -c<\n>| rename value command<\n>| sort-by count -r
+open ~/.config/zsh/.zsh_history<\n>| lines<\n>| where { |l| $l | str contains ";" }<\n>| parse ": {ts}:{dur};{cmd}"<\n>| get cmd<\n>| each { |c|<\n>    let tokens = ($c | str trim | split row " " | skip while { |x| $x | str contains "=" })<\n><\n>    if ($tokens | is-empty) {<\n>      null<\n>    } else {<\n>      let first = ($tokens | get 0)<\n>      if ($first == "sudo" and ($tokens | length) > 1) {<\n>        $tokens | get 1<\n>      } else {<\n>        $first<\n>      }<\n>    }<\n>  }<\n>| where { |x| $x != null }<\n>| sort<\n>| uniq -c
+open ~/.config/zsh/.zsh_history<\n>| lines<\n>| where { |l| $l | str contains ";" }<\n>| parse ": {ts}:{dur};{cmd}"<\n>| get cmd<\n>| each { |c|<\n>    let tokens = ($c | str trim | split row " " | skip while { |x| $x | str contains "=" })<\n><\n>    if ($tokens | is-empty) {<\n>      null<\n>    } else {<\n>      let first = ($tokens | get 0)<\n>      if ($first == "sudo" and ($tokens | length) > 1) {<\n>        $tokens | get 1<\n>      } else {<\n>        $first<\n>      }<\n>    }<\n>  }<\n>| where { |x| $x != null }<\n>| sort<\n>| uniq -c<\n>| rename value command<\n>| sort-by "count" -r
+open ~/.config/zsh/.zsh_history<\n>| lines<\n>| where { |l| $l | str contains ";" }<\n>| parse ": {ts}:{dur};{cmd}"<\n>| get cmd<\n>| each { |c|<\n>    let tokens = ($c | str trim | split row " " | skip while { |x| $x | str contains "=" })<\n><\n>    if ($tokens | is-empty) {<\n>      null<\n>    } else {<\n>      let first = ($tokens | get 0)<\n>      if ($first == "sudo" and ($tokens | length) > 1) {<\n>        $tokens | get 1<\n>      } else {<\n>        $first<\n>      }<\n>    }<\n>  }<\n>| where { |x| $x != null }<\n>| sort<\n>| uniq -c<\n>| sort-by "count" -r
+open ~/.config/zsh/.zsh_history<\n>| lines<\n>| where { |l| $l | str contains ";" }<\n>| parse ": {ts}:{dur};{cmd}"<\n>| get cmd<\n>| each { |c|<\n>    let tokens = ($c | str trim | split row " " | skip while { |x| $x | str contains "=" })<\n><\n>    if ($tokens | is-empty) {<\n>      null<\n>    } else {<\n>      let first = ($tokens | get 0)<\n>      if ($first == "sudo" and ($tokens | length) > 1) {<\n>        $tokens | get 1<\n>      } else {<\n>        $first<\n>      }<\n>    }<\n>  }<\n>| where { |x| $x != null }<\n>| sort<\n>| uniq -c<\n>| sort-by "count" -r | limit 20 | get value
+open ~/.config/zsh/.zsh_history<\n>| lines<\n>| where { |l| $l | str contains ";" }<\n>| parse ": {ts}:{dur};{cmd}"<\n>| get cmd<\n>| each { |c|<\n>    let tokens = ($c | str trim | split row " " | skip while { |x| $x | str contains "=" })<\n><\n>    if ($tokens | is-empty) {<\n>      null<\n>    } else {<\n>      let first = ($tokens | get 0)<\n>      if ($first == "sudo" and ($tokens | length) > 1) {<\n>        $tokens | get 1<\n>      } else {<\n>        $first<\n>      }<\n>    }<\n>  }<\n>| where { |x| $x != null }<\n>| sort<\n>| uniq -c<\n>| sort-by "count" -r | ulimit 20 | get value
+nu
