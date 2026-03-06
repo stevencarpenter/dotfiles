@@ -95,3 +95,33 @@ GitHub Actions (`.github/workflows/mcp-sync-ci.yml`) runs on changes to `mcp_syn
 - Shell scripts: `set -euo pipefail`, bash
 - Python: ruff for linting and formatting, no runtime dependencies, Python 3.14+
 - Package manager: uv (not pip/poetry)
+
+## Figma MCP Integration
+
+> This is a developer tooling / dotfiles repository. It has **no UI framework, design system, component library, or styling layer**. If you receive a Figma URL in this context, it is almost certainly for reference (documentation, diagrams, or screenshots) — not for component implementation.
+
+### What does not exist in this repo
+
+- No frontend framework (React, Vue, Svelte, etc.)
+- No CSS methodology or styling system
+- No design tokens (colors, typography, spacing)
+- No icon library or asset pipeline
+- No component library or Storybook
+
+### If Figma designs ever apply here
+
+The only plausible Figma use-cases in this repo are:
+1. **Architecture diagrams** — export as PNG/SVG to `docs/`
+2. **Documentation screenshots** — place in `docs/` alongside the relevant `.md` file
+
+### Figma MCP Required Flow (for any project, not this repo)
+
+When implementing Figma designs in a separate project via these dotfiles' tooling:
+
+1. Run `get_design_context` for the target node(s) to get structured representation
+2. Run `get_screenshot` for visual reference
+3. If `get_design_context` response is truncated, use `get_metadata` first to get the node map, then re-fetch specific nodes
+4. IMPORTANT: Use localhost asset sources from the Figma MCP server directly — do not create placeholders
+5. IMPORTANT: Do not install icon packages; use assets from the Figma payload
+6. Translate React+Tailwind output into the target project's stack/conventions
+7. Validate final UI against the Figma screenshot before marking complete
