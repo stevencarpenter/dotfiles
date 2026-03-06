@@ -43,7 +43,11 @@ ENV SPARK_HOME=/opt/spark
 ENV PATH="${SPARK_HOME}/bin:${SPARK_HOME}/sbin:${PATH}"
 
 # Align PySpark with shipped Spark
-RUN python3 -m pip install --no-cache-dir "pyspark==${SPARK_VERSION}"
+RUN python3 -m pip install --no-cache-dir "pyspark==${SPARK_VERSION}" marimo
+
+# marimo: default to container-friendly settings (bind all interfaces, no browser, no auth token)
+RUN printf '#!/bin/sh\nexec python3 -m marimo edit --host 0.0.0.0 --headless --no-token "$@"\n' \
+      > /usr/local/bin/marimo-edit && chmod +x /usr/local/bin/marimo-edit
 
 RUN groupadd --gid "${USER_GID}" "${USERNAME}" \
   && useradd --uid "${USER_UID}" --gid "${USER_GID}" --create-home --shell /bin/zsh "${USERNAME}" \

@@ -1,0 +1,25 @@
+-- ~/.duckdbrc — DuckDB startup configuration
+-- Applied via chezmoi from dot_duckdbrc
+
+-- Output formatting
+.mode duckbox
+.maxrows 50
+.timer on
+
+-- Progress feedback for long-running queries
+SET enable_progress_bar = true;
+
+-- Auto-install extensions on first LOAD
+SET autoinstall_known_extensions = true;
+SET autoload_known_extensions = true;
+
+-- Extensions: data engineering essentials
+LOAD httpfs;
+LOAD json;
+LOAD parquet;
+LOAD iceberg;
+LOAD delta;
+
+-- Resource tuning (uncomment and adjust per machine)
+-- SET memory_limit = '8GB';
+-- SET threads = 4;

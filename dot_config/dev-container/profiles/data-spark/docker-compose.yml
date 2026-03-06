@@ -17,6 +17,7 @@ services:
       PROFILE_NAME: ${PROFILE_NAME}
       ZDOTDIR: /home/${DEV_USER}/.config/zsh
       SPARK_HOME: /opt/spark
+      MARIMO_SKIP_UPDATE_CHECK: "1"
     init: true
     volumes:
       - ${DEV_WORKDIR:-.}:/work
@@ -27,5 +28,5 @@ services:
       - ${DEV_CACHE_DIR}/${PROFILE_NAME}/sbt:/home/${DEV_USER}/.sbt
       - ${DEV_CACHE_DIR}/${PROFILE_NAME}/pyspark:/home/${DEV_USER}/.cache/pyspark
     ports:
-      # Expose Spark Web UI on port 4040
-      - "4040:4040"
+      - "4040:4040"   # Spark Web UI
+      - "2718:2718"   # marimo notebook
