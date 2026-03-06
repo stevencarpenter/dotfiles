@@ -173,6 +173,9 @@ alias pacman-browse="pacman -Qq | fzf --preview 'pacman -Qil {}' --layout=revers
 # Claude memory plugin
 alias claude-mem="$HOME/.bun/bin/bun \"$HOME/.claude/plugins/marketplaces/thedotmack/plugin/scripts/worker-service.cjs\""
 
+# Worktrunk log viewer (tails the log file for a given hook)
+alias wtlog='f() { tail -f "$(wt config state logs get --hook="$1")"; }; f'
+
 # === 6. Key Bindings (z4h specific) ===
 z4h bindkey z4h-backward-kill-word  Ctrl+Backspace     Ctrl+H
 z4h bindkey z4h-backward-kill-zword Ctrl+Alt+Backspace
@@ -203,8 +206,6 @@ function c() {
 
   local cmd="$*"
   local cwd="${PWD/#$HOME/~}"
-  local ts
-  ts="$(date '+%Y-%m-%d %H:%M:%S')"
 
   # Run command; capture stdout+stderr; still show live output
   "$@" 2>&1 | tee "$tmpfile"
@@ -220,11 +221,15 @@ function c() {
   return $rc
 }
 
-function md() { [[ $# == 1 ]] && mkdir -p -- "$1" && cd -- "$1" }
+function md() {
+  [[ $# == 1 ]] && mkdir -p -- "$1" && cd -- "$1"
+  }
 
 # Git "whoops" function: create a new branch at the current HEAD, then reset the current branch back one commit.
 # Useful for quickly undoing a mistaken commit while preserving the changes in a new branch.
-function goops() { git branch "$1" && git reset --hard HEAD~1 }
+function goops() {
+  git branch "$1" && git reset --hard HEAD~1
+  }
 
 # Copy a file to the clipboard and also save it to disk (for easy sharing of files in chat, etc.)
 function copyfile() {
@@ -429,3 +434,5 @@ dev_env_file="${XDG_CONFIG_HOME:-$HOME/.config}/dev-container/dev-env.zsh"
 # ============================================================================
 # Profiling output (uncomment if you enabled zprof at the top)
 # zprof
+
+if command -v wt >/dev/null 2>&1; then eval "$(command wt config shell init zsh)"; fi

@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "refactor": {
+      "source": "smithery.ai",
+      "sourceType": "well-known",
+      "computedHash": "87789a786b96f99ba0680e89345a975106e10e7db1071c7cdc2e76d507c449d6"
+    }
+  }
+}

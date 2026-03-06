@@ -8,6 +8,11 @@ return {
                 "ruff",
                 "typescript-language-server",
                 "lua-language-server",
+                "terraform-ls",
+                "helm-ls",
+                "dockerfile-language-server",
+                "yaml-language-server",
+                "docker-compose-language-service",
             },
         },
     },
@@ -27,13 +32,12 @@ return {
             "mason-org/mason-lspconfig.nvim",
         },
         opts = {
-            -- Disable automatic setup to avoid the mappings error
             autoformat = true,
             servers = {
                 nil_ls = false,
                 pyright = {},
-                ruff_lsp = {},
-                tsserver = {},
+                ruff = {},
+                ts_ls = {},
                 lua_ls = {
                     settings = {
                         Lua = {
@@ -42,6 +46,32 @@ return {
                             },
                             completion = {
                                 callSnippet = "Replace",
+                            },
+                        },
+                    },
+                },
+                terraformls = {},
+                helm_ls = {},
+                dockerls = {},
+                docker_compose_language_service = {},
+                yamlls = {
+                    settings = {
+                        yaml = {
+                            schemaStore = {
+                                enable = true,
+                                url = "https://www.schemastore.org/api/json/catalog.json",
+                            },
+                            schemas = {
+                                kubernetes = {
+                                    "k8s/**/*.yaml",
+                                    "k8s/**/*.yml",
+                                    "manifests/**/*.yaml",
+                                    "manifests/**/*.yml",
+                                },
+                                ["https://raw.githubusercontent.com/docker/compose/master/compose/config/compose_spec.json"] = {
+                                    "docker-compose*.yaml",
+                                    "docker-compose*.yml",
+                                },
                             },
                         },
                     },
