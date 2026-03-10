@@ -1,5 +1,6 @@
 [core]
     pager = delta
+	autocrlf = input
 
 [interactive]
     diffFilter = delta --color-only
@@ -10,3 +11,5 @@
 
 [merge]
     conflictStyle = zdiff3
+[init]
+	defaultBranch = main

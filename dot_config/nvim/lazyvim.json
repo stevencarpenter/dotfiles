@@ -1,5 +1,6 @@
 {
   "extras": [
+    "lazyvim.plugins.extras.ai.claudecode",
     "lazyvim.plugins.extras.ai.copilot-chat",
     "lazyvim.plugins.extras.ai.copilot-native",
     "lazyvim.plugins.extras.coding.nvim-cmp",
@@ -31,6 +32,7 @@
     "lazyvim.plugins.extras.linting.eslint",
     "lazyvim.plugins.extras.test.core",
     "lazyvim.plugins.extras.ui.treesitter-context",
+    "lazyvim.plugins.extras.util.chezmoi",
     "lazyvim.plugins.extras.util.dot",
     "lazyvim.plugins.extras.util.gh",
     "lazyvim.plugins.extras.util.gitui",

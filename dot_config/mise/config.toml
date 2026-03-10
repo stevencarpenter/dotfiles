@@ -3,7 +3,7 @@
 # - Pin critical automation/security tools to explicit versions for reproducibility.
 # - Use "latest" only for lower-risk tools where faster updates are preferred.
 # Programming Languages & Runtimes
-go = "1.26.0"
+go = "1.26.1"
 java = "corretto-25"
 node = "25"
 scala = "3.8"
