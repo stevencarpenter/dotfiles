@@ -13,3 +13,9 @@
     conflictStyle = zdiff3
 [init]
 	defaultBranch = main
+[maintenance]
+	strategy = incremental
+	repo = /Users/scarpenter/projects/banking
+  repo = /Users/scarpenter/projects/iac
+  repo = /Users/scarpenter/projects/configuration 
+

@@ -2,7 +2,7 @@
 prepend_previewers = [
   { url = "*.csv", run = "duckdb" },
   { url = "*.tsv", run = "duckdb" },
-  { url = "*.json", run = "duckdb" },
+  { url = "*.jsonl", run = "duckdb" },
   { url = "*.parquet", run = "duckdb" },
   { url = "*.snappy.parquet", run = "duckdb" },
   { url = "*.gzip.parquet", run = "duckdb" },
@@ -16,3 +16,5 @@ prepend_previewers = [
 
 [mgr]
 ratio = [1, 1, 5]
+show_hidden = true
+show_symlinks = true
