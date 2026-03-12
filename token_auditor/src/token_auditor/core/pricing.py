@@ -1,6 +1,6 @@
 """Pure pricing model resolution and cost arithmetic for token_auditor."""
 
-from token_auditor.core.constants import MODEL_PRICING_ALIASES, MODEL_PRICING_PREFIX_ALIASES, REASONING_EFFORT_MULTIPLIER, TOKEN_PRICING_USD_PER_1M
+from token_auditor.core.constants import LONG_CONTEXT_PRICING_USD_PER_1M, MODEL_PRICING_ALIASES, MODEL_PRICING_PREFIX_ALIASES, REASONING_EFFORT_MULTIPLIER, TOKEN_PRICING_USD_PER_1M
 from token_auditor.core.types import CostBreakdown
 
 
@@ -51,13 +51,16 @@ def calculate_costs(
     cache_creation_input_tokens: int,
     output_tokens: int,
     reasoning_output_tokens: int,
+    long_context: bool = False,
 ) -> CostBreakdown:
     """Compute session cost components using provider-specific billing rules."""
     provider_pricing = TOKEN_PRICING_USD_PER_1M.get(provider, {})
-    if pricing_model not in provider_pricing:
+    if long_context and provider == "claude" and pricing_model in LONG_CONTEXT_PRICING_USD_PER_1M:
+        pricing = LONG_CONTEXT_PRICING_USD_PER_1M[pricing_model]
+    elif pricing_model not in provider_pricing:
         return zero_costs()
-
-    pricing = provider_pricing[pricing_model]
+    else:
+        pricing = provider_pricing[pricing_model]
     effort_multiplier = REASONING_EFFORT_MULTIPLIER.get(reasoning_effort, 1.0)
 
     billable_input_tokens = max(0, input_tokens - cached_input_tokens - cache_creation_input_tokens) if provider == "codex" else max(0, input_tokens)
