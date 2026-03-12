@@ -17,5 +17,4 @@
 	strategy = incremental
 	repo = /Users/scarpenter/projects/banking
   repo = /Users/scarpenter/projects/iac
-  repo = /Users/scarpenter/projects/configuration 
-
+  repo = /Users/scarpenter/projects/configuration
