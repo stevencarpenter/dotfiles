@@ -121,7 +121,7 @@ No structural changes. `CostBreakdown` (`dict[str, float]`) and `AuditRecord` (`
 
 ### Render (`core/render.py`)
 
-`format_cost_rows()` — add a "Long Context Premium" row showing `long_context_premium_usd` when > 0. Omitted when zero to keep output clean. Inserted immediately before the "Total Cost" row (index 5 in the current list), before both "Total Cost" and the optional "Provider Billed" row. The premium is already included in the total cost (since `session_total_cost_usd` reflects actual per-tier pricing), so this row is informational.
+`format_cost_rows()` — add a "Long Ctx Premium" row showing `long_context_premium_usd` when > 0. Omitted when zero to keep output clean. Inserted immediately before the "Total Cost" row (index 5 in the current list), before both "Total Cost" and the optional "Provider Billed" row. The premium is already included in the total cost (since `session_total_cost_usd` reflects actual per-tier pricing), so this row is informational.
 
 JSON output — no changes needed. `render_json_audit()` includes all dict keys automatically.
 
