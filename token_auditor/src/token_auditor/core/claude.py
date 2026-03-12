@@ -4,6 +4,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import cast
 
+from token_auditor.core.constants import LONG_CONTEXT_INPUT_THRESHOLD
 from token_auditor.core.pricing import calculate_costs, resolve_pricing_model, zero_costs
 from token_auditor.core.types import AuditRecord, ClaudeMessageSnapshot, CostBreakdown, JsonEvent, TokenUsage
 from token_auditor.core.utils import safe_int
@@ -84,25 +85,16 @@ def _latest_timestamp(deduped_snapshots: Mapping[str, ClaudeMessageSnapshot]) ->
 
 def compute_claude_costs(
     deduped_snapshots: Mapping[str, ClaudeMessageSnapshot],
-    aggregate: TokenUsage,
-    pricing_model: str,
-) -> CostBreakdown:
-    """Compute Claude costs either from aggregate totals or per-message mixed models."""
-    if pricing_model != "mixed":
-        return calculate_costs(
-            provider="claude",
-            pricing_model=pricing_model,
-            reasoning_effort="",
-            input_tokens=aggregate.input_tokens,
-            cached_input_tokens=aggregate.cached_input_tokens,
-            cache_creation_input_tokens=aggregate.cache_creation_input_tokens,
-            output_tokens=aggregate.output_tokens,
-            reasoning_output_tokens=0,
-        )
-
+) -> tuple[CostBreakdown, float]:
+    """Compute Claude costs per-message with long context threshold detection."""
     accumulated = zero_costs()
+    long_context_premium = 0.0
+
     for snapshot in deduped_snapshots.values():
         message_pricing_model = resolve_pricing_model("claude", snapshot.model)
+        total_input = snapshot.usage.input_tokens + snapshot.usage.cached_input_tokens + snapshot.usage.cache_creation_input_tokens
+        is_long_context = total_input > LONG_CONTEXT_INPUT_THRESHOLD
+
         message_costs = calculate_costs(
             provider="claude",
             pricing_model=message_pricing_model,
@@ -112,10 +104,26 @@ def compute_claude_costs(
             cache_creation_input_tokens=snapshot.usage.cache_creation_input_tokens,
             output_tokens=snapshot.usage.output_tokens,
             reasoning_output_tokens=0,
+            long_context=is_long_context,
         )
         for key, value in message_costs.items():
             accumulated[key] += value
-    return accumulated
+
+        if is_long_context:
+            standard_costs = calculate_costs(
+                provider="claude",
+                pricing_model=message_pricing_model,
+                reasoning_effort="",
+                input_tokens=snapshot.usage.input_tokens,
+                cached_input_tokens=snapshot.usage.cached_input_tokens,
+                cache_creation_input_tokens=snapshot.usage.cache_creation_input_tokens,
+                output_tokens=snapshot.usage.output_tokens,
+                reasoning_output_tokens=0,
+                long_context=False,
+            )
+            long_context_premium += message_costs["session_total_cost_usd"] - standard_costs["session_total_cost_usd"]
+
+    return accumulated, long_context_premium
 
 
 def finalize_claude_audit(
@@ -126,7 +134,7 @@ def finalize_claude_audit(
     """Build the normalized Claude audit payload from deduped snapshots."""
     aggregate = aggregate_claude_usage(deduped_snapshots)
     model, pricing_model = _model_metadata(deduped_snapshots)
-    costs = compute_claude_costs(deduped_snapshots, aggregate, pricing_model)
+    costs, long_context_premium = compute_claude_costs(deduped_snapshots)
 
     return {
         "provider": "claude",
@@ -146,6 +154,7 @@ def finalize_claude_audit(
         "provider_billed_total": 0.0,
         "provider_billed_unit": "",
         **costs,
+        "long_context_premium_usd": long_context_premium,
     }
 
 
