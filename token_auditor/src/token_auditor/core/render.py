@@ -65,8 +65,11 @@ def format_cost_rows(audit: AuditRecord) -> tuple[tuple[str, str], ...]:
         ("Cache Creation", format_usd(float(audit["cache_creation_input_cost_usd"]))),
         ("Output Cost", format_usd(float(audit["output_cost_usd"]))),
         ("Reasoning Output", format_usd(float(audit["reasoning_output_cost_usd"]))),
-        ("Total Cost", format_usd(float(audit["session_total_cost_usd"]))),
     ]
+    long_context_premium = float(audit.get("long_context_premium_usd", 0.0))
+    if long_context_premium > 0:
+        rows.append(("Long Ctx Premium", format_usd(long_context_premium)))
+    rows.append(("Total Cost", format_usd(float(audit["session_total_cost_usd"]))))
     provider_billed_unit = str(audit.get("provider_billed_unit", ""))
     if provider_billed_unit:
         provider_billed_total = float(audit.get("provider_billed_total", 0.0))

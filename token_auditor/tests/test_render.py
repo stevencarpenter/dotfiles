@@ -81,6 +81,23 @@ def test_render_text_audit_renders_all_sections_without_color() -> None:
     assert "Total Cost" in rendered and "$0.00044164" in rendered
 
 
+def test_format_cost_rows_includes_long_context_premium_when_nonzero() -> None:
+    audit = {**AUDIT, "long_context_premium_usd": 0.13175}
+    rows = format_cost_rows(audit)
+    labels = [r[0] for r in rows]
+    assert "Long Ctx Premium" in labels
+    total_idx = labels.index("Total Cost")
+    premium_idx = labels.index("Long Ctx Premium")
+    assert premium_idx < total_idx
+
+
+def test_format_cost_rows_omits_long_context_premium_when_zero() -> None:
+    audit = {**AUDIT, "long_context_premium_usd": 0.0}
+    rows = format_cost_rows(audit)
+    labels = [r[0] for r in rows]
+    assert "Long Ctx Premium" not in labels
+
+
 def test_render_json_audit_outputs_sorted_key_json() -> None:
     rendered = render_json_audit(AUDIT)
     payload = json.loads(rendered)
