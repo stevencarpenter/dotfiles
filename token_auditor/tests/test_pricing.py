@@ -81,3 +81,66 @@ def test_calculate_costs_returns_zero_breakdown_for_unknown_pricing_models() -> 
 def test_safe_int_handles_invalid_inputs() -> None:
     assert safe_int("42") == 42
     assert safe_int(object()) == 0
+
+
+def test_calculate_costs_long_context_applies_premium_rates() -> None:
+    costs = calculate_costs(
+        provider="claude",
+        pricing_model="claude-opus-4-6",
+        reasoning_effort="",
+        input_tokens=1000,
+        cached_input_tokens=500_000,
+        cache_creation_input_tokens=100_000,
+        output_tokens=5000,
+        reasoning_output_tokens=0,
+        long_context=True,
+    )
+
+    # Long context Opus: input=$10/M, cached=$1/M, cache_creation=$12.5/M, output=$37.5/M
+    assert costs["input_cost_usd"] == pytest.approx(0.01)
+    assert costs["cached_input_cost_usd"] == pytest.approx(0.50)
+    assert costs["cache_creation_input_cost_usd"] == pytest.approx(1.25)
+    assert costs["output_cost_usd"] == pytest.approx(0.1875)
+    assert costs["session_total_cost_usd"] == pytest.approx(1.9475)
+
+
+def test_calculate_costs_long_context_falls_back_for_haiku() -> None:
+    costs = calculate_costs(
+        provider="claude",
+        pricing_model="claude-haiku-4-5",
+        reasoning_effort="",
+        input_tokens=36,
+        cached_input_tokens=165811,
+        cache_creation_input_tokens=62198,
+        output_tokens=1357,
+        reasoning_output_tokens=0,
+        long_context=True,
+    )
+
+    # Haiku has no long context tier — falls back to standard rates
+    assert costs["input_cost_usd"] == pytest.approx(0.000036)
+    assert costs["cached_input_cost_usd"] == pytest.approx(0.0165811)
+    assert costs["cache_creation_input_cost_usd"] == pytest.approx(0.0777475)
+    assert costs["output_cost_usd"] == pytest.approx(0.006785)
+    assert costs["session_total_cost_usd"] == pytest.approx(0.1011496)
+
+
+def test_calculate_costs_long_context_false_uses_standard_rates() -> None:
+    costs = calculate_costs(
+        provider="claude",
+        pricing_model="claude-opus-4-6",
+        reasoning_effort="",
+        input_tokens=1000,
+        cached_input_tokens=500_000,
+        cache_creation_input_tokens=100_000,
+        output_tokens=5000,
+        reasoning_output_tokens=0,
+        long_context=False,
+    )
+
+    # Standard Opus: input=$5/M, cached=$0.5/M, cache_creation=$6.25/M, output=$25/M
+    assert costs["input_cost_usd"] == pytest.approx(0.005)
+    assert costs["cached_input_cost_usd"] == pytest.approx(0.25)
+    assert costs["cache_creation_input_cost_usd"] == pytest.approx(0.625)
+    assert costs["output_cost_usd"] == pytest.approx(0.125)
+    assert costs["session_total_cost_usd"] == pytest.approx(1.005)
