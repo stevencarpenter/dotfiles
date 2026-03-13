@@ -11,8 +11,14 @@
         "qwen/qwen3-coder-30b": {
           "name": "qwen3-coder-30b"
         },
+        "qwen/qwen3-coder-next": {
+            "name": "qwen3-coder-next"
+        },
         "nvidia/nemotron-3-nano": {
           "name": "nemotron-3-nano"
+        },
+        "nvidia/nemotron-3-super": {
+          "name": "nemotron-3-super"
         },
         "zai-org/glm-4.7-flash": {
           "name": "glm-4.7-flash"

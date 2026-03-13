@@ -7,27 +7,6 @@ go = "1.26.1"
 java = "corretto-25"
 node = "25"
 scala = "3.8"
-gradle = "9"
 npm = "11"
 sbt = "1.12"
-mill = "latest"
-coursier = "latest"
-pnpm = "latest"
 
-# Infrastructure Tools
-argo = "latest"
-gh = "2.87.3"
-goreleaser = "latest"
-helm = "3"
-jj = "latest"
-k9s = "latest"
-kubectl = "1.35"
-kustomize = "latest"
-minikube = "latest"
-teleport-ent = "16"
-terraform = "1.14.6"
-
-
-# Databases
-mysql = "8"
-duckdb = "latest"
