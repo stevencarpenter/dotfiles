@@ -4,8 +4,8 @@ set -euo pipefail
 
 echo "Running macOS setup..."
 
-# Run brew health checks
-brew bundle check --verbose || true
+# Run brew health checks using the new global Brewfile location
+brew bundle --global check --verbose || true
 brew doctor || true
 
 # Install rustup if not present

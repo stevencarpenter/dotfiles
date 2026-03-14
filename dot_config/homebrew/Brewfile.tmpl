@@ -1,7 +1,6 @@
-# Homebrew Bundle - https://github.com/Homebrew/homebrew-bundle
-# Install: brew bundle --file=~/.Brewfile
-# Audit:   brew bundle check --file=~/.Brewfile
-# Dump:    brew bundle dump --file=~/.Brewfile --force
+# Homebrew Bundle for macOS
+# Rendered by chezmoi to `~/.config/homebrew/Brewfile`; use `brew bundle --global` or set
+# `HOMEBREW_BUNDLE_FILE=~/.config/homebrew/Brewfile` when invoking commands.
 
 cask_args appdir: "/Applications"
 
@@ -16,7 +15,8 @@ brew "bash-completion"
 # CLI Tools
 # ============================================================================
 brew "age"                    # Encryption tool (for chezmoi)
-brew "bat"                    # cat with syntax highlighting
+brew "bat"                    # Syntax-highlighting cat replacement
+brew "brotli"
 brew "chezmoi"                # Dotfile manager
 brew "curl"
 brew "fd"                     # Fast find alternative
@@ -33,6 +33,12 @@ brew "xz"
 brew "yazi"                   # TUI file manager
 brew "yq"                     # YAML processor
 brew "zoxide"                 # Smart cd
+brew "btop"
+brew "ffmpeg"
+brew "neovim"
+brew "uv"
+brew "mactop"
+brew "worktrunk"
 
 # ============================================================================
 # Git & Version Control
@@ -40,6 +46,8 @@ brew "zoxide"                 # Smart cd
 brew "git"
 brew "git-extras"
 brew "git-secrets"
+brew "git-delta"
+brew "gh"
 brew "lazydocker"
 brew "lazygit"
 
@@ -47,35 +55,38 @@ brew "lazygit"
 # Development
 # ============================================================================
 brew "docker-completion"
-brew "gnu-sed"                # GNU sed (gsed)
-brew "shellcheck"             # Shell script linter
+brew "gnu-sed"
+brew "shellcheck"
 brew "tmux"
 
-# ============================================================================
-# Cloud & Infrastructure
-# ============================================================================
-brew "aws-sso-cli"
-brew "conftest"               # Policy testing
-brew "railway"                # Railway CLI
-brew "supabase"               # Supabase CLI
 
 # ============================================================================
 # GUI Applications
 # ============================================================================
+cask "ghostty"                # Terminal emulator
+cask "raycast"                # Launcher
+cask "visual-studio-code"
+cask "1password"
 cask "1password-cli"
 cask "bbedit"
-cask "firefox@developer-edition"
-cask "ghostty"                # Terminal emulator
-cask "notion"
 cask "obsidian"
 cask "orbstack"               # Docker/Linux VMs
-cask "postman"
-cask "raycast"                # Launcher
 cask "the-unarchiver"
-cask "visual-studio-code"
+cask "codex"
+brew "railway"                # Railway CLI
 
 # ============================================================================
-# Fonts - Coding
+# Fonts (nerd fonts needed by Powerlevel10k + extras)
+# Powerlevel10k is configured to require Nerd Font icons (see dot_config/zsh/dot_p10k.zsh).
+cask "font-meslo-for-powerlevel10k"
+cask "font-meslo-lg-nerd-font"
+cask "font-symbols-only-nerd-font"
+cask "font-jetbrains-mono-nerd-font"
+cask "font-jetbrains-mono"
+
+{{ if hasPrefix "personal" .machine }}
+# ============================================================================
+# Personal-only fonts (preference-driven)
 # ============================================================================
 cask "font-anonymous-pro"
 cask "font-bebas-neue"
@@ -88,18 +99,19 @@ cask "font-inconsolata"
 cask "font-input"
 cask "font-intel-one-mono"
 cask "font-iosevka"
-cask "font-jetbrains-mono"
 cask "font-liberation"
 cask "font-red-hat-mono"
 cask "font-ubuntu-mono"
 cask "font-victor-mono"
-
-# ============================================================================
-# Fonts - Nerd Fonts (patched with icons)
-# ============================================================================
 cask "font-dejavu-sans-mono-nerd-font"
 cask "font-inconsolata-go-nerd-font"
-cask "font-jetbrains-mono-nerd-font"
-cask "font-meslo-for-powerlevel10k"
-cask "font-meslo-lg-nerd-font"
-cask "font-symbols-only-nerd-font"
+
+{{ end }}
+
+{{ if hasPrefix "work" .machine }}
+# ============================================================================
+# Work-only tooling
+# ============================================================================
+brew "aws-sso-cli"
+brew "conftest"               # Policy testing
+{{ end }}
