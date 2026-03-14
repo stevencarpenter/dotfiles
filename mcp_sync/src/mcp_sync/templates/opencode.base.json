@@ -8,17 +8,30 @@
         "baseURL": "http://localhost:1234/v1"
       },
       "models": {
-        "qwen/qwen3-coder-30b": {
-          "name": "qwen3-coder-30b"
+        "qwen/qwen3-coder-next": {
+          "name": "qwen3-coder-next"
         },
-        "nvidia/nemotron-3-nano": {
-          "name": "nemotron-3-nano"
-        },
-        "zai-org/glm-4.7-flash": {
-          "name": "glm-4.7-flash"
+        "nvidia/nemotron-3-super": {
+          "name": "nemotron-3-super"
         }
       }
     }
   },
-  "mcp": {}
+  "mcp": {
+    "excalidraw": {
+      "type": "local",
+      "command": [
+        "docker",
+        "run",
+        "-i",
+        "--rm",
+        "-e",
+        "EXPRESS_SERVER_URL=http://host.docker.internal:3000",
+        "-e",
+        "ENABLE_CANVAS_SYNC=true",
+        "ghcr.io/yctimlin/mcp_excalidraw:latest"
+      ],
+      "enabled": true
+    }
+  }
 }

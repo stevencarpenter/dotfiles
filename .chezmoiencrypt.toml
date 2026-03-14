@@ -6,6 +6,12 @@ recipient = "age1462h0ed4ufkjrq0wu326l30c8hay9uewlsaudk89mgqjc5540vrqacejsz"
 glob = "dot_config/zsh/encrypted_dot_env"
 
 [[encrypted]]
+glob = "dot_config/zsh/encrypted_dot_work.env"
+
+[[encrypted]]
+glob = "dot_config/zsh/encrypted_dot_personal.env"
+
+[[encrypted]]
 glob = ".envrc"
 
 [[encrypted]]
