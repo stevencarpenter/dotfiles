@@ -330,7 +330,7 @@ fi
 dev_env_file="${XDG_CONFIG_HOME:-$HOME/.config}/dev-container/dev-env.zsh"
 [[ -f "$dev_env_file" ]] && source "$dev_env_file" || true
 
-# worktrunk shell completions 
+# worktrunk shell completions
 if command -v wt >/dev/null 2>&1; then eval "$(command wt config shell init zsh)"; fi
 
 # ============================================================================
