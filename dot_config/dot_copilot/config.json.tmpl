@@ -4,13 +4,12 @@ OAuth tokens and user authentication are preserved separately.
 */ -}}
 {
   "banner": "never",
-  "model": "claude-opus-4.5",
+  "model": "gpt-5.4",
   "render_markdown": true,
   "theme": "auto",
   "trusted_folders": [
     "{{ env "HOME" }}/.local/share/chezmoi"{{ if hasPrefix "personal" .machine }},
-    "{{ env "HOME" }}/personal/whistlepost",
-    "{{ env "HOME" }}/Desktop/ralph"{{ end }}{{ if hasPrefix "work" .machine }},
+    "{{ env "HOME" }}/projects/whistlepost"{{ end }}{{ if hasPrefix "work" .machine }},
     "{{ env "HOME" }}/projects/iac"{{ end }}
   ],
   "last_logged_in_user": {
