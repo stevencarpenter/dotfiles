@@ -93,7 +93,7 @@ export GPG_TTY=$TTY
 export NPM_CONFIG_PYTHON="$(command -v python3)"
 
 # === 4. Source Encrypted/Local Files ===
-# Note: `~/.config/zsh/.env` is generated from an encrypted source; ensure vars are exported for child processes.
+# Base secrets (always loaded on all machines)
 z4h source ~/.env.zsh
 if [[ -r "$XDG_CONFIG_HOME/zsh/.env" ]]; then
   set -a

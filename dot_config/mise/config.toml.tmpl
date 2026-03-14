@@ -1,0 +1,35 @@
+[tools]
+# Version policy:
+# - Pin critical automation/security tools to explicit versions for reproducibility.
+# - Use "latest" only for lower-risk tools where faster updates are preferred.
+
+# Programming Languages & Runtimes (all machines)
+go = "1.26.1"
+java = "corretto-25"
+node = "25"
+scala = "3.8"
+npm = "11"
+sbt = "1.12"
+
+{{ if hasPrefix "work" .machine }}
+# Infrastructure Tools (work machines only)
+gradle = "9"
+mill = "latest"
+coursier = "latest"
+pnpm = "latest"
+argo = "latest"
+gh = "2.87.3"
+goreleaser = "latest"
+helm = "3"
+jj = "latest"
+k9s = "latest"
+kubectl = "1.35"
+kustomize = "latest"
+minikube = "latest"
+teleport-ent = "16"
+terraform = "1.14.6"
+
+# Databases (work machines only)
+mysql = "8"
+duckdb = "latest"
+{{ end }}

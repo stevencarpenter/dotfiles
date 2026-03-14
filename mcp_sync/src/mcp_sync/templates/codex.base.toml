@@ -2,6 +2,15 @@
 model = "gpt-5.4"
 model_reasoning_effort = "high"
 
+[features]
+shell_snapshot = true
+multi_agent = true
+runtime_metrics = true
+search_tool = true
+apps_mcp_gateway = true
+unified_exec = true
+use_linux_sandbox_bwrap = true
+
 # Trusted Projects - Codex will run autonomously in these directories
 [projects."$HOME/projects/stevectl"]
 trust_level = "trusted"
