@@ -311,8 +311,6 @@ hide_gpt5_1_migration_prompt = true
     assert "[mcp_servers.filesystem]" in result
 
 
-
-
 def test_sync_codex_mcp_removes_old_servers(temp_home, monkeypatch_home, master_config):
     """Test that old MCP server sections are removed."""
     codex_dir = temp_home / ".codex"
