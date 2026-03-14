@@ -17,5 +17,6 @@ __pycache__/
 .venv/
 node_modules/
 *.pem
+.idea
 .idea/
 .vscode/
