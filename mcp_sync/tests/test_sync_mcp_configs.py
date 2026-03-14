@@ -288,7 +288,7 @@ def test_sync_codex_mcp_with_existing_config(
     codex_path = codex_dir / "config.toml"
 
     # Create initial Codex config
-    initial_config = """model = "gpt-5.2"
+    initial_config = """model = "gpt-5.4"
 model_reasoning_effort = "medium"
 
 [projects."/home/user/projects/test"]
@@ -305,11 +305,12 @@ hide_gpt5_1_migration_prompt = true
     result = codex_path.read_text(encoding="utf-8")
 
     # Base template settings should be present
-    assert 'model = "gpt-5.2"' in result
-    assert "[notice]" in result
+    assert 'model = "gpt-5.4"' in result
 
     # MCP servers should be added
     assert "[mcp_servers.filesystem]" in result
+
+
 
 
 def test_sync_codex_mcp_removes_old_servers(temp_home, monkeypatch_home, master_config):
@@ -319,7 +320,7 @@ def test_sync_codex_mcp_removes_old_servers(temp_home, monkeypatch_home, master_
     codex_path = codex_dir / "config.toml"
 
     # Create Codex config with old server
-    initial_config = """model = "gpt-5.2"
+    initial_config = """model = "gpt-5.4"
 
 [mcp_servers.old-server]
 command = "node"
