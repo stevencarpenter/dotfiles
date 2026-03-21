@@ -1,0 +1,39 @@
+{
+  "env": {
+    "ENABLE_LSP_TOOL": "1"
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "bash ~/.claude/statusline-command.sh"
+  },
+  "enabledPlugins": {
+    "frontend-design@claude-plugins-official": true,
+    "superpowers@claude-plugins-official": true,
+    "context7@claude-plugins-official": true,
+    "code-review@claude-plugins-official": true,
+    "github@claude-plugins-official": true,
+    "code-simplifier@claude-plugins-official": true,
+    "playwright@claude-plugins-official": true,
+    "ralph-loop@claude-plugins-official": true,
+    "typescript-lsp@claude-plugins-official": true,
+    "commit-commands@claude-plugins-official": true,
+    "claude-md-management@claude-plugins-official": true,
+    "skill-creator@claude-plugins-official": true,
+    "pyright-lsp@claude-plugins-official": true,
+    "claude-code-setup@claude-plugins-official": true,
+    "hookify@claude-plugins-official": true,
+    "gopls-lsp@claude-plugins-official": true,
+    "rust-analyzer-lsp@claude-plugins-official": true,
+    "lua-lsp@claude-plugins-official": true,
+    "railway@claude-plugins-official": true
+  },
+  "extraKnownMarketplaces": {
+    "claude-plugins-official": {
+      "source": {
+        "source": "github",
+        "repo": "anthropics/claude-plugins-official"
+      }
+    }
+  },
+  "skipDangerousModePermissionPrompt": true
+}
