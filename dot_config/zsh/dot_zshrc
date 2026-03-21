@@ -290,8 +290,16 @@ function codax() { _run_with_token_audit codax codex codex 0 "$@"; }
 function claade() { _run_with_token_audit claade claude claude 1 "$@"; }
 function opencade() { _run_with_token_audit opencade opencode opencode 1 "$@"; }
 
-# Chezmoi apply with automatic re-add of target-side changes
-function ca() { chezmoi re-add && chezmoi diff --exclude=scripts && chezmoi apply "$@"; }
+# Chezmoi apply with automatic re-add of target-side changes.
+# Skips re-add when the source repo has uncommitted changes to avoid overwriting them.
+function ca() {
+  if [[ -n "$(git -C ~/.local/share/chezmoi status --porcelain)" ]]; then
+    echo "chezmoi source has uncommitted changes — skipping re-add" >&2
+  else
+    chezmoi re-add
+  fi
+  chezmoi diff --exclude=scripts && chezmoi apply "$@"
+}
 
 # Yazi TUI file manager wrapper (updates shell CWD on exit)
 function y() {
@@ -351,7 +359,7 @@ fi
 dev_env_file="${XDG_CONFIG_HOME:-$HOME/.config}/dev-container/dev-env.zsh"
 [[ -f "$dev_env_file" ]] && source "$dev_env_file" || true
 
-# worktrunk shell completions
+# Worktrunk shell completions
 if command -v wt >/dev/null 2>&1; then eval "$(command wt config shell init zsh)"; fi
 
 # ============================================================================
