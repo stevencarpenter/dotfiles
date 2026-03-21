@@ -138,12 +138,13 @@ This syncs to:
 - `~/.config/github-copilot/mcp.json` (GitHub Copilot CLI)
 - `~/.config/github-copilot/intellij/mcp.json` (IntelliJ)
 - `~/.config/cursor/mcp.json` (Cursor + legacy mirror)
-- `~/.config/vscode/mcp.json` (VS Code + legacy mirror)
-- `~/.config/junie/mcp/mcp.json` (Junie + legacy mirror)
-- `~/.config/lmstudio/mcp.json` (LM Studio + legacy mirror)
+- `~/.vscode/mcp.json` (VS Code)
+- `~/.junie/mcp/mcp.json` (Junie)
+- `~/.lmstudio/mcp.json` (LM Studio)
 - `~/.codex/config.toml` (Codex CLI)
 - `~/.claude.json` (Claude Code)
 - `~/.config/opencode/opencode.json` (OpenCode)
+- `~/.config/mcp/mcp_config.json` (Generic MCP)
 
 ### Linting and Testing
 
@@ -212,16 +213,11 @@ The `suffix = ""` setting in `~/.config/chezmoi/chezmoi.toml` prevents chezmoi f
 
 ## AI Tools Configuration
 
-Comprehensive setup and configuration for AI-powered development tools:
+Setup and configuration for AI-powered development tools:
 
-- **[MCP (Model Context Protocol)](docs/ai-tools/mcp-setup.md)** - Configure AI assistants with secure access to local and remote resources
-- **[IntelliJ IDEA Copilot](docs/ai-tools/intellij-copilot-setup.md)** - Complete GitHub Copilot setup for IntelliJ IDEA
-- **[Copilot CLI](docs/ai-tools/copilot-cli-setup.md)** - Terminal integration for GitHub Copilot
-- **[OpenAI Codex CLI](docs/ai-tools/openai-codex-cli-setup.md)** - Command-line access to OpenAI's code generation
+- **[MCP (Model Context Protocol)](docs/ai-tools/mcp-setup.md)** - Master MCP config and sync system
 - **[Ralph + OpenCode](docs/ai-tools/ralph-opencode-setup.md)** - Autonomous coding agent with LM Studio support
 - **[Custom Terraform Instructions](docs/ai-tools/terraform-instructions.md)** – Best practices for AI-generated Terraform code
-
-See the [AI Tools documentation](docs/ai-tools/) for detailed setup guides.
 
 ### Ralph + OpenCode Quick Start
 

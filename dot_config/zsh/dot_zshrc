@@ -90,7 +90,7 @@ export PATH
 
 # === 3. Environment Variables ===
 export GPG_TTY=$TTY
-export NPM_CONFIG_PYTHON="$(command -v python3)"
+export ENABLE_LSP_TOOL=1
 
 # === 4. Source Encrypted/Local Files ===
 # Base secrets (always loaded on all machines)
@@ -135,7 +135,7 @@ alias gss='git status -sb'
 
 # Docker aliases
 alias docker-clean-unused='docker system prune --all --force --volumes'
-alias docker-clean-all='docker stop $(docker container ls -a -q); docker system prune -a -f --volumes'
+alias docker-clean-all='docker stop $(docker container ls -a -q) 2>/dev/null; docker rm -f $(docker container ls -a -q) 2>/dev/null; docker system prune -a -f --volumes'
 
 # Editor aliases
 alias v='nvim'
@@ -165,6 +165,7 @@ fi
 # Config editing
 alias zshrc='nvim $ZDOTDIR/.zshrc'
 alias zprofile='nvim $ZDOTDIR/.zprofile'
+alias ez='exec zsh'
 
 # AWS/Docker
 if [[ -n "${AWS_SSO_ACCOUNT_ID-}" && -n "${AWS_SSO_DEFAULT_REGION-}" ]]; then
@@ -177,7 +178,10 @@ if [[ -f /etc/arch-release ]]; then
 fi
 
 # Worktrunk log viewer (tails the log file for a given hook)
-alias wtlog='f() { tail -f "$(wt config state logs get --hook="$1")"; }; f'
+function wtlog() { tail -f "$(wt config state logs get --hook="$1")"; }
+
+# Update all the AI CLI tools like a degenerate
+alias burp='brew update && brew upgrade && npm install -g @github/copilot && npm install -g @openai/codex && claude update && opencode upgrade && amp update'
 
 # === 6. Key Bindings (z4h specific) ===
 z4h bindkey z4h-backward-kill-word  Ctrl+Backspace     Ctrl+H
@@ -225,21 +229,29 @@ function c() {
 }
 
 function md() {
-  [[ $# == 1 ]] && mkdir -p -- "$1" && cd -- "$1"
-  }
+  if (( $# != 1 )); then
+    echo "Usage: md <directory>" >&2
+    return 2
+  fi
+  mkdir -p -- "$1" && cd -- "$1"
+}
 
 # Git "whoops" function: create a new branch at the current HEAD, then reset the current branch back one commit.
 # Useful for quickly undoing a mistaken commit while preserving the changes in a new branch.
 function goops() {
-    git branch "$1" && git reset --hard HEAD~1 && git checkout "$1"
-  }
+  if (( $# != 1 )); then
+    echo "Usage: goops <new-branch-name>" >&2
+    return 2
+  fi
+  git branch "$1" && git reset --hard HEAD~1 && git checkout "$1"
+}
 
 # Copy a file to the clipboard and also save it to disk (for easy sharing of files in chat, etc.)
 function copyfile() {
-    if ! tee "$1" >(pbcopy); then
-        echo "Error: Failed to write file or copy to clipboard" >&2
-        return 1
-    fi
+  if ! tee "$1" >(pbcopy); then
+    echo "Error: Failed to write file or copy to clipboard" >&2
+    return 1
+  fi
 }
 
 # Wrappers for LLM CLI tools that run the command, then run a token audit on the session afterward.
@@ -247,36 +259,39 @@ function copyfile() {
 # The audit tool is configured to look for sessions started in the current working directory, so the wrapper
 # can optionally pass the CWD to the auditor if the tool being wrapped does not have a --cwd option itself (e.g. Claude).
 function _run_with_token_audit() {
-    local wrapper_name="$1"
-    local command_name="$2"
-    local provider="$3"
-    local use_cwd="$4"
-    shift 4
+  local wrapper_name="$1"
+  local command_name="$2"
+  local provider="$3"
+  local use_cwd="$4"
+  shift 4
 
-    local token_auditor_project="$HOME/.local/share/chezmoi/token_auditor"
-    command "$command_name" "$@"
-    local command_rc=$?
+  local token_auditor_project="$HOME/.local/share/chezmoi/token_auditor"
+  command "$command_name" "$@"
+  local command_rc=$?
 
-    if [[ -d "$token_auditor_project" ]]; then
-        local -a audit_cmd=(
-            uv run --project "$token_auditor_project"
-            token-auditor --provider "$provider"
-        )
-        if [[ "$use_cwd" == "1" ]]; then
-            audit_cmd+=(--cwd "$PWD")
-        fi
-        "${audit_cmd[@]}" || echo "${wrapper_name}: failed to print session usage audit" >&2
-    else
-        echo "${wrapper_name}: project not found at $token_auditor_project" >&2
+  if [[ -d "$token_auditor_project" ]]; then
+    local -a audit_cmd=(
+      uv run --project "$token_auditor_project"
+      token-auditor --provider "$provider"
+    )
+    if [[ "$use_cwd" == "1" ]]; then
+      audit_cmd+=(--cwd "$PWD")
     fi
+    "${audit_cmd[@]}" || echo "${wrapper_name}: failed to print session usage audit" >&2
+  else
+    echo "${wrapper_name}: project not found at $token_auditor_project" >&2
+  fi
 
-    return $command_rc
+  return $command_rc
 }
 
 # Wrappers for specific tools. The provider and whether to pass the CWD to the auditor are configured based on the tool's characteristics and typical usage patterns.
-function codax() { _run_with_token_audit codax codex codex 0 "$@" }
-function claade() { _run_with_token_audit claade claude claude 1 "$@" }
-function opencade() { _run_with_token_audit opencade opencode opencode 1 "$@" }
+function codax() { _run_with_token_audit codax codex codex 0 "$@"; }
+function claade() { _run_with_token_audit claade claude claude 1 "$@"; }
+function opencade() { _run_with_token_audit opencade opencode opencode 1 "$@"; }
+
+# Chezmoi apply with automatic re-add of target-side changes
+function ca() { chezmoi re-add && chezmoi diff --exclude=scripts && chezmoi apply "$@"; }
 
 # Yazi TUI file manager wrapper (updates shell CWD on exit)
 function y() {
@@ -300,6 +315,9 @@ eval "$(~/.local/bin/mise activate zsh)"
 [[ -f "$HOME/.local/bin/env" ]] && . "$HOME/.local/bin/env" || true
 [[ -f "$HOME/.atuin/bin/env" ]] && . "$HOME/.atuin/bin/env" || true
 eval "$(atuin init zsh)"
+
+# tv (terminal visualizer shell completions)
+eval "$(tv init zsh)"
 
 # === 9. Completions ===
 # Add Homebrew completions to fpath
@@ -325,6 +343,9 @@ if [[ -d "${ZDOTDIR}/profile.d" ]]; then
         source "$file"
     done
 fi
+
+# Mill build tool completions
+#source ~/.local/share/mill/completion/mill-completion.sh # MILL_SOURCE_COMPLETION_LINE
 
 # Dev container orchestrator (optional)
 dev_env_file="${XDG_CONFIG_HOME:-$HOME/.config}/dev-container/dev-env.zsh"

@@ -47,7 +47,7 @@ class SyncTarget:
         )
 
 
-def _render(template: Template | str) -> str:
+def _render(template: Template | str) -> str | object:
     if isinstance(template, str):
         return template
     substitute = getattr(template, "substitute", None)

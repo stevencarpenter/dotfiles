@@ -2,233 +2,83 @@
 
 ## Overview
 
-The Model Context Protocol (MCP) is an open protocol that enables AI assistants to securely access local and remote resources. This guide covers setting up MCP servers for use with Claude Desktop and other compatible AI tools.
+This dotfiles repo uses a **single master MCP config** that syncs to all AI development tools automatically. The sync is handled by the `mcp_sync/` Python tool, which runs after every `chezmoi apply`.
 
-## Configuration Files
+## How It Works
 
-### Location
-- **General MCP Config**: `~/.config/mcp/mcp_config.json`
-- **Claude Desktop Config**: `~/.config/mcp/claude_desktop_config.json`
+1. **Master config**: `dot_config/mcp/mcp-master.json` — single source of truth
+2. **Per-tool overrides**: `dot_config/mcp/overrides/` — JSON files that add/override servers for specific tools (e.g., `claude.json`, `copilot.json`)
+3. **Sync tool**: `mcp_sync/` transforms and merges configs into each tool's expected format
+4. **Auto-sync**: `.chezmoiscripts/run_after_sync-mcp.sh` runs the sync after `chezmoi apply`
 
-### Installation
+## Current MCP Servers
 
-Use `chezmoi` to apply the MCP configuration from this dotfiles repository:
+The master config (`dot_config/mcp/mcp-master.json`) includes:
+
+| Server | Package | Purpose |
+|--------|---------|---------|
+| **GitHub** | `@modelcontextprotocol/server-github` | Repository operations, PR management, issue handling |
+| **Railway** | `@railway/mcp-server` | Deployment status, logs, environment management |
+| **AWS CCAPI** | `awslabs.ccapi-mcp-server` | AWS resource management (read-only by default) |
+
+Additional servers may be added per-tool via override files in `dot_config/mcp/overrides/`.
+
+## Sync Targets
+
+After `chezmoi apply`, configs are synced to:
+
+| Tool | Destination |
+|------|-------------|
+| GitHub Copilot | `~/.config/.copilot/mcp-config.json` |
+| GitHub Copilot CLI | `~/.config/github-copilot/mcp.json` |
+| IntelliJ Copilot | `~/.config/github-copilot/intellij/mcp.json` |
+| Cursor | `~/.config/cursor/mcp.json` (+ legacy `~/.cursor/` mirror) |
+| VS Code | `~/.vscode/mcp.json` |
+| Junie | `~/.junie/mcp/mcp.json` |
+| LM Studio | `~/.lmstudio/mcp.json` |
+| Codex CLI | `~/.codex/config.toml` |
+| Claude Code | `~/.claude.json` |
+| OpenCode | `~/.config/opencode/opencode.json` |
+| Generic MCP | `~/.config/mcp/mcp_config.json` |
+
+## Adding a New MCP Server
+
+Edit the master config:
 
 ```bash
+chezmoi edit ~/.config/mcp/mcp-master.json
+chezmoi apply  # Sync runs automatically
+```
+
+To add a server only for a specific tool, create or edit an override file:
+
+```bash
+# Example: add a server only for Claude Code
+nvim dot_config/mcp/overrides/claude.json
 chezmoi apply
 ```
 
-This will deploy the configuration files to `~/.config/mcp/` and automatically sync them to all AI tools.
-
-## Available MCP Servers
-
-### 1. GitHub Server
-Access and interact with GitHub repositories, issues, and pull requests.
-
-**Environment Variable Required:**
-```bash
-export GITHUB_TOKEN="ghp_your_personal_access_token"
-```
-
-**Create Token:**
-1. Go to GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)
-2. Generate new token with scopes: `repo`, `read:org`, `read:user`
-3. Add to `~/.config/zsh/.env` (managed via chezmoi encryption - see README)
-
-### 2. Filesystem Server
-Read and write files within specified directories.
-
-**Default Access:**
-- `~/projects/` - Your main projects directory
-- `~/.local/share/chezmoi/` - This dotfiles repository
-
-**Security Note:** Only directories explicitly listed in the configuration are accessible.
-
-### 3. Git Server
-Perform git operations on repositories.
-
-**Features:**
-- Read git log and history
-- View diffs and commits
-- Check repository status
-- No write operations for safety
-
-### 4. Postgres Server
-Query and interact with PostgreSQL databases.
-
-**Configuration:**
-Update the connection string in `claude_desktop_config.json`:
-```json
-{
-  "postgres": {
-    "command": "npx",
-    "args": [
-      "-y",
-      "@modelcontextprotocol/server-postgres",
-      "postgresql://username:password@localhost:5432/dbname"
-    ]
-  }
-}
-```
-
-### 5. Puppeteer Server
-Automate browser interactions for web scraping and testing.
-
-**Use Cases:**
-- Web scraping
-- Automated testing
-- Screenshot capture
-- Form filling
-
-### 6. Sequential Thinking Server
-Enhanced reasoning capabilities for complex problems.
-
-**Features:**
-- Step-by-step problem solving
-- Chain of thought reasoning
-- Complex analysis tasks
-
-### 7. SQLite Server
-Work with SQLite databases.
-
-**Configuration:**
-```bash
-export DATABASE_PATH="${HOME}/.local/share/databases"
-```
-
-Create the directory:
-```bash
-mkdir -p ~/.local/share/databases
-```
-
-### 8. Brave Search Server
-Perform web searches using Brave Search API.
-
-**Setup:**
-1. Get API key from [Brave Search API](https://brave.com/search/api/)
-2. Add to `~/.config/zsh/.env` (managed via chezmoi encryption - see README):
-```bash
-export BRAVE_API_KEY="your_brave_api_key"
-```
-
-## Installing MCP Servers
-
-All MCP servers are installed on-demand via `npx`. They will be automatically downloaded when first used.
-
-To pre-install all servers:
+## Manual Sync
 
 ```bash
-npm install -g @modelcontextprotocol/server-github
-npm install -g @modelcontextprotocol/server-filesystem
-npm install -g @modelcontextprotocol/server-git
-npm install -g @modelcontextprotocol/server-postgres
-npm install -g @modelcontextprotocol/server-puppeteer
-npm install -g @modelcontextprotocol/server-sequential-thinking
-npm install -g @modelcontextprotocol/server-sqlite
-npm install -g @modelcontextprotocol/server-brave-search
+uv run --project ~/.local/share/chezmoi/mcp_sync sync-mcp-configs
 ```
 
-## Using with Claude Desktop
+## Environment Variables
 
-1. **Install Claude Desktop**: Download from [claude.ai](https://claude.ai/)
-
-2. **Configuration**: The config file is already set up at `~/.config/mcp/claude_desktop_config.json`
-
-3. **Restart Claude Desktop**: Close and reopen the application
-
-4. **Verify**: Open Claude Desktop and check that MCP servers appear in the available tools
-
-## Customizing MCP Servers
-
-### Adding Custom Servers
-
-Edit `~/.config/mcp/mcp_config.json` to add custom MCP servers:
-
-```json
-{
-  "mcpServers": {
-    "my-custom-server": {
-      "command": "node",
-      "args": ["/path/to/server.js"],
-      "env": {
-        "CUSTOM_VAR": "value"
-      }
-    }
-  }
-}
-```
-
-### Modifying Filesystem Access
-
-To grant access to additional directories, edit the `filesystem` server args:
-
-```json
-{
-  "filesystem": {
-    "command": "npx",
-    "args": [
-      "-y",
-      "@modelcontextprotocol/server-filesystem",
-      "${HOME}/projects",
-      "${HOME}/.local/share/chezmoi",
-      "${HOME}/new-directory"
-    ]
-  }
-}
-```
+Servers that need API keys reference environment variables (e.g., `${GITHUB_TOKEN}`). These are stored encrypted in `dot_config/zsh/encrypted_dot_env` and sourced at shell startup.
 
 ## Troubleshooting
 
-### MCP Servers Not Appearing
+**Sync not running after apply?**
+- Verify `uv` is installed: `which uv`
+- Check the sync script: `cat ~/.local/share/chezmoi/.chezmoiscripts/run_after_sync-mcp.sh`
 
-1. Check Claude Desktop logs:
-   - macOS: `~/Library/Logs/Claude/`
-   - Linux: `~/.config/Claude/logs/`
+**Server not appearing in a tool?**
+- Check if the tool has an override that excludes it: `ls dot_config/mcp/overrides/`
+- Verify the tool's config was written: check the destination path from the table above
 
-2. Verify environment variables are set:
+**Testing sync changes:**
 ```bash
-echo $GITHUB_TOKEN
+uv run --project mcp_sync --extra dev pytest mcp_sync/tests -v
 ```
-
-3. Test server manually:
-```bash
-npx -y @modelcontextprotocol/server-github
-```
-
-### Permission Errors
-
-Ensure directories have proper permissions:
-```bash
-chmod 700 ~/.config/mcp
-chmod 600 ~/.config/mcp/*.json
-```
-
-### NPX Installation Issues
-
-Update npm and node:
-```bash
-npm install -g npm@latest
-```
-
-Or install servers globally as shown above.
-
-## Security Best Practices
-
-1. **Token Security**: Never commit tokens to git. Store in `~/.config/zsh/.env` which is managed via chezmoi encryption (source is `dot_config/zsh/encrypted_dot_env`).
-
-2. **Filesystem Access**: Only grant access to necessary directories.
-
-3. **Database Credentials**: Use environment variables for connection strings.
-
-4. **Regular Updates**: Keep MCP servers updated:
-```bash
-npm update -g @modelcontextprotocol/server-*
-```
-
-5. **Audit Access**: Regularly review which servers have access to what resources.
-
-## Additional Resources
-
-- [MCP Official Documentation](https://modelcontextprotocol.io/)
-- [MCP Server Repository](https://github.com/modelcontextprotocol/servers)
-- [Claude Desktop Documentation](https://claude.ai/docs)

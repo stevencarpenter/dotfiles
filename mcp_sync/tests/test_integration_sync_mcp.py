@@ -28,9 +28,9 @@ def test_full_sync_workflow_all_targets(
         ".config/mcp/mcp_config.json",
         ".config/opencode/opencode.json",
         ".config/cursor/mcp.json",
-        ".config/vscode/mcp.json",
-        ".config/junie/mcp/mcp.json",
-        ".config/lmstudio/mcp.json",
+        ".vscode/mcp.json",
+        ".junie/mcp/mcp.json",
+        ".lmstudio/mcp.json",
     ]
 
     for file_path in expected_files:
