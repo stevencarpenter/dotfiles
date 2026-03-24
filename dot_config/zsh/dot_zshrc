@@ -365,3 +365,5 @@ if command -v wt >/dev/null 2>&1; then eval "$(command wt config shell init zsh)
 # ============================================================================
 # Profiling output (uncomment if you enabled zprof at the top)
 # zprof
+
+[ -f "/Users/carpenter/.ghcup/env" ] && . "/Users/carpenter/.ghcup/env" # ghcup-env

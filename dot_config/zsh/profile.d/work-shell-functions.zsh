@@ -86,7 +86,7 @@ aws-sso-clear() {
         echo "AWS_SSO_PROFILE is not set"
         return 1
     fi
-    eval $(/opt/homebrew/bin/aws-sso ${=_args} eval -c)
+    eval $(""/opt/homebrew/bin/aws-sso ${=_args} eval -c)
     unset AWS_DEFAULT_PROFILE
 }
 # END_AWS_SSO_CLI

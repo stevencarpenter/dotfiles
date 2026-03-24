@@ -7,6 +7,8 @@ input=$(cat)
 cwd=$(echo "$input"        | jq -r '.workspace.current_dir // .cwd // empty')
 model=$(echo "$input"      | jq -r '.model.display_name // empty')
 used=$(echo "$input"       | jq -r '.context_window.used_percentage // empty')
+five_h=$(echo "$input"     | jq -r '.rate_limits.five_hour.used_percentage // empty')
+seven_d=$(echo "$input"    | jq -r '.rate_limits.seven_day.used_percentage // empty')
 # remaining=$(echo "$input"  | jq -r '.context_window.remaining_percentage // empty')
 session=$(echo "$input"    | jq -r '.session_name // empty')
 vim_mode=$(echo "$input"   | jq -r '.vim.mode // empty')
@@ -85,6 +87,29 @@ if [ -n "$used" ]; then
   ctx_part="${FG_GRAY} ${bar_color}${bar}${RESET}${FG_GRAY} ${used_int}%${RESET}"
 fi
 
+# ── Rate Limits ─────────────────────────────────────────────
+limits_part=""
+limit_bits=""
+if [ -n "$five_h" ]; then
+  five_int=$(printf '%.0f' "$five_h")
+  if   [ "$five_int" -ge 85 ]; then lc="${FG_RED}"
+  elif [ "$five_int" -ge 60 ]; then lc="${FG_YELLOW}"
+  else                               lc="${FG_GREEN}"
+  fi
+  limit_bits="${lc}5h:${five_int}%${RESET}"
+fi
+if [ -n "$seven_d" ]; then
+  seven_int=$(printf '%.0f' "$seven_d")
+  if   [ "$seven_int" -ge 85 ]; then lc="${FG_RED}"
+  elif [ "$seven_int" -ge 60 ]; then lc="${FG_YELLOW}"
+  else                                lc="${FG_GREEN}"
+  fi
+  limit_bits="${limit_bits:+${limit_bits} }${lc}7d:${seven_int}%${RESET}"
+fi
+if [ -n "$limit_bits" ]; then
+  limits_part="${FG_GRAY} ${limit_bits}"
+fi
+
 # ── Vim Mode ─────────────────────────────────────────────────
 vim_part=""
 if [ -n "$vim_mode" ]; then
@@ -107,6 +132,7 @@ line="${dir_display}"
 if [ -n "$git_part" ];     then line="${line}${SEP}${git_part}"; fi
 if [ -n "$model_part" ];   then line="${line}${SEP}${model_part}"; fi
 if [ -n "$ctx_part" ];     then line="${line}${SEP}${ctx_part}"; fi
+if [ -n "$limits_part" ];  then line="${line}${SEP}${limits_part}"; fi
 if [ -n "$vim_part" ];     then line="${line}${SEP}${vim_part}"; fi
 if [ -n "$session_part" ]; then line="${line}${SEP}${session_part}"; fi
 
