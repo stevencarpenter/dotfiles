@@ -7,9 +7,10 @@ input=$(cat)
 cwd=$(echo "$input"        | jq -r '.workspace.current_dir // .cwd // empty')
 model=$(echo "$input"      | jq -r '.model.display_name // empty')
 used=$(echo "$input"       | jq -r '.context_window.used_percentage // empty')
+in_tok=$(echo "$input"     | jq -r '.context_window.total_input_tokens // empty')
+out_tok=$(echo "$input"    | jq -r '.context_window.total_output_tokens // empty')
 five_h=$(echo "$input"     | jq -r '.rate_limits.five_hour.used_percentage // empty')
 seven_d=$(echo "$input"    | jq -r '.rate_limits.seven_day.used_percentage // empty')
-# remaining=$(echo "$input"  | jq -r '.context_window.remaining_percentage // empty')
 session=$(echo "$input"    | jq -r '.session_name // empty')
 vim_mode=$(echo "$input"   | jq -r '.vim.mode // empty')
 worktree=$(echo "$input"   | jq -r '.worktree.branch // empty')
@@ -63,6 +64,20 @@ if [ -n "$model" ]; then
   short_model="$model"
   short_model="${short_model/Claude /}"          # strip "Claude " prefix
   model_part="${FG_YELLOW} ${BOLD}${short_model}${RESET}"
+fi
+
+# ── Token Count ──────────────────────────────────────────────
+token_part=""
+if [ -n "$in_tok" ] && [ -n "$out_tok" ]; then
+  total_tok=$(( in_tok + out_tok ))
+  if   [ "$total_tok" -ge 1000000 ]; then
+    tok_display="$(awk "BEGIN{printf \"%.1fM\", $total_tok/1000000}")"
+  elif [ "$total_tok" -ge 1000 ]; then
+    tok_display="$(awk "BEGIN{printf \"%.1fk\", $total_tok/1000}")"
+  else
+    tok_display="${total_tok}"
+  fi
+  token_part="${FG_GRAY} ${FG_CYAN}${tok_display}${RESET}"
 fi
 
 # ── Context Progress Bar ─────────────────────────────────────
@@ -131,6 +146,7 @@ line="${dir_display}"
 
 if [ -n "$git_part" ];     then line="${line}${SEP}${git_part}"; fi
 if [ -n "$model_part" ];   then line="${line}${SEP}${model_part}"; fi
+if [ -n "$token_part" ];   then line="${line}${SEP}${token_part}"; fi
 if [ -n "$ctx_part" ];     then line="${line}${SEP}${ctx_part}"; fi
 if [ -n "$limits_part" ];  then line="${line}${SEP}${limits_part}"; fi
 if [ -n "$vim_part" ];     then line="${line}${SEP}${vim_part}"; fi
