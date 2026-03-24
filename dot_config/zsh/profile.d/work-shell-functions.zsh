@@ -61,8 +61,16 @@ aws-sso() {
     fi
 }
 
-aws-sso-profile() {
+__aws_sso_eval() {
     local _args=${AWS_SSO_HELPER_ARGS:- -L error}
+    local eval_output
+
+    # Capture helper output first so a failed command substitution can't look successful.
+    eval_output=$(/opt/homebrew/bin/aws-sso ${=_args} eval "$@") || return 1
+    eval "$eval_output"
+}
+
+aws-sso-profile() {
     if [ -n "$AWS_PROFILE" ]; then
         echo "Unable to assume a role while AWS_PROFILE is set"
         return 1
@@ -73,7 +81,7 @@ aws-sso-profile() {
         return 1
     fi
 
-    eval $(/opt/homebrew/bin/aws-sso ${=_args} eval -p "$1")
+    __aws_sso_eval -p "$1" || return 1
     if [ "$AWS_SSO_PROFILE" != "$1" ]; then
         return 1
     fi
@@ -81,12 +89,11 @@ aws-sso-profile() {
 }
 
 aws-sso-clear() {
-    local _args=${AWS_SSO_HELPER_ARGS:- -L error}
     if [ -z "$AWS_SSO_PROFILE" ]; then
         echo "AWS_SSO_PROFILE is not set"
         return 1
     fi
-    eval $(/opt/homebrew/bin/aws-sso ${=_args} eval -c)
+    __aws_sso_eval -c || return 1
     unset AWS_DEFAULT_PROFILE
 }
 # END_AWS_SSO_CLI
@@ -104,10 +111,15 @@ function get_assumed_role_credentials() {
         return 1
     fi
 
-    export $(printf "AWS_ACCESS_KEY_ID=%s AWS_SECRET_ACCESS_KEY=%s AWS_SESSION_TOKEN=%s" \
-    $(aws sts assume-role \
-    --role-arn $1 \
-    --role-session-name $2 \
-    --query "Credentials.[AccessKeyId,SecretAccessKey,SessionToken]" \
-    --output text))
+    local sts_output
+    sts_output=$(aws sts assume-role \
+        --role-arn "$1" \
+        --role-session-name "$2" \
+        --query "Credentials.[AccessKeyId,SecretAccessKey,SessionToken]" \
+        --output text) || {
+        echo "Error: failed to assume role $1" >&2
+        return 1
+    }
+
+    export $(printf "AWS_ACCESS_KEY_ID=%s AWS_SECRET_ACCESS_KEY=%s AWS_SESSION_TOKEN=%s" $sts_output)
 }

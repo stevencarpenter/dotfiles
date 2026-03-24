@@ -17,6 +17,15 @@ type Transform = Callable[[JsonDict], JsonDict]
 TEMPLATES_DIR = Path(__file__).with_name("templates")
 
 
+class InvalidTemplateError(RuntimeError):
+    """Raised when a JSON base template cannot be parsed."""
+
+    def __init__(self, template_path: Path, error: json.JSONDecodeError) -> None:
+        self.template_path = template_path
+        self.error = error
+        super().__init__(f"Invalid JSON template: {template_path} ({error.msg})")
+
+
 @dataclass(frozen=True, slots=True)
 class SyncTarget:
     name: str
@@ -109,7 +118,10 @@ def _load_json_template(key: str, home: Path | None) -> JsonDict:
         return {}
     text = template_path.read_text(encoding="utf-8")
     rendered = _apply_template(text, home)
-    return json.loads(rendered)
+    try:
+        return json.loads(rendered)
+    except json.JSONDecodeError as exc:
+        raise InvalidTemplateError(template_path, exc) from exc
 
 
 def _load_text_template(key: str, home: Path | None) -> str:
@@ -356,19 +368,6 @@ def transform_to_opencode_format(master: JsonDict) -> JsonDict:
     return {"mcp": mcp}
 
 
-def sync_opencode_mcp(master: JsonDict, home: Path | None = None) -> None:
-    home_path = _home_dir(home)
-    target = SyncTarget(
-        name="opencode",
-        destination=home_path / ".config" / "opencode" / "opencode.json",
-        transform=transform_to_opencode_format,
-        template_key="opencode",
-        override_key="opencode",
-    )
-    target.sync(master, home=home_path)
-    log_success(f"Synced MCP servers to: {target.destination}")
-
-
 def _build_targets(home: Path) -> list[SyncTarget]:
     return [
         SyncTarget(
@@ -452,15 +451,23 @@ def run_sync(master_path: Path | None = None, home: Path | None = None) -> int:
 
     log_info("Syncing MCP configurations from master...")
     master = load_master_config(master_config_path)
+    had_errors = False
 
     for target in _build_targets(home_path):
-        target.sync(master, home=home_path)
+        try:
+            target.sync(master, home=home_path)
+        except InvalidTemplateError as exc:
+            log_error(str(exc))
+            had_errors = True
 
     sync_codex_mcp(master, home=home_path)
     patch_claude_code_config(master, home=home_path)
     sync_copilot_cli_config(home=home_path)
 
     print()
+    if had_errors:
+        log_error("MCP configuration sync completed with errors.")
+        return 1
     log_success("MCP configuration sync complete!")
     return 0
 
