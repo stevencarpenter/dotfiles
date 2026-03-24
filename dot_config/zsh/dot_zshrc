@@ -329,11 +329,7 @@ eval "$(tv init zsh)"
 
 # === 9. Completions ===
 # Add Homebrew completions to fpath
-if [[ -d /opt/homebrew/share/zsh/site-functions ]]; then
-  fpath+=(/opt/homebrew/share/zsh/site-functions)
-elif [[ -d /usr/local/share/zsh/site-functions ]]; then
-  fpath+=(/usr/local/share/zsh/site-functions)
-fi
+fpath+=$(brew --prefix)/share/zsh/site-functions
 
 # Set up completions for custom functions
 compdef _directories md
@@ -352,7 +348,7 @@ source ~/.orbstack/shell/init.zsh 2>/dev/null || :
 # It also keeps this file cleaner and more focused on core configuration and critical tool setup. --AI (maybe I will use it myself in the future)
 if [[ -d "${ZDOTDIR}/profile.d" ]]; then
     for file in "${ZDOTDIR}"/profile.d/*.zsh(N); do
-        source "$file" || echo "Warning: failed to source $file" >&2
+        source "$file"
     done
 fi
 
@@ -369,3 +365,5 @@ if command -v wt >/dev/null 2>&1; then eval "$(command wt config shell init zsh)
 # ============================================================================
 # Profiling output (uncomment if you enabled zprof at the top)
 # zprof
+
+[ -f "/Users/carpenter/.ghcup/env" ] && . "/Users/carpenter/.ghcup/env" # ghcup-env

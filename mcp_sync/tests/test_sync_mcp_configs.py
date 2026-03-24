@@ -6,21 +6,19 @@ import json
 from pathlib import Path
 
 import pytest
-import mcp_sync.sync as sync_module
 from mcp_sync import (
     deep_merge,
     load_master_config,
     patch_claude_code_config,
-    run_sync,
     sync_codex_mcp,
     sync_copilot_cli_config,
+    sync_opencode_mcp,
     sync_to_locations,
     transform_to_copilot_format,
     transform_to_generic_mcp_format,
     transform_to_mcpservers_format,
     transform_to_opencode_format,
 )
-from mcp_sync.sync import SyncTarget
 
 
 def test_load_master_config_valid(master_config_file):
@@ -47,29 +45,6 @@ def test_load_master_config_malformed_json(temp_home):
 
     with pytest.raises(json.JSONDecodeError):
         load_master_config(bad_config)
-
-
-def test_run_sync_skips_invalid_template_and_returns_error(
-    temp_home, master_config_file, monkeypatch, capsys
-):
-    """Test invalid target templates fail closed without writing that target."""
-    templates_dir = temp_home / "templates"
-    templates_dir.mkdir()
-    (templates_dir / "opencode.base.json").write_text(
-        '{"provider": {"lmstudio": }',
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(sync_module, "TEMPLATES_DIR", templates_dir)
-
-    exit_code = run_sync(home=temp_home)
-
-    assert exit_code == 1
-    assert not (temp_home / ".config" / "opencode" / "opencode.json").exists()
-    assert (temp_home / ".config" / "mcp" / "mcp_config.json").exists()
-
-    output = capsys.readouterr().out
-    assert "Invalid JSON template" in output
-    assert "opencode.base.json" in output
 
 
 def test_transform_to_copilot_format(master_config):
@@ -258,14 +233,15 @@ def test_patch_claude_code_config_applies_override(
     assert result["enabledPlugins"]["new-plugin@source"] is True
 
 
-def test_sync_opencode_target_with_existing_config(
+def test_sync_opencode_mcp_with_existing_config(
     temp_home, monkeypatch_home, master_config
 ):
-    """Test syncing MCP servers to OpenCode config preserves existing settings."""
-    opencode_path = temp_home / ".config" / "opencode" / "opencode.json"
-    opencode_path.parent.mkdir(parents=True, exist_ok=True)
+    """Test syncing MCP servers to OpenCode config."""
+    opencode_dir = temp_home / ".config" / "opencode"
+    opencode_dir.mkdir(parents=True, exist_ok=True)
+    opencode_path = opencode_dir / "opencode.json"
 
-    # Create initial config with provider settings that should be preserved
+    # Create initial OpenCode config
     initial_config = {
         "$schema": "https://opencode.ai/config.json",
         "provider": {
@@ -273,21 +249,15 @@ def test_sync_opencode_target_with_existing_config(
                 "npm": "@ai-sdk/openai-compatible",
                 "name": "LM Studio (local)",
                 "options": {"baseURL": "http://localhost:1234/v1"},
+                "models": {"qwen/qwen3-coder-30b": {"name": "qwen3-coder-30b"}},
             }
         },
         "mcp": {},
     }
     opencode_path.write_text(json.dumps(initial_config, indent=2), encoding="utf-8")
 
-    target = SyncTarget(
-        name="opencode",
-        destination=opencode_path,
-        transform=transform_to_opencode_format,
-        template_key="opencode",
-        override_key="opencode",
-    )
     monkeypatch_home.setattr(Path, "home", lambda: temp_home)
-    target.sync(master_config, home=temp_home)
+    sync_opencode_mcp(master_config)
 
     result = json.loads(opencode_path.read_text())
 
@@ -300,22 +270,12 @@ def test_sync_opencode_target_with_existing_config(
     assert "filesystem" in result["mcp"]
 
 
-def test_sync_opencode_target_missing_config(
-    temp_home, monkeypatch_home, master_config
-):
-    """Test syncing creates OpenCode config when missing via SyncTarget."""
-    opencode_path = temp_home / ".config" / "opencode" / "opencode.json"
-
-    target = SyncTarget(
-        name="opencode",
-        destination=opencode_path,
-        transform=transform_to_opencode_format,
-        template_key="opencode",
-        override_key="opencode",
-    )
+def test_sync_opencode_mcp_missing_config(temp_home, monkeypatch_home, master_config):
+    """Test syncing creates OpenCode config when missing."""
     monkeypatch_home.setattr(Path, "home", lambda: temp_home)
-    target.sync(master_config, home=temp_home)
+    sync_opencode_mcp(master_config)
 
+    opencode_path = temp_home / ".config" / "opencode" / "opencode.json"
     assert opencode_path.exists()
 
 
