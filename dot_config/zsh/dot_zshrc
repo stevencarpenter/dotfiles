@@ -355,9 +355,13 @@ fi
 # Mill build tool completions
 #source ~/.local/share/mill/completion/mill-completion.sh # MILL_SOURCE_COMPLETION_LINE
 
+# ghcup (Haskell toolchain manager) why am I even doing this in 2024
+#[ -f "/Users/carpenter/.ghcup/env" ] && . "/Users/carpenter/.ghcup/env" # ghcup-env
+
 # Dev container orchestrator (optional)
-dev_env_file="${XDG_CONFIG_HOME:-$HOME/.config}/dev-container/dev-env.zsh"
-[[ -f "$dev_env_file" ]] && source "$dev_env_file" || true
+# Not using this right now but it is a nice convention for users who do use dev containers to have a standard file where they can put container-related environment variables and functions (e.g. to automatically detect if you are in a dev container and set up your prompt accordingly, or to set environment variables that point to containerized services, etc.)
+#dev_env_file="${XDG_CONFIG_HOME:-$HOME/.config}/dev-container/dev-env.zsh"
+#[[ -f "$dev_env_file" ]] && source "$dev_env_file" || true
 
 # Worktrunk shell completions
 if command -v wt >/dev/null 2>&1; then eval "$(command wt config shell init zsh)"; fi
@@ -365,5 +369,3 @@ if command -v wt >/dev/null 2>&1; then eval "$(command wt config shell init zsh)
 # ============================================================================
 # Profiling output (uncomment if you enabled zprof at the top)
 # zprof
-
-[ -f "/Users/carpenter/.ghcup/env" ] && . "/Users/carpenter/.ghcup/env" # ghcup-env

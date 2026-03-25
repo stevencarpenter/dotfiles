@@ -8,7 +8,6 @@
 allow = [
     "${REPO_ROOT}/**",
     "${XDG_STATE_HOME}/opencode/**",
-    "${XDG_STATE_HOME}/ralph/**",
     "/tmp/opencode-*/**"
 ]
 
