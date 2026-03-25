@@ -46,7 +46,8 @@
     }
   },
   "effortLevel": "high",
+  "voiceEnabled": true,
   "skipDangerousModePermissionPrompt": true,
-  "teammateMode": "tmux",
-  "voiceEnabled": true
+  "teammateMode": "auto",
+  "autoDreamEnabled": true
 }
