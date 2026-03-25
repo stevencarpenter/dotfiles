@@ -77,6 +77,15 @@ The sync runs automatically after `chezmoi apply` via `.chezmoiscripts/run_after
 - `scripts/` — Utility scripts
 - `docs/ai-tools/` — Setup guides for MCP, Copilot, Ralph, etc.
 
+### Tmux Status Bar Integration
+
+A monitor script (`dot_config/tmux/scripts/claude-pane-monitor.sh`) runs every status-interval and sets per-window `@claude_state` options. The everforest color palette is defined inline (no theme plugin) so the monitor has full control over `window-status-format` and `window-status-current-format` with stoplight colors:
+
+- **Green** (`#a7c080`) — actively working (braille spinner in pane title)
+- **Yellow** (`#dbbc7f`) — waiting for input (pane title contains ✳)
+
+Window names show `#{pane_title}` via `automatic-rename-format`, so tabs display Claude session names and state spinners instead of version numbers.
+
 ### Encrypted Secrets
 
 Environment variables live in `dot_config/zsh/encrypted_dot_env`. To update:
