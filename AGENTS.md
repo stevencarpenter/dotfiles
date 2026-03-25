@@ -84,9 +84,6 @@ description, and file path so you can open the source for full instructions when
   debugging) via `playwright-cli` or the bundled wrapper script. (file: `/Users/scarpenter/.codex/skills/playwright/SKILL.md`)
 - prd: Generate a Product Requirements Document (PRD) for a new feature. Use when planning a feature, starting a new project, or when asked to create a PRD.
   Triggers on: create a prd, write prd for, plan this feature, requirements for, spec out. (file: `/Users/scarpenter/.codex/skills/prd/SKILL.md`)
-- ralph: Convert PRDs to `prd.json` format for the Ralph autonomous agent system. Use when you have an existing PRD and need to convert it to Ralph's JSON
-  format. Triggers on: convert this prd, turn this into ralph format, create `prd.json` from this, ralph json. (file:
-  `/Users/scarpenter/.codex/skills/ralph/SKILL.md`)
 - receiving-code-review: Use when receiving code review feedback, before implementing suggestions, especially if feedback seems unclear or technically
   questionable - requires technical rigor and verification, not performative agreement or blind implementation (file:
   `/Users/scarpenter/.codex/superpowers/skills/receiving-code-review/SKILL.md`)

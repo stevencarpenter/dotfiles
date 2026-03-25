@@ -75,7 +75,7 @@ The sync runs automatically after `chezmoi apply` via `.chezmoiscripts/run_after
 - `dot_config/zsh/` — Zsh config; `encrypted_dot_env` holds API keys
 - `dot_config/nvim/` — Neovim config (LazyVim)
 - `scripts/` — Utility scripts
-- `docs/ai-tools/` — Setup guides for MCP, Copilot, Ralph, etc.
+- `docs/ai-tools/` — Setup guides for MCP, Copilot, etc.
 
 ### Tmux Status Bar Integration
 

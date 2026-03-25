@@ -8,11 +8,6 @@ This directory contains documentation for integrating AI-powered development too
 - **Documentation**: [MCP Setup Guide](./mcp-setup.md)
 - Master MCP config synced to all AI tools via the `mcp_sync/` system
 
-### Ralph + OpenCode
-- **Documentation**: [Ralph + OpenCode Setup](./ralph-opencode-setup.md)
-- Autonomous coding agent with local model support (LM Studio)
-- Global wrapper script: `ralph-opencode` in `~/.local/bin/`
-
 ### Custom Terraform Instructions
 - **Documentation**: [Terraform AI Instructions](./terraform-instructions.md)
 - Best practices for AI tools when working with Terraform code
