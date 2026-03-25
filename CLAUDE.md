@@ -79,10 +79,10 @@ The sync runs automatically after `chezmoi apply` via `.chezmoiscripts/run_after
 
 ### Tmux Status Bar Integration
 
-A monitor script (`dot_config/tmux/scripts/claude-pane-monitor.sh`) runs every status-interval and sets per-window `@claude_state` options. The tmux `window-status-format` and `window-status-current-format` are overridden after the everforest theme loads (post-TPM) to apply stoplight colors:
+A monitor script (`dot_config/tmux/scripts/claude-pane-monitor.sh`) runs every status-interval and sets per-window `@claude_state` options. The everforest color palette is defined inline (no theme plugin) so the monitor has full control over `window-status-format` and `window-status-current-format` with stoplight colors:
 
-- **Green** (`#a7c080`) — idle, waiting for input (pane title contains ✳)
-- **Yellow** (`#dbbc7f`) — actively working (braille spinner in pane title)
+- **Green** (`#a7c080`) — actively working (braille spinner in pane title)
+- **Yellow** (`#dbbc7f`) — waiting for input (pane title contains ✳)
 
 Window names show `#{pane_title}` via `automatic-rename-format`, so tabs display Claude session names and state spinners instead of version numbers.
 
