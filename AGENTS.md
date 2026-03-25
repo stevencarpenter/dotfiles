@@ -99,7 +99,8 @@ description, and file path so you can open the source for full instructions when
   clusters). Do not trigger for general maintainer lists or non-security ownership questions. (file:
   `/Users/scarpenter/.codex/skills/security-ownership-map/SKILL.md`)
 - security-threat-model: Repository-grounded threat modeling that enumerates trust boundaries, assets, attacker capabilities, abuse paths, and mitigations, and
-  writes a concise Markdown threat model. Trigger only when the user explicitly asks to threat model a codebase or path, enumerate threats/abuse paths, or
+  writes a concise Markdown threat model. Trigger only when the user explicitly asks to threat-model a codebase or path,
+  enumerate threats/abuse paths, or
   perform AppSec threat modeling. Do not trigger for general architecture summaries, code review, or non-security design work. (file:
   `/Users/scarpenter/.codex/skills/security-threat-model/SKILL.md`)
 - sentry: Use when the user asks to inspect Sentry issues or events, summarize recent production errors, or pull basic Sentry health data via the Sentry API;
@@ -117,7 +118,7 @@ description, and file path so you can open the source for full instructions when
 - verification-before-completion: Use when about to claim work is complete, fixed, or passing, before committing or creating PRs - requires running verification
   commands and confirming output before making any success claims; evidence before assertions always (file:
   `/Users/scarpenter/.codex/superpowers/skills/verification-before-completion/SKILL.md`)
-- writing-plans: Use when you have a spec or requirements for a multi-step task, before touching code (file:
+- writing-plans: Use when you have a spec or requirements for a multistep task, before touching code (file:
   `/Users/scarpenter/.codex/superpowers/skills/writing-plans/SKILL.md`)
 - writing-skills: Use when creating new skills, editing existing skills, or verifying skills work before deployment (file:
   `/Users/scarpenter/.codex/superpowers/skills/writing-skills/SKILL.md`)
@@ -130,7 +131,8 @@ description, and file path so you can open the source for full instructions when
 ### How to use skills
 
 - Discovery: The list above is the skills available in this session (name + description + file path). Skill bodies live on disk at the listed paths.
-- Trigger rules: If the user names a skill (with `$SkillName` or plain text) OR the task clearly matches a skill's description shown above, you must use that
+- Trigger rules: If the usernames a skill (with `$SkillName` or plain text) OR the task clearly matches a skill's
+  description shown above, you must use that
   skill for that turn. Multiple mentions mean use them all. Do not carry skills across turns unless re-mentioned.
 - Missing/blocked: If a named skill isn't in the list or the path can't be read, say so briefly and continue with the best fallback.
 - How to use a skill (progressive disclosure):
