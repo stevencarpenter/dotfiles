@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from aws_config_gen.types import Overrides, SSOAccount
+from aws_config_gen.types import GeneratorConfig, SSOAccount
 
 
 @pytest.fixture
-def sample_overrides() -> Overrides:
-    return Overrides(
+def sample_generator_config() -> GeneratorConfig:
+    return GeneratorConfig(
         sso_session="test-session",
         sso_start_url="https://test.awsapps.com/start/#",
         sso_region="us-west-2",

@@ -4,12 +4,14 @@ Auto-generate AWS SSO profiles from AWS Identity Center for `~/.aws/config`.
 
 ## Overview
 
-`aws_config_gen` automatically discovers all AWS accounts and roles available through your AWS Identity Center (SSO) session and generates human-friendly AWS CLI profiles. It applies customizable naming conventions, merges profiles into your existing `~/.aws/config` without disrupting manual entries, and supports filtering accounts/roles.
+`aws_config_gen` automatically discovers all AWS accounts and roles available through your AWS Identity Center (SSO)
+session and generates human-friendly AWS CLI profiles. It reads a checked-in generator config, merges profiles into your
+existing `~/.aws/config` without disrupting manual entries, and supports filtering accounts/roles.
 
 ### Key Features
 
 - **Automatic discovery**: Enumerates all accounts and roles from Identity Center in a single pass
-- **Human-friendly naming**: Shortens account names and role names using configurable overrides
+- **Human-friendly naming**: Shortens account names and role names using a checked-in generator config
 - **Smart profile naming**: Single-role accounts get simple names; multi-role accounts add role suffixes (e.g., `prod`, `prod-admin`)
 - **Non-destructive merge**: Preserves manually edited profiles using marker-based insertion
 - **Zero dependencies**: Pure Python 3.14+ with no external runtime dependencies
@@ -49,8 +51,7 @@ aws-config-gen
 ### Command-line Options
 
 ```
---session SESSION           SSO session name (default: from overrides.json)
---overrides PATH           Path to overrides.json (default: ~/.config/aws-config-gen/overrides.json)
+--generator-config PATH    Path to config.json (default: ~/.config/aws-config-gen/config.json)
 --config PATH              Path to AWS config file (default: ~/.aws/config)
 --dry-run                  Print generated config to stdout; don't write
 --strict                   Exit 1 on token failures (default: exit 0)
@@ -58,16 +59,10 @@ aws-config-gen
 
 ### Examples
 
-Use a different SSO session:
+Specify a custom generator config file:
 
 ```bash
-aws-config-gen --session mycompany --dry-run
-```
-
-Specify custom overrides file:
-
-```bash
-aws-config-gen --overrides ~/my-overrides.json
+aws-config-gen --generator-config ~/my-config.json
 ```
 
 Write to a test config file:
@@ -84,9 +79,10 @@ aws-config-gen --strict
 
 ## Configuration
 
-### Overrides File (`overrides.json`)
+### Generator Config File (`config.json`)
 
-The overrides file controls naming, session parameters, and skip rules. Default location: `~/.config/aws-config-gen/overrides.json`.
+The generator config file controls naming, session parameters, and skip rules. Default location:
+`~/.config/aws-config-gen/config.json`.
 
 **Schema:**
 
@@ -130,8 +126,9 @@ The overrides file controls naming, session parameters, and skip rules. Default 
 1. **Load SSO Token**: Reads cached bearer token from `~/.aws/sso/cache/` for the specified SSO session
 2. **Fetch Accounts**: Lists all accounts visible to your SSO session via the Identity Center API
 3. **Fetch Roles**: For each account, lists all roles accessible to the SSO session
-4. **Apply Overrides**: Filters out any `(account_id, role_name)` pairs in the skip list
-5. **Build Profiles**: Generates profile names using account/role name overrides; uses suffixes for multi-role accounts
+4. **Apply Config**: Filters out any `(account_id, role_name)` pairs in the skip list
+5. **Build Profiles**: Generates profile names using configured account and role aliases; uses suffixes for multi-role
+   accounts
 
 ### Profile Naming Logic
 
@@ -140,7 +137,7 @@ Given a set of account-role combinations:
 - If an account has **one role**: profile name = account name (e.g., `prod`)
 - If an account has **multiple roles**: profile name = account name + role short name (e.g., `prod-admin`, `prod-developer`)
 
-Names are lowercased and spaces are converted to hyphens. Custom mappings in `overrides.json` override defaults.
+Names are lowercased and spaces are converted to hyphens. Custom mappings in `config.json` override defaults.
 
 ### Config File Merge
 
@@ -231,7 +228,7 @@ aws_config_gen/
 
 - **`cli.py`**: Parses arguments, orchestrates discovery → naming → rendering, and writes output
 - **`discovery.py`**: Loads SSO token and enumerates all accessible accounts/roles
-- **`naming.py`**: Builds profile entries from roles, applying account/role name overrides
+- **`naming.py`**: Builds profile entries from roles, applying generator config naming rules
 - **`sso_client.py`**: HTTP client for AWS Identity Center API (accounts, roles)
 - **`sso_token.py`**: Reads cached SSO bearer token from filesystem
 - **`config_writer.py`**: Renders profiles to INI format and merges into config file using markers
@@ -257,7 +254,7 @@ The cached token has expired. Run the indicated command to refresh it.
 
 ### Wrong SSO Session
 
-Verify the `sso_session` in `overrides.json` matches the session name in your `~/.aws/config`:
+Verify the `sso_session` in `config.json` matches the session name in your `~/.aws/config`:
 
 ```bash
 grep "sso_session\|sso_start_url" ~/.aws/config
@@ -265,10 +262,10 @@ grep "sso_session\|sso_start_url" ~/.aws/config
 
 ### No Profiles Generated
 
-Check that your overrides file is valid:
+Check that your generator config file is valid:
 
 ```bash
-python -m json.tool ~/.config/aws-config-gen/overrides.json
+python -m json.tool ~/.config/aws-config-gen/config.json
 ```
 
 Verify your SSO session is authenticated:
@@ -279,7 +276,8 @@ aws sso login --sso-session my-sso
 
 ## Integration with Chezmoi
 
-This tool is part of a personal dotfiles repository. It runs automatically after `chezmoi apply` via the post-apply hook `.chezmoiscripts/run_after_sync-aws-config.sh`.
+This tool is part of a personal dotfiles repository. The generator config and post-apply hook are only applied on work
+machines, and the hook runs automatically after `chezmoi apply` via `.chezmoiscripts/run_after_sync-aws-config.sh`.
 
 To update profiles manually:
 

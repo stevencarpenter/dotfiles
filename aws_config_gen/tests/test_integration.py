@@ -44,7 +44,7 @@ ROLES_BY_ACCOUNT: dict[str, list[str]] = {
     "333333333333": ["ViewOnly"],
 }
 
-OVERRIDES_DATA = {
+GENERATOR_CONFIG_DATA = {
     "sso_session": SESSION_NAME,
     "sso_start_url": "https://test.awsapps.com/start/#",
     "sso_region": SSO_REGION,
@@ -82,10 +82,10 @@ def _write_token_cache(home_dir: Path) -> None:
     (cache_dir / f"{CACHE_HASH}.json").write_text(json.dumps(token_data))
 
 
-def _write_overrides(tmp_path: Path) -> Path:
-    overrides_path = tmp_path / "overrides.json"
-    overrides_path.write_text(json.dumps(OVERRIDES_DATA))
-    return overrides_path
+def _write_generator_config(tmp_path: Path) -> Path:
+    generator_config_path = tmp_path / "config.json"
+    generator_config_path.write_text(json.dumps(GENERATOR_CONFIG_DATA))
+    return generator_config_path
 
 
 def _mock_urlopen(req, **_kwargs):
@@ -117,13 +117,13 @@ def integration_env(tmp_path: Path):
     fake_home = tmp_path / "home"
     fake_home.mkdir()
     _write_token_cache(fake_home)
-    overrides_path = _write_overrides(tmp_path)
+    generator_config_path = _write_generator_config(tmp_path)
     config_path = tmp_path / "aws_config"
-    return fake_home, overrides_path, config_path
+    return fake_home, generator_config_path, config_path
 
 
 def test_full_pipeline_dry_run(capsys, integration_env):
-    fake_home, overrides_path, config_path = integration_env
+    fake_home, generator_config_path, config_path = integration_env
 
     with (
         patch("aws_config_gen.sso_token.Path.home", return_value=fake_home),
@@ -134,10 +134,8 @@ def test_full_pipeline_dry_run(capsys, integration_env):
     ):
         rc = cli(
             [
-                "--session",
-                SESSION_NAME,
-                "--overrides",
-                str(overrides_path),
+                "--generator-config",
+                str(generator_config_path),
                 "--config",
                 str(config_path),
                 "--dry-run",
@@ -172,7 +170,7 @@ def test_full_pipeline_dry_run(capsys, integration_env):
 
 
 def test_full_pipeline_writes_config(integration_env):
-    fake_home, overrides_path, config_path = integration_env
+    fake_home, generator_config_path, config_path = integration_env
 
     # Seed with manual content
     config_path.write_text(MANUAL_CONFIG)
@@ -186,10 +184,8 @@ def test_full_pipeline_writes_config(integration_env):
     ):
         rc = cli(
             [
-                "--session",
-                SESSION_NAME,
-                "--overrides",
-                str(overrides_path),
+                "--generator-config",
+                str(generator_config_path),
                 "--config",
                 str(config_path),
             ]
@@ -215,7 +211,7 @@ def test_full_pipeline_writes_config(integration_env):
 
 
 def test_marker_based_merge_preserves_manual_content(integration_env):
-    fake_home, overrides_path, config_path = integration_env
+    fake_home, generator_config_path, config_path = integration_env
 
     # Start with manual content AND a pre-existing managed block
     old_managed = (
@@ -245,10 +241,8 @@ def test_marker_based_merge_preserves_manual_content(integration_env):
     ):
         rc = cli(
             [
-                "--session",
-                SESSION_NAME,
-                "--overrides",
-                str(overrides_path),
+                "--generator-config",
+                str(generator_config_path),
                 "--config",
                 str(config_path),
             ]

@@ -10,7 +10,7 @@ from typing import Sequence
 
 from aws_config_gen.config_writer import render_profiles, write_config
 from aws_config_gen.discovery import discover_all_roles
-from aws_config_gen.naming import build_profile_entries, load_overrides
+from aws_config_gen.naming import build_profile_entries, load_generator_config
 from aws_config_gen.sso_token import TokenExpiredError, TokenNotFoundError
 
 
@@ -20,15 +20,10 @@ def build_parser() -> argparse.ArgumentParser:
         description="Auto-generate AWS SSO profiles from Identity Center.",
     )
     parser.add_argument(
-        "--session",
-        default=None,
-        help="SSO session name (default: from overrides.json sso_session).",
-    )
-    parser.add_argument(
-        "--overrides",
+        "--generator-config",
         type=Path,
         default=None,
-        help="Path to overrides.json (default: ~/.config/aws-config-gen/overrides.json).",
+        help="Path to config.json (default: ~/.config/aws-config-gen/config.json).",
     )
     parser.add_argument(
         "--config",
@@ -53,43 +48,51 @@ def cli(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
-    overrides_path: Path = (
-        args.overrides.expanduser()
-        if args.overrides
-        else Path.home() / ".config" / "aws-config-gen" / "overrides.json"
+    generator_config_path: Path = (
+        args.generator_config.expanduser()
+        if args.generator_config
+        else Path.home() / ".config" / "aws-config-gen" / "config.json"
     )
     try:
-        overrides = load_overrides(overrides_path)
+        generator_config = load_generator_config(generator_config_path)
     except FileNotFoundError:
-        print(f"Overrides file not found: {overrides_path}", file=sys.stderr)
+        print(
+            f"Generator config file not found: {generator_config_path}",
+            file=sys.stderr,
+        )
         return 1
     except (json.JSONDecodeError, KeyError) as exc:
-        print(f"Invalid overrides file {overrides_path}: {exc}", file=sys.stderr)
+        print(
+            f"Invalid generator config file {generator_config_path}: {exc}",
+            file=sys.stderr,
+        )
         return 1
-
-    session_name: str = args.session or overrides.sso_session
 
     config_path: Path = (
         args.config.expanduser() if args.config else Path.home() / ".aws" / "config"
     )
 
     try:
-        roles = discover_all_roles(session_name, overrides.sso_region, overrides.skip)
+        roles = discover_all_roles(
+            generator_config.sso_session,
+            generator_config.sso_region,
+            generator_config.skip,
+        )
     except TokenExpiredError:
         print(
-            f"Run `aws sso login --sso-session {session_name}` to refresh.",
+            f"Run `aws sso login --sso-session {generator_config.sso_session}` to refresh.",
             file=sys.stderr,
         )
         return 1 if args.strict else 0
     except TokenNotFoundError:
         print(
-            f"Run `aws sso login --sso-session {session_name}` to authenticate.",
+            f"Run `aws sso login --sso-session {generator_config.sso_session}` to authenticate.",
             file=sys.stderr,
         )
         return 1 if args.strict else 0
 
-    entries = build_profile_entries(roles, overrides)
-    generated_block = render_profiles(entries, overrides)
+    entries = build_profile_entries(roles, generator_config)
+    generated_block = render_profiles(entries, generator_config)
 
     if args.dry_run:
         print(generated_block, end="")

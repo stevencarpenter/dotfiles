@@ -1,4 +1,4 @@
-"""Profile naming logic with overrides."""
+"""Profile naming logic with generator config."""
 
 from __future__ import annotations
 
@@ -6,13 +6,13 @@ import json
 from collections import Counter
 from pathlib import Path
 
-from aws_config_gen.types import AccountRole, Overrides, ProfileEntry
+from aws_config_gen.types import AccountRole, GeneratorConfig, ProfileEntry
 
 
-def load_overrides(path: Path) -> Overrides:
-    """Read overrides JSON and return an Overrides instance."""
+def load_generator_config(path: Path) -> GeneratorConfig:
+    """Read the generator config JSON and return a GeneratorConfig instance."""
     data = json.loads(path.read_text())
-    return Overrides(
+    return GeneratorConfig(
         sso_session=data["sso_session"],
         sso_start_url=data["sso_start_url"],
         sso_region=data["sso_region"],
@@ -25,20 +25,20 @@ def load_overrides(path: Path) -> Overrides:
 
 def build_profile_entries(
     roles: list[AccountRole],
-    overrides: Overrides,
+        generator_config: GeneratorConfig,
 ) -> list[ProfileEntry]:
-    """Build sorted ProfileEntry list from roles and overrides."""
+    """Build sorted ProfileEntry list from roles and generator config."""
     # Determine which accounts have multiple roles
     role_counts = Counter(r.account.account_id for r in roles)
 
     entries: list[ProfileEntry] = []
     for role in roles:
         account_id = role.account.account_id
-        account_name = overrides.account_names.get(
+        account_name = generator_config.account_names.get(
             account_id,
             role.account.account_name.lower().replace(" ", "-"),
         )
-        role_short = overrides.role_short_names.get(
+        role_short = generator_config.role_short_names.get(
             role.role_name,
             role.role_name.lower(),
         )
@@ -51,10 +51,10 @@ def build_profile_entries(
         entries.append(
             ProfileEntry(
                 profile_name=profile_name,
-                sso_session=overrides.sso_session,
+                sso_session=generator_config.sso_session,
                 account_id=account_id,
                 role_name=role.role_name,
-                region=overrides.default_region,
+                region=generator_config.default_region,
             )
         )
 

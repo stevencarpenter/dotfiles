@@ -5,20 +5,22 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from aws_config_gen.types import Overrides, ProfileEntry
+from aws_config_gen.types import GeneratorConfig, ProfileEntry
 
 BEGIN_MARKER = "# BEGIN aws_config_gen managed block — do not edit"
 END_MARKER = "# END aws_config_gen managed block"
 
 
-def render_profiles(entries: list[ProfileEntry], overrides: Overrides) -> str:
+def render_profiles(
+        entries: list[ProfileEntry], generator_config: GeneratorConfig
+) -> str:
     """Render the full managed block including markers and all stanzas."""
     lines: list[str] = [BEGIN_MARKER]
 
     # sso-session stanza
-    lines.append(f"[sso-session {overrides.sso_session}]")
-    lines.append(f"sso_start_url = {overrides.sso_start_url}")
-    lines.append(f"sso_region = {overrides.sso_region}")
+    lines.append(f"[sso-session {generator_config.sso_session}]")
+    lines.append(f"sso_start_url = {generator_config.sso_start_url}")
+    lines.append(f"sso_region = {generator_config.sso_region}")
     lines.append("sso_registration_scopes = sso:account:access")
 
     # profile stanzas

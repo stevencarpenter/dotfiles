@@ -28,7 +28,7 @@ class ProfileEntry:
 
 
 @dataclass(frozen=True)
-class Overrides:
+class GeneratorConfig:
     account_names: dict[str, str]
     role_short_names: dict[str, str]
     skip: list[tuple[str, str]]

@@ -12,10 +12,10 @@ from aws_config_gen.config_writer import (
     render_profiles,
     write_config,
 )
-from aws_config_gen.types import Overrides, ProfileEntry
+from aws_config_gen.types import GeneratorConfig, ProfileEntry
 
 
-def _make_overrides(**kwargs: object) -> Overrides:
+def _make_generator_config(**kwargs: object) -> GeneratorConfig:
     defaults: dict[str, object] = {
         "sso_session": "test-session",
         "sso_start_url": "https://test.awsapps.com/start/#",
@@ -26,7 +26,7 @@ def _make_overrides(**kwargs: object) -> Overrides:
         "skip": [],
     }
     defaults.update(kwargs)
-    return Overrides(**defaults)  # type: ignore[arg-type]
+    return GeneratorConfig(**defaults)  # type: ignore[arg-type]
 
 
 def _make_entry(**kwargs: str) -> ProfileEntry:
@@ -42,13 +42,13 @@ def _make_entry(**kwargs: str) -> ProfileEntry:
 
 
 def test_render_profiles_produces_correct_format():
-    overrides = _make_overrides()
+    generator_config = _make_generator_config()
     entries = [
         _make_entry(profile_name="acme-sre", role_name="SRE-ClientEnvironments"),
         _make_entry(profile_name="acme-admin", role_name="Administrator-Access-SRE"),
     ]
 
-    result = render_profiles(entries, overrides)
+    result = render_profiles(entries, generator_config)
 
     assert result.startswith(BEGIN_MARKER + "\n")
     assert result.endswith(END_MARKER + "\n")
@@ -70,19 +70,19 @@ def test_render_profiles_produces_correct_format():
 
 
 def test_render_profiles_stanzas_separated_by_blank_lines():
-    overrides = _make_overrides()
+    generator_config = _make_generator_config()
     entries = [_make_entry(), _make_entry(profile_name="acme-admin")]
 
-    result = render_profiles(entries, overrides)
+    result = render_profiles(entries, generator_config)
 
     # Between sso-session stanza and first profile, and between profiles
     assert "\n\n[profile " in result
 
 
 def test_render_profiles_empty_entries():
-    overrides = _make_overrides()
+    generator_config = _make_generator_config()
 
-    result = render_profiles([], overrides)
+    result = render_profiles([], generator_config)
 
     assert "[sso-session test-session]" in result
     assert "[profile " not in result
