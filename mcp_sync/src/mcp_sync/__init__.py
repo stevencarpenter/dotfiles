@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from .sync import (
     deep_merge,
+    load_machine_config,
     load_master_config,
     patch_claude_code_config,
     run_sync,
@@ -19,6 +20,7 @@ from .sync import (
 )
 
 __all__ = [
+    "load_machine_config",
     "load_master_config",
     "deep_merge",
     "patch_claude_code_config",

@@ -46,6 +46,26 @@
       }
     }
   },
+{{
+  -
+  if
+  hasPrefix
+  "personal"
+  .machine
+}}
+"hooks": {
+"SessionStart": [
+{
+"hooks": [
+{
+"type": "command",
+"command": "/Users/carpenter/projects/hippo/shell/claude-session-hook.sh"
+}
+]
+}
+]
+},
+{{- end}}
   "effortLevel": "high",
   "voiceEnabled": true,
   "autoDreamEnabled": true,

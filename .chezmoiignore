@@ -53,20 +53,22 @@ private_dot_claude.json
 # Ignore all .DS_Store files
 **/*.DS_Store
 
-# Ignore claude bullshit
-dot_claude/*
-!dot_claude/settings.json
+# Ignore claude transient data (target paths under ~/.claude/)
+.claude/*
+!.claude/settings.json
 
 # Work/personal conditional deployment
 # Skip work files on personal machines
 {{ if not (hasPrefix "work" .machine) }}
 .config/aws-config-gen/config.json
+.config/mcp/machine/work.json
 .config/zsh/.work.env
 .config/zsh/profile.d/work-secrets.zsh
 {{ end }}
 
 # Skip personal files on work machines
 {{ if not (hasPrefix "personal" .machine) }}
+.config/mcp/machine/personal.json
 .config/zsh/.personal.env
 .config/zsh/profile.d/personal-secrets.zsh
 {{ end }}

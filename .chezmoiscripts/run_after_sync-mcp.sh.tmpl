@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Post-apply hook: sync MCP configurations from the master config
+# Triggered by: chezmoi apply
+
+SYNC_PROJECT="${HOME}/.local/share/chezmoi/mcp_sync"
+STRICT_MODE="${MCP_SYNC_STRICT:-0}"
+
+fail_or_warn() {
+    local message="$1"
+    if [[ "${STRICT_MODE}" == "1" ]]; then
+        echo "Error: ${message}" >&2
+        exit 1
+    fi
+    echo "Warning: ${message}" >&2
+}
+
+if ! command -v uv >/dev/null 2>&1; then
+fail_or_warn "uv is not installed; skipping MCP sync."
+    exit 0
+fi
+
+if [[ -f "${SYNC_PROJECT}/pyproject.toml" ]]; then
+sync_cmd=(sync-mcp-configs)
+
+# Detect machine-type overlay (chezmoi deploys only the matching one)
+MACHINE_DIR="${HOME}/.config/mcp/machine"
+if [[
+-d "${MACHINE_DIR}"
+]
+]; then
+for f in "${MACHINE_DIR}"/*.json; do
+            if [[ -f "$f" ]]; then
+                sync_cmd+=(--machine-config "$f")
+                break
+            fi
+        done
+    fi
+
+    if ! uv run --project "${SYNC_PROJECT}" "${sync_cmd[@]}"; then
+        fail_or_warn "MCP sync failed."
+        exit 0
+    fi
+else
+    echo "Warning: MCP sync project not found at ${SYNC_PROJECT}." >&2
+    exit 0
+fi

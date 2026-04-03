@@ -135,6 +135,25 @@ def _load_override(key: str, home: Path | None) -> JsonDict:
         return {}
 
 
+def load_machine_config(path: Path | None) -> JsonDict:
+    """Load machine-type overlay config (work.json / personal.json).
+
+    Returns empty dict if path is None, file doesn't exist, or JSON is invalid.
+    """
+    if path is None:
+        return {}
+    if not path.is_file():
+        return {}
+    try:
+        return _load_json(path)
+    except json.JSONDecodeError:
+        log_info(f"Skipping machine config: {path} (invalid JSON)")
+        return {}
+    except Exception:
+        log_info(f"Skipping machine config: {path} (read error)")
+        return {}
+
+
 def _identity(master: JsonDict) -> JsonDict:
     return master
 
@@ -439,7 +458,11 @@ def _build_targets(home: Path) -> list[SyncTarget]:
     ]
 
 
-def run_sync(master_path: Path | None = None, home: Path | None = None) -> int:
+def run_sync(
+        master_path: Path | None = None,
+        home: Path | None = None,
+        machine_config_path: Path | None = None,
+) -> int:
     home_path = home or Path.home()
     master_config_path = (
         master_path or home_path / ".config" / "mcp" / "mcp-master.json"
@@ -452,6 +475,11 @@ def run_sync(master_path: Path | None = None, home: Path | None = None) -> int:
 
     log_info("Syncing MCP configurations from master...")
     master = load_master_config(master_config_path)
+
+    machine = load_machine_config(machine_config_path)
+    if machine:
+        log_info(f"Applying machine overlay: {machine_config_path}")
+        master = deep_merge(master, machine)
 
     for target in _build_targets(home_path):
         target.sync(master, home=home_path)
