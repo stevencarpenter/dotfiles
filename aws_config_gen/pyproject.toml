@@ -2,6 +2,7 @@
 name = "aws-config-gen"
 version = "0.1.0"
 description = "Auto-generate AWS SSO profiles from Identity Center."
+readme = "README.md"
 requires-python = ">=3.14"
 dependencies = []
 
