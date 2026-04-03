@@ -19,7 +19,12 @@ if ! command -v uv >/dev/null 2>&1; then
 fi
 
 if [[ -f "${SYNC_PROJECT}/pyproject.toml" ]]; then
-    if ! uv run --project "${SYNC_PROJECT}" aws-config-gen; then
+    aws_config_gen_cmd=(aws-config-gen)
+    if [[ "${STRICT_MODE}" == "1" ]]; then
+        aws_config_gen_cmd+=(--strict)
+    fi
+
+    if ! uv run --project "${SYNC_PROJECT}" "${aws_config_gen_cmd[@]}"; then
         fail_or_warn "AWS config gen failed."
         exit 0
     fi

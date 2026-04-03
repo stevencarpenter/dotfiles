@@ -48,11 +48,21 @@ def merge_config(existing_content: str, generated_block: str) -> str:
     for i, line in enumerate(existing_lines):
         stripped = line.rstrip("\n\r")
         if stripped == BEGIN_MARKER:
+            if begin_idx is not None:
+                raise ValueError("Multiple managed block BEGIN markers found in config.")
+            if end_idx is not None:
+                raise ValueError("Managed block BEGIN marker found after END marker in config.")
             begin_idx = i
         elif stripped == END_MARKER:
+            if begin_idx is None:
+                raise ValueError("Managed block END marker found before BEGIN marker in config.")
+            if end_idx is not None:
+                raise ValueError("Multiple managed block END markers found in config.")
             end_idx = i
 
-    if begin_idx is not None and end_idx is not None and end_idx >= begin_idx:
+    if begin_idx is not None:
+        if end_idx is None:
+            raise ValueError("Managed block BEGIN marker found without matching END marker.")
         before = existing_lines[:begin_idx]
         after = existing_lines[end_idx + 1 :]
         return "".join(before) + generated_block + "".join(after)
