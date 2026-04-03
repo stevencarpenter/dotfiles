@@ -34,6 +34,24 @@ def load_generator_config(path: Path) -> GeneratorConfig:
     )
 
 
+def _validate_unique_profile_names(entries: list[ProfileEntry]) -> None:
+    """Ensure generated profile names are unique."""
+    duplicate_names = sorted(
+        profile_name
+        for profile_name, count in Counter(
+            entry.profile_name for entry in entries
+        ).items()
+        if count > 1
+    )
+    if duplicate_names:
+        duplicates = ", ".join(duplicate_names)
+        msg = (
+            f"Duplicate profile names generated: {duplicates}. "
+            "Update account_names or role_short_names to keep names unique."
+        )
+        raise ValueError(msg)
+
+
 def build_profile_entries(
     roles: list[AccountRole],
         generator_config: GeneratorConfig,
@@ -69,4 +87,5 @@ def build_profile_entries(
             )
         )
 
+    _validate_unique_profile_names(entries)
     return sorted(entries, key=lambda e: e.profile_name)

@@ -102,6 +102,28 @@ def test_profile_entry_fields(sample_generator_config, sample_accounts):
     assert entry.region == "us-west-2"
 
 
+def test_duplicate_profile_names_raise_error(sample_accounts):
+    config = GeneratorConfig(
+        sso_session="test-session",
+        sso_start_url="https://example.com/start",
+        sso_region="us-east-1",
+        default_region="us-west-2",
+        account_names={
+            "111111111111": "prod",
+            "222222222222": "prod",
+        },
+        role_short_names={},
+        skip=[],
+    )
+    roles = [
+        AccountRole(account=sample_accounts[0], role_name="ReadOnly"),
+        AccountRole(account=sample_accounts[1], role_name="ReadOnly"),
+    ]
+
+    with pytest.raises(ValueError, match="Duplicate profile names"):
+        build_profile_entries(roles, config)
+
+
 def test_load_generator_config(tmp_path):
     data = {
         "sso_session": "test-session",

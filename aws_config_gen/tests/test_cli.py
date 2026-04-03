@@ -97,6 +97,105 @@ def test_malformed_generator_config_returns_one(capsys, tmp_path):
     assert "Invalid" in captured.err
 
 
+def test_invalid_skip_config_returns_one(capsys, tmp_path):
+    bad_config = tmp_path / "bad-skip.json"
+    bad_config.write_text(
+        json.dumps(
+            {
+                "sso_session": "test-session",
+                "sso_start_url": "https://example.com/start",
+                "sso_region": "us-east-1",
+                "default_region": "us-east-1",
+                "skip": [["123"]],
+            }
+        )
+    )
+
+    rc = cli(["--generator-config", str(bad_config)])
+
+    assert rc == 1
+    captured = capsys.readouterr()
+    assert "Invalid generator config file" in captured.err
+    assert "skip entry 0 must be" in captured.err
+
+
+def test_duplicate_profile_names_return_one(capsys, tmp_path, sample_generator_config):
+    generator_config_path = tmp_path / "config.json"
+    generator_config_path.write_text(
+        json.dumps(
+            {
+                "sso_session": sample_generator_config.sso_session,
+                "sso_start_url": sample_generator_config.sso_start_url,
+                "sso_region": sample_generator_config.sso_region,
+                "default_region": sample_generator_config.default_region,
+                "account_names": {
+                    "111111111111": "prod",
+                    "222222222222": "prod",
+                },
+                "role_short_names": sample_generator_config.role_short_names,
+                "skip": sample_generator_config.skip,
+            }
+        )
+    )
+    roles = [
+        AccountRole(account=_ACCOUNT, role_name="ReadOnly"),
+        AccountRole(
+            account=SSOAccount(
+                account_id="222222222222",
+                account_name="Acme Dev",
+                email_address="acme-dev@example.com",
+            ),
+            role_name="ReadOnly",
+        ),
+    ]
+
+    with patch("aws_config_gen.cli.discover_all_roles", return_value=roles):
+        rc = cli(["--generator-config", str(generator_config_path)])
+
+    assert rc == 1
+    captured = capsys.readouterr()
+    assert "Invalid generator config file" in captured.err
+    assert "Duplicate profile names" in captured.err
+
+
+def test_existing_manual_profile_collision_returns_one(
+        capsys, tmp_path, sample_generator_config
+):
+    generator_config_path = tmp_path / "config.json"
+    generator_config_path.write_text(
+        json.dumps(
+            {
+                "sso_session": sample_generator_config.sso_session,
+                "sso_start_url": sample_generator_config.sso_start_url,
+                "sso_region": sample_generator_config.sso_region,
+                "default_region": sample_generator_config.default_region,
+                "account_names": {
+                    "111111111111": "prod",
+                },
+                "role_short_names": sample_generator_config.role_short_names,
+                "skip": sample_generator_config.skip,
+            }
+        )
+    )
+    config_path = tmp_path / "aws-config"
+    config_path.write_text("[profile prod]\nregion = us-east-1\n")
+    roles = [AccountRole(account=_ACCOUNT, role_name="ReadOnly")]
+
+    with patch("aws_config_gen.cli.discover_all_roles", return_value=roles):
+        rc = cli(
+            [
+                "--generator-config",
+                str(generator_config_path),
+                "--config",
+                str(config_path),
+            ]
+        )
+
+    assert rc == 1
+    captured = capsys.readouterr()
+    assert "existing AWS config section names" in captured.err
+
+
 def test_http_401_shows_login_message(capsys, tmp_path, sample_generator_config):
     generator_config_path = _write_generator_config(tmp_path, sample_generator_config)
 

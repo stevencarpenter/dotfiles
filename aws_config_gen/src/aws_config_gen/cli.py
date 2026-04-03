@@ -15,6 +15,20 @@ from aws_config_gen.naming import build_profile_entries, load_generator_config
 from aws_config_gen.sso_token import TokenExpiredError, TokenNotFoundError
 
 
+def _print_invalid_generator_config(path: Path, exc: Exception) -> None:
+    print(
+        f"Invalid generator config file {path}: {exc}",
+        file=sys.stderr,
+    )
+
+
+def _print_write_config_error(path: Path, exc: Exception) -> None:
+    print(
+        f"Failed to write AWS config {path}: {exc}",
+        file=sys.stderr,
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="aws-config-gen",
@@ -62,11 +76,8 @@ def cli(argv: Sequence[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 1
-    except (json.JSONDecodeError, KeyError) as exc:
-        print(
-            f"Invalid generator config file {generator_config_path}: {exc}",
-            file=sys.stderr,
-        )
+    except (json.JSONDecodeError, KeyError, ValueError) as exc:
+        _print_invalid_generator_config(generator_config_path, exc)
         return 1
 
     config_path: Path = (
@@ -110,14 +121,24 @@ def cli(argv: Sequence[str] | None = None) -> int:
         )
         return 1 if args.strict else 0
 
-    entries = build_profile_entries(roles, generator_config)
+    try:
+        entries = build_profile_entries(roles, generator_config)
+    except ValueError as exc:
+        _print_invalid_generator_config(generator_config_path, exc)
+        return 1
+
     generated_block = render_profiles(entries, generator_config)
 
     if args.dry_run:
         print(generated_block, end="")
         return 0
 
-    write_config(config_path, generated_block)
+    try:
+        write_config(config_path, generated_block)
+    except ValueError as exc:
+        _print_write_config_error(config_path, exc)
+        return 1
+
     return 0
 
 

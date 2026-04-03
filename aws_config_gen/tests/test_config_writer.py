@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import pytest
 from pathlib import Path
 
@@ -139,6 +140,26 @@ def test_merge_config_preserves_content_outside_markers():
     assert "old stuff" not in result
 
 
+def test_merge_config_rejects_duplicate_section_outside_managed_block():
+    existing = "[profile prod]\nregion = us-east-1\n"
+    new_block = (
+        f"{BEGIN_MARKER}\n"
+        "[sso-session test-session]\n"
+        "sso_start_url = https://example.com/start\n"
+        "sso_region = us-west-2\n"
+        "sso_registration_scopes = sso:account:access\n\n"
+        "[profile prod]\n"
+        "sso_session = test-session\n"
+        "sso_account_id = 111111111111\n"
+        "sso_role_name = ReadOnly\n"
+        "region = us-west-2\n"
+        f"{END_MARKER}\n"
+    )
+
+    with pytest.raises(ValueError, match="existing AWS config section names"):
+        merge_config(existing, new_block)
+
+
 def test_write_config_creates_file(tmp_path: Path):
     config_path = tmp_path / "config"
     block = f"{BEGIN_MARKER}\nmanaged content\n{END_MARKER}\n"
@@ -189,6 +210,17 @@ def test_write_config_replaces_managed_block_preserves_manual(tmp_path: Path):
     assert "new content" in content
     assert "old content" not in content
     assert "[profile manual]" in content
+
+
+def test_write_config_preserves_existing_mode(tmp_path: Path):
+    config_path = tmp_path / "config"
+    config_path.write_text("[profile manual]\nregion = us-east-1\n")
+    os.chmod(config_path, 0o600)
+
+    block = f"{BEGIN_MARKER}\nmanaged content\n{END_MARKER}\n"
+    write_config(config_path, block)
+
+    assert config_path.stat().st_mode & 0o777 == 0o600
 
 
 # --- Marker corruption tests ---
