@@ -14,9 +14,6 @@ nnoremap <SPACE> <Nop>
 " text scroll if you mouse-click near the start or end of the window.
 set scrolloff=5
 
-" Do incremental searching.
-set incsearch
-
 " Don't use Ex mode, use Q for formatting.
 map Q gq
 
@@ -30,13 +27,322 @@ Plug 'tpope/vim-commentary'
 
 "" -- Map IDE actions to IdeaVim -- https://jb.gg/abva4t
 "" Map \r to the Reformat Code action
-"map \r <Action>(ReformatCode)
+map \r <Action>(ReformatCode)
 
 "" Map <leader>d to start debug
 "map <leader>d <Action>(Debug)
 
 "" Map \b to toggle the breakpoint on the current line
 "map \b <Action>(ToggleLineBreakpoint)
+
+" =============================================================================
+" .ideavimrc — matched to your LazyVim config
+" =============================================================================
+" Your nvim setup is stock LazyVim defaults + Trouble, Harpoon2, Flash,
+" Yanky, Dial, and Dadbod. This maps all of those conventions to IntelliJ
+" actions so your muscle memory transfers 1:1.
+"
+" Install: cp ~/.ideavimrc ~/.ideavimrc.bak && cp this ~/.ideavimrc
+" Requires: IdeaVim-Which-Key plugin (marketplace) for discoverability
+"           AceJump plugin (marketplace) for Flash.nvim-equivalent s/S
+" =============================================================================
+
+" ---------------------------------------------------------------------------
+" IdeaVim Plugins (bundled — just declare to activate)
+" ---------------------------------------------------------------------------
+set surround               " cs'" ds" ysiw) — you use this in nvim via mini.surround/LazyVim
+set commentary             " gcc, gc + motion — maps to ts-comments.nvim behavior
+set argtextobj             " cia, dia, via — function argument text object
+set textobj-entire         " ae, ie — entire buffer text object
+set textobj-indent         " ii, ai — indent-level text object (great for YAML/Python)
+set highlightedyank        " visual flash on yank — matches your yanky.nvim feedback
+set nerdtree               " file explorer via :NERDTree
+set matchit                " % jumps between matching tags/brackets
+set exchange               " cx to swap regions
+set ReplaceWithRegister    " gr + motion to replace with register
+
+" AceJump — Flash.nvim equivalent (requires AceJump plugin from marketplace)
+set acejump
+
+" ---------------------------------------------------------------------------
+" Core Settings (matching your LazyVim defaults)
+" ---------------------------------------------------------------------------
+set scrolloff=8
+set sidescrolloff=8
+set number
+set relativenumber
+set ignorecase
+set smartcase
+set incsearch
+set hlsearch
+set showmode
+set visualbell
+set clipboard+=unnamedplus
+set ideajoin               " smart J that respects IntelliJ's code structure
+set idearefactormode=keep
+set ideamarks              " sync bookmarks ↔ vim marks
+
+" ---------------------------------------------------------------------------
+" Leader Key (matching init.lua: vim.g.mapleader = ' ')
+" ---------------------------------------------------------------------------
+" let mapleader = " " -- set above before any mappings
+
+" Which-key (install IdeaVim-Which-Key from marketplace)
+set which-key
+set notimeout
+set timeoutlen=5000
+
+" ---------------------------------------------------------------------------
+" Essential Remaps
+" ---------------------------------------------------------------------------
+" Clear search highlighting — LazyVim default <Esc> behavior
+nnoremap <Esc> :noh<CR><Esc>
+
+" Better escape
+inoremap jk <Esc>
+
+" Don't clobber register on visual paste
+vnoremap p "_dP
+
+" Center screen after vertical jumps
+nnoremap <C-d> <C-d>zz
+nnoremap <C-u> <C-u>zz
+nnoremap n nzzzv
+nnoremap N Nzzzv
+
+" Move lines in visual mode — LazyVim default
+vnoremap J :action MoveLineDown<CR>
+vnoremap K :action MoveLineUp<CR>
+
+" Stay in visual after indent
+vnoremap < <gv
+vnoremap > >gv
+
+" Y yanks to EOL (consistent with C, D)
+nnoremap Y y$
+
+" ---------------------------------------------------------------------------
+" Flash.nvim → AceJump
+" ---------------------------------------------------------------------------
+" LazyVim Flash defaults: s = flash jump, S = treesitter select
+nmap s :action AceAction<CR>
+nmap S :action AceTargetAction<CR>
+xmap s :action AceAction<CR>
+omap s :action AceAction<CR>
+
+" ---------------------------------------------------------------------------
+" Window Navigation — LazyVim <C-h/j/k/l>
+" ---------------------------------------------------------------------------
+nnoremap <C-h> <C-w>h
+nnoremap <C-l> <C-w>l
+nnoremap <C-j> <C-w>j
+nnoremap <C-k> <C-w>k
+
+" ---------------------------------------------------------------------------
+" Buffer / Tab Navigation — LazyVim H/L + <leader>b*
+" ---------------------------------------------------------------------------
+nnoremap H :action PreviousTab<CR>
+nnoremap L :action NextTab<CR>
+nnoremap <leader>bd :action CloseContent<CR>
+nnoremap <leader>bo :action CloseAllEditorsButActive<CR>
+nnoremap <leader>bb :action Switcher<CR>
+nnoremap <leader>bp :action PinActiveTabToggle<CR>
+nnoremap <leader>bD :action CloseAllEditors<CR>
+
+" ---------------------------------------------------------------------------
+" Harpoon2 Equivalents
+" ---------------------------------------------------------------------------
+" LazyVim harpoon2 defaults use <leader>1-5 for slots.
+" IntelliJ mnemonic bookmarks 1-5 = harpoon slots.
+nnoremap <leader>ha :action ToggleBookmarkWithMnemonic<CR>
+nnoremap <leader>hh :action ShowBookmarks<CR>
+nnoremap <leader>1 :action GotoBookmark1<CR>
+nnoremap <leader>2 :action GotoBookmark2<CR>
+nnoremap <leader>3 :action GotoBookmark3<CR>
+nnoremap <leader>4 :action GotoBookmark4<CR>
+nnoremap <leader>5 :action GotoBookmark5<CR>
+
+" ---------------------------------------------------------------------------
+" [f]ind — LazyVim <leader>f* → IntelliJ search
+" ---------------------------------------------------------------------------
+nnoremap <leader>ff :action GotoFile<CR>
+nnoremap <leader>fg :action FindInPath<CR>
+nnoremap <leader>fr :action RecentFiles<CR>
+nnoremap <leader>fb :action Switcher<CR>
+nnoremap <leader>fs :action GotoSymbol<CR>
+nnoremap <leader>fc :action GotoClass<CR>
+nnoremap <leader>fp :action ManageRecentProjects<CR>
+nnoremap <leader>/ :action FindInPath<CR>
+nnoremap <leader><space> :action GotoFile<CR>
+
+" ---------------------------------------------------------------------------
+" [c]ode — LSP-equivalent actions
+" ---------------------------------------------------------------------------
+nnoremap <leader>ca :action ShowIntentionActions<CR>
+nnoremap <leader>cr :action RenameElement<CR>
+nnoremap <leader>cf :action ReformatCode<CR>
+nnoremap <leader>co :action OptimizeImports<CR>
+nnoremap <leader>ci :action InspectCode<CR>
+
+" From your Trouble config: <leader>cs = symbols, <leader>cl = LSP defs/refs
+nnoremap <leader>cs :action FileStructurePopup<CR>
+nnoremap <leader>cl :action ActivateProblemsViewToolWindow<CR>
+
+" ---------------------------------------------------------------------------
+" [g]o-to — LSP navigation
+" ---------------------------------------------------------------------------
+nnoremap gd :action GotoDeclaration<CR>
+nnoremap gD :action GotoTypeDeclaration<CR>
+nnoremap gi :action GotoImplementation<CR>
+nnoremap gr :action ShowUsages<CR>
+nnoremap gR :action FindUsages<CR>
+nnoremap gs :action GotoSuperMethod<CR>
+nnoremap K :action QuickJavaDoc<CR>
+nnoremap <leader>k :action ParameterInfo<CR>
+
+" ---------------------------------------------------------------------------
+" [d]iagnostics — ]d [d from LazyVim
+" ---------------------------------------------------------------------------
+nnoremap ]d :action GotoNextError<CR>
+nnoremap [d :action GotoPreviousError<CR>
+nnoremap <leader>cd :action ShowErrorDescription<CR>
+
+" ---------------------------------------------------------------------------
+" Trouble.nvim — <leader>x* from your example.lua
+" ---------------------------------------------------------------------------
+nnoremap <leader>xx :action ActivateProblemsViewToolWindow<CR>
+nnoremap <leader>xX :action ShowErrorDescription<CR>
+nnoremap <leader>xL :action ActivateProblemsViewToolWindow<CR>
+nnoremap <leader>xQ :action FindInPath<CR>
+
+" ---------------------------------------------------------------------------
+" [e]xplorer
+" ---------------------------------------------------------------------------
+nnoremap <leader>e :action ActivateProjectToolWindow<CR>
+nnoremap <leader>E :action SelectInProjectView<CR>
+
+" ---------------------------------------------------------------------------
+" [w]indow management
+" ---------------------------------------------------------------------------
+nnoremap <leader>wv :action SplitVertically<CR>
+nnoremap <leader>ws :action SplitHorizontally<CR>
+nnoremap <leader>wd :action Unsplit<CR>
+nnoremap <leader>wm :action MoveEditorToOppositeTabGroup<CR>
+nnoremap <leader>wo :action UnsplitAll<CR>
+
+" ---------------------------------------------------------------------------
+" [g]it — LazyVim defaults + gitsigns hunk nav
+" ---------------------------------------------------------------------------
+nnoremap <leader>gg :action ActivateVersionControlToolWindow<CR>
+nnoremap <leader>gc :action CheckinProject<CR>
+nnoremap <leader>gp :action Vcs.Push<CR>
+nnoremap <leader>gl :action Vcs.ShowTabbedFileHistory<CR>
+nnoremap <leader>gb :action Git.Branches<CR>
+nnoremap <leader>gB :action Annotate<CR>
+nnoremap <leader>gd :action Compare.SameVersion<CR>
+nnoremap <leader>gD :action Compare.LastVersion<CR>
+
+" Gitsigns hunk equivalents
+nnoremap ]h :action VcsShowNextChangeMarker<CR>
+nnoremap [h :action VcsShowPrevChangeMarker<CR>
+nnoremap <leader>ghr :action Vcs.RollbackChangedLines<CR>
+nnoremap <leader>ghp :action VcsShowCurrentChangeMarker<CR>
+
+" ---------------------------------------------------------------------------
+" Yanky.nvim → clipboard history
+" ---------------------------------------------------------------------------
+" Yanky gives you yank ring cycling on p/P.
+" IdeaVim doesn't have a yank ring, but "0p (last yank, not delete)
+" covers the most common use case. For full history:
+nnoremap <leader>p :action PasteMultiple<CR>
+
+" ---------------------------------------------------------------------------
+" Dial.nvim → increment/decrement
+" ---------------------------------------------------------------------------
+" Dial enhances <C-a>/<C-x> with booleans, dates, semver, etc.
+" IntelliJ doesn't natively do this. For booleans, use <leader>.
+" (ShowIntentionActions) which offers to toggle true/false.
+nnoremap <C-a> <C-a>
+nnoremap <C-x> <C-x>
+
+" ---------------------------------------------------------------------------
+" Dadbod → IntelliJ Database Tools
+" ---------------------------------------------------------------------------
+nnoremap <leader>sD :action ActivateDatabaseToolWindow<CR>
+nnoremap <leader>sq :action Console.Execute<CR>
+
+" ---------------------------------------------------------------------------
+" [r]un / [d]ebug
+" ---------------------------------------------------------------------------
+nnoremap <leader>rc :action RunClass<CR>
+nnoremap <leader>rr :action Run<CR>
+nnoremap <leader>rd :action Debug<CR>
+nnoremap <leader>rs :action Stop<CR>
+nnoremap <leader>rt :action RunTests<CR>
+
+nnoremap <leader>db :action ToggleLineBreakpoint<CR>
+nnoremap <leader>dB :action ViewBreakpoints<CR>
+nnoremap <leader>dc :action Resume<CR>
+nnoremap <leader>di :action StepInto<CR>
+nnoremap <leader>do :action StepOver<CR>
+nnoremap <leader>dO :action StepOut<CR>
+nnoremap <leader>de :action EvaluateExpression<CR>
+
+" ---------------------------------------------------------------------------
+" [t]erminal / UI toggles
+" ---------------------------------------------------------------------------
+nnoremap <leader>tt :action ActivateTerminalToolWindow<CR>
+nnoremap <leader>tz :action ToggleDistractionFreeMode<CR>
+nnoremap <leader>tp :action TogglePresentationMode<CR>
+
+" ---------------------------------------------------------------------------
+" Refactoring
+" ---------------------------------------------------------------------------
+nnoremap <leader>rm :action ExtractMethod<CR>
+vnoremap <leader>rm :action ExtractMethod<CR>
+nnoremap <leader>rv :action IntroduceVariable<CR>
+vnoremap <leader>rv :action IntroduceVariable<CR>
+nnoremap <leader>rf :action IntroduceField<CR>
+nnoremap <leader>ri :action Inline<CR>
+nnoremap <leader>rn :action RenameElement<CR>
+nnoremap <leader>rR :action Refactorings.QuickListPopupAction<CR>
+
+" ---------------------------------------------------------------------------
+" Quick Popups
+" ---------------------------------------------------------------------------
+nnoremap <leader>. :action ShowIntentionActions<CR>
+nnoremap <leader>, :action RecentFiles<CR>
+nnoremap <leader>; :action FileStructurePopup<CR>
+nnoremap <leader>: :action GotoAction<CR>
+
+" ---------------------------------------------------------------------------
+" Fold / Collapse
+" ---------------------------------------------------------------------------
+nnoremap za :action ExpandCollapseToggleAction<CR>
+nnoremap zM :action CollapseAllRegions<CR>
+nnoremap zR :action ExpandAllRegions<CR>
+nnoremap zo :action ExpandRegion<CR>
+nnoremap zc :action CollapseRegion<CR>
+
+" ---------------------------------------------------------------------------
+" Generate / New
+" ---------------------------------------------------------------------------
+nnoremap <leader>ng :action Generate<CR>
+nnoremap <leader>nf :action NewFile<CR>
+nnoremap <leader>nc :action NewClass<CR>
+
+" ---------------------------------------------------------------------------
+" Select All / Multiple Cursors
+" ---------------------------------------------------------------------------
+nnoremap <leader>a ggVG
+
+nmap <A-j> <Plug>NextOccurrence
+xmap <A-j> <Plug>NextOccurrence
+nmap <A-k> <Plug>RemoveOccurrence
+xmap <A-k> <Plug>RemoveOccurrence
+nmap <A-S-j> <Plug>AllOccurrences
+xmap <A-S-j> <Plug>AllOccurrences
+
 
 "" Fuzzier plugin
 " Use :action ex-command syntax (more reliable than <Action> notation)

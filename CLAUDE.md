@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-A personal dotfiles repository managed by [Chezmoi](https://www.chezmoi.io/) for macOS and Arch Linux. Secrets are encrypted with age (key sourced from 1Password). Includes custom Python tools: `mcp_sync/` syncs a single master MCP config to 8+ AI development tools, and `aws_config_gen/` auto-generates AWS SSO profiles from Identity Center.
+A personal dotfiles repository managed by [Chezmoi](https://www.chezmoi.io/) for macOS and Arch Linux. Secrets are
+encrypted with age (key sourced from 1Password). The centerpiece is a custom Python tool (`mcp_sync/`) that syncs a
+single master MCP config to 8+ AI development tools.
 
 ## Commands
 
@@ -25,28 +27,6 @@ uv run --project mcp_sync --extra dev pytest mcp_sync/tests/test_sync_mcp_config
 
 # Run sync manually
 uv run --project mcp_sync sync-mcp-configs
-```
-
-### AWS Config Gen (Python, in `aws_config_gen/`)
-
-All commands run from the repo root, not inside `aws_config_gen/`:
-
-```bash
-# Lint
-uv run --project aws_config_gen --extra dev ruff check aws_config_gen/src aws_config_gen/tests
-uv run --project aws_config_gen --extra dev ruff format --check aws_config_gen/src aws_config_gen/tests
-
-# Test (all)
-uv run --project aws_config_gen --extra dev pytest aws_config_gen/tests --cov=aws_config_gen --cov-report=term-missing
-
-# Test (single file)
-uv run --project aws_config_gen --extra dev pytest aws_config_gen/tests/test_naming.py -v
-
-# Run manually (requires active SSO session)
-uv run --project aws_config_gen aws-config-gen --dry-run
-
-# Run and write to ~/.aws/config
-uv run --project aws_config_gen aws-config-gen
 ```
 
 ### Chezmoi
@@ -89,24 +69,11 @@ The sync tool reads `dot_config/mcp/mcp-master.json` and generates tool-specific
 
 The sync runs automatically after `chezmoi apply` via `.chezmoiscripts/run_after_sync-mcp.sh`.
 
-### AWS Config Gen (`aws_config_gen/`)
-
-Auto-discovers all AWS accounts and roles from Identity Center, applies human-friendly naming via `config.json`, and
-generates native `sso_session`-based profiles in `~/.aws/config`. Uses marker-based merge to preserve manual profiles.
-
-- **Generator config**: runtime default `~/.config/aws-config-gen/config.json` — account name mappings, role shortening,
-  skip list; chezmoi source: `dot_config/aws-config-gen/encrypted_config.json.age`; only applied on work machines
-- **Modules**: `sso_token.py` (cache reader), `sso_client.py` (REST client), `discovery.py` (orchestration), `naming.py` (profile naming), `config_writer.py` (INI render + merge)
-- **CLI**: `aws-config-gen [--generator-config] [--config] [--dry-run] [--strict]`
-
-Runs automatically after `chezmoi apply` via `.chezmoiscripts/run_after_sync-aws-config.sh` on work machines only.
-
 ### Key Directories
 
 - `dot_config/mcp/` — Master MCP config and per-tool overrides
 - `mcp_sync/` — Python sync tool (uv project, Python 3.14+, no runtime deps)
-- `aws_config_gen/` — AWS SSO config generator (uv project, Python 3.14+, no runtime deps)
-- `.chezmoiscripts/` — Post-apply hooks (MCP sync, AWS config gen, macOS setup)
+- `.chezmoiscripts/` — Post-apply hooks (MCP sync, macOS setup)
 - `dot_config/zsh/` — Zsh config; `encrypted_dot_env` holds API keys
 - `dot_config/nvim/` — Neovim config (LazyVim)
 - `scripts/` — Utility scripts
