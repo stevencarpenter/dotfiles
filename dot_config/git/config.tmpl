@@ -6,11 +6,26 @@
     email = {{ .email }}
 
 [core]
-    excludesfile = ~/.gitignore_global
+    excludesfile = ~/.config/git/.gitignore_global
     editor = nvim
+    pager = delta
+    autocrlf = input
+
+[interactive]
+    diffFilter = delta --color-only
+
+[delta]
+    navigate = true
+    dark = true
+
+[merge]
+    conflictStyle = zdiff3
+
+[init]
+    defaultBranch = main
 
 [alias]
-wt = worktree
-lswt = worktree list
-mkwt = "!f() { git worktree add \"$(git rev-parse --show-toplevel)+$@\"; }; f"
-rmwt = "!f() { git worktree remove \"$(git rev-parse --show-toplevel)+$@\"; }; f"
+    wt = worktree
+    lswt = worktree list
+    mkwt = "!f() { git worktree add \"$(git rev-parse --show-toplevel)+$@\"; }; f"
+    rmwt = "!f() { git worktree remove \"$(git rev-parse --show-toplevel)+$@\"; }; f"

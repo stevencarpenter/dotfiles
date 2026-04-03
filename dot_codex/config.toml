@@ -10,6 +10,3 @@ search_tool = true
 apps_mcp_gateway = true
 unified_exec = true
 use_linux_sandbox_bwrap = true
-
-# MCP Servers - Synced from master config
-# This section is populated by sync-mcp-configs

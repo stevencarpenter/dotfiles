@@ -1,0 +1,20 @@
+{{- /* chezmoi config template — prompts once per machine, caches in chezmoi.toml */ -}}
+{{- $machine := promptStringOnce . "machine" "Machine type (work-mac, personal-mac, work-linux, personal-linux)" -}}
+{{- $email := "" -}}
+{{- if hasPrefix "work" $machine -}}
+{{-   $email = promptStringOnce . "email" "Work email address" -}}
+{{- else -}}
+{{-   $email = promptStringOnce . "email" "Personal email address" -}}
+{{- end }}
+
+sourceDir = "~/.local/share/chezmoi"
+
+encryption = "age"
+
+[age]
+identity = "~/.config/chezmoi/key.txt"
+recipient = "age1462h0ed4ufkjrq0wu326l30c8hay9uewlsaudk89mgqjc5540vrqacejsz"
+
+[data]
+machine = {{ $machine | quote }}
+email = {{ $email | quote }}

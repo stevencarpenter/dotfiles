@@ -617,14 +617,4 @@ repos:
 
 ## Integration with AI Tools
 
-### IntelliJ IDEA
-
-See [IntelliJ IDEA Copilot Setup](./intellij-copilot-setup.md) for IDE-specific configuration.
-
-### Copilot CLI
-
-See [Copilot CLI Setup](./copilot-cli-setup.md) for terminal integration.
-
-### OpenAI Codex
-
-See [OpenAI Codex CLI Setup](./openai-codex-cli-setup.md) for CLI usage.
+See the [MCP Setup Guide](./mcp-setup.md) for how MCP servers are configured across all AI tools in these dotfiles.

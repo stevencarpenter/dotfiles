@@ -28,9 +28,9 @@ def test_full_sync_workflow_all_targets(
         ".config/mcp/mcp_config.json",
         ".config/opencode/opencode.json",
         ".config/cursor/mcp.json",
-        ".config/vscode/mcp.json",
-        ".config/junie/mcp/mcp.json",
-        ".config/lmstudio/mcp.json",
+        ".vscode/mcp.json",
+        ".junie/mcp/mcp.json",
+        ".lmstudio/mcp.json",
     ]
 
     for file_path in expected_files:
@@ -210,7 +210,7 @@ def test_sync_with_codex_config(temp_home, monkeypatch_home, master_config_file)
     assert exit_code == 0
 
     result = codex_config.read_text()
-    assert 'model = "gpt-5.2"' in result
+    assert 'model = "gpt-5.4"' in result
 
 
 def test_sync_idempotency(temp_home, monkeypatch_home, master_config_file):

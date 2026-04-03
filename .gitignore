@@ -804,3 +804,4 @@ cython_debug/
 # Except the one in the root
 !CLAUDE.md
 /.codex/environments/environment.toml
+META-INF/

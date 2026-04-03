@@ -47,7 +47,7 @@ class SyncTarget:
         )
 
 
-def _render(template: Template | str) -> str:
+def _render(template: Template | str) -> str | object:
     if isinstance(template, str):
         return template
     substitute = getattr(template, "substitute", None)
@@ -417,28 +417,22 @@ def _build_targets(home: Path) -> list[SyncTarget]:
         ),
         SyncTarget(
             name="vscode",
-            destination=home / ".config" / "vscode" / "mcp.json",
+            destination=home / ".vscode" / "mcp.json",
             transform=_identity,
-            legacy_dir=home / ".vscode",
-            legacy_destination=home / ".vscode" / "mcp.json",
             template_key="vscode",
             override_key="vscode",
         ),
         SyncTarget(
             name="junie",
-            destination=home / ".config" / "junie" / "mcp" / "mcp.json",
+            destination=home / ".junie" / "mcp" / "mcp.json",
             transform=transform_to_mcpservers_format,
-            legacy_dir=home / ".junie",
-            legacy_destination=home / ".junie" / "mcp" / "mcp.json",
             template_key="junie",
             override_key="junie",
         ),
         SyncTarget(
             name="lmstudio",
-            destination=home / ".config" / "lmstudio" / "mcp.json",
+            destination=home / ".lmstudio" / "mcp.json",
             transform=transform_to_mcpservers_format,
-            legacy_dir=home / ".lmstudio",
-            legacy_destination=home / ".lmstudio" / "mcp.json",
             template_key="lmstudio",
             override_key="lmstudio",
         ),
