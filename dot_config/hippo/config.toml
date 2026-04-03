@@ -4,7 +4,7 @@ base_url = "http://localhost:1234/v1"  # LM Studio local server
 [models]
 enrichment = "gpt-oss-120b-mlx-crack"                    # Daily: MoE, 35B total, 3B active — fast
 enrichment_bulk = "gpt-oss-120b-mlx-crack"               # Bulk: strongest available — slow but reliable
-query = "gpt-oss-120b-mlx-crack"                         # Same model for query reformulation
+query = "gpt-oss-120b-mlx-crack"                          # Same model for query reformulation
 embedding = "text-embedding-nomic-embed-text-v2-moe"     # Purpose-built embedding model, 768d
 
 [daemon]
