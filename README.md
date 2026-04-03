@@ -216,7 +216,6 @@ The `suffix = ""` setting in `~/.config/chezmoi/chezmoi.toml` prevents chezmoi f
 Setup and configuration for AI-powered development tools:
 
 - **[MCP (Model Context Protocol)](docs/ai-tools/mcp-setup.md)** - Master MCP config and sync system
-- **[Custom Terraform Instructions](docs/ai-tools/terraform-instructions.md)** – Best practices for AI-generated Terraform code
 
 ## New Machine Quick Start
 
