@@ -54,10 +54,6 @@ def merge_config(existing_content: str, generated_block: str) -> str:
                 raise ValueError(
                     "Multiple managed block BEGIN markers found in config."
                 )
-            if end_idx is not None:
-                raise ValueError(
-                    "Managed block BEGIN marker found after END marker in config."
-                )
             begin_idx = i
         elif stripped == END_MARKER:
             if begin_idx is None:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import pytest
 
 from aws_config_gen.naming import build_profile_entries, load_generator_config
 from aws_config_gen.types import AccountRole, GeneratorConfig
@@ -124,3 +125,18 @@ def test_load_generator_config(tmp_path):
     assert result.account_names == {"123": "myacct"}
     assert result.role_short_names == {"AdminRole": "admin"}
     assert result.skip == [("123", "AdminRole")]
+
+
+def test_load_generator_config_rejects_bad_skip_entry(tmp_path):
+    data = {
+        "sso_session": "s",
+        "sso_start_url": "https://example.com",
+        "sso_region": "us-east-1",
+        "default_region": "us-east-1",
+        "skip": [["only-one-element"]],
+    }
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps(data))
+
+    with pytest.raises(ValueError, match="skip entry 0 must be"):
+        load_generator_config(path)

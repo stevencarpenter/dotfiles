@@ -9,6 +9,17 @@ from pathlib import Path
 from aws_config_gen.types import AccountRole, GeneratorConfig, ProfileEntry
 
 
+def _parse_skip_list(raw: list) -> list[tuple[str, str]]:
+    """Validate and convert skip entries to (account_id, role_name) tuples."""
+    result: list[tuple[str, str]] = []
+    for i, pair in enumerate(raw):
+        if len(pair) != 2:
+            msg = f"skip entry {i} must be [account_id, role_name], got {pair!r}"
+            raise ValueError(msg)
+        result.append((pair[0], pair[1]))
+    return result
+
+
 def load_generator_config(path: Path) -> GeneratorConfig:
     """Read the generator config JSON and return a GeneratorConfig instance."""
     data = json.loads(path.read_text())
@@ -19,7 +30,7 @@ def load_generator_config(path: Path) -> GeneratorConfig:
         default_region=data["default_region"],
         account_names=data.get("account_names", {}),
         role_short_names=data.get("role_short_names", {}),
-        skip=[tuple(pair) for pair in data.get("skip", [])],
+        skip=_parse_skip_list(data.get("skip", [])),
     )
 
 

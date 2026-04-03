@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import urllib.error
 from pathlib import Path
 from typing import Sequence
 
@@ -87,6 +88,24 @@ def cli(argv: Sequence[str] | None = None) -> int:
     except TokenNotFoundError:
         print(
             f"Run `aws sso login --sso-session {generator_config.sso_session}` to authenticate.",
+            file=sys.stderr,
+        )
+        return 1 if args.strict else 0
+    except urllib.error.HTTPError as exc:
+        if exc.code == 401:
+            print(
+                f"SSO token rejected (HTTP 401). Run `aws sso login --sso-session {generator_config.sso_session}` to re-authenticate.",
+                file=sys.stderr,
+            )
+        else:
+            print(
+                f"AWS Identity Center API error (HTTP {exc.code}): {exc.reason}",
+                file=sys.stderr,
+            )
+        return 1 if args.strict else 0
+    except urllib.error.URLError as exc:
+        print(
+            f"Failed to reach AWS Identity Center: {exc.reason}",
             file=sys.stderr,
         )
         return 1 if args.strict else 0

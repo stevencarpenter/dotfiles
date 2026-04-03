@@ -200,11 +200,6 @@ class TestMergeConfigCorruptedMarkers:
         with pytest.raises(ValueError, match="Multiple managed block BEGIN"):
             merge_config(content, "new block\n")
 
-    def test_begin_after_end(self):
-        content = f"{END_MARKER}\nstuff\n{BEGIN_MARKER}\nmore\n"
-        with pytest.raises(ValueError, match="END marker found before BEGIN"):
-            merge_config(content, "new block\n")
-
     def test_end_before_begin(self):
         content = f"{END_MARKER}\nstuff\n"
         with pytest.raises(ValueError, match="END marker found before BEGIN"):
