@@ -1,3 +1,8 @@
+"""Module entrypoint for python -m aws_config_gen."""
+
+from __future__ import annotations
+
 from .cli import cli
 
-raise SystemExit(cli())
+if __name__ == "__main__":
+    raise SystemExit(cli())

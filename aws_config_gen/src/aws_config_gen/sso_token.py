@@ -32,7 +32,8 @@ def load_sso_token(
     if cache_dir is None:
         cache_dir = Path.home() / ".aws" / "sso" / "cache"
 
-    cache_key = hashlib.sha1(session_name.encode()).hexdigest()
+    # SHA-1 matches the AWS CLI's cache key convention
+    cache_key = hashlib.sha1(session_name.encode()).hexdigest()  # noqa: S324
     cache_file = cache_dir / f"{cache_key}.json"
 
     if not cache_file.exists():

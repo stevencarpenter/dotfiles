@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 from pathlib import Path
 
 from aws_config_gen.config_writer import (
@@ -188,3 +189,33 @@ def test_write_config_replaces_managed_block_preserves_manual(tmp_path: Path):
     assert "new content" in content
     assert "old content" not in content
     assert "[profile manual]" in content
+
+
+# --- Marker corruption tests ---
+
+
+class TestMergeConfigCorruptedMarkers:
+    def test_duplicate_begin_markers(self):
+        content = f"{BEGIN_MARKER}\nstuff\n{BEGIN_MARKER}\nmore\n{END_MARKER}\n"
+        with pytest.raises(ValueError, match="Multiple managed block BEGIN"):
+            merge_config(content, "new block\n")
+
+    def test_begin_after_end(self):
+        content = f"{END_MARKER}\nstuff\n{BEGIN_MARKER}\nmore\n"
+        with pytest.raises(ValueError, match="END marker found before BEGIN"):
+            merge_config(content, "new block\n")
+
+    def test_end_before_begin(self):
+        content = f"{END_MARKER}\nstuff\n"
+        with pytest.raises(ValueError, match="END marker found before BEGIN"):
+            merge_config(content, "new block\n")
+
+    def test_duplicate_end_markers(self):
+        content = f"{BEGIN_MARKER}\nstuff\n{END_MARKER}\nmore\n{END_MARKER}\n"
+        with pytest.raises(ValueError, match="Multiple managed block END"):
+            merge_config(content, "new block\n")
+
+    def test_begin_without_end(self):
+        content = f"{BEGIN_MARKER}\nstuff\nno end marker\n"
+        with pytest.raises(ValueError, match="BEGIN marker found without matching END"):
+            merge_config(content, "new block\n")

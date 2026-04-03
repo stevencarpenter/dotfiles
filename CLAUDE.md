@@ -93,7 +93,8 @@ The sync runs automatically after `chezmoi apply` via `.chezmoiscripts/run_after
 
 Auto-discovers all AWS accounts and roles from Identity Center, applies human-friendly naming via `overrides.json`, and generates native `sso_session`-based profiles in `~/.aws/config`. Uses marker-based merge to preserve manual profiles.
 
-- **Overrides**: `aws_config_gen/overrides.json` — account name mappings, role shortening, skip list
+- **Overrides**: runtime default `~/.config/aws-config-gen/overrides.json` — account name mappings, role shortening,
+  skip list; chezmoi source: `dot_config/aws-config-gen/encrypted_overrides.json.age`
 - **Modules**: `sso_token.py` (cache reader), `sso_client.py` (REST client), `discovery.py` (orchestration), `naming.py` (profile naming), `config_writer.py` (INI render + merge)
 - **CLI**: `aws-config-gen [--session] [--overrides] [--config] [--dry-run] [--strict]`
 

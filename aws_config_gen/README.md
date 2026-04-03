@@ -49,8 +49,8 @@ aws-config-gen
 ### Command-line Options
 
 ```
---session SESSION           SSO session name (default: lumin)
---overrides PATH           Path to overrides.json (default: auto-detect)
+--session SESSION           SSO session name (default: from overrides.json)
+--overrides PATH           Path to overrides.json (default: ~/.config/aws-config-gen/overrides.json)
 --config PATH              Path to AWS config file (default: ~/.aws/config)
 --dry-run                  Print generated config to stdout; don't write
 --strict                   Exit 1 on token failures (default: exit 0)
@@ -92,7 +92,7 @@ The overrides file controls naming, session parameters, and skip rules. Default 
 
 ```json
 {
-  "sso_session": "lumin",
+  "sso_session": "my-sso",
   "sso_start_url": "https://mycompany.awsapps.com/start",
   "sso_region": "us-east-1",
   "default_region": "us-west-2",
@@ -149,19 +149,24 @@ Generated profiles are inserted between markers in `~/.aws/config`:
 ```ini
 # ... manual profiles above ...
 
-# BEGIN aws-config-gen
+# BEGIN aws_config_gen managed block — do not edit
+[sso-session my-sso]
+sso_start_url = https://mycompany.awsapps.com/start
+sso_region = us-east-1
+sso_registration_scopes = sso:account:access
+
 [profile generated-profile-1]
-sso_session = lumin
+sso_session = my-sso
 sso_account_id = 123456789012
 sso_role_name = ReadOnlyPlus
 region = us-west-2
 
 [profile generated-profile-2]
-sso_session = lumin
+sso_session = my-sso
 sso_account_id = 123456789013
 sso_role_name = PowerUserAccess
 region = us-west-2
-# END aws-config-gen
+# END aws_config_gen managed block
 
 # ... manual profiles below ...
 ```
@@ -237,7 +242,7 @@ aws_config_gen/
 ### Token Not Found
 
 ```
-Run `aws sso login --sso-session lumin` to authenticate.
+Run `aws sso login --sso-session my-sso` to authenticate.
 ```
 
 The SSO token cache doesn't exist. Run the indicated command to create it.
@@ -245,7 +250,7 @@ The SSO token cache doesn't exist. Run the indicated command to create it.
 ### Token Expired
 
 ```
-Run `aws sso login --sso-session lumin` to refresh.
+Run `aws sso login --sso-session my-sso` to refresh.
 ```
 
 The cached token has expired. Run the indicated command to refresh it.
@@ -269,7 +274,7 @@ python -m json.tool ~/.config/aws-config-gen/overrides.json
 Verify your SSO session is authenticated:
 
 ```bash
-aws sso login --sso-session lumin
+aws sso login --sso-session my-sso
 ```
 
 ## Integration with Chezmoi

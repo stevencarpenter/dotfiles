@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 from typing import Sequence
@@ -20,14 +21,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--session",
-        default="lumin",
-        help="SSO session name (default: lumin).",
+        default=None,
+        help="SSO session name (default: from overrides.json sso_session).",
     )
     parser.add_argument(
         "--overrides",
         type=Path,
         default=None,
-        help="Path to overrides.json (default: auto-detect from package dir).",
+        help="Path to overrides.json (default: ~/.config/aws-config-gen/overrides.json).",
     )
     parser.add_argument(
         "--config",
@@ -57,23 +58,32 @@ def cli(argv: Sequence[str] | None = None) -> int:
         if args.overrides
         else Path.home() / ".config" / "aws-config-gen" / "overrides.json"
     )
-    overrides = load_overrides(overrides_path)
+    try:
+        overrides = load_overrides(overrides_path)
+    except FileNotFoundError:
+        print(f"Overrides file not found: {overrides_path}", file=sys.stderr)
+        return 1
+    except (json.JSONDecodeError, KeyError) as exc:
+        print(f"Invalid overrides file {overrides_path}: {exc}", file=sys.stderr)
+        return 1
+
+    session_name: str = args.session or overrides.sso_session
 
     config_path: Path = (
         args.config.expanduser() if args.config else Path.home() / ".aws" / "config"
     )
 
     try:
-        roles = discover_all_roles(args.session, overrides.sso_region, overrides.skip)
+        roles = discover_all_roles(session_name, overrides.sso_region, overrides.skip)
     except TokenExpiredError:
         print(
-            f"Run `aws sso login --sso-session {args.session}` to refresh.",
+            f"Run `aws sso login --sso-session {session_name}` to refresh.",
             file=sys.stderr,
         )
         return 1 if args.strict else 0
     except TokenNotFoundError:
         print(
-            f"Run `aws sso login --sso-session {args.session}` to authenticate.",
+            f"Run `aws sso login --sso-session {session_name}` to authenticate.",
             file=sys.stderr,
         )
         return 1 if args.strict else 0

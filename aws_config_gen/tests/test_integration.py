@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import pytest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 from aws_config_gen.cli import cli
 from aws_config_gen.config_writer import BEGIN_MARKER, END_MARKER
@@ -89,7 +88,7 @@ def _write_overrides(tmp_path: Path) -> Path:
     return overrides_path
 
 
-def _mock_urlopen(req):
+def _mock_urlopen(req, **_kwargs):
     url = req.full_url
     if "/assignment/accounts" in url and "roles" not in url:
         body = json.dumps({"accountList": ACCOUNTS}).encode()
