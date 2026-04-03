@@ -60,7 +60,6 @@ dot_claude/*
 # Work/personal conditional deployment
 # Skip work files on personal machines
 {{ if not (hasPrefix "work" .machine) }}
-.chezmoiscripts/run_after_sync-aws-config.sh
 .config/aws-config-gen/config.json
 .config/zsh/.work.env
 .config/zsh/profile.d/work-secrets.zsh
