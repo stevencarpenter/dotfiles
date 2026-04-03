@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-A personal dotfiles repository managed by [Chezmoi](https://www.chezmoi.io/) for macOS and Arch Linux. Secrets are encrypted with age (key sourced from 1Password). The centerpiece is a custom Python tool (`mcp_sync/`) that syncs a single master MCP config to 8+ AI development tools.
+A personal dotfiles repository managed by [Chezmoi](https://www.chezmoi.io/) for macOS and Arch Linux. Secrets are
+encrypted with age (key sourced from 1Password). The centerpiece is a custom Python tool (`mcp_sync/`) that syncs a
+single master MCP config to 8+ AI development tools.
 
 ## Commands
 
@@ -59,13 +61,25 @@ Source files use Chezmoi prefixes that transform on apply:
 
 The sync tool reads `dot_config/mcp/mcp-master.json` and generates tool-specific configs:
 
-- **Master config**: `dot_config/mcp/mcp-master.json` — single source of truth for all MCP servers
+- **Master config**: `dot_config/mcp/mcp-master.json` — shared servers deployed to all machines
+- **Machine overlays**: `dot_config/mcp/machine/{work,personal}.json` — machine-type-specific servers (e.g., AWS MCP on
+  work only), deployed conditionally by chezmoi
 - **Per-tool overrides**: `dot_config/mcp/overrides/` — JSON files that add/override servers for specific tools (e.g., `claude.json`, `copilot.json`)
 - **Templates**: `mcp_sync/src/mcp_sync/templates/` — base config templates per tool
 - **Transform functions** in `sync.py`: `transform_to_copilot_format()`, `transform_to_generic_mcp_format()`, `transform_to_mcpservers_format()`, `transform_to_opencode_format()`
-- **Deep merge**: base template + generated config + overrides, with later values winning
+- **Merge order**: base template + master + machine overlay + per-tool overrides (later values win)
 
-The sync runs automatically after `chezmoi apply` via `.chezmoiscripts/run_after_sync-mcp.sh`.
+The sync runs automatically after `chezmoi apply` via `.chezmoiscripts/run_after_sync-mcp.sh.tmpl`. The hook
+auto-detects the deployed machine overlay at `~/.config/mcp/machine/*.json` and passes it via `--machine-config`.
+
+#### Machine-Type Gating
+
+MCP servers and Claude settings are gated by machine type via chezmoi's `.machine` variable:
+
+- **Shared**: `dot_config/mcp/mcp-master.json` — servers deployed to all machines
+- **Work-only**: `dot_config/mcp/machine/work.json` — servers added on work machines (e.g., AWS MCP)
+- **Personal-only**: `dot_config/mcp/machine/personal.json` — servers added on personal machines
+- **Claude hooks**: `dot_claude/settings.json.tmpl` — hippo hook gated behind `{{ if hasPrefix "personal" .machine }}`
 
 ### Key Directories
 

@@ -43,7 +43,7 @@ worktree-path = "{{ repo_path }}/../{{ repo }}-{{ branch | sanitize }}"
 # See LLM commits docs (https://worktrunk.dev/llm-commits/) for setup and Custom prompt templates (#custom-prompt-templates) for template customization.
 #
 
-[post-create]
+[pre-start]
 mise = "wt step mise trust"
 copy = "wt step copy-ignored"
 # Do not auto-trust mise globally; trust per-repo when you intend to execute its tasks.

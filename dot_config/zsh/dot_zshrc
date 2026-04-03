@@ -318,6 +318,8 @@ eval "$(zoxide init --cmd cd zsh)"
 
 # mise (polyglot runtime manager)
 eval "$(~/.local/bin/mise activate zsh)"
+path=($HOME/.local/share/mise/shims $path)
+eval "$(~/.local/bin/mise completions zsh)"
 
 # atuin (shell history)
 [[ -f "$HOME/.local/bin/env" ]] && . "$HOME/.local/bin/env" || true
@@ -352,11 +354,9 @@ if [[ -d "${ZDOTDIR}/profile.d" ]]; then
     done
 fi
 
-# Mill build tool completions
-#source ~/.local/share/mill/completion/mill-completion.sh # MILL_SOURCE_COMPLETION_LINE
 
-# ghcup (Haskell toolchain manager) why am I even doing this in 2024
-#[ -f "/Users/carpenter/.ghcup/env" ] && . "/Users/carpenter/.ghcup/env" # ghcup-env
+
+
 
 # Dev container orchestrator (optional)
 # Not using this right now but it is a nice convention for users who do use dev containers to have a standard file where they can put container-related environment variables and functions (e.g. to automatically detect if you are in a dev container and set up your prompt accordingly, or to set environment variables that point to containerized services, etc.)
