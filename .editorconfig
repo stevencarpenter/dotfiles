@@ -1,0 +1,4 @@
+root = true
+
+[*.tmpl]
+ij_formatter_enabled = false

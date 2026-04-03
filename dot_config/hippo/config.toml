@@ -1,0 +1,24 @@
+[lmstudio]
+base_url = "http://localhost:1234/v1"  # LM Studio local server
+
+[models]
+enrichment = "gpt-oss-120b-mlx-crack"                    # Daily: MoE, 35B total, 3B active — fast
+enrichment_bulk = "gpt-oss-120b-mlx-crack"               # Bulk: strongest available — slow but reliable
+query = "gpt-oss-120b-mlx-crack"                          # Same model for query reformulation
+embedding = "text-embedding-nomic-embed-text-v2-moe"     # Purpose-built embedding model, 768d
+
+[daemon]
+flush_interval_ms = 100    # Write buffer flush interval (ms)
+flush_batch_size = 50      # Max events per flush
+socket_timeout_ms = 100    # CLI-to-daemon socket timeout (ms)
+
+[brain]
+port = 9175                # Brain query server HTTP port
+poll_interval_secs = 5     # Enrichment queue poll interval
+enrichment_batch_size = 30 # Events per enrichment batch (session-based live enrichment)
+max_events_per_chunk = 30  # Max events per enrichment chunk
+max_queue_depth = 100      # Max pending enrichment items
+
+[storage]
+# data_dir = "~/.local/share/hippo"    # Override data directory
+# config_dir = "~/.config/hippo"       # Override config directory
