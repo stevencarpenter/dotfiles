@@ -1,0 +1,29 @@
+[project]
+name = "aws-config-gen"
+version = "0.1.0"
+description = "Auto-generate AWS SSO profiles from Identity Center."
+requires-python = ">=3.14"
+dependencies = []
+
+[project.scripts]
+aws-config-gen = "aws_config_gen.cli:cli"
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "ruff",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]

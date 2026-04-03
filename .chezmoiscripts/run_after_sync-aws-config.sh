@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SYNC_PROJECT="${HOME}/.local/share/chezmoi/aws_config_gen"
+STRICT_MODE="${AWS_CONFIG_GEN_STRICT:-0}"
+
+fail_or_warn() {
+    local message="$1"
+    if [[ "${STRICT_MODE}" == "1" ]]; then
+        echo "Error: ${message}" >&2
+        exit 1
+    fi
+    echo "Warning: ${message}" >&2
+}
+
+if ! command -v uv >/dev/null 2>&1; then
+    fail_or_warn "uv is not installed; skipping AWS config gen."
+    exit 0
+fi
+
+if [[ -f "${SYNC_PROJECT}/pyproject.toml" ]]; then
+    if ! uv run --project "${SYNC_PROJECT}" aws-config-gen; then
+        fail_or_warn "AWS config gen failed."
+        exit 0
+    fi
+else
+    echo "Warning: AWS config gen project not found." >&2
+    exit 0
+fi
