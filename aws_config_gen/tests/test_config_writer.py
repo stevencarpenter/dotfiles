@@ -16,8 +16,8 @@ from aws_config_gen.types import Overrides, ProfileEntry
 
 def _make_overrides(**kwargs: object) -> Overrides:
     defaults: dict[str, object] = {
-        "sso_session": "lumin",
-        "sso_start_url": "https://d-926758d962.awsapps.com/start/#",
+        "sso_session": "test-session",
+        "sso_start_url": "https://test.awsapps.com/start/#",
         "sso_region": "us-west-2",
         "default_region": "us-west-2",
         "account_names": {},
@@ -31,7 +31,7 @@ def _make_overrides(**kwargs: object) -> Overrides:
 def _make_entry(**kwargs: str) -> ProfileEntry:
     defaults = {
         "profile_name": "acme-sre",
-        "sso_session": "lumin",
+        "sso_session": "test-session",
         "account_id": "111111111111",
         "role_name": "SRE-ClientEnvironments",
         "region": "us-west-2",
@@ -53,15 +53,15 @@ def test_render_profiles_produces_correct_format():
     assert result.endswith(END_MARKER + "\n")
 
     # sso-session stanza
-    assert "[sso-session lumin]" in result
-    assert "sso_start_url = https://d-926758d962.awsapps.com/start/#" in result
+    assert "[sso-session test-session]" in result
+    assert "sso_start_url = https://test.awsapps.com/start/#" in result
     assert "sso_region = us-west-2" in result
     assert "sso_registration_scopes = sso:account:access" in result
 
     # profile stanzas
     assert "[profile acme-sre]" in result
     assert "[profile acme-admin]" in result
-    assert "sso_session = lumin" in result
+    assert "sso_session = test-session" in result
     assert "sso_account_id = 111111111111" in result
     assert "sso_role_name = SRE-ClientEnvironments" in result
     assert "sso_role_name = Administrator-Access-SRE" in result
@@ -83,7 +83,7 @@ def test_render_profiles_empty_entries():
 
     result = render_profiles([], overrides)
 
-    assert "[sso-session lumin]" in result
+    assert "[sso-session test-session]" in result
     assert "[profile " not in result
     assert result.startswith(BEGIN_MARKER + "\n")
     assert result.endswith(END_MARKER + "\n")

@@ -44,7 +44,7 @@ def test_dry_run_prints_to_stdout(capsys, tmp_path, sample_overrides):
     assert rc == 0
     captured = capsys.readouterr()
     assert "[profile acme]" in captured.out
-    assert "[sso-session lumin]" in captured.out
+    assert "[sso-session test-session]" in captured.out
 
 
 def test_strict_returns_one_on_token_expired(capsys, tmp_path, sample_overrides):

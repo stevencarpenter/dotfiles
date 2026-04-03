@@ -55,7 +55,7 @@ def cli(argv: Sequence[str] | None = None) -> int:
     overrides_path: Path = (
         args.overrides.expanduser()
         if args.overrides
-        else Path(__file__).resolve().parents[2] / "overrides.json"
+        else Path.home() / ".config" / "aws-config-gen" / "overrides.json"
     )
     overrides = load_overrides(overrides_path)
 

@@ -95,7 +95,7 @@ def test_profile_entry_fields(sample_overrides, sample_accounts):
     entries = build_profile_entries(roles, sample_overrides)
 
     entry = entries[0]
-    assert entry.sso_session == "lumin"
+    assert entry.sso_session == "test-session"
     assert entry.account_id == "111111111111"
     assert entry.role_name == "ReadOnly"
     assert entry.region == "us-west-2"

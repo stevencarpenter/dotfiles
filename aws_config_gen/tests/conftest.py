@@ -10,8 +10,8 @@ from aws_config_gen.types import Overrides, SSOAccount
 @pytest.fixture
 def sample_overrides() -> Overrides:
     return Overrides(
-        sso_session="lumin",
-        sso_start_url="https://d-926758d962.awsapps.com/start/#",
+        sso_session="test-session",
+        sso_start_url="https://test.awsapps.com/start/#",
         sso_region="us-west-2",
         default_region="us-west-2",
         account_names={
