@@ -238,7 +238,7 @@ def test_sync_idempotency(temp_home, monkeypatch_home, master_config_file):
 
 
 def test_full_sync_with_machine_overlay(
-        temp_home, master_config_file, monkeypatch_home
+    temp_home, master_config_file, monkeypatch_home
 ):
     """Machine overlay servers appear in all synced configs."""
     from mcp_sync.sync import run_sync

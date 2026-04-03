@@ -87,7 +87,7 @@ class TestRunSyncWithMachineConfig:
     """Integration test: machine overlay servers appear in generated configs."""
 
     def test_machine_overlay_servers_in_output(
-            self, temp_home, master_config_file, monkeypatch_home
+        self, temp_home, master_config_file, monkeypatch_home
     ):
         """Servers from machine overlay appear in all generated configs."""
         # Create a machine overlay with a work-only server
@@ -126,7 +126,7 @@ class TestRunSyncWithMachineConfig:
         assert "filesystem" in generic_config["mcpServers"]
 
     def test_no_machine_config_still_works(
-            self, temp_home, master_config_file, monkeypatch_home
+        self, temp_home, master_config_file, monkeypatch_home
     ):
         """run_sync works fine when machine_config_path is None (default)."""
         exit_code = run_sync(
@@ -142,7 +142,7 @@ class TestRunSyncWithMachineConfig:
         assert "filesystem" in opencode_config["mcp"]
 
     def test_missing_machine_config_file_still_works(
-            self, temp_home, master_config_file, monkeypatch_home
+        self, temp_home, master_config_file, monkeypatch_home
     ):
         """run_sync works when machine_config_path points to nonexistent file."""
         exit_code = run_sync(

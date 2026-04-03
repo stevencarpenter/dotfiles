@@ -54,7 +54,7 @@ def _validate_unique_profile_names(entries: list[ProfileEntry]) -> None:
 
 def build_profile_entries(
     roles: list[AccountRole],
-        generator_config: GeneratorConfig,
+    generator_config: GeneratorConfig,
 ) -> list[ProfileEntry]:
     """Build sorted ProfileEntry list from roles and generator config."""
     # Determine which accounts have multiple roles

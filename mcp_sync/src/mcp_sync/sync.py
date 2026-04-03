@@ -459,9 +459,9 @@ def _build_targets(home: Path) -> list[SyncTarget]:
 
 
 def run_sync(
-        master_path: Path | None = None,
-        home: Path | None = None,
-        machine_config_path: Path | None = None,
+    master_path: Path | None = None,
+    home: Path | None = None,
+    machine_config_path: Path | None = None,
 ) -> int:
     home_path = home or Path.home()
     master_config_path = (

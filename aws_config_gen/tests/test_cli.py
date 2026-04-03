@@ -52,8 +52,8 @@ def test_strict_returns_one_on_token_expired(capsys, tmp_path, sample_generator_
     generator_config_path = _write_generator_config(tmp_path, sample_generator_config)
 
     with patch(
-            "aws_config_gen.cli.discover_all_roles",
-            side_effect=TokenExpiredError("expired"),
+        "aws_config_gen.cli.discover_all_roles",
+        side_effect=TokenExpiredError("expired"),
     ):
         rc = cli(["--strict", "--generator-config", str(generator_config_path)])
 
@@ -63,13 +63,13 @@ def test_strict_returns_one_on_token_expired(capsys, tmp_path, sample_generator_
 
 
 def test_non_strict_returns_zero_on_token_not_found(
-        capsys, tmp_path, sample_generator_config
+    capsys, tmp_path, sample_generator_config
 ):
     generator_config_path = _write_generator_config(tmp_path, sample_generator_config)
 
     with patch(
-            "aws_config_gen.cli.discover_all_roles",
-            side_effect=TokenNotFoundError("not found"),
+        "aws_config_gen.cli.discover_all_roles",
+        side_effect=TokenNotFoundError("not found"),
     ):
         rc = cli(["--generator-config", str(generator_config_path)])
 
@@ -159,7 +159,7 @@ def test_duplicate_profile_names_return_one(capsys, tmp_path, sample_generator_c
 
 
 def test_existing_manual_profile_collision_returns_one(
-        capsys, tmp_path, sample_generator_config
+    capsys, tmp_path, sample_generator_config
 ):
     generator_config_path = tmp_path / "config.json"
     generator_config_path.write_text(
@@ -200,14 +200,14 @@ def test_http_401_shows_login_message(capsys, tmp_path, sample_generator_config)
     generator_config_path = _write_generator_config(tmp_path, sample_generator_config)
 
     with patch(
-            "aws_config_gen.cli.discover_all_roles",
-            side_effect=urllib.error.HTTPError(
-                url="https://example.com",
-                code=401,
-                msg="Unauthorized",
-                hdrs=None,  # type: ignore[arg-type]
-                fp=None,
-            ),
+        "aws_config_gen.cli.discover_all_roles",
+        side_effect=urllib.error.HTTPError(
+            url="https://example.com",
+            code=401,
+            msg="Unauthorized",
+            hdrs=None,  # type: ignore[arg-type]
+            fp=None,
+        ),
     ):
         rc = cli(["--generator-config", str(generator_config_path)])
 
@@ -218,13 +218,13 @@ def test_http_401_shows_login_message(capsys, tmp_path, sample_generator_config)
 
 
 def test_network_error_non_strict_returns_zero(
-        capsys, tmp_path, sample_generator_config
+    capsys, tmp_path, sample_generator_config
 ):
     generator_config_path = _write_generator_config(tmp_path, sample_generator_config)
 
     with patch(
-            "aws_config_gen.cli.discover_all_roles",
-            side_effect=urllib.error.URLError("Name or service not known"),
+        "aws_config_gen.cli.discover_all_roles",
+        side_effect=urllib.error.URLError("Name or service not known"),
     ):
         rc = cli(["--generator-config", str(generator_config_path)])
 
@@ -237,8 +237,8 @@ def test_network_error_strict_returns_one(capsys, tmp_path, sample_generator_con
     generator_config_path = _write_generator_config(tmp_path, sample_generator_config)
 
     with patch(
-            "aws_config_gen.cli.discover_all_roles",
-            side_effect=urllib.error.URLError("Connection refused"),
+        "aws_config_gen.cli.discover_all_roles",
+        side_effect=urllib.error.URLError("Connection refused"),
     ):
         rc = cli(["--strict", "--generator-config", str(generator_config_path)])
 

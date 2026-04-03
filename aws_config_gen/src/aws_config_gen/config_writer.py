@@ -14,7 +14,7 @@ SECTION_PATTERN = re.compile(r"^\[(?P<section>[^\]]+)\]\s*$")
 
 
 def render_profiles(
-        entries: list[ProfileEntry], generator_config: GeneratorConfig
+    entries: list[ProfileEntry], generator_config: GeneratorConfig
 ) -> str:
     """Render the full managed block including markers and all stanzas."""
     lines: list[str] = [BEGIN_MARKER]
