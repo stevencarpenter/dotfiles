@@ -360,17 +360,18 @@ def test_main_prints_latest_claude_session_audit_prefers_current_project(tmp_pat
     assert "Input Tokens" in out and "10 tokens" in out
 
 
-def test_main_claude_falls_back_to_global_latest(tmp_path: Path, capsys) -> None:
+def test_main_claude_no_fallback_to_other_projects(tmp_path: Path, capsys) -> None:
+    """When no session exists for the current project, do not show an unrelated project's session."""
     claude_home = tmp_path / ".claude"
     cwd = tmp_path / "workspace"
     cwd.mkdir(parents=True)
 
-    global_dir = claude_home / "projects" / "fallback-project"
+    global_dir = claude_home / "projects" / "unrelated-project"
     write_session_file(
-        global_dir / "fallback.jsonl",
+        global_dir / "unrelated.jsonl",
         [
             {
-                "sessionId": "fallback-session",
+                "sessionId": "unrelated-session",
                 "timestamp": "2026-02-28T11:00:00Z",
                 "message": {
                     "id": "f1",
@@ -387,10 +388,10 @@ def test_main_claude_falls_back_to_global_latest(tmp_path: Path, capsys) -> None
     )
 
     rc = main(["--provider", "claude", "--claude-home", str(claude_home), "--cwd", str(cwd)])
-    out = capsys.readouterr().out
+    captured = capsys.readouterr()
 
-    assert rc == 0
-    assert "Session ID" in out and "fallback-session" in out
+    assert rc == 1
+    assert "No Claude session files found" in captured.err
 
 
 def test_main_prints_latest_opencode_session_audit(tmp_path: Path, capsys) -> None:

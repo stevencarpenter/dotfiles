@@ -2,7 +2,6 @@
 
 PROJECT_NAME = "token-auditor"
 CODEX_SESSION_GLOB = "sessions/*/*/*/rollout-*.jsonl"
-CLAUDE_SESSION_GLOB = "projects/*/*.jsonl"
 OPENCODE_DB_DEFAULT = "~/.local/share/opencode/opencode.db"
 
 TOKEN_PRICING_USD_PER_1M: dict[str, dict[str, dict[str, float]]] = {
