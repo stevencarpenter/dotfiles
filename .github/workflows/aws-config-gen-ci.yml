@@ -1,0 +1,38 @@
+name: AWS Config Gen CI
+
+on:
+  push:
+    paths:
+      - "aws_config_gen/**"
+      - ".github/workflows/aws-config-gen-ci.yml"
+  pull_request:
+    paths:
+      - "aws_config_gen/**"
+      - ".github/workflows/aws-config-gen-ci.yml"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Lint with ruff
+        working-directory: aws_config_gen
+        run: |
+          uv run --extra dev ruff check src tests
+          uv run --extra dev ruff format --check src tests
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Run tests
+        working-directory: aws_config_gen
+        run: uv run --extra dev pytest --cov=aws_config_gen --cov-report=term-missing

@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 import pytest
+
 from mcp_sync import main
 
 
@@ -234,6 +235,39 @@ def test_sync_idempotency(temp_home, monkeypatch_home, master_config_file):
 
     # Results should be identical
     assert first_results == second_results, "Sync is not idempotent"
+
+
+def test_full_sync_with_machine_overlay(
+    temp_home, master_config_file, monkeypatch_home
+):
+    """Machine overlay servers appear in all synced configs."""
+    from mcp_sync.sync import run_sync
+
+    machine_dir = temp_home / ".config" / "mcp" / "machine"
+    machine_dir.mkdir(parents=True, exist_ok=True)
+    (machine_dir / "work.json").write_text(
+        json.dumps(
+            {"servers": {"work-only": {"command": "work-cmd", "args": ["--flag"]}}}
+        )
+    )
+
+    rc = run_sync(home=temp_home, machine_config_path=machine_dir / "work.json")
+    assert rc == 0
+
+    # Check generic MCP config
+    generic = json.loads(
+        (temp_home / ".config" / "mcp" / "mcp_config.json").read_text()
+    )
+    assert "work-only" in generic["mcpServers"]
+    # Master servers still present
+    assert "filesystem" in generic["mcpServers"]
+
+    # Check copilot config has the work-only server with tools array
+    copilot = json.loads(
+        (temp_home / ".config" / ".copilot" / "mcp-config.json").read_text()
+    )
+    assert "work-only" in copilot["mcpServers"]
+    assert copilot["mcpServers"]["work-only"]["tools"] == ["*"]
 
 
 if __name__ == "__main__":
