@@ -3,11 +3,11 @@
 import json
 import runpy
 import sqlite3
+import sys
 from pathlib import Path
 from typing import TypedDict
 
 import pytest
-import sys
 
 from tests.conftest import write_session_file
 from token_auditor.core.types import SessionParseError
