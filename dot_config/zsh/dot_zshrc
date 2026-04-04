@@ -273,7 +273,8 @@ function ca() {
   chezmoi diff --exclude=scripts
 
   # Check if there are any conflicts (target differs from expected source)
-  if chezmoi diff --exclude=scripts | grep -q "^-"; then
+  # Look for actual file deletions/changes, not diff headers
+  if chezmoi diff --exclude=scripts | grep -q "^-[^-]"; then
     echo ""
     echo "   Target files have changes that differ from source."
     echo "   These will be preserved. Only source changes will be applied."
@@ -341,6 +342,9 @@ fi
 
 # === 9. Completions ===
 # Lazy load completions to speed up startup - defer until first command
+# Add Homebrew completions to fpath BEFORE compinit runs
+fpath+=$(brew --prefix)/share/zsh/site-functions
+
 _zsh_lazy_load_completions() {
   # Remove the hook so this only runs once
   add-zsh-hook -d precmd _zsh_lazy_load_completions 2>/dev/null || true
@@ -348,9 +352,6 @@ _zsh_lazy_load_completions() {
   # Now load completions
   autoload -Uz +X compinit && compinit
   autoload -Uz +X bashcompinit && bashcompinit
-
-  # Add Homebrew completions to fpath
-  fpath+=$(brew --prefix)/share/zsh/site-functions
 
   # Set up completions for custom functions
   compdef _directories md
