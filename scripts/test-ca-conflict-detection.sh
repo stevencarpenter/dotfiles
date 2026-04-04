@@ -7,7 +7,7 @@ helper_path="${repo_root}/dot_config/zsh/lib/chezmoi-apply.zsh"
 
 source "${helper_path}"
 
-tmpdir="$(mktemp -d /tmp/chezmoi-ca-test.XXXXXX)"
+tmpdir="$(mktemp -d "${TMPDIR:-/tmp}/chezmoi-ca-test.XXXXXX")"
 trap 'rm -rf "${tmpdir}"' EXIT
 
 source_dir="${tmpdir}/source"

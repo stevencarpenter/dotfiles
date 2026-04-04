@@ -286,13 +286,10 @@ if command -v mise >/dev/null 2>&1; then
   # Add shims to PATH
   path=($HOME/.local/share/mise/shims $path)
 
-  # Prevent mise hooks during startup
-  unset -f _mise_hook 2>/dev/null || true
-
   # Create wrapper function that activates on first use
   mise() {
     if [[ -z "${MISE_SHELL-}" ]]; then
-      eval "$(~/.local/bin/mise activate zsh --shims-as-is)"
+      eval "$(command mise activate zsh)"
       # Remove this wrapper after activation
       unfunction mise 2>/dev/null || true
     fi
@@ -305,32 +302,23 @@ fi
 [[ -f "$HOME/.atuin/bin/env" ]] && . "$HOME/.atuin/bin/env" || true
 eval "$(atuin init zsh)"
 
-# tv (terminal visualizer shell completions) - lazy load
-_tv_lazy_init() {
-  if command -v tv >/dev/null 2>&1; then
-    eval "$(tv init zsh)"
-    add-zsh-hook -d precmd _tv_lazy_init 2>/dev/null || true
-  fi
-}
-if command -v tv >/dev/null 2>&1; then
-  autoload -Uz add-zsh-hook
-  add-zsh-hook precmd _tv_lazy_init
-fi
-
 # === 9. Completions ===
-# Lazy load completions to speed up startup - defer until first command
-# Add Homebrew completions to fpath BEFORE compinit runs
-fpath+=$(brew --prefix)/share/zsh/site-functions
+# Defer custom completion registration until after first prompt.
+# z4h calls compinit internally; we detect this via ${+_comps} and skip a redundant
+# second call. The old guard (typeset -f compinit) was unreliable — z4h autoloads
+# compinit so it always appeared defined before it had actually run.
+fpath+=${HOMEBREW_PREFIX:-/opt/homebrew}/share/zsh/site-functions
 
 _zsh_lazy_load_completions() {
-  # Remove the hook so this only runs once
   add-zsh-hook -d precmd _zsh_lazy_load_completions 2>/dev/null || true
 
-  # Now load completions
-  autoload -Uz +X compinit && compinit
-  autoload -Uz +X bashcompinit && bashcompinit
+  # Only call compinit if z4h hasn't already done so
+  if (( ! ${+_comps} )); then
+    autoload -Uz +X compinit && compinit
+    autoload -Uz +X bashcompinit && bashcompinit
+  fi
 
-  # Set up completions for custom functions
+  # Register completions for custom functions
   compdef _directories md
   if command -v aws-sso >/dev/null 2>&1; then
     compdef __aws_sso_profile_complete aws-sso-profile
@@ -338,11 +326,8 @@ _zsh_lazy_load_completions() {
   fi
 }
 
-# Hook into precmd to load completions after first prompt, but only if not already loaded
-if ! typeset -f compinit >/dev/null; then
-  autoload -Uz add-zsh-hook
-  add-zsh-hook precmd _zsh_lazy_load_completions
-fi
+autoload -Uz add-zsh-hook
+add-zsh-hook precmd _zsh_lazy_load_completions
 
 # === 10. Optional Integrations (last, least critical) ===
 # OrbStack: command-line tools and integration
