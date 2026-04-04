@@ -89,6 +89,26 @@ aws-sso-clear() {
     eval $(""/opt/homebrew/bin/aws-sso ${=_args} eval -c)
     unset AWS_DEFAULT_PROFILE
 }
+
+aws_sso_path() {
+  local aws_sso_path
+  aws_sso_path="$(command -v aws-sso 2>/dev/null)"
+  if [[ -n "$aws_sso_path" ]]; then
+    compdef __aws_sso_profile_complete aws-sso-profile
+    complete -C "$aws_sso_path" aws-sso
+  fi
+}
+
+
+  # Register completions for custom functions
+  compdef _directories md
+  local aws_sso_path
+  aws_sso_path="$(command -v aws-sso 2>/dev/null)"
+  if [[ -n "$aws_sso_path" ]]; then
+    compdef __aws_sso_profile_complete aws-sso-profile
+    complete -C "$aws_sso_path" aws-sso
+  fi
+
 # END_AWS_SSO_CLI
 
 # AWS SSO profile management for role assumption. This is a helper function that
