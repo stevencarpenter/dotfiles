@@ -19,14 +19,15 @@ function ca() {
   echo "Checking for conflicts between source and target..."
 
   echo "Changes to be applied:"
-  chezmoi diff --exclude=scripts
+  chezmoi diff --exclude=scripts "$@"
 
-  if chezmoi status --exclude=scripts | _ca_has_target_drift; then
+  if chezmoi status --exclude=scripts "$@" | _ca_has_target_drift; then
     echo ""
     echo "   Target files have changes that differ from source."
-    echo "   These will be preserved. Only source changes will be applied."
+    echo "   Running chezmoi apply may overwrite those target-side changes."
+    echo "   Review the diff above before proceeding."
     echo ""
-    read -q "reply?Proceed with applying source changes? [y/N] " || return 1
+    read -q "reply?Proceed with chezmoi apply? This may overwrite target changes. [y/N] " || return 1
     echo ""
   fi
 
