@@ -5,7 +5,7 @@
 # Documentation: https://github.com/romkatv/zsh4humans/blob/v5/README.md.
 
 ## Zshell profiling flags (uncomment to profile startup time)
-# zmodload zsh/zprof
+zmodload zsh/zprof
 
 # ============================================================================
 # PRE-INIT SETUP (before z4h init)
@@ -100,33 +100,6 @@ if [[ -r "$XDG_CONFIG_HOME/zsh/.env" ]]; then
   source -- "$XDG_CONFIG_HOME/zsh/.env"
   set +a
 fi
-
-# GitHub token from gh CLI (for MCP servers and other tooling).
-#
-# Note: `gh auth status` can succeed later in the session even if it fails during
-# early shell startup (keychain/agent timing). To make this robust, we:
-# - attempt once during startup
-# - retry automatically before each prompt until it succeeds (then unregister)
-__zsh_set_github_token() {
-  [[ -n "${GITHUB_TOKEN-}" ]] && return 0
-  command -v gh >/dev/null 2>&1 || return 0
-
-  local token
-  token="$(gh auth token 2>/dev/null)" || return 0
-  [[ -n "$token" ]] || return 0
-
-  typeset -gx GITHUB_TOKEN="$token"
-  typeset -gx GITHUB_PERSONAL_ACCESS_TOKEN="${GITHUB_PERSONAL_ACCESS_TOKEN:-$token}"
-}
-
-__zsh_set_github_token_precmd() {
-  __zsh_set_github_token
-  [[ -n "${GITHUB_TOKEN-}" ]] && add-zsh-hook -d precmd __zsh_set_github_token_precmd 2>/dev/null || true
-}
-
-autoload -Uz add-zsh-hook
-__zsh_set_github_token
-add-zsh-hook -Uz precmd __zsh_set_github_token_precmd
 
 # === 5. Aliases ===
 # Git aliases
@@ -290,15 +263,31 @@ function codax() { _run_with_token_audit codax codex codex 0 "$@"; }
 function claade() { _run_with_token_audit claade claude claude 1 "$@"; }
 function opencade() { _run_with_token_audit opencade opencode opencode 1 "$@"; }
 
-# Chezmoi apply with automatic re-add of target-side changes.
-# Skips re-add when the source repo has uncommitted changes to avoid overwriting them.
+# Chezmoi apply with intelligent conflict resolution.
+# - Applies manual changes from source
+# - Preserves target-side changes that differ from source
+# - Shows what would be applied before doing so
 function ca() {
-  if [[ -n "$(git -C ~/.local/share/chezmoi status --porcelain)" ]]; then
-    echo "chezmoi source has uncommitted changes — skipping re-add" >&2
-  else
-    chezmoi re-add
+  echo "🔍 Checking for conflicts between source and target..."
+
+  # Show what would be applied
+  echo "📋 Changes to be applied:"
+  chezmoi diff --exclude=scripts
+
+  # Check if there are any conflicts (target differs from expected source)
+  if chezmoi diff --exclude=scripts | grep -q "^-"; then
+    echo ""
+    echo "⚠️  Target files have changes that differ from source."
+    echo "   These will be preserved. Only source changes will be applied."
+    echo ""
+    read -q "continue?Proceed with applying source changes? [y/N] " || return 1
+    echo ""
+    [[ "$continue" != "y" ]] && return 1
   fi
-  chezmoi diff --exclude=scripts && chezmoi apply "$@"
+
+  echo "🚀 Applying changes..."
+  chezmoi apply "$@"
+  echo "✅ Done!"
 }
 
 # Yazi TUI file manager wrapper (updates shell CWD on exit)
@@ -354,10 +343,6 @@ if [[ -d "${ZDOTDIR}/profile.d" ]]; then
     done
 fi
 
-
-
-
-
 # Dev container orchestrator (optional)
 # Not using this right now but it is a nice convention for users who do use dev containers to have a standard file where they can put container-related environment variables and functions (e.g. to automatically detect if you are in a dev container and set up your prompt accordingly, or to set environment variables that point to containerized services, etc.)
 #dev_env_file="${XDG_CONFIG_HOME:-$HOME/.config}/dev-container/dev-env.zsh"
@@ -368,4 +353,4 @@ if command -v wt >/dev/null 2>&1; then eval "$(command wt config shell init zsh)
 
 # ============================================================================
 # Profiling output (uncomment if you enabled zprof at the top)
-# zprof
+zprof
