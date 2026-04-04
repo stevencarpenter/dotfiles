@@ -104,6 +104,12 @@ inoremap jk <Esc>
 " Don't clobber register on visual paste
 vnoremap p "_dP
 
+" Delete without copying (LazyVim custom keymaps)
+nnoremap d "_d
+vnoremap d "_d
+nnoremap x "_x
+vnoremap x "_x
+
 " Center screen after vertical jumps
 nnoremap <C-d> <C-d>zz
 nnoremap <C-u> <C-u>zz

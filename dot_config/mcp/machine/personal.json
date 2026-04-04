@@ -1,1 +1,21 @@
-{}
+{
+  "$schema": "https://modelcontextprotocol.io/schema/config.json",
+  "servers": {
+    "grafana": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["mcp-grafana", "--disable-write"],
+      "env": {
+        "GRAFANA_URL": "http://localhost:3000"
+      }
+    },
+    "railway-mcp-server": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@railway/mcp-server"
+      ]
+    }
+  }
+}
