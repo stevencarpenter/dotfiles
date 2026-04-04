@@ -12,7 +12,7 @@ from typing import SupportsIndex, SupportsInt
 from token_auditor._logging import configure
 from token_auditor.core.claude import parse_claude_events
 from token_auditor.core.codex import parse_codex_events
-from token_auditor.core.constants import CODEX_SESSION_GLOB, OPENCODE_DB_DEFAULT, PROJECT_NAME
+from token_auditor.core.constants import CLAUDE_SESSION_GLOB, CODEX_SESSION_GLOB, OPENCODE_DB_DEFAULT, PROJECT_NAME
 from token_auditor.core.jsonl import decode_jsonl_lines
 from token_auditor.core.opencode import parse_opencode_rows
 from token_auditor.core.pricing import calculate_costs, resolve_pricing_model
@@ -121,7 +121,8 @@ def _find_latest_claude_session_file(claude_home: Path, cwd: Path) -> Path | Non
     """
     project_dir = claude_project_dir(claude_home, cwd)
     project_paths = sorted_paths_by_mtime(glob_paths(project_dir, "*.jsonl")) if path_exists(project_dir) else ()
-    return choose_claude_session_path(project_paths, lambda path: path.stat().st_mtime)
+    global_paths = sorted_paths_by_mtime(glob_paths(claude_home, CLAUDE_SESSION_GLOB))
+    return choose_claude_session_path(project_paths, global_paths, lambda path: path.stat().st_mtime)
 
 
 def _resolve_pricing_model(provider: str, model: str) -> str:
