@@ -261,33 +261,10 @@ function codax() { _run_with_token_audit codax codex codex 0 "$@"; }
 function claade() { _run_with_token_audit claade claude claude 1 "$@"; }
 function opencade() { _run_with_token_audit opencade opencode opencode 1 "$@"; }
 
-# Chezmoi apply with intelligent conflict resolution.
-# - Applies manual changes from source
-# - Preserves target-side changes that differ from source
-# - Shows what would be applied before doing so
-function ca() {
-  echo "Checking for conflicts between source and target..."
-
-  # Show what would be applied
-  echo "Changes to be applied:"
-  chezmoi diff --exclude=scripts
-
-  # Check if there are any conflicts (target differs from expected source)
-  # Look for actual file deletions/changes, not diff headers
-  if chezmoi diff --exclude=scripts | grep -q "^-[^-]"; then
-    echo ""
-    echo "   Target files have changes that differ from source."
-    echo "   These will be preserved. Only source changes will be applied."
-    echo ""
-    read -q "continue?Proceed with applying source changes? [y/N] " || return 1
-    echo ""
-    [[ "$continue" != "y" ]] && return 1
-  fi
-
-  echo "Applying changes..."
-  chezmoi apply "$@"
-  echo "Done!"
-}
+# Chezmoi apply helper (kept separate so it can be regression-tested)
+chezmoi_apply_helper="${XDG_CONFIG_HOME:-$HOME/.config}/zsh/lib/chezmoi-apply.zsh"
+[[ -f "${chezmoi_apply_helper}" ]] && source "${chezmoi_apply_helper}"
+unset chezmoi_apply_helper
 
 # Yazi TUI file manager wrapper (updates shell CWD on exit)
 function y() {
