@@ -5,7 +5,7 @@
 # Documentation: https://github.com/romkatv/zsh4humans/blob/v5/README.md.
 
 ## Zshell profiling flags (uncomment to profile startup time)
-zmodload zsh/zprof
+#zmodload zsh/zprof
 
 # ============================================================================
 # PRE-INIT SETUP (before z4h init)
@@ -390,4 +390,4 @@ if command -v wt >/dev/null 2>&1; then eval "$(command wt config shell init zsh)
 
 # ============================================================================
 # Profiling output (uncomment if you enabled zprof at the top)
-zprof
+#zprof
