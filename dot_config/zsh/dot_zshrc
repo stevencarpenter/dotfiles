@@ -11,9 +11,7 @@ zmodload zsh/zprof
 # PRE-INIT SETUP (before z4h init)
 # ============================================================================
 
-# Autoload functions (required by AWS SSO CLI, must be before z4h init)
-autoload -Uz +X compinit && compinit
-autoload -Uz +X bashcompinit && bashcompinit
+# Auto load zmv for mass renaming. This is needed before z4h init.
 autoload -Uz zmv
 
 # === z4h configuration (zstyles) ===
@@ -268,16 +266,16 @@ function opencade() { _run_with_token_audit opencade opencode opencode 1 "$@"; }
 # - Preserves target-side changes that differ from source
 # - Shows what would be applied before doing so
 function ca() {
-  echo "🔍 Checking for conflicts between source and target..."
+  echo "Checking for conflicts between source and target..."
 
   # Show what would be applied
-  echo "📋 Changes to be applied:"
+  echo "Changes to be applied:"
   chezmoi diff --exclude=scripts
 
   # Check if there are any conflicts (target differs from expected source)
   if chezmoi diff --exclude=scripts | grep -q "^-"; then
     echo ""
-    echo "⚠️  Target files have changes that differ from source."
+    echo "   Target files have changes that differ from source."
     echo "   These will be preserved. Only source changes will be applied."
     echo ""
     read -q "continue?Proceed with applying source changes? [y/N] " || return 1
@@ -285,9 +283,9 @@ function ca() {
     [[ "$continue" != "y" ]] && return 1
   fi
 
-  echo "🚀 Applying changes..."
+  echo "Applying changes..."
   chezmoi apply "$@"
-  echo "✅ Done!"
+  echo "Done!"
 }
 
 # Yazi TUI file manager wrapper (updates shell CWD on exit)
@@ -305,28 +303,67 @@ function y() {
 # zoxide (smart cd)
 eval "$(zoxide init --cmd cd zsh)"
 
-# mise (polyglot runtime manager)
-eval "$(~/.local/bin/mise activate zsh)"
-path=($HOME/.local/share/mise/shims $path)
-eval "$(~/.local/bin/mise completions zsh)"
+# mise (polyglot runtime manager) - lazy load with hook prevention
+if command -v mise >/dev/null 2>&1; then
+  # Add shims to PATH
+  path=($HOME/.local/share/mise/shims $path)
+
+  # Prevent mise hooks during startup
+  unset -f _mise_hook 2>/dev/null || true
+
+  # Create wrapper function that activates on first use
+  mise() {
+    if [[ -z "${MISE_SHELL-}" ]]; then
+      eval "$(~/.local/bin/mise activate zsh --shims-as-is)"
+      # Remove this wrapper after activation
+      unfunction mise 2>/dev/null || true
+    fi
+    command mise "$@"
+  }
+fi
 
 # atuin (shell history)
 [[ -f "$HOME/.local/bin/env" ]] && . "$HOME/.local/bin/env" || true
 [[ -f "$HOME/.atuin/bin/env" ]] && . "$HOME/.atuin/bin/env" || true
 eval "$(atuin init zsh)"
 
-# tv (terminal visualizer shell completions)
-eval "$(tv init zsh)"
+# tv (terminal visualizer shell completions) - lazy load
+_tv_lazy_init() {
+  if command -v tv >/dev/null 2>&1; then
+    eval "$(tv init zsh)"
+    add-zsh-hook -d precmd _tv_lazy_init 2>/dev/null || true
+  fi
+}
+if command -v tv >/dev/null 2>&1; then
+  autoload -Uz add-zsh-hook
+  add-zsh-hook precmd _tv_lazy_init
+fi
 
 # === 9. Completions ===
-# Add Homebrew completions to fpath
-fpath+=$(brew --prefix)/share/zsh/site-functions
+# Lazy load completions to speed up startup - defer until first command
+_zsh_lazy_load_completions() {
+  # Remove the hook so this only runs once
+  add-zsh-hook -d precmd _zsh_lazy_load_completions 2>/dev/null || true
 
-# Set up completions for custom functions
-compdef _directories md
-if command -v aws-sso >/dev/null 2>&1; then
-  compdef __aws_sso_profile_complete aws-sso-profile
-  complete -C /opt/homebrew/bin/aws-sso aws-sso
+  # Now load completions
+  autoload -Uz +X compinit && compinit
+  autoload -Uz +X bashcompinit && bashcompinit
+
+  # Add Homebrew completions to fpath
+  fpath+=$(brew --prefix)/share/zsh/site-functions
+
+  # Set up completions for custom functions
+  compdef _directories md
+  if command -v aws-sso >/dev/null 2>&1; then
+    compdef __aws_sso_profile_complete aws-sso-profile
+    complete -C /opt/homebrew/bin/aws-sso aws-sso
+  fi
+}
+
+# Hook into precmd to load completions after first prompt, but only if not already loaded
+if ! typeset -f compinit >/dev/null; then
+  autoload -Uz add-zsh-hook
+  add-zsh-hook precmd _zsh_lazy_load_completions
 fi
 
 # === 10. Optional Integrations (last, least critical) ===
