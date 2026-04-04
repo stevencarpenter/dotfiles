@@ -23,6 +23,10 @@ def latest_path(paths: Sequence[Path], mtime_lookup: Callable[[Path], float]) ->
     return max(paths, key=mtime_lookup)
 
 
-def choose_claude_session_path(project_paths: Sequence[Path], mtime_lookup: Callable[[Path], float]) -> Path | None:
-    """Pick the latest project-specific session path, or None when no sessions exist for this project."""
-    return latest_path(project_paths, mtime_lookup)
+def choose_claude_session_path(project_paths: Sequence[Path], global_paths: Sequence[Path],
+                               mtime_lookup: Callable[[Path], float]) -> Path | None:
+    """Pick latest project path first, then fallback to latest global path."""
+    project_latest = latest_path(project_paths, mtime_lookup)
+    if project_latest is not None:
+        return project_latest
+    return latest_path(global_paths, mtime_lookup)

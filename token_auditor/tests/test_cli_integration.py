@@ -3,11 +3,11 @@
 import json
 import runpy
 import sqlite3
-import sys
 from pathlib import Path
 from typing import TypedDict
 
 import pytest
+import sys
 
 from tests.conftest import write_session_file
 from token_auditor.core.types import SessionParseError
@@ -360,18 +360,17 @@ def test_main_prints_latest_claude_session_audit_prefers_current_project(tmp_pat
     assert "Input Tokens" in out and "10 tokens" in out
 
 
-def test_main_claude_no_fallback_to_other_projects(tmp_path: Path, capsys) -> None:
-    """When no session exists for the current project, do not show an unrelated project's session."""
+def test_main_claude_falls_back_to_global_latest(tmp_path: Path, capsys) -> None:
     claude_home = tmp_path / ".claude"
     cwd = tmp_path / "workspace"
     cwd.mkdir(parents=True)
 
-    global_dir = claude_home / "projects" / "unrelated-project"
+    global_dir = claude_home / "projects" / "fallback-project"
     write_session_file(
-        global_dir / "unrelated.jsonl",
+        global_dir / "fallback.jsonl",
         [
             {
-                "sessionId": "unrelated-session",
+                "sessionId": "fallback-session",
                 "timestamp": "2026-02-28T11:00:00Z",
                 "message": {
                     "id": "f1",
@@ -388,10 +387,10 @@ def test_main_claude_no_fallback_to_other_projects(tmp_path: Path, capsys) -> No
     )
 
     rc = main(["--provider", "claude", "--claude-home", str(claude_home), "--cwd", str(cwd)])
-    captured = capsys.readouterr()
+    out = capsys.readouterr().out
 
-    assert rc == 1
-    assert "No Claude session files found" in captured.err
+    assert rc == 0
+    assert "Session ID" in out and "fallback-session" in out
 
 
 def test_main_prints_latest_opencode_session_audit(tmp_path: Path, capsys) -> None:
