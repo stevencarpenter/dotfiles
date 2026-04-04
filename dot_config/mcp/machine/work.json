@@ -1,4 +1,5 @@
 {
+  "$schema": "https://modelcontextprotocol.io/schema/config.json",
   "servers": {
     "awslabs-ccapi-mcp-server": {
       "command": "uvx",

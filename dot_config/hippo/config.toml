@@ -2,9 +2,9 @@
 base_url = "http://localhost:1234/v1"  # LM Studio local server
 
 [models]
-enrichment = "gpt-oss-120b-mlx-crack"                    # Daily: MoE, 35B total, 3B active — fast
-enrichment_bulk = "gpt-oss-120b-mlx-crack"               # Bulk: strongest available — slow but reliable
-query = "gpt-oss-120b-mlx-crack"                          # Same model for query reformulation
+enrichment = "qwen3.5-35b-a3b"                    # Daily: MoE, 35B total, 3B active — fast
+enrichment_bulk = "qwen3.5-35b-a3b"               # Bulk: strongest available — slow but reliable
+query = "qwen3.5-35b-a3b"                          # Same model for query reformulation
 embedding = "text-embedding-nomic-embed-text-v2-moe"     # Purpose-built embedding model, 768d
 
 [daemon]
@@ -18,6 +18,10 @@ poll_interval_secs = 5     # Enrichment queue poll interval
 enrichment_batch_size = 30 # Events per enrichment batch (session-based live enrichment)
 max_events_per_chunk = 30  # Max events per enrichment chunk
 max_queue_depth = 100      # Max pending enrichment items
+
+[telemetry]
+enabled = true
+endpoint = "http://localhost:4317"
 
 [storage]
 # data_dir = "~/.local/share/hippo"    # Override data directory

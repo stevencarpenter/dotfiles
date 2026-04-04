@@ -35,12 +35,11 @@ brew "yq"                     # YAML processor
 brew "zoxide"                 # Smart cd
 brew "btop"
 brew "ffmpeg"
-brew "--HEAD neovim"
+brew "neovim"
 brew "uv"
 brew "mactop"
 brew "worktrunk"
 brew "cloc"
-brew "television"
 brew "delta"
 
 # ============================================================================
@@ -76,7 +75,6 @@ cask "obsidian"
 cask "orbstack"               # Docker/Linux VMs
 cask "the-unarchiver"
 cask "codex"
-brew "railway"                # Railway CLI
 
 # ============================================================================
 # Fonts (nerd fonts needed by Powerlevel10k + extras)
@@ -89,8 +87,9 @@ cask "font-jetbrains-mono"
 
 {{ if hasPrefix "personal" .machine }}
 # ============================================================================
-# Personal-only fonts (preference-driven)
+# Personal-only tooling
 # ============================================================================
+brew "railway"                # Railway CLI
 cask "font-anonymous-pro"
 cask "font-bebas-neue"
 cask "font-courier-prime"

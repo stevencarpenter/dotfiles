@@ -1,14 +1,6 @@
 {
   "$schema": "https://modelcontextprotocol.io/schema/config.json",
   "servers": {
-    "railway-mcp-server": {
-      "type": "stdio",
-      "command": "npx",
-      "args": [
-        "-y",
-        "@railway/mcp-server"
-      ]
-    },
     "github": {
       "type": "stdio",
       "command": "npx",

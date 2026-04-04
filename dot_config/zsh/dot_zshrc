@@ -5,15 +5,13 @@
 # Documentation: https://github.com/romkatv/zsh4humans/blob/v5/README.md.
 
 ## Zshell profiling flags (uncomment to profile startup time)
-# zmodload zsh/zprof
+#zmodload zsh/zprof
 
 # ============================================================================
 # PRE-INIT SETUP (before z4h init)
 # ============================================================================
 
-# Autoload functions (required by AWS SSO CLI, must be before z4h init)
-autoload -Uz +X compinit && compinit
-autoload -Uz +X bashcompinit && bashcompinit
+# Auto load zmv for mass renaming. This is needed before z4h init.
 autoload -Uz zmv
 
 # === z4h configuration (zstyles) ===
@@ -100,33 +98,6 @@ if [[ -r "$XDG_CONFIG_HOME/zsh/.env" ]]; then
   source -- "$XDG_CONFIG_HOME/zsh/.env"
   set +a
 fi
-
-# GitHub token from gh CLI (for MCP servers and other tooling).
-#
-# Note: `gh auth status` can succeed later in the session even if it fails during
-# early shell startup (keychain/agent timing). To make this robust, we:
-# - attempt once during startup
-# - retry automatically before each prompt until it succeeds (then unregister)
-__zsh_set_github_token() {
-  [[ -n "${GITHUB_TOKEN-}" ]] && return 0
-  command -v gh >/dev/null 2>&1 || return 0
-
-  local token
-  token="$(gh auth token 2>/dev/null)" || return 0
-  [[ -n "$token" ]] || return 0
-
-  typeset -gx GITHUB_TOKEN="$token"
-  typeset -gx GITHUB_PERSONAL_ACCESS_TOKEN="${GITHUB_PERSONAL_ACCESS_TOKEN:-$token}"
-}
-
-__zsh_set_github_token_precmd() {
-  __zsh_set_github_token
-  [[ -n "${GITHUB_TOKEN-}" ]] && add-zsh-hook -d precmd __zsh_set_github_token_precmd 2>/dev/null || true
-}
-
-autoload -Uz add-zsh-hook
-__zsh_set_github_token
-add-zsh-hook -Uz precmd __zsh_set_github_token_precmd
 
 # === 5. Aliases ===
 # Git aliases
@@ -290,16 +261,10 @@ function codax() { _run_with_token_audit codax codex codex 0 "$@"; }
 function claade() { _run_with_token_audit claade claude claude 1 "$@"; }
 function opencade() { _run_with_token_audit opencade opencode opencode 1 "$@"; }
 
-# Chezmoi apply with automatic re-add of target-side changes.
-# Skips re-add when the source repo has uncommitted changes to avoid overwriting them.
-function ca() {
-  if [[ -n "$(git -C ~/.local/share/chezmoi status --porcelain)" ]]; then
-    echo "chezmoi source has uncommitted changes — skipping re-add" >&2
-  else
-    chezmoi re-add
-  fi
-  chezmoi diff --exclude=scripts && chezmoi apply "$@"
-}
+# Chezmoi apply helper (kept separate so it can be regression-tested)
+chezmoi_apply_helper="${XDG_CONFIG_HOME:-$HOME/.config}/zsh/lib/chezmoi-apply.zsh"
+[[ -f "${chezmoi_apply_helper}" ]] && source "${chezmoi_apply_helper}"
+unset chezmoi_apply_helper
 
 # Yazi TUI file manager wrapper (updates shell CWD on exit)
 function y() {
@@ -316,29 +281,55 @@ function y() {
 # zoxide (smart cd)
 eval "$(zoxide init --cmd cd zsh)"
 
-# mise (polyglot runtime manager)
-eval "$(~/.local/bin/mise activate zsh)"
-path=($HOME/.local/share/mise/shims $path)
-eval "$(~/.local/bin/mise completions zsh)"
+# mise (polyglot runtime manager) - lazy load with hook prevention
+if command -v mise >/dev/null 2>&1; then
+  # Add shims to PATH
+  path=($HOME/.local/share/mise/shims $path)
+
+  # Create wrapper function that activates on first use
+  mise() {
+    if [[ -z "${MISE_SHELL-}" ]]; then
+      eval "$(command mise activate zsh)"
+      # Remove this wrapper after activation
+      unfunction mise 2>/dev/null || true
+    fi
+    command mise "$@"
+  }
+fi
 
 # atuin (shell history)
 [[ -f "$HOME/.local/bin/env" ]] && . "$HOME/.local/bin/env" || true
 [[ -f "$HOME/.atuin/bin/env" ]] && . "$HOME/.atuin/bin/env" || true
 eval "$(atuin init zsh)"
 
-# tv (terminal visualizer shell completions)
-eval "$(tv init zsh)"
-
 # === 9. Completions ===
-# Add Homebrew completions to fpath
-fpath+=$(brew --prefix)/share/zsh/site-functions
+# Defer custom completion registration until after first prompt.
+# z4h calls compinit internally; we detect this via ${+_comps} and skip a redundant
+# second call. The old guard (typeset -f compinit) was unreliable — z4h autoloads
+# compinit so it always appeared defined before it had actually run.
+fpath+=${HOMEBREW_PREFIX:-/opt/homebrew}/share/zsh/site-functions
 
-# Set up completions for custom functions
-compdef _directories md
-if command -v aws-sso >/dev/null 2>&1; then
-  compdef __aws_sso_profile_complete aws-sso-profile
-  complete -C /opt/homebrew/bin/aws-sso aws-sso
-fi
+_zsh_lazy_load_completions() {
+  add-zsh-hook -d precmd _zsh_lazy_load_completions 2>/dev/null || true
+
+  # Only call compinit if z4h hasn't already done so
+  if (( ! ${+_comps} )); then
+    autoload -Uz +X compinit && compinit
+    autoload -Uz +X bashcompinit && bashcompinit
+  fi
+
+  # Register completions for custom functions
+  compdef _directories md
+  local aws_sso_path
+  aws_sso_path="$(command -v aws-sso 2>/dev/null)"
+  if [[ -n "$aws_sso_path" ]]; then
+    compdef __aws_sso_profile_complete aws-sso-profile
+    complete -C "$aws_sso_path" aws-sso
+  fi
+}
+
+autoload -Uz add-zsh-hook
+add-zsh-hook precmd _zsh_lazy_load_completions
 
 # === 10. Optional Integrations (last, least critical) ===
 # OrbStack: command-line tools and integration
@@ -354,10 +345,6 @@ if [[ -d "${ZDOTDIR}/profile.d" ]]; then
     done
 fi
 
-
-
-
-
 # Dev container orchestrator (optional)
 # Not using this right now but it is a nice convention for users who do use dev containers to have a standard file where they can put container-related environment variables and functions (e.g. to automatically detect if you are in a dev container and set up your prompt accordingly, or to set environment variables that point to containerized services, etc.)
 #dev_env_file="${XDG_CONFIG_HOME:-$HOME/.config}/dev-container/dev-env.zsh"
@@ -368,4 +355,4 @@ if command -v wt >/dev/null 2>&1; then eval "$(command wt config shell init zsh)
 
 # ============================================================================
 # Profiling output (uncomment if you enabled zprof at the top)
-# zprof
+#zprof
