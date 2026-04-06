@@ -25,6 +25,12 @@ This user has spent significant effort configuring MCP servers, plugins, skills,
 3. **Specialized agents** — Use Explore, Plan, code-reviewer, and other Agent subtypes for tasks matching their descriptions.
 4. **Built-in tools** (Read, Grep, Glob, Edit, Write, Bash) — **Last resort only**, when no MCP tool, skill, or agent covers the need.
 
+### Git Operations
+
+- When working with git, always use the `mcp__github__*` tools instead of running git commands directly.
+- Never sign commits with created by claude.
+- Never add anything to the commit message that is related to claude or any of it's models or tools.
+
 ### IntelliJ MCP substitutions (IntelliJ is always running)
 
 | Instead of | Prefer |

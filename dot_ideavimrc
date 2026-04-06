@@ -83,6 +83,13 @@ set idearefactormode=keep
 set ideamarks              " sync bookmarks ↔ vim marks
 
 " ---------------------------------------------------------------------------
+" CMD Shortcuts
+" ---------------------------------------------------------------------------
+" Let IDE handle CMD shortcuts that IdeaVim would otherwise swallow
+sethandler <D-;> a:ide
+sethandler <D-a>-<D-z> a:ide
+
+" ---------------------------------------------------------------------------
 " Leader Key (matching init.lua: vim.g.mapleader = ' ')
 " ---------------------------------------------------------------------------
 " let mapleader = " " -- set above before any mappings
