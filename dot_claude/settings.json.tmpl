@@ -51,7 +51,7 @@
         "repo": "cloudflare/skills"
       }
     }
-}{{- if hasPrefix "personal" .machine }},
+  }{{- if hasPrefix "personal" .machine }},
   "hooks": {
     "SessionStart": [
       {
@@ -63,8 +63,7 @@
         ]
       }
     ]
-  }
-{{- end }},
+  }{{- end }},
   "effortLevel": "high",
   "voiceEnabled": true,
   "autoDreamEnabled": true,
