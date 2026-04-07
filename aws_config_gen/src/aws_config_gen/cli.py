@@ -66,7 +66,7 @@ def cli(argv: Sequence[str] | None = None) -> int:
     generator_config_path: Path = (
         args.generator_config.expanduser()
         if args.generator_config
-        else Path.home() / ".config" / "aws-config-gen" / "config.json"
+        else Path.home() / ".config" / "aws-config-gen" / "overrides.json"
     )
     try:
         generator_config = load_generator_config(generator_config_path)
