@@ -191,9 +191,13 @@ def test_existing_manual_profile_collision_returns_one(
             ]
         )
 
-    assert rc == 1
+    assert rc == 0
     captured = capsys.readouterr()
-    assert "existing AWS config section names" in captured.err
+    assert "Absorbed" in captured.err
+    # Manual profile replaced by generated one
+    content = config_path.read_text()
+    assert content.count("[profile prod]") == 1
+    assert "sso_session = test-session" in content
 
 
 def test_http_401_shows_login_message(capsys, tmp_path, sample_generator_config):

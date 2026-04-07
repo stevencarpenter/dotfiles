@@ -140,8 +140,16 @@ def test_merge_config_preserves_content_outside_markers():
     assert "old stuff" not in result
 
 
-def test_merge_config_rejects_duplicate_section_outside_managed_block():
-    existing = "[profile prod]\nregion = us-east-1\n"
+def test_merge_config_absorbs_duplicate_section_outside_managed_block(capsys):
+    existing = (
+        "[sso-session test-session]\n"
+        "sso_start_url = https://old.example.com\n"
+        "sso_region = us-east-1\n\n"
+        "[profile prod]\n"
+        "region = us-east-1\n\n"
+        "[profile keep-me]\n"
+        "region = eu-west-1\n"
+    )
     new_block = (
         f"{BEGIN_MARKER}\n"
         "[sso-session test-session]\n"
@@ -156,8 +164,18 @@ def test_merge_config_rejects_duplicate_section_outside_managed_block():
         f"{END_MARKER}\n"
     )
 
-    with pytest.raises(ValueError, match="existing AWS config section names"):
-        merge_config(existing, new_block)
+    result = merge_config(existing, new_block)
+
+    # Manual duplicates removed, non-conflicting manual section kept
+    assert "[profile keep-me]" in result
+    assert result.count("[profile prod]") == 1
+    assert result.count("[sso-session test-session]") == 1
+    # Generated block is present
+    assert BEGIN_MARKER in result
+    assert "sso_start_url = https://example.com/start" in result
+    # Stderr warning
+    captured = capsys.readouterr()
+    assert "Absorbed" in captured.err
 
 
 def test_write_config_creates_file(tmp_path: Path):
