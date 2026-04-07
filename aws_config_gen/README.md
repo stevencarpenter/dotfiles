@@ -51,7 +51,7 @@ aws-config-gen
 ### Command-line Options
 
 ```
---generator-config PATH    Path to config.json (default: ~/.config/aws-config-gen/config.json)
+--generator-config PATH    Path to overrides.json (default: ~/.config/aws-config-gen/overrides.json)
 --config PATH              Path to AWS config file (default: ~/.aws/config)
 --dry-run                  Print generated config to stdout; don't write
 --strict                   Exit 1 on token failures (default: exit 0)
@@ -79,10 +79,10 @@ aws-config-gen --strict
 
 ## Configuration
 
-### Generator Config File (`config.json`)
+### Generator Config File (`overrides.json`)
 
 The generator config file controls naming, session parameters, and skip rules. Default location:
-`~/.config/aws-config-gen/config.json`.
+`~/.config/aws-config-gen/overrides.json`.
 
 **Schema:**
 
@@ -137,7 +137,7 @@ Given a set of account-role combinations:
 - If an account has **one role**: profile name = account name (e.g., `prod`)
 - If an account has **multiple roles**: profile name = account name + role short name (e.g., `prod-admin`, `prod-developer`)
 
-Names are lowercased and spaces are converted to hyphens. Custom mappings in `config.json` override defaults.
+Names are lowercased and spaces are converted to hyphens. Custom mappings in `overrides.json` override defaults.
 
 ### Config File Merge
 
@@ -254,7 +254,7 @@ The cached token has expired. Run the indicated command to refresh it.
 
 ### Wrong SSO Session
 
-Verify the `sso_session` in `config.json` matches the session name in your `~/.aws/config`:
+Verify the `sso_session` in `overrides.json` matches the session name in your `~/.aws/config`:
 
 ```bash
 grep "sso_session\|sso_start_url" ~/.aws/config
@@ -265,7 +265,7 @@ grep "sso_session\|sso_start_url" ~/.aws/config
 Check that your generator config file is valid:
 
 ```bash
-python -m json.tool ~/.config/aws-config-gen/config.json
+python -m json.tool ~/.config/aws-config-gen/overrides.json
 ```
 
 Verify your SSO session is authenticated:
