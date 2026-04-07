@@ -5,7 +5,7 @@ repos:
       - id: check-yaml
       - id: check-toml
       - id: check-json
-        exclude: (^mcp_sync/tests/test_data/malformed_json\.json$|\.json\.tmpl$)
+        exclude: (^mcp_sync/tests/test_data/malformed_json\.json$|\.json\.tmpl$|encrypted_.*\.json$)
       - id: check-added-large-files
       - id: check-case-conflict
       - id: check-ast
