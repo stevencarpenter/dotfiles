@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import urllib.error
+from pathlib import Path
 from unittest.mock import patch
 
 from aws_config_gen.cli import cli
@@ -76,6 +77,14 @@ def test_non_strict_returns_zero_on_token_not_found(
     assert rc == 0
     captured = capsys.readouterr()
     assert "aws sso login" in captured.err
+
+
+def test_default_generator_config_path_is_overrides_json(capsys, monkeypatch, tmp_path):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    rc = cli([])
+    assert rc == 1
+    captured = capsys.readouterr()
+    assert "overrides.json" in captured.err
 
 
 def test_missing_generator_config_returns_one(capsys, tmp_path):
@@ -158,7 +167,7 @@ def test_duplicate_profile_names_return_one(capsys, tmp_path, sample_generator_c
     assert "Duplicate profile names" in captured.err
 
 
-def test_existing_manual_profile_collision_returns_one(
+def test_existing_manual_profile_collision_absorbed(
     capsys, tmp_path, sample_generator_config
 ):
     generator_config_path = tmp_path / "config.json"
@@ -191,9 +200,13 @@ def test_existing_manual_profile_collision_returns_one(
             ]
         )
 
-    assert rc == 1
+    assert rc == 0
     captured = capsys.readouterr()
-    assert "existing AWS config section names" in captured.err
+    assert "Absorbed" in captured.err
+    # Manual profile replaced by generated one
+    content = config_path.read_text()
+    assert content.count("[profile prod]") == 1
+    assert "sso_session = test-session" in content
 
 
 def test_http_401_shows_login_message(capsys, tmp_path, sample_generator_config):
