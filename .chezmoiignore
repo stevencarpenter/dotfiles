@@ -71,4 +71,5 @@ private_dot_claude.json
 .config/mcp/machine/personal.json
 .config/zsh/.personal.env
 .config/zsh/profile.d/personal-secrets.zsh
+.config/zsh/profile.d/personal-shell-functions.zsh
 {{ end }}

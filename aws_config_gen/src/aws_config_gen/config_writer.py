@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import re
+import sys
 from pathlib import Path
 
 from aws_config_gen.types import GeneratorConfig, ProfileEntry
@@ -48,11 +49,27 @@ def _extract_section_names(content: str) -> set[str]:
     return section_names
 
 
+def _remove_sections(content: str, sections_to_remove: set[str]) -> str:
+    """Remove INI sections (header + body) whose name is in the set."""
+    out: list[str] = []
+    skipping = False
+    for line in content.splitlines(keepends=True):
+        match = SECTION_PATTERN.match(line.strip())
+        if match:
+            skipping = match.group("section") in sections_to_remove
+        if not skipping:
+            out.append(line)
+    # Collapse runs of blank lines left behind
+    result = re.sub(r"\n{3,}", "\n\n", "".join(out))
+    return result
+
+
 def merge_config(existing_content: str, generated_block: str) -> str:
     """Merge a generated block into existing config content.
 
     If BEGIN/END markers are found, replace that range (inclusive).
     Otherwise, prepend the generated block before existing content.
+    Duplicate manual sections that collide with generated ones are absorbed.
     """
     existing_lines = existing_content.splitlines(keepends=True)
 
@@ -81,31 +98,34 @@ def merge_config(existing_content: str, generated_block: str) -> str:
             raise ValueError(
                 "Managed block BEGIN marker found without matching END marker."
             )
-        before = existing_lines[:begin_idx]
-        after = existing_lines[end_idx + 1 :]
-        unmanaged_content = "".join(before) + "".join(after)
-        merged_existing = "".join(before) + generated_block + "".join(after)
+        before = "".join(existing_lines[:begin_idx])
+        after = "".join(existing_lines[end_idx + 1 :])
+        unmanaged = before + after
     else:
-        unmanaged_content = existing_content
-        # No markers found — prepend
-        if existing_content:
-            merged_existing = generated_block + "\n" + existing_content
-        else:
-            merged_existing = generated_block
+        before = ""
+        after = existing_content
+        unmanaged = existing_content
 
-    duplicate_sections = sorted(
-        _extract_section_names(unmanaged_content).intersection(
-            _extract_section_names(generated_block)
-        )
-    )
+    # Remove manual sections that collide with generated ones
+    generated_sections = _extract_section_names(generated_block)
+    duplicate_sections = _extract_section_names(unmanaged) & generated_sections
     if duplicate_sections:
-        duplicates = ", ".join(duplicate_sections)
-        raise ValueError(
-            "Generated section names would duplicate existing AWS config section "
-            f"names outside the managed block: {duplicates}"
+        names = ", ".join(sorted(duplicate_sections))
+        print(
+            f"[aws-config-gen] Absorbed manual sections now managed: {names}",
+            file=sys.stderr,
         )
+        before = _remove_sections(before, duplicate_sections)
+        after = _remove_sections(after, duplicate_sections)
 
-    return merged_existing
+    if begin_idx is not None:
+        # Replace managed block in place, preserving surrounding content
+        return before + generated_block + after
+    # No markers — prepend generated block
+    remaining = after.strip()
+    if remaining:
+        return generated_block + "\n" + remaining + "\n"
+    return generated_block
 
 
 def write_config(config_path: Path, generated_block: str) -> None:

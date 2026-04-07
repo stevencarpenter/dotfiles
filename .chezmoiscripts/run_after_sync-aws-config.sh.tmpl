@@ -1,6 +1,10 @@
-{{- if hasPrefix "work" .machine }}
 #!/usr/bin/env bash
 set -euo pipefail
+
+# Only run on work machines (AWS SSO is work-only)
+{{ if not (hasPrefix "work" .machine) }}
+exit 0
+{{ end }}
 
 SYNC_PROJECT="${HOME}/.local/share/chezmoi/aws_config_gen"
 STRICT_MODE="${AWS_CONFIG_GEN_STRICT:-0}"
@@ -33,4 +37,3 @@ else
   echo "Warning: AWS config gen project not found." >&2
   exit 0
 fi
-{{- end }}
