@@ -60,7 +60,7 @@ private_dot_claude.json
 # Work/personal conditional deployment
 # Skip work files on personal machines
 {{ if not (hasPrefix "work" .machine) }}
-.config/aws-config-gen/config.json
+.config/aws-config-gen/overrides.json
 .config/mcp/machine/work.json
 .config/zsh/.work.env
 .config/zsh/profile.d/work-secrets.zsh
@@ -71,4 +71,5 @@ private_dot_claude.json
 .config/mcp/machine/personal.json
 .config/zsh/.personal.env
 .config/zsh/profile.d/personal-secrets.zsh
+.config/zsh/profile.d/personal-shell-functions.zsh
 {{ end }}
