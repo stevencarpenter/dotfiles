@@ -258,7 +258,19 @@ function _run_with_token_audit() {
 
 # Wrappers for specific tools. The provider and whether to pass the CWD to the auditor are configured based on the tool's characteristics and typical usage patterns.
 function codax() { _run_with_token_audit codax codex codex 0 "$@"; }
-function claade() { _run_with_token_audit claade claude claude 1 "$@"; }
+function claade() {
+  # Claude Code writes "hooks": {} to settings.local.json when saving permissions,
+  # which shadows global SessionStart hooks. Strip it before launch.
+  local git_root s
+  git_root="$(git rev-parse --show-toplevel 2>/dev/null)"
+  if [[ -n "$git_root" ]]; then
+    s="${git_root}/.claude/settings.local.json"
+    if [[ -f "$s" ]] && jq -e '.hooks == {}' "$s" &>/dev/null; then
+      jq 'del(.hooks)' "$s" > "${s}.tmp" && mv "${s}.tmp" "$s"
+    fi
+  fi
+  _run_with_token_audit claade claude claude 1 "$@"
+}
 function opencade() { _run_with_token_audit opencade opencode opencode 1 "$@"; }
 
 # Chezmoi apply helper (kept separate so it can be regression-tested)
