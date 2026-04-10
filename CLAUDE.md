@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-A personal dotfiles repository managed by [Chezmoi](https://www.chezmoi.io/) for macOS and Arch Linux. Secrets are
+A personal dotfiles repository managed by [Chezmoi](https://www.chezmoi.io/) for macOS. Secrets are
 encrypted with age (key sourced from 1Password). The centerpiece is a custom Python tool (`mcp_sync/`) that syncs a
 single master MCP config to 8+ AI development tools.
 
