@@ -1,5 +1,8 @@
 #!/usr/bin/env zsh
 
+# Update all the AI CLI tools like a degenerate
+alias burp='brew update && brew upgrade && npm install -g @github/copilot && claude update && opencode upgrade && amp update'
+
 # Load Hippo CLI functions
 source /Users/carpenter/projects/hippo/shell/hippo-env.zsh
 source /Users/carpenter/projects/hippo/shell/hippo.zsh

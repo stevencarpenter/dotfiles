@@ -1,6 +1,6 @@
 # Dotfiles
 
-This directory contains the dotfiles for my systems (macOS or Arch Linux), managed with **Chezmoi** and **age encryption**.
+This directory contains the dotfiles for my systems (macOS), managed with **Chezmoi** and **age encryption**.
 
 ## Requirements
 
@@ -20,12 +20,6 @@ mkdir -p ~/projects ~/programs
 ```
 
 ### Install Chezmoi and Age
-
-#### Arch Linux
-
-```bash
-pacman -S chezmoi age
-```
 
 #### macOS
 
@@ -221,8 +215,7 @@ Setup and configuration for AI-powered development tools:
 
 ```shell
 # 1. Install chezmoi and age
-brew install chezmoi age  # macOS
-# or: pacman -S chezmoi age  # Arch
+brew install chezmoi age
 
 # 2. Set up age key from 1Password (see instructions above)
 

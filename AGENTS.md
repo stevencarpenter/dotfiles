@@ -7,7 +7,7 @@ This repository is a chezmoi-managed dotfiles source. Top-level `dot_*` and `dot
 - `dot_config/`: primary tool configs (zsh, nvim, tmux, mise, mcp, dev-container, yazi).
 - `.chezmoiscripts/`: automation hooks run during apply/update.
 - `mcp_sync/`: Python package for MCP config synchronization (`src/mcp_sync`, `tests/`).
-- `docs/` and `arch/`: setup guides and platform scripts.
+- `docs/`: setup guides.
 
 ## Build, Test, and Development Commands
 

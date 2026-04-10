@@ -1,5 +1,18 @@
 #!/usr/bin/env zsh
 
+# Update all the AI CLI tools like a degenerate
+alias burp='brew update && brew upgrade && npm install -g @github/copilot && npm install -g @openai/codex && claude update'
+
+# AWS SSO shortcut
+if command -v aws-sso >/dev/null 2>&1; then
+  alias asp='aws-sso-profile'
+fi
+
+# AWS ECR Docker login
+if [[ -n "${AWS_SSO_ACCOUNT_ID-}" && -n "${AWS_SSO_DEFAULT_REGION-}" ]]; then
+  alias adl="aws ecr get-login-password | docker login --username AWS --password-stdin ${AWS_SSO_ACCOUNT_ID}.dkr.ecr.${AWS_SSO_DEFAULT_REGION}.amazonaws.com"
+fi
+
 # BEGIN_AWS_SSO_CLI
 # AWS SSO requires `bashcompinit` which needs to be enabled once and
 # only once in your shell. The autoload lines are at the top of the .zshrc
@@ -9,7 +22,7 @@
 
 __aws_sso_profile_complete() {
      local _args=${AWS_SSO_HELPER_ARGS:- -L error}
-    _multi_parts : "($(/opt/homebrew/bin/aws-sso ${=_args} list --csv Profile))"
+    _multi_parts : "($(/opt/homebrew/bin/aws-sso "${=_args}" list --csv Profile))"
 }
 
 __aws_profile_from_args() {
@@ -73,7 +86,7 @@ aws-sso-profile() {
         return 1
     fi
 
-    eval $(/opt/homebrew/bin/aws-sso ${=_args} eval -p "$1")
+    eval "$(/opt/homebrew/bin/aws-sso "${=_args}" eval -p "$1")"
     if [ "$AWS_SSO_PROFILE" != "$1" ]; then
         return 1
     fi
@@ -86,19 +99,18 @@ aws-sso-clear() {
         echo "AWS_SSO_PROFILE is not set"
         return 1
     fi
-    eval $(""/opt/homebrew/bin/aws-sso ${=_args} eval -c)
+    eval "$(/opt/homebrew/bin/aws-sso "${=_args}" eval -c)"
     unset AWS_DEFAULT_PROFILE
-
-  # Register completions for custom functions
-  compdef _directories md
-  local aws_sso_path
-  aws_sso_path="$(command -v aws-sso 2>/dev/null)"
-  if [[ -n "$aws_sso_path" ]]; then
-    compdef __aws_sso_profile_complete aws-sso-profile
-    complete -C "$aws_sso_path" aws-sso
-  fi
 }
 # END_AWS_SSO_CLI
+
+# Register aws-sso completions at source time
+local aws_sso_path
+aws_sso_path="$(command -v aws-sso 2>/dev/null)"
+if [[ -n "$aws_sso_path" ]]; then
+  compdef __aws_sso_profile_complete aws-sso-profile
+  complete -C "$aws_sso_path" aws-sso
+fi
 
 # AWS SSO profile management for role assumption. This is a helper function that
 # uses the AWS CLI to assume a role and set the appropriate environment variables
