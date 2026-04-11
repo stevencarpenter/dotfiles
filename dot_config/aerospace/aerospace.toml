@@ -29,12 +29,12 @@ exec-on-workspace-change = ['/bin/bash', '-c',
 # Top gap accounts for SketchyBar (32px bar + 8px padding)
 
 [gaps]
-inner.horizontal = 3
-inner.vertical = 3
-outer.left = 3
-outer.right = 3
-outer.bottom = 3
-outer.top = 3
+inner.horizontal = 0
+inner.vertical = 0
+outer.left = 0
+outer.right = 0
+outer.bottom = 0
+outer.top = 0
 
 # ─── Main Mode ────────────────────────────────────────────────────────────────
 
@@ -85,6 +85,9 @@ alt-shift-space = 'layout tiles accordion'
 alt-minus = 'resize smart -50'
 alt-equal = 'resize smart +50'
 
+# Balance all windows to equal sizes
+alt-e = 'balance-sizes'
+
 # Enter modes
 alt-r = 'mode resize'
 alt-shift-semicolon = 'mode service'
@@ -106,7 +109,30 @@ enter = 'mode main'
 [mode.service.binding]
 r = ['reload-config', 'mode main']
 f = ['flatten-workspace-tree', 'mode main']
+b = ['balance-sizes', 'mode main']
+# Arrange workspace layouts
+5 = ['exec-and-forget ~/.config/aerospace/layouts/workspace-5-comms.sh', 'mode main']
 esc = 'mode main'
+
+# ─── Workspace Assignments ────────────────────────────────────────────────────
+# Workspace 5: Comms — Mail/Calendar/Messages
+# Workspace 8: Slack (needs wide min-width)
+
+[[on-window-detected]]
+if.app-id = 'com.apple.mail'
+run = 'move-node-to-workspace 5'
+
+[[on-window-detected]]
+if.app-id = 'com.apple.iCal'
+run = 'move-node-to-workspace 5'
+
+[[on-window-detected]]
+if.app-id = 'com.tinyspeck.slackmacgap'
+run = 'move-node-to-workspace 8'
+
+[[on-window-detected]]
+if.app-id = 'com.apple.MobileSMS'
+run = 'move-node-to-workspace 5'
 
 # ─── Window Rules ─────────────────────────────────────────────────────────────
 # Float apps that don't tile well
