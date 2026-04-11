@@ -9,6 +9,7 @@ cask_args appdir: "/Applications"
 # ============================================================================
 brew "zsh"
 brew "zsh-completions"
+brew "bash"
 brew "bash-completion"
 
 # ============================================================================
@@ -40,7 +41,6 @@ brew "uv"
 brew "mactop"
 brew "worktrunk"
 brew "cloc"
-brew "delta"
 
 # ============================================================================
 # Git & Version Control
@@ -61,6 +61,12 @@ brew "gnu-sed"
 brew "shellcheck"
 brew "tmux"
 
+# ============================================================================
+# Window Management & Status Bar
+# ============================================================================
+tap "nikitabobko/tap"
+cask "nikitabobko/tap/aerospace" # Tiling window manager
+brew "sketchybar"                # Custom macOS status bar
 
 # ============================================================================
 # GUI Applications
@@ -84,12 +90,13 @@ cask "font-meslo-lg-nerd-font"
 cask "font-symbols-only-nerd-font"
 cask "font-jetbrains-mono-nerd-font"
 cask "font-jetbrains-mono"
+cask "font-sketchybar-app-font"
 
 {{ if hasPrefix "personal" .machine }}
 # ============================================================================
 # Personal-only tooling
 # ============================================================================
-brew "railway"                # Railway CLI
+brew "railway"                   # Railway CLI
 cask "font-anonymous-pro"
 cask "font-bebas-neue"
 cask "font-courier-prime"
