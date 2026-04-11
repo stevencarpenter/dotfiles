@@ -6,7 +6,7 @@
 PURPLE=0xffd699b6
 RED=0xffe67e80
 
-IP="$(ipconfig getifaddr en0 2>/dev/null)"
+IP="$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null)"
 
 if [ -z "$IP" ]; then
   sketchybar --set "$NAME" icon=󰤭 icon.color=$RED

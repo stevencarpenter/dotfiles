@@ -15,7 +15,7 @@ WORKSPACE=5
 
 get_window_id() {
   aerospace list-windows --workspace "$WORKSPACE" --format '%{window-id}|%{app-name}' \
-    | grep -i "$1" | head -1 | cut -d'|' -f1
+    | grep -i "$1" | head -1 | cut -d'|' -f1 || true
 }
 
 CALENDAR_ID="$(get_window_id 'Calendar')"

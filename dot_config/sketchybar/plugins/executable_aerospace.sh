@@ -19,6 +19,11 @@ if [ -z "$FOCUSED_WORKSPACE" ]; then
   FOCUSED_WORKSPACE="$(aerospace list-workspaces --focused 2>/dev/null)"
 fi
 
+# On front_app_switched, only update the focused workspace (avoid 9 redundant calls)
+if [ "$SENDER" = "front_app_switched" ] && [ "$SID" != "$FOCUSED_WORKSPACE" ]; then
+  exit 0
+fi
+
 source "$SCRIPT_DIR/icon_map.sh"
 
 # ─── App → Brand color map ───────────────────────────────────────────────────
