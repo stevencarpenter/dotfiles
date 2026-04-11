@@ -21,7 +21,7 @@ export GRAY=0xff859289
 
 sketchybar --bar \
   position=top \
-  height=32 \
+  height=37 \
   color=$BG \
   border_width=0 \
   shadow=off \
@@ -29,7 +29,8 @@ sketchybar --bar \
   padding_right=8 \
   topmost=window \
   sticky=on \
-  font_smoothing=on
+  font_smoothing=on \
+  notch_width=200
 
 # ─── Defaults ─────────────────────────────────────────────────────────────────
 
