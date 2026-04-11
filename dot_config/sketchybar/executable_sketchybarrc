@@ -1,0 +1,60 @@
+#!/bin/bash
+
+# SketchyBar configuration — Everforest Dark Medium theme
+# Docs: https://felixkratz.github.io/SketchyBar/config/bar
+
+PLUGIN_DIR="$CONFIG_DIR/plugins"
+ITEM_DIR="$CONFIG_DIR/items"
+
+# ─── Everforest Color Palette ─────────────────────────────────────────────────
+
+export BG=0xff2f383e
+export BG_DIM=0xff232a2e
+export FG=0xffd3c6aa
+export GREEN=0xffa7c080
+export YELLOW=0xffdbbc7f
+export RED=0xffe67e80
+export BLUE=0xff7fbbb3
+export GRAY=0xff859289
+
+# ─── Bar Appearance ───────────────────────────────────────────────────────────
+
+sketchybar --bar \
+  position=top \
+  height=32 \
+  color=$BG \
+  border_width=0 \
+  shadow=off \
+  padding_left=8 \
+  padding_right=8 \
+  topmost=window \
+  sticky=on \
+  font_smoothing=on
+
+# ─── Defaults ─────────────────────────────────────────────────────────────────
+
+sketchybar --default \
+  icon.font="JetBrainsMono Nerd Font:Bold:14.0" \
+  icon.color=$FG \
+  label.font="JetBrainsMono Nerd Font:Regular:13.0" \
+  label.color=$FG \
+  background.color=$BG \
+  background.height=26 \
+  background.corner_radius=6 \
+  padding_left=4 \
+  padding_right=4
+
+# ─── Custom Events ────────────────────────────────────────────────────────────
+
+sketchybar --add event aerospace_workspace_change
+
+# ─── Items ────────────────────────────────────────────────────────────────────
+
+source "$ITEM_DIR/workspaces.sh"
+source "$ITEM_DIR/front_app.sh"
+source "$ITEM_DIR/clock.sh"
+source "$ITEM_DIR/battery.sh"
+
+# ─── Finalize ─────────────────────────────────────────────────────────────────
+
+sketchybar --update
