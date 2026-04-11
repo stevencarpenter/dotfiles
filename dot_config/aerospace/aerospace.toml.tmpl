@@ -26,7 +26,6 @@ exec-on-workspace-change = ['/bin/bash', '-c',
 ]
 
 # ─── Gaps ─────────────────────────────────────────────────────────────────────
-# Top gap accounts for SketchyBar (32px bar + 8px padding)
 
 [gaps]
 inner.horizontal = 0
@@ -110,13 +109,47 @@ enter = 'mode main'
 r = ['reload-config', 'mode main']
 f = ['flatten-workspace-tree', 'mode main']
 b = ['balance-sizes', 'mode main']
-# Arrange workspace layouts
+{{ if hasPrefix "personal" .machine }}
+# Personal workspace layout scripts
 5 = ['exec-and-forget ~/.config/aerospace/layouts/workspace-5-comms.sh', 'mode main']
+{{ end }}
+{{ if hasPrefix "work" .machine }}
+# Work workspace layout scripts (add as needed)
+{{ end }}
 esc = 'mode main'
 
 # ─── Workspace Assignments ────────────────────────────────────────────────────
-# Workspace 5: Comms — Mail/Calendar/Messages
-# Workspace 8: Slack (needs wide min-width)
+{{ if hasPrefix "personal" .machine }}
+# ── Personal Machine ──
+# 1: Terminal (Ghostty)
+# 2: Browser (Firefox)
+# 3: IDE (IntelliJ)
+# 4: AI (Claude, LM Studio)
+# 5: Comms (Mail, Calendar, Messages)
+# 6: Gaming (Steam)
+# 7: Notes (Obsidian)
+# 8: Slack
+# 9: Editor (Zed)
+
+[[on-window-detected]]
+if.app-id = 'com.mitchellh.ghostty'
+run = 'move-node-to-workspace 1'
+
+[[on-window-detected]]
+if.app-id = 'org.mozilla.firefoxdeveloperedition'
+run = 'move-node-to-workspace 2'
+
+[[on-window-detected]]
+if.app-id = 'com.jetbrains.intellij'
+run = 'move-node-to-workspace 3'
+
+[[on-window-detected]]
+if.app-id = 'com.anthropic.claudefordesktop'
+run = 'move-node-to-workspace 4'
+
+[[on-window-detected]]
+if.app-id = 'ai.elementlabs.lmstudio'
+run = 'move-node-to-workspace 4'
 
 [[on-window-detected]]
 if.app-id = 'com.apple.mail'
@@ -127,15 +160,36 @@ if.app-id = 'com.apple.iCal'
 run = 'move-node-to-workspace 5'
 
 [[on-window-detected]]
+if.app-id = 'com.apple.MobileSMS'
+run = 'move-node-to-workspace 5'
+
+[[on-window-detected]]
+if.app-id = 'com.valvesoftware.steam.helper'
+run = 'move-node-to-workspace 6'
+
+[[on-window-detected]]
+if.app-id = 'md.obsidian'
+run = 'move-node-to-workspace 7'
+
+[[on-window-detected]]
 if.app-id = 'com.tinyspeck.slackmacgap'
 run = 'move-node-to-workspace 8'
 
 [[on-window-detected]]
-if.app-id = 'com.apple.MobileSMS'
-run = 'move-node-to-workspace 5'
+if.app-id = 'dev.zed.Zed-Preview'
+run = 'move-node-to-workspace 9'
+{{ end }}
+{{ if hasPrefix "work" .machine }}
+# ── Work Machine ──
+# Define workspace assignments for your work apps here.
+# Example:
+# [[on-window-detected]]
+# if.app-id = 'com.tinyspeck.slackmacgap'
+# run = 'move-node-to-workspace 8'
+{{ end }}
 
 # ─── Window Rules ─────────────────────────────────────────────────────────────
-# Float apps that don't tile well
+# Float apps that don't tile well (shared across all machines)
 
 [[on-window-detected]]
 if.app-id = 'com.apple.systempreferences'

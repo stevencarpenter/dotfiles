@@ -77,10 +77,12 @@ Precise resize mode (`alt-r` to enter, `esc` to exit):
 
 Enter with `alt-shift-;`, exit with `esc`.
 
-| Keys | Action |
-|---|---|
-| `r` | Reload config |
-| `f` | Flatten workspace tree (fixes broken layouts) |
+| Keys | Action                                        |
+|------|-----------------------------------------------|
+| `r`  | Reload config                                 |
+| `f`  | Flatten workspace tree (fixes broken layouts) |
+| `b`  | Balance window sizes                          |
+| `5`  | Arrange workspace 5 layout (personal)         |
 
 ## Window Rules
 
@@ -93,16 +95,19 @@ These apps automatically float (won't tile):
 - Calculator
 - Activity Monitor
 
-## Suggested Workspace Assignments
+## Personal Machine — Workspace Assignments
 
-| Workspace | Use |
-|---|---|
-| 1 | Terminal / tmux |
-| 2 | Browser |
-| 3 | IntelliJ |
-| 4 | Comms (Slack) |
-| 5 | Notes (Obsidian) |
-| 6-9 | Overflow |
+| Workspace | Use      | Apps (auto-assigned)         |
+|-----------|----------|------------------------------|
+| 1         | Terminal | Ghostty                      |
+| 2         | Browser  | Firefox Developer Edition    |
+| 3         | IDE      | IntelliJ IDEA                |
+| 4         | AI       | Claude, LM Studio            |
+| 5         | Comms    | Mail, Calendar, Messages     |
+| 6         | Gaming   | Steam                        |
+| 7         | Notes    | Obsidian                     |
+| 8         | Slack    | Slack (needs wide min-width) |
+| 9         | Editor   | Zed                          |
 
 ## Common Workflows
 
