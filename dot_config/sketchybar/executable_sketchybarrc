@@ -1,21 +1,28 @@
 #!/bin/bash
 
-# SketchyBar configuration — Everforest Dark Medium theme
+# SketchyBar configuration — Everforest Dark Hard theme
 # Docs: https://felixkratz.github.io/SketchyBar/config/bar
 
 PLUGIN_DIR="$CONFIG_DIR/plugins"
 ITEM_DIR="$CONFIG_DIR/items"
 
-# ─── Everforest Color Palette ─────────────────────────────────────────────────
+# ─── Everforest Dark Hard Color Palette ───────────────────────────────────────
 
-export BG=0xff2f383e
-export BG_DIM=0xff232a2e
+export BG=0xff272e33
+export BG_DIM=0xff1e2326
+export BG1=0xff2e383c
+export BG2=0xff374145
+export BG3=0xff414b50
 export FG=0xffd3c6aa
 export GREEN=0xffa7c080
 export YELLOW=0xffdbbc7f
 export RED=0xffe67e80
+export ORANGE=0xffe69875
 export BLUE=0xff7fbbb3
-export GRAY=0xff859289
+export AQUA=0xff83c092
+export PURPLE=0xffd699b6
+export GRAY=0xff7a8478
+export GRAY2=0xff859289
 
 # ─── Bar Appearance ───────────────────────────────────────────────────────────
 
@@ -51,10 +58,25 @@ sketchybar --add event aerospace_workspace_change
 
 # ─── Items ────────────────────────────────────────────────────────────────────
 
+# Left
 source "$ITEM_DIR/workspaces.sh"
+
+# Center
 source "$ITEM_DIR/front_app.sh"
+
+# Right (first sourced = rightmost)
 source "$ITEM_DIR/clock.sh"
 source "$ITEM_DIR/battery.sh"
+source "$ITEM_DIR/wifi.sh"
+source "$ITEM_DIR/volume.sh"
+
+# Group right-side items in a single background
+sketchybar --add bracket status clock calendar battery wifi volume \
+  --set status \
+    background.color=$BG1 \
+    background.drawing=on \
+    background.height=26 \
+    background.corner_radius=8
 
 # ─── Finalize ─────────────────────────────────────────────────────────────────
 
