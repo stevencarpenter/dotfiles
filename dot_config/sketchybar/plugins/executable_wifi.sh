@@ -1,19 +1,19 @@
 #!/bin/bash
 
-# WiFi status — icon only (Material Design)
+# Wi-Fi status — icon only (Material Design)
 # 󰤨 nf-md-wifi | 󰤭 nf-md-wifi_off
+#
+# Asks macOS directly for the Wi-Fi service IP. Handles all three states:
+#   - connected             → real IP
+#   - on but not connected  → "none"
+#   - off / service missing → empty / error
+# all of which resolve to "show the disconnected icon" via the empty check.
 
 PURPLE=0xffd699b6
 RED=0xffe67e80
 
-# Resolve the Wi-Fi hardware port dynamically (en0 is not always Wi-Fi — can be
-# Ethernet on desktops or reassigned on laptops with external adapters).
-# Match both "Wi-Fi" (modern macOS) and "AirPort" (10.6 and earlier, and some
-# non-en-US locales still use the older label).
-WIFI_IF="$(networksetup -listallhardwareports 2>/dev/null \
-  | awk '/^Hardware Port: (Wi-Fi|AirPort)$/ { getline; print $2; exit }')"
-
-IP="$(ipconfig getifaddr "${WIFI_IF:-en0}" 2>/dev/null)"
+IP="$(networksetup -getinfo Wi-Fi 2>/dev/null \
+  | awk '/^IP address:/ && $3 != "none" { print $3; exit }')"
 
 if [ -z "$IP" ]; then
   sketchybar --set "$NAME" icon=󰤭 icon.color=$RED
