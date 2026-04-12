@@ -12,10 +12,10 @@ for sid in "${WORKSPACES[@]}"; do
     --set "workspace.$sid" \
       icon="$sid" \
       icon.font="JetBrainsMono Nerd Font:Bold:13.0" \
-      icon.color=$GRAY \
-      icon.highlight_color=$GREEN \
-      icon.padding_left=8 \
-      icon.padding_right=4 \
+      icon.color="$GRAY" \
+      icon.highlight_color="$GREEN" \
+      icon.padding_left=6 \
+      icon.padding_right=6 \
       label.drawing=off \
       background.drawing=off \
       click_script="aerospace workspace $sid" \
@@ -46,7 +46,7 @@ for sid in "${WORKSPACES[@]}"; do
       "workspace.$sid.app.3" \
       "workspace.$sid.app.4" \
     --set "workspace_bracket.$sid" \
-      background.color=$BG \
+      background.color="$BG" \
       background.drawing=on \
       background.height=26 \
       background.corner_radius=8
