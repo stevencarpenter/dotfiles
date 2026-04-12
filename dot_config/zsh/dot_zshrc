@@ -116,9 +116,13 @@ alias nano='nvim'
 alias emacs='nvim'
 
 # Modern ls (eza)
-alias ls='eza --icons'
-alias ll='eza -la --icons --git'
-alias lt='eza --tree --icons --level=2'
+if command -v eza >/dev/null 2>&1; then
+  alias ls='eza --icons'
+  alias ll='eza -la --icons --git'
+  alias lt='eza --tree --icons --level=2'
+else
+  alias ls='command ls'
+fi
 
 # Utility aliases
 alias tree='tree -a -I .git'
