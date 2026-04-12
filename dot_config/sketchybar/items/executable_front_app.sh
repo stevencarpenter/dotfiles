@@ -2,6 +2,8 @@
 
 # Front app — shows the currently focused application name
 
+set -euo pipefail
+
 sketchybar --add item front_app center \
   --set front_app \
     icon.drawing=off \

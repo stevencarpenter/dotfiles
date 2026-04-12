@@ -1,6 +1,9 @@
 #!/bin/bash
 
 # Clock — 24h local time
+
+set -euo pipefail
+
 sketchybar --add item clock right \
   --set clock \
     icon=󰥔 \

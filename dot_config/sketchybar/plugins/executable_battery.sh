@@ -2,15 +2,20 @@
 
 # Battery — horizontal icon + percentage + time remaining/to charge
 
+set -euo pipefail
+
 GREEN=0xffa7c080
 YELLOW=0xffdbbc7f
 RED=0xffe67e80
 AQUA=0xff83c092
 
 BATT_INFO="$(pmset -g batt)"
-PERCENTAGE="$(echo "$BATT_INFO" | grep -Eo "\d+%" | cut -d% -f1)"
-CHARGING="$(echo "$BATT_INFO" | grep 'AC Power')"
-TIME_LEFT="$(echo "$BATT_INFO" | grep -Eo '\d+:\d+' | head -1)"
+# `|| true` on pipelines that can legitimately miss — grep returns 1 when not
+# matched, which would kill the script under pipefail. The `-z` guard below
+# still catches the truly-unknown case.
+PERCENTAGE="$(echo "$BATT_INFO" | grep -Eo '\d+%' | cut -d% -f1 || true)"
+CHARGING="$(echo "$BATT_INFO" | grep 'AC Power' || true)"
+TIME_LEFT="$(echo "$BATT_INFO" | grep -Eo '\d+:\d+' | head -1 || true)"
 
 if [ -z "$PERCENTAGE" ]; then
   exit 0

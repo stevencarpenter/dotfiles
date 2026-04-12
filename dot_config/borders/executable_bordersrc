@@ -2,6 +2,8 @@
 # JankyBorders — focused-window border highlights
 # Everforest Dark Hard palette
 
+set -euo pipefail
+
 # Keep `width` in sync with the on-focus-changed fallback in
 # dot_config/aerospace/aerospace.toml.tmpl — and with `gaps.inner` /
 # `gaps.outer` in that same file — so adjacent window borders don't

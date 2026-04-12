@@ -2,6 +2,8 @@
 
 # Volume — mute indicator only (Material Design icons)
 
+set -euo pipefail
+
 sketchybar --add item volume right \
   --set volume \
     icon=󰕾 \

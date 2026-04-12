@@ -3,6 +3,8 @@
 # Volume — mute/unmute icon only (Material Design)
 # 󰕾 nf-md-volume_high | 󰖁 nf-md-volume_off
 
+set -euo pipefail
+
 ORANGE=0xffe69875
 GRAY=0xff7a8478
 

@@ -2,6 +2,8 @@
 
 # Battery — Material Design icons with percentage and time
 
+set -euo pipefail
+
 sketchybar --add item battery right \
   --set battery \
     icon.font="JetBrainsMono Nerd Font:Bold:14.0" \

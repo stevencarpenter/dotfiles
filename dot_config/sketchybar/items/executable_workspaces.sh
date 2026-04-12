@@ -3,6 +3,8 @@
 # Workspace indicators — bracketed groups with colored app icons
 # Each workspace: [number + app icons] in one rounded rectangle
 
+set -euo pipefail
+
 MAX_APPS=5
 WORKSPACES=(1 2 3 4 5 6 7 8 9)
 

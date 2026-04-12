@@ -2,6 +2,8 @@
 
 # WiFi — icon-only (Material Design icons)
 
+set -euo pipefail
+
 sketchybar --add item wifi right \
   --set wifi \
     icon=󰤨 \
