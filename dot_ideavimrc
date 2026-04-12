@@ -349,12 +349,10 @@ nnoremap <leader>nc :action NewClass<CR>
 " ---------------------------------------------------------------------------
 nnoremap <leader>a ggVG
 
-nmap <A-j> <Plug>NextOccurrence
-xmap <A-j> <Plug>NextOccurrence
-nmap <A-k> <Plug>RemoveOccurrence
-xmap <A-k> <Plug>RemoveOccurrence
-nmap <A-S-j> <Plug>AllOccurrences
-xmap <A-S-j> <Plug>AllOccurrences
+" Multi-cursor: use IntelliJ native shortcuts (Alt+j/k freed for AeroSpace)
+"   Ctrl+G        = Add Selection for Next Occurrence
+"   Ctrl+Shift+G  = Unselect Previous Occurrence
+"   Ctrl+Cmd+G    = Select All Occurrences
 
 
 "" Fuzzier plugin

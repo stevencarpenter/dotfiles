@@ -9,6 +9,7 @@ cask_args appdir: "/Applications"
 # ============================================================================
 brew "zsh"
 brew "zsh-completions"
+brew "bash"
 brew "bash-completion"
 
 # ============================================================================
@@ -30,6 +31,8 @@ brew "tree"
 brew "watch"
 brew "wget"
 brew "xz"
+brew "eza"                    # Modern ls replacement
+brew "fastfetch"              # System info display
 brew "yazi"                   # TUI file manager
 brew "yq"                     # YAML processor
 brew "zoxide"                 # Smart cd
@@ -40,7 +43,6 @@ brew "uv"
 brew "mactop"
 brew "worktrunk"
 brew "cloc"
-brew "delta"
 
 # ============================================================================
 # Git & Version Control
@@ -50,6 +52,7 @@ brew "git-extras"
 brew "git-secrets"
 brew "git-delta"
 brew "gh"
+brew "github-mcp-server"     # GitHub MCP server (native, gh-token backed)
 brew "lazydocker"
 brew "lazygit"
 
@@ -61,10 +64,19 @@ brew "gnu-sed"
 brew "shellcheck"
 brew "tmux"
 
+# ============================================================================
+# Window Management & Status Bar
+# ============================================================================
+tap "nikitabobko/tap"
+tap "FelixKratz/formulae"
+cask "nikitabobko/tap/aerospace" # Tiling window manager
+brew "sketchybar"                # Custom macOS status bar
+brew "borders"                   # Focused-window borders (JankyBorders)
 
 # ============================================================================
 # GUI Applications
 # ============================================================================
+cask "alt-tab"                # Window switcher
 cask "ghostty"                # Terminal emulator
 cask "raycast"                # Launcher
 cask "visual-studio-code"
@@ -84,12 +96,13 @@ cask "font-meslo-lg-nerd-font"
 cask "font-symbols-only-nerd-font"
 cask "font-jetbrains-mono-nerd-font"
 cask "font-jetbrains-mono"
+cask "font-sketchybar-app-font"
 
 {{ if hasPrefix "personal" .machine }}
 # ============================================================================
 # Personal-only tooling
 # ============================================================================
-brew "railway"                # Railway CLI
+brew "railway"                   # Railway CLI
 cask "font-anonymous-pro"
 cask "font-bebas-neue"
 cask "font-courier-prime"
@@ -114,6 +127,5 @@ cask "font-inconsolata-go-nerd-font"
 # ============================================================================
 # Work-only tooling
 # ============================================================================
-brew "aws-sso-cli"
 brew "conftest"               # Policy testing
 {{ end }}

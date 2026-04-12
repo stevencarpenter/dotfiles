@@ -115,11 +115,18 @@ alias vim='nvim'
 alias nano='nvim'
 alias emacs='nvim'
 
+# Modern ls (eza)
+if command -v eza >/dev/null 2>&1; then
+  alias ls='eza --icons'
+  alias ll='eza -la --icons --git'
+  alias lt='eza --tree --icons --level=2'
+else
+  alias ls='command ls'
+fi
+
 # Utility aliases
 alias tree='tree -a -I .git'
 alias la='ls -lAh'
-alias ll='ls -lh'
-alias ls='ls -G'
 alias sed='gsed'
 alias teeclip='tee >(pbcopy)'
 
@@ -129,30 +136,13 @@ alias s='stevectl'
 alias lzg='lazygit'
 alias tig='git log --reverse'
 alias lzd='lazydocker'
-if command -v aws-sso >/dev/null 2>&1; then
-  alias asp='aws-sso-profile'
-fi
-
 # Config editing
 alias zshrc='nvim $ZDOTDIR/.zshrc'
 alias zprofile='nvim $ZDOTDIR/.zprofile'
 alias ez='exec zsh'
 
-# AWS/Docker
-if [[ -n "${AWS_SSO_ACCOUNT_ID-}" && -n "${AWS_SSO_DEFAULT_REGION-}" ]]; then
-  alias adl="aws ecr get-login-password | docker login --username AWS --password-stdin ${AWS_SSO_ACCOUNT_ID}.dkr.ecr.${AWS_SSO_DEFAULT_REGION}.amazonaws.com"
-fi
-
-# Arch Linux
-if [[ -f /etc/arch-release ]]; then
-  alias pacman-browse="pacman -Qq | fzf --preview 'pacman -Qil {}' --layout=reverse --bind 'enter:execute(pacman -Qil {} | less)'"
-fi
-
 # Worktrunk log viewer (tails the log file for a given hook)
 function wtlog() { tail -f "$(wt config state logs get --hook="$1")"; }
-
-# Update all the AI CLI tools like a degenerate
-alias burp='brew update && brew upgrade && npm install -g @github/copilot && npm install -g @openai/codex && claude update && opencode upgrade && amp update'
 
 # === 6. Key Bindings (z4h specific) ===
 z4h bindkey z4h-backward-kill-word  Ctrl+Backspace     Ctrl+H
@@ -332,12 +322,6 @@ _zsh_lazy_load_completions() {
 
   # Register completions for custom functions
   compdef _directories md
-  local aws_sso_path
-  aws_sso_path="$(command -v aws-sso 2>/dev/null)"
-  if [[ -n "$aws_sso_path" ]]; then
-    compdef __aws_sso_profile_complete aws-sso-profile
-    complete -C "$aws_sso_path" aws-sso
-  fi
 }
 
 autoload -Uz add-zsh-hook
@@ -347,10 +331,7 @@ add-zsh-hook precmd _zsh_lazy_load_completions
 # OrbStack: command-line tools and integration
 source ~/.orbstack/shell/init.zsh 2>/dev/null || :
 
-# Source profile.d directory if it exists (for optional per-tool configs)
-# Create with: mkdir -p ~/.config/zsh/profile.d && echo 'export FOO=bar' > ~/.config/zsh/profile.d/custom.zsh
-# Note: I am not using this myself yet but it is a nice convention for users to drop in additional config files without modifying the main .zshrc.
-# It also keeps this file cleaner and more focused on core configuration and critical tool setup. --AI (maybe I will use it myself in the future)
+# Source profile.d directory for machine-specific config (personal vs work aliases, functions, secrets)
 if [[ -d "${ZDOTDIR}/profile.d" ]]; then
     for file in "${ZDOTDIR}"/profile.d/*.zsh(N); do
         source "$file"

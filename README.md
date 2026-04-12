@@ -1,6 +1,6 @@
 # Dotfiles
 
-This directory contains the dotfiles for my systems (macOS or Arch Linux), managed with **Chezmoi** and **age encryption**.
+This directory contains the dotfiles for my systems (macOS), managed with **Chezmoi** and **age encryption**.
 
 ## Requirements
 
@@ -20,12 +20,6 @@ mkdir -p ~/projects ~/programs
 ```
 
 ### Install Chezmoi and Age
-
-#### Arch Linux
-
-```bash
-pacman -S chezmoi age
-```
 
 #### macOS
 
@@ -202,7 +196,6 @@ The `suffix = ""` setting in `~/.config/chezmoi/chezmoi.toml` prevents chezmoi f
 
 ### Required Variables
 
-- `GITHUB_TOKEN` - GitHub Personal Access Token (for MCP, Copilot)
 - `OPENAI_API_KEY` - OpenAI API key
 - `SUPABASE_PROJECT_REF` - Supabase project reference (for MCP)
 - `BRAVE_API_KEY` - Brave Search API key
@@ -210,6 +203,8 @@ The `suffix = ""` setting in `~/.config/chezmoi/chezmoi.toml` prevents chezmoi f
 - `NPM_TOKEN` - NPM authentication token
 - `OPENROUTER_TOKEN` - OpenRouter API key
 - `ATLASSIAN_API_TOKEN` - Atlassian/Jira API token (work)
+
+GitHub auth is **not** in this list — the GitHub MCP server and `gh` CLI both use the token stored in the macOS keychain by `gh auth login`. No long-lived env var, no manual copy-paste into encrypted files.
 
 ## AI Tools Configuration
 
@@ -221,8 +216,7 @@ Setup and configuration for AI-powered development tools:
 
 ```shell
 # 1. Install chezmoi and age
-brew install chezmoi age  # macOS
-# or: pacman -S chezmoi age  # Arch
+brew install chezmoi age
 
 # 2. Set up age key from 1Password (see instructions above)
 

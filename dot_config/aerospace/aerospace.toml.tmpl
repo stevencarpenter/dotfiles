@@ -1,0 +1,238 @@
+# AeroSpace tiling window manager configuration
+# Docs: https://nikitabobko.github.io/AeroSpace/guide
+
+# ─── General ─────────────────────────────────────────────────────────────────
+
+start-at-login = true
+after-startup-command = [
+    'exec-and-forget sketchybar',
+    'exec-and-forget /bin/bash -c "~/.config/borders/bordersrc"'
+]
+after-login-command = []
+
+on-focus-changed = [
+  # Wrapped in /bin/bash -c because exec-and-forget doesn't process shell syntax
+  # (`[...]`, `&&`, `||`, `$(...)`) on its own — it execs the command directly.
+  # Matches the same pattern used for bordersrc above.
+  "exec-and-forget /bin/bash -c '[ \"$(aerospace list-windows --workspace focused | wc -l)\" -eq 1 ] && borders width=0.0 || borders width=3.0'"
+]
+
+# Normalizations — keep the tree sane automatically
+enable-normalization-flatten-containers = true
+enable-normalization-opposite-orientation-for-nested-containers = true
+
+# Layout defaults
+default-root-container-layout = 'tiles'
+default-root-container-orientation = 'auto'
+accordion-padding = 30
+
+# Mouse follows focus when switching monitors
+on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
+
+# ─── SketchyBar Integration ──────────────────────────────────────────────────
+
+exec-on-workspace-change = ['/bin/bash', '-c',
+    'sketchybar --trigger aerospace_workspace_change FOCUSED_WORKSPACE=$AEROSPACE_FOCUSED_WORKSPACE PREV_WORKSPACE=$AEROSPACE_PREV_WORKSPACE'
+]
+
+# ─── Gaps ─────────────────────────────────────────────────────────────────────
+#
+# Must match the JankyBorders border width in dot_config/borders/bordersrc
+# (currently 3px). Inner gaps give each window's border its own pixel strip
+# so adjacent borders don't draw on the same pixels. Outer gaps keep edge
+# borders from being clipped by the screen edge or SketchyBar.
+[gaps]
+inner.horizontal = 3
+inner.vertical = 3
+outer.left = 3
+outer.right = 3
+outer.bottom = 3
+outer.top = 3
+
+# ─── Main Mode ────────────────────────────────────────────────────────────────
+
+[mode.main.binding]
+
+# Focus (alt + hjkl)
+alt-h = 'focus left'
+alt-j = 'focus down'
+alt-k = 'focus up'
+alt-l = 'focus right'
+
+# Move window (alt-shift + hjkl)
+alt-shift-h = 'move left'
+alt-shift-j = 'move down'
+alt-shift-k = 'move up'
+alt-shift-l = 'move right'
+
+# Workspaces (alt + number)
+alt-1 = 'workspace 1'
+alt-2 = 'workspace 2'
+alt-3 = 'workspace 3'
+alt-4 = 'workspace 4'
+alt-5 = 'workspace 5'
+alt-6 = 'workspace 6'
+alt-7 = 'workspace 7'
+alt-8 = 'workspace 8'
+alt-9 = 'workspace 9'
+
+# Move window to workspace (alt-shift + number)
+alt-shift-1 = ['move-node-to-workspace 1', 'workspace 1']
+alt-shift-2 = ['move-node-to-workspace 2', 'workspace 2']
+alt-shift-3 = ['move-node-to-workspace 3', 'workspace 3']
+alt-shift-4 = ['move-node-to-workspace 4', 'workspace 4']
+alt-shift-5 = ['move-node-to-workspace 5', 'workspace 5']
+alt-shift-6 = ['move-node-to-workspace 6', 'workspace 6']
+alt-shift-7 = ['move-node-to-workspace 7', 'workspace 7']
+alt-shift-8 = ['move-node-to-workspace 8', 'workspace 8']
+alt-shift-9 = ['move-node-to-workspace 9', 'workspace 9']
+
+# Layout
+alt-comma = 'layout tiles horizontal vertical'
+alt-period = 'layout accordion horizontal vertical'
+alt-f = 'fullscreen'
+alt-shift-f = 'layout floating tiling'
+alt-shift-space = 'layout tiles accordion'
+
+# Quick resize
+alt-minus = 'resize smart -50'
+alt-equal = 'resize smart +50'
+
+# Balance all windows to equal sizes
+alt-e = 'balance-sizes'
+
+# Enter modes
+alt-r = 'mode resize'
+alt-shift-semicolon = 'mode service'
+
+# ─── Resize Mode ──────────────────────────────────────────────────────────────
+
+[mode.resize.binding]
+h = 'resize width -50'
+l = 'resize width +50'
+j = 'resize height +50'
+k = 'resize height -50'
+minus = 'resize smart -50'
+equal = 'resize smart +50'
+esc = 'mode main'
+enter = 'mode main'
+
+# ─── Service Mode ─────────────────────────────────────────────────────────────
+
+[mode.service.binding]
+r = ['reload-config', 'mode main']
+f = ['flatten-workspace-tree', 'mode main']
+b = ['balance-sizes', 'mode main']
+{{- if hasPrefix "personal" .machine }}
+# Personal workspace layout scripts
+5 = ['exec-and-forget ~/.config/aerospace/layouts/workspace-5-comms.sh', 'mode main']
+{{- end }}
+{{- if hasPrefix "work" .machine }}
+# Work workspace layout scripts (add as needed)
+{{- end }}
+esc = 'mode main'
+
+# ─── Workspace Assignments ────────────────────────────────────────────────────
+{{- if hasPrefix "personal" .machine }}
+# ── Personal Machine ──
+# 1: Terminal (Ghostty)
+# 2: Browser (Firefox)
+# 3: IDE (IntelliJ)
+# 4: AI (Claude, LM Studio)
+# 5: Comms (Mail, Calendar, Messages)
+# 6: Gaming (Steam)
+# 7: Notes (Obsidian)
+# 8: Slack
+# 9: Editor (Zed)
+
+[[on-window-detected]]
+if.app-id = 'com.mitchellh.ghostty'
+run = 'move-node-to-workspace 1'
+
+[[on-window-detected]]
+if.app-id = 'org.mozilla.firefoxdeveloperedition'
+run = 'move-node-to-workspace 2'
+
+[[on-window-detected]]
+if.app-id = 'com.jetbrains.intellij'
+run = 'move-node-to-workspace 3'
+
+[[on-window-detected]]
+if.app-id = 'com.anthropic.claudefordesktop'
+run = 'move-node-to-workspace 4'
+
+[[on-window-detected]]
+if.app-id = 'ai.elementlabs.lmstudio'
+run = 'move-node-to-workspace 4'
+
+[[on-window-detected]]
+if.app-id = 'com.apple.mail'
+run = 'move-node-to-workspace 5'
+
+[[on-window-detected]]
+if.app-id = 'com.apple.iCal'
+run = 'move-node-to-workspace 5'
+
+[[on-window-detected]]
+if.app-id = 'com.apple.MobileSMS'
+run = 'move-node-to-workspace 5'
+
+[[on-window-detected]]
+if.app-id = 'com.valvesoftware.steam.helper'
+run = 'move-node-to-workspace 6'
+
+[[on-window-detected]]
+if.app-id = 'md.obsidian'
+run = 'move-node-to-workspace 7'
+
+[[on-window-detected]]
+if.app-id = 'com.tinyspeck.slackmacgap'
+run = 'move-node-to-workspace 8'
+
+[[on-window-detected]]
+if.app-id = 'dev.zed.Zed-Preview'
+run = 'move-node-to-workspace 9'
+{{- end }}
+{{- if hasPrefix "work" .machine }}
+# ── Work Machine ──
+# Define workspace assignments for your work apps here.
+# Example:
+# [[on-window-detected]]
+# if.app-id = 'com.tinyspeck.slackmacgap'
+# run = 'move-node-to-workspace 8'
+{{- end }}
+
+# ─── Window Rules ─────────────────────────────────────────────────────────────
+# Float apps that don't tile well (shared across all machines)
+
+[[on-window-detected]]
+if.app-id = 'com.apple.systempreferences'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'com.apple.SystemPreferences'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'com.1password.1password'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'com.raycast.macos'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'com.apple.finder'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'com.apple.calculator'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'com.apple.ActivityMonitor'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'com.lwouis.alt-tab-macos'
+run = 'layout floating'

@@ -3,14 +3,11 @@
   "servers": {
     "github": {
       "type": "stdio",
-      "command": "npx",
+      "command": "sh",
       "args": [
-        "-y",
-        "@modelcontextprotocol/server-github"
-      ],
-      "env": {
-        "GITHUB_TOKEN": "${GITHUB_TOKEN}"
-      }
+        "-c",
+        "TOKEN=\"$(gh auth token 2>/dev/null)\"; if [ -z \"$TOKEN\" ]; then echo 'github-mcp-server: gh auth token returned empty; run `gh auth login` to authenticate.' >&2; exit 1; fi; exec env GITHUB_PERSONAL_ACCESS_TOKEN=\"$TOKEN\" github-mcp-server stdio"
+      ]
     }
   }
 }
