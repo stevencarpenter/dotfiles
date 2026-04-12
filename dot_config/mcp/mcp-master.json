@@ -6,7 +6,7 @@
       "command": "sh",
       "args": [
         "-c",
-        "GITHUB_PERSONAL_ACCESS_TOKEN=$(gh auth token) exec github-mcp-server stdio"
+        "TOKEN=\"$(gh auth token 2>/dev/null)\"; if [ -z \"$TOKEN\" ]; then echo 'github-mcp-server: gh auth token returned empty; run `gh auth login` to authenticate.' >&2; exit 1; fi; exec env GITHUB_PERSONAL_ACCESS_TOKEN=\"$TOKEN\" github-mcp-server stdio"
       ]
     }
   }
