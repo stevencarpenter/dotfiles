@@ -6,6 +6,11 @@
 MAX_APPS=5
 WORKSPACES=(1 2 3 4 5 6 7 8 9)
 
+# Event handling uses a controller pattern: a single hidden `workspaces.controller`
+# item (defined at the bottom of this file) subscribes to aerospace_workspace_change
+# and front_app_switched, then updates all 9 workspaces from a single aerospace
+# query. The individual workspace items below have NO `script=` and NO --subscribe,
+# which avoids the 9× subprocess fanout (one invocation per workspace per event).
 for sid in "${WORKSPACES[@]}"; do
   # Workspace number. icon.padding_left sets the bracket's left-edge padding.
   # icon.padding_right is the gap between the number and the first app icon
@@ -21,9 +26,7 @@ for sid in "${WORKSPACES[@]}"; do
       icon.padding_right=2 \
       label.drawing=off \
       background.drawing=off \
-      click_script="aerospace workspace $sid" \
-      script="$PLUGIN_DIR/aerospace.sh $sid" \
-    --subscribe "workspace.$sid" aerospace_workspace_change front_app_switched
+      click_script="aerospace workspace $sid"
 
   # Pre-allocate app icon slots
   for i in $(seq 0 $((MAX_APPS - 1))); do
@@ -69,3 +72,13 @@ for sid in "${WORKSPACES[@]}"; do
       background.height=26 \
       background.corner_radius=8
 done
+
+# Controller — hidden, off-bar item whose script does all the per-event work for
+# every workspace in a single pass. The position "right" keeps it out of the
+# visible left-side group; `drawing=off` means nothing is rendered.
+sketchybar --add item workspaces.controller right \
+  --set workspaces.controller \
+    drawing=off \
+    updates=on \
+    script="$PLUGIN_DIR/aerospace.sh" \
+  --subscribe workspaces.controller aerospace_workspace_change front_app_switched

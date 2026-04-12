@@ -196,7 +196,6 @@ The `suffix = ""` setting in `~/.config/chezmoi/chezmoi.toml` prevents chezmoi f
 
 ### Required Variables
 
-- `GITHUB_TOKEN` - GitHub Personal Access Token (for MCP, Copilot)
 - `OPENAI_API_KEY` - OpenAI API key
 - `SUPABASE_PROJECT_REF` - Supabase project reference (for MCP)
 - `BRAVE_API_KEY` - Brave Search API key
@@ -204,6 +203,8 @@ The `suffix = ""` setting in `~/.config/chezmoi/chezmoi.toml` prevents chezmoi f
 - `NPM_TOKEN` - NPM authentication token
 - `OPENROUTER_TOKEN` - OpenRouter API key
 - `ATLASSIAN_API_TOKEN` - Atlassian/Jira API token (work)
+
+GitHub auth is **not** in this list — the GitHub MCP server and `gh` CLI both use the token stored in the macOS keychain by `gh auth login`. No long-lived env var, no manual copy-paste into encrypted files.
 
 ## AI Tools Configuration
 

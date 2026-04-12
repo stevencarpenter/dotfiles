@@ -11,7 +11,10 @@ after-startup-command = [
 after-login-command = []
 
 on-focus-changed = [
-  'exec-and-forget [ "$(aerospace list-windows --workspace focused | wc -l)" -eq 1 ] && borders width=0.0 || borders width=3.0'
+  # Wrapped in /bin/bash -c because exec-and-forget doesn't process shell syntax
+  # (`[...]`, `&&`, `||`, `$(...)`) on its own — it execs the command directly.
+  # Matches the same pattern used for bordersrc above.
+  "exec-and-forget /bin/bash -c '[ \"$(aerospace list-windows --workspace focused | wc -l)\" -eq 1 ] && borders width=0.0 || borders width=3.0'"
 ]
 
 # Normalizations — keep the tree sane automatically

@@ -1,35 +1,32 @@
 #!/bin/bash
 
-# AeroSpace workspace change handler
-# Creates per-app colored icons using sketchybar-app-font
+# AeroSpace workspace controller. Subscribed to `aerospace_workspace_change` and
+# `front_app_switched` by `workspaces.controller` (see items/workspaces.sh).
+# Fires ONCE per event, queries aerospace once, and emits a single batched
+# `sketchybar --set ...` invocation that updates every workspace's highlight,
+# bracket color, and app-icon slots.
+#
+# Prior design subscribed each of the 9 workspace items directly, which spawned
+# 9 parallel subprocesses per event (each sourcing the 1400-line icon_map.sh).
+# This controller collapses that to 1 subprocess.
+
+set -u
 
 BG=0xff272e33
 BG2=0xff374145
 GRAY=0xff7a8478
-FG=0xffd3c6aa
 GREEN=0xffa7c080
 MAX_APPS=5
+WORKSPACES=(1 2 3 4 5 6 7 8 9)
 
-SID="$1"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-
-# FOCUSED_WORKSPACE is only set by aerospace_workspace_change events.
-# For front_app_switched and other events, query aerospace directly.
-if [ -z "$FOCUSED_WORKSPACE" ]; then
-  FOCUSED_WORKSPACE="$(aerospace list-workspaces --focused 2>/dev/null)"
-fi
-
-# On front_app_switched, only update the focused workspace (avoid 9 redundant calls)
-if [ "$SENDER" = "front_app_switched" ] && [ "$SID" != "$FOCUSED_WORKSPACE" ]; then
-  exit 0
-fi
-
 source "$SCRIPT_DIR/icon_map.sh"
 
 # ─── App → Brand color map ───────────────────────────────────────────────────
 
 color_for_app() {
-  local app_lower="$(echo "$1" | tr '[:upper:]' '[:lower:]')"
+  local app_lower
+  app_lower="$(echo "$1" | tr '[:upper:]' '[:lower:]')"
   case "$app_lower" in
     ghostty)                echo "0xff7fbbb3" ;;  # ghostty teal
     *firefox*)              echo "0xffff7139" ;;  # firefox orange
@@ -69,51 +66,54 @@ color_for_app() {
   esac
 }
 
-# ─── Query windows on this workspace ──────────────────────────────────────────
+# ─── Determine focused workspace ─────────────────────────────────────────────
 
-APPS="$(aerospace list-windows --workspace "$SID" --format '%{app-name}' 2>/dev/null)"
-
-# Deduplicate and collect into array
-APP_LIST=()
-if [ -n "$APPS" ]; then
-  while IFS= read -r app; do
-    [ -z "$app" ] && continue
-    APP_LIST+=("$app")
-  done <<< "$(echo "$APPS" | sort -u)"
+# aerospace_workspace_change sets FOCUSED_WORKSPACE. front_app_switched does
+# not, so fall back to querying aerospace directly.
+FOCUSED="${FOCUSED_WORKSPACE:-}"
+if [ -z "$FOCUSED" ]; then
+  FOCUSED="$(aerospace list-workspaces --focused 2>/dev/null)"
 fi
 
-APP_COUNT=${#APP_LIST[@]}
+# ─── Single aerospace query for ALL workspaces ───────────────────────────────
 
-# ─── Update workspace number + bracket ───────────────────────────────────────
+# Format: "<workspace>|<app-name>" one line per window. Sort+unique dedupes
+# multiple windows of the same app (e.g. two IntelliJ projects) per workspace.
+ALL_WINDOWS="$(aerospace list-windows --all --format '%{workspace}|%{app-name}' 2>/dev/null | sort -u)"
 
-if [ "$SID" = "$FOCUSED_WORKSPACE" ]; then
-  sketchybar --set "$NAME" icon.highlight=on
-  sketchybar --set "workspace_bracket.$SID" background.color=$BG2
-else
-  sketchybar --set "$NAME" icon.highlight=off
-  sketchybar --set "workspace_bracket.$SID" background.color=$BG
-fi
+# ─── Build a single batched sketchybar invocation ────────────────────────────
 
-# ─── Update app icon slots ───────────────────────────────────────────────────
-
-for i in $(seq 0 $((MAX_APPS - 1))); do
-  SLOT="workspace.$SID.app.$i"
-
-  if [ "$i" -lt "$APP_COUNT" ]; then
-    app="${APP_LIST[$i]}"
-    __icon_map "$app"
-    COLOR="$(color_for_app "$app")"
-
-    # Dim colors on unfocused workspaces
-    if [ "$SID" != "$FOCUSED_WORKSPACE" ]; then
-      COLOR=$GRAY
-    fi
-
-    sketchybar --set "$SLOT" \
-      icon="$icon_result" \
-      icon.color="$COLOR" \
-      drawing=on
+SETS=()
+for sid in "${WORKSPACES[@]}"; do
+  # Workspace number highlight + bracket bg
+  if [ "$sid" = "$FOCUSED" ]; then
+    SETS+=(--set "workspace.$sid" icon.highlight=on)
+    SETS+=(--set "workspace_bracket.$sid" background.color=$BG2)
   else
-    sketchybar --set "$SLOT" drawing=off
+    SETS+=(--set "workspace.$sid" icon.highlight=off)
+    SETS+=(--set "workspace_bracket.$sid" background.color=$BG)
   fi
+
+  # Extract apps for this workspace from the single query
+  i=0
+  while IFS='|' read -r ws app; do
+    [ -z "$ws" ] && continue
+    [ "$ws" != "$sid" ] && continue
+    [ "$i" -ge "$MAX_APPS" ] && break
+    __icon_map "$app"
+    color="$(color_for_app "$app")"
+    if [ "$sid" != "$FOCUSED" ]; then
+      color=$GRAY
+    fi
+    SETS+=(--set "workspace.$sid.app.$i" icon="$icon_result" icon.color="$color" drawing=on)
+    i=$((i + 1))
+  done <<< "$ALL_WINDOWS"
+
+  # Hide unused slots
+  while [ "$i" -lt "$MAX_APPS" ]; do
+    SETS+=(--set "workspace.$sid.app.$i" drawing=off)
+    i=$((i + 1))
+  done
 done
+
+sketchybar "${SETS[@]}"

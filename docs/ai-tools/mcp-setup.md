@@ -17,7 +17,7 @@ The master config (`dot_config/mcp/mcp-master.json`) includes:
 
 | Server | Package | Purpose |
 |--------|---------|---------|
-| **GitHub** | `@modelcontextprotocol/server-github` | Repository operations, PR management, issue handling |
+| **GitHub** | `github-mcp-server` (Homebrew, invoked via `sh -c` wrapper that sources the PAT from `gh auth token` at launch) | Repository operations, PR management, issue handling |
 | **Railway** | `@railway/mcp-server` | Deployment status, logs, environment management |
 | **AWS CCAPI** | `awslabs.ccapi-mcp-server` | AWS resource management (read-only by default) |
 
@@ -64,9 +64,14 @@ chezmoi apply
 uv run --project ~/.local/share/chezmoi/mcp_sync sync-mcp-configs
 ```
 
-## Environment Variables
+## Authentication / Credentials
 
-Servers that need API keys reference environment variables (e.g., `${GITHUB_TOKEN}`). These are stored encrypted in `dot_config/zsh/encrypted_dot_env` and sourced at shell startup.
+Different servers use different credential sources:
+
+- **GitHub**: No env var required. The `sh -c` wrapper in `mcp-master.json` calls `gh auth token` at spawn time and exports `GITHUB_PERSONAL_ACCESS_TOKEN` only into the server process. Token lives in the OS keychain (`gh auth login`); fails fast with a useful message if `gh` isn't authenticated. No long-lived shell env var.
+- **Other servers (Railway, AWS, etc.)**: reference environment variables (e.g., `${RAILWAY_TOKEN}`) expanded by the MCP client at server-launch time. These are stored encrypted in `dot_config/zsh/encrypted_dot_env` and sourced at shell startup.
+
+To rotate the GitHub token, run `gh auth refresh` or `gh auth login` — no dotfiles change required.
 
 ## Troubleshooting
 
