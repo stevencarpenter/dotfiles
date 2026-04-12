@@ -7,7 +7,10 @@ MAX_APPS=5
 WORKSPACES=(1 2 3 4 5 6 7 8 9)
 
 for sid in "${WORKSPACES[@]}"; do
-  # Workspace number
+  # Workspace number. icon.padding_left sets the bracket's left-edge padding.
+  # icon.padding_right is the gap between the number and the first app icon
+  # (and is also the right-edge padding when no apps are visible — the end-cap
+  # below adds the same amount on the right to keep empty brackets symmetric).
   sketchybar --add item "workspace.$sid" left \
     --set "workspace.$sid" \
       icon="$sid" \
@@ -15,7 +18,7 @@ for sid in "${WORKSPACES[@]}"; do
       icon.color="$GRAY" \
       icon.highlight_color="$GREEN" \
       icon.padding_left=6 \
-      icon.padding_right=6 \
+      icon.padding_right=2 \
       label.drawing=off \
       background.drawing=off \
       click_script="aerospace workspace $sid" \
@@ -37,7 +40,21 @@ for sid in "${WORKSPACES[@]}"; do
         drawing=off
   done
 
-  # Bracket wrapping number + all app slots
+  # End cap — invisible, always drawn. Its padding_left (5) plus the preceding
+  # element's icon.padding_right (2, from either the last app slot or the
+  # workspace number when empty) gives a constant 7px right-edge padding that
+  # matches 6px of icon.padding_left + 1px balance for the icon's visual
+  # center-of-mass sitting slightly left of its glyph box.
+  sketchybar --add item "workspace.$sid.end" left \
+    --set "workspace.$sid.end" \
+      icon.drawing=off \
+      label.drawing=off \
+      background.drawing=off \
+      padding_left=5 \
+      padding_right=0 \
+      click_script="aerospace workspace $sid"
+
+  # Bracket wrapping number + all app slots + end cap
   sketchybar --add bracket "workspace_bracket.$sid" \
       "workspace.$sid" \
       "workspace.$sid.app.0" \
@@ -45,6 +62,7 @@ for sid in "${WORKSPACES[@]}"; do
       "workspace.$sid.app.2" \
       "workspace.$sid.app.3" \
       "workspace.$sid.app.4" \
+      "workspace.$sid.end" \
     --set "workspace_bracket.$sid" \
       background.color="$BG" \
       background.drawing=on \
