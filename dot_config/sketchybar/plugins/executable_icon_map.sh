@@ -264,9 +264,6 @@ function __icon_map() {
    "Comet")
         icon_result=":comet:"
         ;;
-   "Comet")
-        icon_result=":comet_browser:"
-        ;;
    "Conductor")
         icon_result=":conductor:"
         ;;

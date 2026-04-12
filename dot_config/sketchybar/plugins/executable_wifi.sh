@@ -6,7 +6,12 @@
 PURPLE=0xffd699b6
 RED=0xffe67e80
 
-IP="$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null)"
+# Resolve the Wi-Fi hardware port dynamically (en0 is not always Wi-Fi — can be
+# Ethernet on desktops or reassigned on laptops with external adapters).
+WIFI_IF="$(networksetup -listallhardwareports 2>/dev/null \
+  | awk '/^Hardware Port: Wi-Fi/ { getline; print $2; exit }')"
+
+IP="$(ipconfig getifaddr "${WIFI_IF:-en0}" 2>/dev/null)"
 
 if [ -z "$IP" ]; then
   sketchybar --set "$NAME" icon=󰤭 icon.color=$RED

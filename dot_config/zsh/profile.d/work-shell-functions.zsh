@@ -104,12 +104,30 @@ aws-sso-clear() {
 }
 # END_AWS_SSO_CLI
 
-# Register aws-sso completions at source time
-local aws_sso_path
-aws_sso_path="$(command -v aws-sso 2>/dev/null)"
-if [[ -n "$aws_sso_path" ]]; then
+# Register aws-sso completions after the completion system is initialized.
+# .zshrc defers compinit/bashcompinit to a precmd hook (_zsh_lazy_load_completions),
+# so registering at source time fails silently. We hook precmd to retry until
+# ${+_comps} is non-zero, then self-remove.
+__register_aws_sso_completions() {
+  emulate -L zsh
+
+  (( ${+_comps} )) || return 1
+
+  local aws_sso_path
+  aws_sso_path="$(command -v aws-sso 2>/dev/null)"
+  [[ -z "$aws_sso_path" ]] && return 0
+
   compdef __aws_sso_profile_complete aws-sso-profile
   complete -C "$aws_sso_path" aws-sso
+
+  autoload -Uz add-zsh-hook
+  add-zsh-hook -d precmd __register_aws_sso_completions
+  return 0
+}
+
+if ! __register_aws_sso_completions; then
+  autoload -Uz add-zsh-hook
+  add-zsh-hook precmd __register_aws_sso_completions
 fi
 
 # AWS SSO profile management for role assumption. This is a helper function that

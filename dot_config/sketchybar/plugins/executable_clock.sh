@@ -11,25 +11,14 @@ DATE="$(date '+%A, %B %d, %Y')"
 sketchybar --set clock label="${TIME}"
 sketchybar --set calendar label="${DATE}"
 
-# Update UTC popup only on hover or when already visible
+# Hover events — both clock and calendar trigger calendar's popup.
+# UTC labels are computed lazily on enter to avoid per-tick subshells.
 case "$SENDER" in
   mouse.entered)
     UTC_TIME="$(TZ=UTC date '+%H:%M:%S UTC')"
     UTC_DATE="$(TZ=UTC date '+%A, %B %d, %Y')"
     sketchybar --set calendar.utc_date label="${UTC_DATE}"
     sketchybar --set calendar.utc_time label="${UTC_TIME}"
-    sketchybar --set calendar popup.drawing=on
-    exit 0
-    ;;
-  mouse.exited)
-    sketchybar --set calendar popup.drawing=off
-    exit 0
-    ;;
-esac
-
-# Hover events — both clock and calendar trigger calendar's popup
-case "$SENDER" in
-  mouse.entered)
     sketchybar --set calendar popup.drawing=on
     ;;
   mouse.exited)
