@@ -115,12 +115,16 @@ for sid in "${WORKSPACES[@]}"; do
       fi
       SETS+=(--set "workspace.$sid.app.$i"
              "icon=$icon_result" "icon.color=$color" drawing=on)
-      ((i++))
+      # NOTE: `((i++))` under `set -euo pipefail` exits with status 1 when
+      # the pre-increment value is 0 (post-increment returns old value →
+      # arithmetic context reads 0 as false → exit 1). Use arithmetic
+      # assignment instead, which is always status 0.
+      i=$((i+1))
     done
   fi
   while (( i < MAX_APPS )); do
     SETS+=(--set "workspace.$sid.app.$i" drawing=off)
-    ((i++))
+    i=$((i+1))
   done
 done
 
