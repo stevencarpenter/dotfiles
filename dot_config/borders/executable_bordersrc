@@ -2,10 +2,14 @@
 # JankyBorders — focused-window border highlights
 # Everforest Dark Hard palette
 
+# Keep `width` in sync with the on-focus-changed fallback in
+# dot_config/aerospace/aerospace.toml.tmpl — and with `gaps.inner` /
+# `gaps.outer` in that same file — so adjacent window borders don't
+# overlap and screen-edge borders aren't clipped.
 options=(
     style=round
-    width=5.0
-    hidpi=off
+    width=3.0
+    hidpi=on
     active_color=0xffa7c080
     inactive_color=0xff4b565c
 )
