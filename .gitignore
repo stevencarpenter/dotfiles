@@ -1,3 +1,6 @@
+# Ignore META-INF
+META-INF/
+
 # Ignore all CLAUDE.md files
 **/CLAUDE.md
 
