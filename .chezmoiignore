@@ -72,4 +72,5 @@ private_dot_claude.json
 .config/zsh/.personal.env
 .config/zsh/profile.d/personal-secrets.zsh
 .config/zsh/profile.d/personal-shell-functions.zsh
+.config/aerospace/layouts/workspace-5-comms.sh
 {{ end }}
