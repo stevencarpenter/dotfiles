@@ -115,11 +115,18 @@ alias vim='nvim'
 alias nano='nvim'
 alias emacs='nvim'
 
+# Modern ls (eza)
+if command -v eza >/dev/null 2>&1; then
+  alias ls='eza --icons'
+  alias ll='eza -la --icons --git'
+  alias lt='eza --tree --icons --level=2'
+else
+  alias ls='command ls'
+fi
+
 # Utility aliases
 alias tree='tree -a -I .git'
 alias la='ls -lAh'
-alias ll='ls -lh'
-alias ls='ls -G'
 alias sed='gsed'
 alias teeclip='tee >(pbcopy)'
 

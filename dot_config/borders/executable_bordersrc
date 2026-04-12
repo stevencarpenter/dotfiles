@@ -1,0 +1,13 @@
+#!/bin/bash
+# JankyBorders — focused-window border highlights
+# Everforest Dark Hard palette
+
+options=(
+    style=round
+    width=5.0
+    hidpi=off
+    active_color=0xffa7c080
+    inactive_color=0xff4b565c
+)
+
+borders "${options[@]}"
