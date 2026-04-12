@@ -41,7 +41,6 @@ docs/**/CLAUDE.md
 .gitignore
 README.md
 CLAUDE.md
-arch
 docs
 scripts
 private_dot_claude.json
@@ -64,6 +63,7 @@ private_dot_claude.json
 .config/mcp/machine/work.json
 .config/zsh/.work.env
 .config/zsh/profile.d/work-secrets.zsh
+.config/zsh/profile.d/work-shell-functions.zsh
 {{ end }}
 
 # Skip personal files on work machines
