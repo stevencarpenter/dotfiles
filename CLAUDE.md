@@ -74,12 +74,14 @@ auto-detects the deployed machine overlay at `~/.config/mcp/machine/*.json` and 
 
 #### Machine-Type Gating
 
-MCP servers and Claude settings are gated by machine type via chezmoi's `.machine` variable:
+Configuration is gated by machine type via chezmoi's `.machine` variable (e.g., `personal-mac`, `work-mac`):
 
-- **Shared**: `dot_config/mcp/mcp-master.json` — servers deployed to all machines
-- **Work-only**: `dot_config/mcp/machine/work.json` — servers added on work machines (e.g., AWS MCP)
-- **Personal-only**: `dot_config/mcp/machine/personal.json` — servers added on personal machines
+- **MCP shared**: `dot_config/mcp/mcp-master.json` — servers deployed to all machines
+- **MCP work-only**: `dot_config/mcp/machine/work.json` — servers added on work machines (e.g., AWS MCP)
+- **MCP personal-only**: `dot_config/mcp/machine/personal.json` — servers added on personal machines
 - **Claude hooks**: `dot_claude/settings.json.tmpl` — hippo hook gated behind `{{ if hasPrefix "personal" .machine }}`
+- **AeroSpace workspace assignments**: `dot_config/aerospace/aerospace.toml.tmpl` — separate `personal` / `work` blocks for `on-window-detected` rules; service-mode keybindings for personal layout scripts also gated
+- **`.chezmoiignore`**: gates personal-only files (e.g., `workspace-5-comms.sh`, personal env / shell-function profiles) out of work deploys, and work-only files (e.g., `aws-config-gen/overrides.json`) out of personal deploys
 
 ### Key Directories
 
