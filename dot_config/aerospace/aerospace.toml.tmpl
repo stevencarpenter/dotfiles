@@ -195,11 +195,65 @@ run = 'move-node-to-workspace 9'
 {{- end }}
 {{- if hasPrefix "work" .machine }}
 # ── Work Machine ──
-# Define workspace assignments for your work apps here.
-# Example:
-# [[on-window-detected]]
-# if.app-id = 'com.tinyspeck.slackmacgap'
-# run = 'move-node-to-workspace 8'
+# 1: Terminal (Ghostty)
+# 2: Browser (Zen)
+# 3: IDE (IntelliJ)
+# 4: AI (Claude)
+# 5: (unused — personal comms stack not applicable at work)
+# 6: Browser Personal (Firefox Dev Ed.)
+# 7: Notes (Obsidian)
+# 8: Slack
+# 9: Editor (Zed)
+
+[[on-window-detected]]
+if.app-id = 'com.mitchellh.ghostty'
+run = 'move-node-to-workspace 1'
+
+[[on-window-detected]]
+if.app-id = 'app.zen-browser.zen'
+run = 'move-node-to-workspace 2'
+
+[[on-window-detected]]
+if.app-id = 'com.jetbrains.intellij'
+run = 'move-node-to-workspace 3'
+
+[[on-window-detected]]
+if.app-id = 'com.anthropic.claudefordesktop'
+run = 'move-node-to-workspace 4'
+
+[[on-window-detected]]
+if.app-id = 'org.mozilla.firefoxdeveloperedition'
+run = 'move-node-to-workspace 6'
+
+[[on-window-detected]]
+if.app-id = 'md.obsidian'
+run = 'move-node-to-workspace 7'
+
+[[on-window-detected]]
+if.app-id = 'com.tinyspeck.slackmacgap'
+run = 'move-node-to-workspace 8'
+
+[[on-window-detected]]
+if.app-id = 'dev.zed.Zed-Preview'
+run = 'move-node-to-workspace 9'
+
+# ── Work Machine: enterprise / security app floats ──
+# Name-substring matches handle multi-component apps (Zscaler has several
+# daemon/UI processes) and survive version renames (Self Service →
+# Self Service+). Floating so re-auth, update, and prompt flows aren't
+# fought by the tiler.
+
+[[on-window-detected]]
+if.app-name-regex-substring = '(?i)self service'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-name-regex-substring = '(?i)zscaler'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-name-regex-substring = '(?i)sentinel'
+run = 'layout floating'
 {{- end }}
 
 # ─── Window Rules ─────────────────────────────────────────────────────────────
