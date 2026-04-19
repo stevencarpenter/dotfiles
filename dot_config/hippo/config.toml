@@ -1,11 +1,12 @@
 [lmstudio]
 base_url = "http://localhost:1234/v1"  # LM Studio local server
+timeout_secs = 300                     # HTTP timeout for chat/embed calls
 
 [models]
-enrichment = "qwen3.5-35b-a3b"                    # Daily: MoE, 35B total, 3B active — fast
-enrichment_bulk = "qwen3.5-35b-a3b"               # Bulk: strongest available — slow but reliable
-query = "qwen3.5-35b-a3b"                          # Same model for query reformulation
-embedding = "text-embedding-nomic-embed-text-v2-moe"     # Purpose-built embedding model, 768d
+enrichment = "google/gemma-4-31b"                    # Daily: MoE, 35B total, 3B active — fast
+enrichment_bulk = "google/gemma-4-31b"               # Bulk: strongest available — slow but reliable
+query = "google/gemma-4-31b"                         # Same model for query reformulation
+embedding = "text-embedding-nomic-embed-text-v2-moe" # Purpose-built embedding model, 768d
 
 [daemon]
 flush_interval_ms = 100    # Write buffer flush interval (ms)
@@ -13,11 +14,12 @@ flush_batch_size = 50      # Max events per flush
 socket_timeout_ms = 100    # CLI-to-daemon socket timeout (ms)
 
 [brain]
-port = 9175                # Brain query server HTTP port
+port = 9175
 poll_interval_secs = 5     # Enrichment queue poll interval
-enrichment_batch_size = 30 # Events per enrichment batch (session-based live enrichment)
-max_events_per_chunk = 30  # Max events per enrichment chunk
+enrichment_batch_size = 10 # Events per enrichment batch (session-based live enrichment)
+max_events_per_chunk = 10  # Max events per enrichment chunk
 max_queue_depth = 100      # Max pending enrichment items
+query_timeout_secs = 300   # GUI timeout for /ask and /query requests (seconds)
 
 [telemetry]
 enabled = true
