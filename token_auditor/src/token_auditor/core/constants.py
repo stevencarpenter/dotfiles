@@ -45,6 +45,12 @@ TOKEN_PRICING_USD_PER_1M: dict[str, dict[str, dict[str, float]]] = {
         },
     },
     "claude": {
+        "claude-opus-4-7": {
+            "input_tokens": 5.00,
+            "cached_input_tokens": 0.50,
+            "cache_creation_input_tokens": 6.25,
+            "output_tokens": 25.00,
+        },
         "claude-opus-4-6": {
             "input_tokens": 5.00,
             "cached_input_tokens": 0.50,
@@ -72,6 +78,7 @@ MODEL_PRICING_ALIASES: dict[str, dict[str, str]] = {
         "gpt-5.3-codex-mini": "gpt-5.2-codex-mini",
     },
     "claude": {
+        "claude-opus-4-7[1m]": "claude-opus-4-7",
         "claude-opus-4-5": "claude-opus-4-6",
         "claude-sonnet-4-5": "claude-sonnet-4-6",
         "claude-haiku-4-5-20251001": "claude-haiku-4-5",
@@ -82,6 +89,7 @@ MODEL_PRICING_ALIASES: dict[str, dict[str, str]] = {
 MODEL_PRICING_PREFIX_ALIASES: dict[str, tuple[tuple[str, str], ...]] = {
     "codex": (),
     "claude": (
+        ("claude-opus-4-7", "claude-opus-4-7"),
         ("claude-opus-4-5", "claude-opus-4-6"),
         ("claude-sonnet-4-5", "claude-sonnet-4-6"),
         ("claude-haiku-4-5", "claude-haiku-4-5"),
@@ -100,6 +108,12 @@ REASONING_EFFORT_MULTIPLIER: dict[str, float] = {
 LONG_CONTEXT_INPUT_THRESHOLD: int = 200_000
 
 LONG_CONTEXT_PRICING_USD_PER_1M: dict[str, dict[str, float]] = {
+    "claude-opus-4-7": {
+        "input_tokens": 10.00,
+        "cached_input_tokens": 1.00,
+        "cache_creation_input_tokens": 12.50,
+        "output_tokens": 37.50,
+    },
     "claude-opus-4-6": {
         "input_tokens": 10.00,
         "cached_input_tokens": 1.00,
@@ -117,6 +131,12 @@ LONG_CONTEXT_PRICING_USD_PER_1M: dict[str, dict[str, float]] = {
 # Not wired into computation. JSONL model IDs do not distinguish fast from standard mode.
 # Fast mode is 6x standard rates and includes 1M context at no additional charge.
 FAST_MODE_PRICING_USD_PER_1M: dict[str, dict[str, float]] = {
+    "claude-opus-4-7": {
+        "input_tokens": 30.00,
+        "cached_input_tokens": 3.00,
+        "cache_creation_input_tokens": 37.50,
+        "output_tokens": 150.00,
+    },
     "claude-opus-4-6": {
         "input_tokens": 30.00,
         "cached_input_tokens": 3.00,
