@@ -1,18 +1,18 @@
 [lmstudio]
-base_url = "http://localhost:1234/v1"  # LM Studio local server
-timeout_secs = 300                     # HTTP timeout for chat/embed calls
+base_url = "http://localhost:1234/v1" # LM Studio local server
+timeout_secs = 300                    # HTTP timeout for chat/embed calls
 
 [models]
-enrichment = "google/gemma-4-31b"                    # Daily: MoE, 35B total, 3B active — fast
-enrichment_bulk = "google/gemma-4-31b"               # Bulk: strongest available — slow but reliable
-query = "google/gemma-4-31b"                         # Same model for query reformulation
+enrichment = "gpt-oss-120b-mlx-crack"                # Daily: MoE, 35B total, 3B active — fast
+enrichment_bulk = "gpt-oss-120b-mlx-crack"           # Bulk: strongest available — slow but reliable
+query = "gpt-oss-120b-mlx-crack"                     # Same model for query reformulation
 embedding = "text-embedding-nomic-embed-text-v2-moe" # Purpose-built embedding model, 768d
 
 
 [daemon]
-flush_interval_ms = 100    # Write buffer flush interval (ms)
-flush_batch_size = 50      # Max events per flush
-socket_timeout_ms = 100    # CLI-to-daemon socket timeout (ms)
+flush_interval_ms = 100 # Write buffer flush interval (ms)
+flush_batch_size = 50   # Max events per flush
+socket_timeout_ms = 100 # CLI-to-daemon socket timeout (ms)
 
 [brain]
 port = 9175
