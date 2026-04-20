@@ -8,6 +8,7 @@ enrichment_bulk = "google/gemma-4-31b"               # Bulk: strongest available
 query = "google/gemma-4-31b"                         # Same model for query reformulation
 embedding = "text-embedding-nomic-embed-text-v2-moe" # Purpose-built embedding model, 768d
 
+
 [daemon]
 flush_interval_ms = 100    # Write buffer flush interval (ms)
 flush_batch_size = 50      # Max events per flush
