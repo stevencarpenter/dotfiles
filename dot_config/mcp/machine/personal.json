@@ -27,14 +27,6 @@
         "-y",
         "@railway/mcp-server"
       ]
-    },
-    "xcode": {
-      "type": "stdio",
-      "command": "xcrun",
-      "args": [
-        "mcpbridge"
-      ],
-      "env": {}
     }
   }
 }
