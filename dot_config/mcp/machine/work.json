@@ -8,7 +8,7 @@
         "--readonly"
       ],
       "env": {
-        "AWS_PROFILE": "${AWS_SSO_PROFILE}",
+        "AWS_PROFILE": "${AWS_PROFILE}",
         "DEFAULT_TAGS": "enabled",
         "SECURITY_SCANNING": "enabled",
         "FASTMCP_LOG_LEVEL": "ERROR"
