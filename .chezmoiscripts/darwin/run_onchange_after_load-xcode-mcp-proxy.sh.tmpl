@@ -12,7 +12,7 @@ set -euo pipefail
 
 PLIST_PATH="${HOME}/Library/LaunchAgents/com.user.xcode-mcp-proxy.plist"
 LABEL="com.user.xcode-mcp-proxy"
-export PATH="${HOME}/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH}"
+export PATH="${HOME}/.vite-plus/bin:${HOME}/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH}"
 
 if [[ ! -f "${PLIST_PATH}" ]]; then
   echo "xcode-mcp-proxy: plist not yet deployed at ${PLIST_PATH}; skipping." >&2
