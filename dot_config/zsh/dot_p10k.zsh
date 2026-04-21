@@ -1756,7 +1756,7 @@ typeset -g POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(
 typeset -g POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS=()
 
 # --- AWS visible only when typing AWS commands/wrappers ---
-typeset -g POWERLEVEL9K_AWS_SHOW_ON_COMMAND='aws|aws-sso|asp'
+typeset -g POWERLEVEL9K_AWS_SHOW_ON_COMMAND='aws|aws-config-gen|awsp|awsx'
 
 # --- Kube visibility rules ---
 typeset -g POWERLEVEL9K_KUBECONTEXT_SHOW_ON_COMMAND='kubectl|helm|kubens|kubectx|oc|k9s|helmfile|flux|fluxctl|stern|kubeseal|skaffold|kubent|kubecolor|cmctl|sparkctl'

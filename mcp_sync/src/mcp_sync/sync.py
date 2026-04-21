@@ -31,13 +31,17 @@ class SyncTarget:
         template_key = self.template_key or self.name
         override_key = self.override_key or self.name
 
+        overrides = _load_override(override_key, home)
+        merged_master = _master_with_servers(
+            master, _merge_override_servers(master, overrides)
+        )
         base = _load_json_template(template_key, home)
-        generated = self.transform(copy.deepcopy(master))
+        generated = self.transform(merged_master)
 
         config = deep_merge(base, generated)
-        overrides = _load_override(override_key, home)
-        if overrides:
-            config = deep_merge(config, overrides)
+        cleaned_overrides = _override_without_servers(overrides)
+        if cleaned_overrides:
+            config = deep_merge(config, cleaned_overrides)
         return config
 
     def sync(self, master: JsonDict, home: Path | None = None) -> None:
@@ -162,6 +166,56 @@ def _normalize_servers(master: JsonDict) -> JsonDict:
     return _ensure_mapping(master.get("servers"))
 
 
+def _filter_enabled_servers(servers: JsonDict) -> JsonDict:
+    """Filter servers dict to only include enabled servers.
+
+    Args:
+        servers: Dictionary of server configurations.
+
+    Returns:
+        Dictionary containing only servers where enabled is not False.
+        Servers without an 'enabled' field are considered enabled (default).
+    """
+    return {
+        name: config
+        for name, config in servers.items()
+        if isinstance(config, dict) and config.get("enabled", True) is not False
+    }
+
+
+def _strip_server_fields(servers: JsonDict, *fields: str) -> JsonDict:
+    stripped: JsonDict = {}
+    for name, config in servers.items():
+        if not isinstance(config, dict):
+            continue
+        stripped[name] = {
+            key: value for key, value in config.items() if key not in fields
+        }
+    return stripped
+
+
+def _merge_override_servers(master: JsonDict, overrides: JsonDict) -> JsonDict:
+    servers = _normalize_servers(master)
+    override_servers = _ensure_mapping(overrides.get("servers"))
+    if override_servers:
+        return deep_merge(servers, override_servers)
+    return servers
+
+
+def _master_with_servers(master: JsonDict, servers: JsonDict) -> JsonDict:
+    merged_master = copy.deepcopy(master)
+    merged_master["servers"] = servers
+    return merged_master
+
+
+def _override_without_servers(overrides: JsonDict) -> JsonDict:
+    if "servers" not in overrides:
+        return copy.deepcopy(overrides)
+    cleaned = copy.deepcopy(overrides)
+    cleaned.pop("servers", None)
+    return cleaned
+
+
 def _merge_lists(base: list[Any], extra: list[Any]) -> list[Any]:
     merged: list[Any] = []
     for item in base:
@@ -202,10 +256,9 @@ def sync_codex_mcp(master: JsonDict, home: Path | None = None) -> None:
         log_info("Skipping codex config (base template not found)")
         return
 
-    servers = _normalize_servers(master)
     overrides = _load_override("codex", home_path)
-    if isinstance(overrides.get("servers"), dict):
-        servers = deep_merge(servers, overrides["servers"])
+    merged_servers = _merge_override_servers(master, overrides)
+    servers = _strip_server_fields(_filter_enabled_servers(merged_servers), "enabled")
 
     mcp_section = _render_codex_mcp_section(servers)
     text = base_text.rstrip() + "\n" + mcp_section
@@ -306,17 +359,25 @@ def patch_claude_code_config(master: JsonDict, home: Path | None = None) -> None
 
     claude_cfg = _load_json(claude_path)
 
-    servers = _normalize_servers(master)
-    servers = {
-        key: {k: v for k, v in val.items() if k != "note"}
-        for key, val in servers.items()
+    overrides = _load_override("claude", home_path)
+    merged_servers = _merge_override_servers(master, overrides)
+    disabled_servers = {
+        key
+        for key, val in merged_servers.items()
+        if isinstance(val, dict) and val.get("enabled") is False
     }
+    servers = _strip_server_fields(
+        _filter_enabled_servers(merged_servers), "note", "enabled"
+    )
 
     existing = _ensure_mapping(claude_cfg.get("mcpServers"))
-    claude_cfg["mcpServers"] = {**existing, **servers}
-    overrides = _load_override("claude", home_path)
-    if overrides:
-        claude_cfg = deep_merge(claude_cfg, overrides)
+    preserved_existing = {
+        key: value for key, value in existing.items() if key not in disabled_servers
+    }
+    claude_cfg["mcpServers"] = {**preserved_existing, **servers}
+    cleaned_overrides = _override_without_servers(overrides)
+    if cleaned_overrides:
+        claude_cfg = deep_merge(claude_cfg, cleaned_overrides)
 
     _write_json(claude_path, claude_cfg)
     log_success(f"Synced: {claude_path}")
@@ -338,7 +399,9 @@ def sync_to_locations(
 
 
 def transform_to_copilot_format(master: JsonDict) -> JsonDict:
-    servers = _normalize_servers(master)
+    servers = _strip_server_fields(
+        _filter_enabled_servers(_normalize_servers(master)), "enabled"
+    )
     mcp_servers: JsonDict = {}
     for name, server in servers.items():
         mcp_servers[name] = {
@@ -349,19 +412,35 @@ def transform_to_copilot_format(master: JsonDict) -> JsonDict:
     return {"mcpServers": mcp_servers}
 
 
+def transform_to_identity_format(master: JsonDict) -> JsonDict:
+    config = copy.deepcopy(master)
+    config["servers"] = _strip_server_fields(
+        _filter_enabled_servers(_normalize_servers(master)), "enabled"
+    )
+    return config
+
+
 def transform_to_generic_mcp_format(master: JsonDict) -> JsonDict:
+    servers = _strip_server_fields(
+        _filter_enabled_servers(_normalize_servers(master)), "enabled"
+    )
     return {
         "$schema": "https://modelcontextprotocol.io/schema/config.json",
-        "mcpServers": _normalize_servers(master),
+        "mcpServers": servers,
     }
 
 
 def transform_to_mcpservers_format(master: JsonDict) -> JsonDict:
-    return {"mcpServers": _normalize_servers(master)}
+    servers = _strip_server_fields(
+        _filter_enabled_servers(_normalize_servers(master)), "enabled"
+    )
+    return {"mcpServers": servers}
 
 
 def transform_to_opencode_format(master: JsonDict) -> JsonDict:
-    servers = _normalize_servers(master)
+    servers = _strip_server_fields(
+        _filter_enabled_servers(_normalize_servers(master)), "enabled"
+    )
     mcp: JsonDict = {}
     for name, server in servers.items():
         url = server.get("url")
@@ -415,14 +494,14 @@ def _build_targets(home: Path) -> list[SyncTarget]:
         SyncTarget(
             name="github-copilot-intellij",
             destination=home / ".config" / "github-copilot" / "intellij" / "mcp.json",
-            transform=_identity,
+            transform=transform_to_identity_format,
             template_key="github-copilot",
             override_key="github-copilot",
         ),
         SyncTarget(
             name="github-copilot",
             destination=home / ".config" / "github-copilot" / "mcp.json",
-            transform=_identity,
+            transform=transform_to_identity_format,
             template_key="github-copilot",
             override_key="github-copilot",
         ),
@@ -452,7 +531,7 @@ def _build_targets(home: Path) -> list[SyncTarget]:
         SyncTarget(
             name="vscode",
             destination=home / ".vscode" / "mcp.json",
-            transform=_identity,
+            transform=transform_to_identity_format,
             template_key="vscode",
             override_key="vscode",
         ),

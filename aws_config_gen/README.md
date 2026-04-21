@@ -77,6 +77,35 @@ Treat token failures as errors for CI:
 aws-config-gen --strict
 ```
 
+### Using generated profiles in a shell session
+
+Two zsh helpers ship alongside this tool (work machines only, see
+`dot_config/zsh/profile.d/work-aws-shell-functions.zsh`):
+
+- **`awsp [profile|-]`** — set `AWS_PROFILE` in the **current** shell.
+  - `awsp` → fzf picker over all generated profiles (preview shows the full
+    `[profile <name>]` block from `~/.aws/config`).
+  - `awsp prod-admin` → direct set.
+  - `awsp -` → unset `AWS_PROFILE` (returns to the default "no profile" state;
+    leaves `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`/`AWS_SESSION_TOKEN` alone
+    so `get_assumed_role_credentials` state is preserved).
+
+- **`awsx [profile]`** — spawn a **dedicated context** with `AWS_PROFILE`
+  pre-exported.
+  - Inside tmux → new window named `aws:<profile>`.
+  - Outside tmux → new interactive zsh subshell.
+  - Exiting the window/subshell drops the profile.
+
+Both commands emit a non-blocking warning to stderr if the underlying SSO
+token for the profile's `sso_session` is missing or expired:
+
+```
+⚠ SSO token expired — run: aws sso login --sso-session my-sso
+```
+
+The default "no profile set" behavior on new shells is preserved, so scripts
+that iterate across accounts with per-call `--profile` flags are unaffected.
+
 ## Configuration
 
 ### Generator Config File (`overrides.json`)
