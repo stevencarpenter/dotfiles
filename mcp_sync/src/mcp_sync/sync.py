@@ -225,6 +225,12 @@ def _render_codex_mcp_section(servers: JsonDict) -> str:
     for name, server in servers.items():
         lines.append("")
         lines.append(f"[mcp_servers.{name}]")
+
+        url = server.get("url")
+        if isinstance(url, str) and url:
+            lines.append(f"url = {_toml_string(url)}")
+            continue
+
         lines.append(f"command = {_toml_string(str(server.get('command', '')))}")
 
         args = list(server.get("args", []) or [])
@@ -358,6 +364,15 @@ def transform_to_opencode_format(master: JsonDict) -> JsonDict:
     servers = _normalize_servers(master)
     mcp: JsonDict = {}
     for name, server in servers.items():
+        url = server.get("url")
+        if isinstance(url, str) and url:
+            mcp[name] = {
+                "type": "remote",
+                "url": url,
+                "enabled": True,
+            }
+            continue
+
         command = server.get("command")
         args = list(server.get("args", []) or [])
         cmd_array = [command, *args] if command else args
