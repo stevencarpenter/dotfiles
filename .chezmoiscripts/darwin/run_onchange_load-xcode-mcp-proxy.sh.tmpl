@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# Install mcp-proxy and (re)load the xcode-mcp-proxy LaunchAgent on personal
+# machines. The agent supervises a single `xcrun mcpbridge` process behind
+# http://localhost:9876/mcp so every MCP client shares one connection instead
+# of spawning mcpbridge per session (which otherwise triggers TCC approval
+# prompts on every launch).
+#
+# plist-hash: {{ include "Library/LaunchAgents/com.user.xcode-mcp-proxy.plist" | sha256sum }}
+set -euo pipefail
+
+{{ if hasPrefix "personal" .machine -}}
+
+PLIST_PATH="${HOME}/Library/LaunchAgents/com.user.xcode-mcp-proxy.plist"
+LABEL="com.user.xcode-mcp-proxy"
+
+if [[ ! -f "${PLIST_PATH}" ]]; then
+  echo "xcode-mcp-proxy: plist not yet deployed at ${PLIST_PATH}; skipping." >&2
+  exit 0
+fi
+
+if ! command -v mcp-proxy >/dev/null 2>&1; then
+  if command -v vp >/dev/null 2>&1; then
+    echo "xcode-mcp-proxy: installing mcp-proxy via vp..."
+    vp install -g mcp-proxy
+  else
+    echo "Warning: neither mcp-proxy nor vp found on PATH; agent will fail until mcp-proxy is installed." >&2
+  fi
+fi
+
+DOMAIN="gui/$(id -u)"
+
+# Always reload so plist edits take effect. bootout may fail if the agent
+# isn't currently loaded — ignore that specific case.
+launchctl bootout "${DOMAIN}/${LABEL}" 2>/dev/null || true
+launchctl bootstrap "${DOMAIN}" "${PLIST_PATH}"
+
+echo "xcode-mcp-proxy: loaded (${DOMAIN}/${LABEL})."
+
+{{ else -}}
+# No-op on non-personal machines.
+exit 0
+{{ end -}}

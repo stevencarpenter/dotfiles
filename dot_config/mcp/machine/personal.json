@@ -29,12 +29,8 @@
       ]
     },
     "xcode": {
-      "type": "stdio",
-      "command": "xcrun",
-      "args": [
-        "mcpbridge"
-      ],
-      "env": {}
+      "type": "http",
+      "url": "http://localhost:9876/mcp"
     }
   }
 }
