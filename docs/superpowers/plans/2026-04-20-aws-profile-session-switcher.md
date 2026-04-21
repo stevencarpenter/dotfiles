@@ -4,9 +4,9 @@
 
 **Goal:** Ship two work-only zsh commands — `awsp` (set `AWS_PROFILE` in current shell via fzf picker) and `awsx` (spawn a tmux window or subshell with `AWS_PROFILE` pre-set) — without touching shell-startup defaults.
 
-**Architecture:** A single new zsh file `dot_config/zsh/profile.d/work-aws-shell-functions.zsh` contains two shared private helpers (`_awsp_pick`, `_awsp_check_token`) plus the public `awsp` and `awsx` functions. The file is gated to work machines via `.chezmoiignore`. The profile picker uses `aws configure list-profiles` + `fzf` with a preview pane that reads `~/.aws/config`. The token health check is a fast local-only read of `~/.aws/sso/cache/<sha1(session)>.json` via `jq`. `awsx` auto-detects `$TMUX` and opens either a new `tmux new-window -e AWS_PROFILE=<p> -n aws:<p>` or a `zsh -i` subshell with the profile exported.
+**Architecture:** A single new zsh file `dot_config/zsh/profile.d/work-aws-shell-functions.zsh` contains shared private helpers for the picker plus token-cache hashing / expiry parsing, alongside the public `awsp` and `awsx` functions. The file is gated to work machines via `.chezmoiignore`. The profile picker uses `aws configure list-profiles` + `fzf` with a preview pane that reads `~/.aws/config` and handles the special `default` header. The token health check is a fast local-only read of `~/.aws/sso/cache/<sha1(session)>.json` via `jq`, with portable SHA1 / ISO8601 handling. `awsx` auto-detects `$TMUX` and opens either a new tmux window running `zsh -i` with `AWS_PROFILE` exported or a standalone `zsh -i` subshell.
 
-**Tech Stack:** zsh, fzf (brew), jq (brew), shasum (macOS builtin), AWS CLI (`aws configure list-profiles`), tmux (for windowed Pattern C), chezmoi for deployment.
+**Tech Stack:** zsh, fzf (brew), jq (brew), python3 or platform SHA1/date utilities, AWS CLI (`aws configure list-profiles`), tmux (for windowed Pattern C), chezmoi for deployment.
 
 **Spec:** `docs/superpowers/specs/2026-04-20-aws-profile-session-switcher-design.md`
 
@@ -116,7 +116,7 @@ _awsp_pick() {
         return 1
     fi
 
-    local preview='awk -v p="[profile {r}]" '\''
+    local preview='profile="{}"; if [ "$profile" = "default" ]; then header="[default]"; else header="[profile $profile]"; fi; awk -v p="$header" '\''
         $0 == p { inblock=1; print; next }
         /^\[/   { inblock=0 }
         inblock { print }
@@ -253,7 +253,7 @@ _awsp_check_token() {
     fi
 
     local hash cache expires now
-    hash="$(printf '%s' "$session" | shasum -a 1 | awk '{print $1}')"
+    hash="$(_awsp_sha1 "$session")"
     cache="$HOME/.aws/sso/cache/${hash}.json"
     if [[ ! -f "$cache" ]]; then
         print -u2 -r -- "⚠ SSO token missing — run: aws sso login --sso-session $session"
@@ -266,12 +266,8 @@ _awsp_check_token() {
         return 1
     fi
 
-    # date -j -f "%Y-%m-%dT%H:%M:%SZ" is macOS-specific; aws writes UTC ISO8601.
-    # Strip fractional seconds if present.
-    expires="${expires%%.*}"
-    expires="${expires%Z}"
     local exp_epoch
-    exp_epoch="$(date -j -u -f '%Y-%m-%dT%H:%M:%S' "$expires" +%s 2>/dev/null)"
+    exp_epoch="$(_awsp_iso8601_to_epoch "$expires")"
     now="$(date -u +%s)"
     if [[ -z "$exp_epoch" || "$exp_epoch" -le "$now" ]]; then
         print -u2 -r -- "⚠ SSO token expired — run: aws sso login --sso-session $session"
@@ -319,7 +315,7 @@ awsp <a-profile-using-that-session>
 
 ```bash
 # Simulate expiry by moving the cache aside
-hash="$(printf '%s' "<your-session>" | shasum -a 1 | awk '{print $1}')"
+hash="$(python3 -c 'import hashlib, sys; print(hashlib.sha1(sys.argv[1].encode()).hexdigest())' "<your-session>")"
 mv "$HOME/.aws/sso/cache/${hash}.json" /tmp/sso-cache-backup.json
 awsp <a-profile-using-that-session>
 # Expected: "⚠ SSO token missing — run: aws sso login --sso-session <name>" on stderr,

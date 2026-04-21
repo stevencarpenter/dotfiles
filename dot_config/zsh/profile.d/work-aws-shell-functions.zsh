@@ -15,7 +15,7 @@ _awsp_pick() {
         return 1
     fi
 
-    local preview='awk -v p="[profile {r}]" '\''
+    local preview='profile="{}"; if [ "$profile" = "default" ]; then header="[default]"; else header="[profile $profile]"; fi; awk -v p="$header" '\''
         $0 == p { inblock=1; print; next }
         /^\[/   { inblock=0 }
         inblock { print }
@@ -27,6 +27,49 @@ _awsp_pick() {
         --reverse \
         --preview "$preview" \
         --preview-window=right:50%:wrap
+}
+
+_awsp_sha1() {
+    local input="$1"
+
+    if command -v python3 >/dev/null 2>&1; then
+        python3 -c 'import hashlib, sys; print(hashlib.sha1(sys.argv[1].encode()).hexdigest())' "$input"
+        return $?
+    fi
+
+    if command -v shasum >/dev/null 2>&1; then
+        printf '%s' "$input" | shasum -a 1 | awk '{print $1}'
+        return $?
+    fi
+
+    if command -v sha1sum >/dev/null 2>&1; then
+        printf '%s' "$input" | sha1sum | awk '{print $1}'
+        return $?
+    fi
+
+    return 1
+}
+
+_awsp_iso8601_to_epoch() {
+    local timestamp="$1"
+    local exp_epoch
+
+    if command -v python3 >/dev/null 2>&1; then
+        python3 -c 'from datetime import datetime; import sys; print(int(datetime.fromisoformat(sys.argv[1].replace("Z", "+00:00")).timestamp()))' "$timestamp"
+        return $?
+    fi
+
+    if exp_epoch="$(date -j -u -f '%Y-%m-%dT%H:%M:%SZ' "$timestamp" +%s 2>/dev/null)"; then
+        print -r -- "$exp_epoch"
+        return 0
+    fi
+
+    if exp_epoch="$(date -u -d "$timestamp" +%s 2>/dev/null)"; then
+        print -r -- "$exp_epoch"
+        return 0
+    fi
+
+    return 1
 }
 
 # _awsp_check_token <profile> — emit a warning to stderr if the SSO token for
@@ -42,7 +85,11 @@ _awsp_check_token() {
     fi
 
     local hash cache expires now
-    hash="$(printf '%s' "$session" | shasum -a 1 | awk '{print $1}')"
+    hash="$(_awsp_sha1 "$session")"
+    if [[ -z "$hash" ]]; then
+        print -u2 -r -- "⚠ Unable to compute SSO cache key for session $session"
+        return 1
+    fi
     cache="$HOME/.aws/sso/cache/${hash}.json"
     if [[ ! -f "$cache" ]]; then
         print -u2 -r -- "⚠ SSO token missing — run: aws sso login --sso-session $session"
@@ -55,12 +102,12 @@ _awsp_check_token() {
         return 1
     fi
 
-    # date -j -f "%Y-%m-%dT%H:%M:%SZ" is macOS-specific; aws writes UTC ISO8601.
-    # Strip fractional seconds if present.
-    expires="${expires%%.*}"
-    expires="${expires%Z}"
     local exp_epoch
-    exp_epoch="$(date -j -u -f '%Y-%m-%dT%H:%M:%S' "$expires" +%s 2>/dev/null)"
+    exp_epoch="$(_awsp_iso8601_to_epoch "$expires")"
+    if [[ -z "$exp_epoch" ]]; then
+        print -u2 -r -- "⚠ Unable to parse SSO token expiry from $cache"
+        return 1
+    fi
     now="$(date -u +%s)"
     if [[ -z "$exp_epoch" || "$exp_epoch" -le "$now" ]]; then
         print -u2 -r -- "⚠ SSO token expired — run: aws sso login --sso-session $session"
@@ -103,7 +150,7 @@ awsx() {
     _awsp_check_token "$profile"  # warn on expired/missing token; do not block
 
     if [[ -n "$TMUX" ]]; then
-        tmux new-window -n "aws:${profile}" -e "AWS_PROFILE=${profile}"
+        tmux new-window -n "aws:${profile}" -e "AWS_PROFILE=${profile}" "zsh -i"
     else
         AWS_PROFILE="$profile" zsh -i
     fi

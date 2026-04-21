@@ -84,8 +84,9 @@ automatically flow to ALL tools, just like master servers do. Per-tool overrides
 }
 ```
 
-Note: This originally referenced `${AWS_SSO_PROFILE}` from `aws-sso-cli`. With the cutover to `aws_config_gen`, profiles
-are generated in `~/.aws/config`; export `AWS_PROFILE` to the desired generated profile before launching.
+Note: This originally referenced `${AWS_SSO_PROFILE}` from `aws-sso-cli`. With the cutover to `aws_config_gen` (CLI
+entrypoint: `aws-config-gen`), profiles are generated in `~/.aws/config`; export `AWS_PROFILE` to the desired generated
+profile before launching.
 
 - [ ] **Step 2: Create empty personal machine overlay**
 
