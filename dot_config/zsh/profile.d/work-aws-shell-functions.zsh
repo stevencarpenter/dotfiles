@@ -15,7 +15,7 @@ _awsp_pick() {
         return 1
     fi
 
-    local preview='awk -v p="[profile {}]" '\''
+    local preview='awk -v p="[profile {r}]" '\''
         $0 == p { inblock=1; print; next }
         /^\[/   { inblock=0 }
         inblock { print }
