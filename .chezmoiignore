@@ -81,3 +81,7 @@ private_dot_claude.json
 .config/aerospace/layouts/workspace-5-comms.sh
 Library/LaunchAgents/com.user.xcode-mcp-proxy.plist
 {{ end }}
+
+{{ if ne .chezmoi.os "darwin" }}
+Library/LaunchAgents/com.user.xcode-mcp-proxy.plist
+{{ end }}

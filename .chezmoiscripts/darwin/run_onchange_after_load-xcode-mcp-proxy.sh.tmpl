@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Install mcp-proxy and (re)load the xcode-mcp-proxy LaunchAgent on personal
-# machines. The agent supervises a single `xcrun mcpbridge` process behind
+# macOS machines. The agent supervises a single `xcrun mcpbridge` process behind
 # http://127.0.0.1:9876/mcp so every MCP client shares one connection instead
 # of spawning mcpbridge per session (which otherwise triggers TCC approval
 # prompts on every launch).
@@ -8,10 +8,11 @@
 # plist-hash: {{ include "Library/LaunchAgents/com.user.xcode-mcp-proxy.plist.tmpl" | sha256sum }}
 set -euo pipefail
 
-{{ if hasPrefix "personal" .machine -}}
+{{ if and (hasPrefix "personal" .machine) (eq .chezmoi.os "darwin") -}}
 
 PLIST_PATH="${HOME}/Library/LaunchAgents/com.user.xcode-mcp-proxy.plist"
 LABEL="com.user.xcode-mcp-proxy"
+export PATH="${HOME}/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH}"
 
 if [[ ! -f "${PLIST_PATH}" ]]; then
   echo "xcode-mcp-proxy: plist not yet deployed at ${PLIST_PATH}; skipping." >&2

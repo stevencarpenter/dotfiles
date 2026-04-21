@@ -9,7 +9,7 @@
     <array>
         <string>/bin/zsh</string>
         <string>-lc</string>
-        <string>exec mcp-proxy --host 127.0.0.1 --port 9876 -- xcrun mcpbridge</string>
+        <string>export PATH="{{ .chezmoi.homeDir }}/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"; exec mcp-proxy --host 127.0.0.1 --port 9876 -- xcrun mcpbridge</string>
     </array>
 
     <key>RunAtLoad</key>
