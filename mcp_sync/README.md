@@ -38,6 +38,55 @@ uv run sync-mcp-configs --master /path/to/mcp-master.json --home /tmp/home
 - Claude Code
 - OpenCode
 
+## Enabling/Disabling Servers
+
+You can enable or disable MCP servers by adding an `enabled` field to any server configuration:
+
+```json
+{
+  "servers": {
+    "active-server": {
+      "command": "node",
+      "args": ["server.js"],
+      "enabled": true
+    },
+    "disabled-server": {
+      "command": "node",
+      "args": ["disabled.js"],
+      "enabled": false
+    },
+    "default-enabled": {
+      "command": "node",
+      "args": ["default.js"]
+    }
+  }
+}
+```
+
+**Behavior:**
+- Servers with `enabled: true` are included in all synced configs
+- Servers with `enabled: false` are excluded from all synced configs
+- Servers without an `enabled` field default to enabled (backward compatible)
+
+This works in all config files:
+- Master config (`~/.config/mcp/mcp-master.json`)
+- Machine overlays (`~/.config/mcp/machine/{work,personal}.json`)
+- Per-tool overrides (`~/.config/mcp/overrides/<tool>.json`)
+
+Machine overlays can disable servers from the master config:
+
+```json
+{
+  "servers": {
+    "some-master-server": {
+      "enabled": false
+    }
+  }
+}
+```
+
+See `examples/enabled-flag-example.json` for a complete example.
+
 ## Overrides
 
 Add per-tool overrides under `~/.config/mcp/overrides/<tool>.json`.

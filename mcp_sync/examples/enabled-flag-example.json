@@ -1,0 +1,41 @@
+{
+  "$schema": "https://modelcontextprotocol.io/schema/config.json",
+  "servers": {
+    "filesystem": {
+      "command": "node",
+      "args": ["/path/to/filesystem-mcp-server/dist/index.js"],
+      "type": "local",
+      "note": "Local filesystem access - enabled by default"
+    },
+    "github": {
+      "command": "uv",
+      "args": ["run", "github-mcp"],
+      "type": "local",
+      "enabled": true,
+      "note": "Explicitly enabled GitHub MCP server",
+      "env": {
+        "GITHUB_TOKEN": "${GITHUB_TOKEN}"
+      }
+    },
+    "experimental-feature": {
+      "command": "npx",
+      "args": ["experimental-mcp"],
+      "type": "local",
+      "enabled": false,
+      "note": "Disabled - keeping config for future use"
+    },
+    "memory": {
+      "command": "node",
+      "args": ["/path/to/memory-mcp-server/dist/index.js"],
+      "type": "local",
+      "enabled": true
+    },
+    "temporarily-disabled": {
+      "command": "node",
+      "args": ["/path/to/problematic-server/index.js"],
+      "type": "local",
+      "enabled": false,
+      "note": "Disabled temporarily due to performance issues"
+    }
+  }
+}

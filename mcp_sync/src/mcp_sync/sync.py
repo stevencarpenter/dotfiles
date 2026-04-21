@@ -162,6 +162,23 @@ def _normalize_servers(master: JsonDict) -> JsonDict:
     return _ensure_mapping(master.get("servers"))
 
 
+def _filter_enabled_servers(servers: JsonDict) -> JsonDict:
+    """Filter servers dict to only include enabled servers.
+
+    Args:
+        servers: Dictionary of server configurations.
+
+    Returns:
+        Dictionary containing only servers where enabled is not False.
+        Servers without an 'enabled' field are considered enabled (default).
+    """
+    return {
+        name: config
+        for name, config in servers.items()
+        if isinstance(config, dict) and config.get("enabled", True) is not False
+    }
+
+
 def _merge_lists(base: list[Any], extra: list[Any]) -> list[Any]:
     merged: list[Any] = []
     for item in base:
@@ -203,9 +220,15 @@ def sync_codex_mcp(master: JsonDict, home: Path | None = None) -> None:
         return
 
     servers = _normalize_servers(master)
+    servers = _filter_enabled_servers(servers)
     overrides = _load_override("codex", home_path)
     if isinstance(overrides.get("servers"), dict):
-        servers = deep_merge(servers, overrides["servers"])
+        # Merge overrides, then filter again in case overrides disable servers
+        merged_servers = deep_merge(servers, overrides["servers"])
+        servers = _filter_enabled_servers(merged_servers)
+
+    # Remove 'enabled' field from servers before rendering
+    servers = {name: {k: v for k, v in cfg.items() if k != "enabled"} for name, cfg in servers.items()}
 
     mcp_section = _render_codex_mcp_section(servers)
     text = base_text.rstrip() + "\n" + mcp_section
@@ -301,8 +324,9 @@ def patch_claude_code_config(master: JsonDict, home: Path | None = None) -> None
     claude_cfg = _load_json(claude_path)
 
     servers = _normalize_servers(master)
+    servers = _filter_enabled_servers(servers)
     servers = {
-        key: {k: v for k, v in val.items() if k != "note"}
+        key: {k: v for k, v in val.items() if k not in ("note", "enabled")}
         for key, val in servers.items()
     }
 
@@ -333,10 +357,13 @@ def sync_to_locations(
 
 def transform_to_copilot_format(master: JsonDict) -> JsonDict:
     servers = _normalize_servers(master)
+    servers = _filter_enabled_servers(servers)
     mcp_servers: JsonDict = {}
     for name, server in servers.items():
+        # Remove 'enabled' field from output as it's only for filtering
+        server_config = {k: v for k, v in server.items() if k != "enabled"}
         mcp_servers[name] = {
-            **server,
+            **server_config,
             "tools": ["*"],
             "type": server.get("type", "local"),
         }
@@ -344,18 +371,27 @@ def transform_to_copilot_format(master: JsonDict) -> JsonDict:
 
 
 def transform_to_generic_mcp_format(master: JsonDict) -> JsonDict:
+    servers = _normalize_servers(master)
+    servers = _filter_enabled_servers(servers)
+    # Remove 'enabled' field from output as it's only for filtering
+    servers = {name: {k: v for k, v in cfg.items() if k != "enabled"} for name, cfg in servers.items()}
     return {
         "$schema": "https://modelcontextprotocol.io/schema/config.json",
-        "mcpServers": _normalize_servers(master),
+        "mcpServers": servers,
     }
 
 
 def transform_to_mcpservers_format(master: JsonDict) -> JsonDict:
-    return {"mcpServers": _normalize_servers(master)}
+    servers = _normalize_servers(master)
+    servers = _filter_enabled_servers(servers)
+    # Remove 'enabled' field from output as it's only for filtering
+    servers = {name: {k: v for k, v in cfg.items() if k != "enabled"} for name, cfg in servers.items()}
+    return {"mcpServers": servers}
 
 
 def transform_to_opencode_format(master: JsonDict) -> JsonDict:
     servers = _normalize_servers(master)
+    servers = _filter_enabled_servers(servers)
     mcp: JsonDict = {}
     for name, server in servers.items():
         command = server.get("command")
