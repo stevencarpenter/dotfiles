@@ -83,8 +83,8 @@ Two zsh helpers ship alongside this tool (work machines only, see
 `dot_config/zsh/profile.d/work-aws-shell-functions.zsh`):
 
 - **`awsp [profile|-]`** — set `AWS_PROFILE` in the **current** shell.
-  - `awsp` → fzf picker over all generated profiles (preview shows account id,
-    role, region).
+  - `awsp` → fzf picker over all generated profiles (preview shows the full
+    `[profile <name>]` block from `~/.aws/config`).
   - `awsp prod-admin` → direct set.
   - `awsp -` → unset `AWS_PROFILE` (returns to the default "no profile" state;
     leaves `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`/`AWS_SESSION_TOKEN` alone
