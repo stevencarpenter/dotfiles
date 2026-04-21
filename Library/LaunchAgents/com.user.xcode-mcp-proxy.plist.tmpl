@@ -9,7 +9,7 @@
     <array>
         <string>/bin/zsh</string>
         <string>-lc</string>
-        <string>exec mcp-proxy --port 9876 -- xcrun mcpbridge</string>
+        <string>exec mcp-proxy --host 127.0.0.1 --port 9876 -- xcrun mcpbridge</string>
     </array>
 
     <key>RunAtLoad</key>
@@ -18,13 +18,16 @@
     <key>KeepAlive</key>
     <true/>
 
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+
     <key>ProcessType</key>
-    <string>Interactive</string>
+    <string>Background</string>
 
     <key>StandardOutPath</key>
-    <string>/tmp/xcode-mcp-proxy.out.log</string>
+    <string>{{ .chezmoi.homeDir }}/Library/Logs/xcode-mcp-proxy.out.log</string>
 
     <key>StandardErrorPath</key>
-    <string>/tmp/xcode-mcp-proxy.err.log</string>
+    <string>{{ .chezmoi.homeDir }}/Library/Logs/xcode-mcp-proxy.err.log</string>
 </dict>
 </plist>

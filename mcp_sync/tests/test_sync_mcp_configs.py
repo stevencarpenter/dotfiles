@@ -200,6 +200,29 @@ def test_patch_claude_code_config_merges_servers(
     assert "github" in result["mcpServers"]
 
 
+def test_patch_claude_code_config_passes_url_servers_through(
+    temp_home, monkeypatch_home, claude_config_template
+):
+    """URL-based servers reach ~/.claude.json verbatim (Claude Code reads type:http natively)."""
+    claude_path = temp_home / ".claude.json"
+    claude_path.write_text(
+        json.dumps(claude_config_template, indent=2), encoding="utf-8"
+    )
+
+    master = {
+        "servers": {
+            "xcode": {"type": "http", "url": "http://127.0.0.1:9876/mcp"},
+        }
+    }
+    patch_claude_code_config(master)
+
+    result = json.loads(claude_path.read_text())
+    assert result["mcpServers"]["xcode"] == {
+        "type": "http",
+        "url": "http://127.0.0.1:9876/mcp",
+    }
+
+
 def test_empty_master_config_handling(master_config_file, temp_home, monkeypatch_home):
     """Test handling of master config with no servers."""
     empty_config = {"servers": {}}

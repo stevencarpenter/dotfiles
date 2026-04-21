@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Install mcp-proxy and (re)load the xcode-mcp-proxy LaunchAgent on personal
 # machines. The agent supervises a single `xcrun mcpbridge` process behind
-# http://localhost:9876/mcp so every MCP client shares one connection instead
+# http://127.0.0.1:9876/mcp so every MCP client shares one connection instead
 # of spawning mcpbridge per session (which otherwise triggers TCC approval
 # prompts on every launch).
 #
-# plist-hash: {{ include "Library/LaunchAgents/com.user.xcode-mcp-proxy.plist" | sha256sum }}
+# plist-hash: {{ include "Library/LaunchAgents/com.user.xcode-mcp-proxy.plist.tmpl" | sha256sum }}
 set -euo pipefail
 
 {{ if hasPrefix "personal" .machine -}}
@@ -19,13 +19,15 @@ if [[ ! -f "${PLIST_PATH}" ]]; then
 fi
 
 if ! command -v mcp-proxy >/dev/null 2>&1; then
-  if command -v vp >/dev/null 2>&1; then
-    echo "xcode-mcp-proxy: installing mcp-proxy via vp..."
-    vp install -g mcp-proxy
-  else
-    echo "Warning: neither mcp-proxy nor vp found on PATH; agent will fail until mcp-proxy is installed." >&2
+  if ! command -v vp >/dev/null 2>&1; then
+    echo "xcode-mcp-proxy: neither mcp-proxy nor vp on PATH; install one and re-run 'chezmoi apply'." >&2
+    exit 1
   fi
+  echo "xcode-mcp-proxy: installing mcp-proxy via vp..."
+  vp install -g mcp-proxy
 fi
+
+mkdir -p "${HOME}/Library/Logs"
 
 DOMAIN="gui/$(id -u)"
 
@@ -36,7 +38,4 @@ launchctl bootstrap "${DOMAIN}" "${PLIST_PATH}"
 
 echo "xcode-mcp-proxy: loaded (${DOMAIN}/${LABEL})."
 
-{{ else -}}
-# No-op on non-personal machines.
-exit 0
 {{ end -}}

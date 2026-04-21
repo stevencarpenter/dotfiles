@@ -30,7 +30,7 @@
     },
     "xcode": {
       "type": "http",
-      "url": "http://localhost:9876/mcp"
+      "url": "http://127.0.0.1:9876/mcp"
     }
   }
 }
