@@ -1,77 +1,79 @@
 {{- $personal := hasPrefix "personal" .machine -}}
 {{- $work := hasPrefix "work" .machine -}}
-{{- $plugins := dict
-  "atlassian@claude-plugins-official" $work
-  "claude-code-setup@claude-plugins-official" true
-  "claude-md-management@claude-plugins-official" true
-  "cloudflare@cloudflare" $personal
-  "code-review@claude-plugins-official" true
-  "code-simplifier@claude-plugins-official" $personal
-  "commit-commands@claude-plugins-official" $personal
-  "context7@claude-plugins-official" true
-  "feature-dev@claude-plugins-official" $personal
-  "frontend-design@claude-plugins-official" $personal
-  "github@claude-plugins-official" true
-  "gopls-lsp@claude-plugins-official" true
-  "hookify@claude-plugins-official" $personal
-  "lua-lsp@claude-plugins-official" $personal
-  "playwright@claude-plugins-official" $personal
-  "pyright-lsp@claude-plugins-official" true
-  "railway@claude-plugins-official" $personal
-  "ralph-loop@claude-plugins-official" true
-  "rust-analyzer-lsp@claude-plugins-official" true
-  "security-guidance@claude-plugins-official" true
-  "semgrep@claude-plugins-official" $personal
-  "skill-creator@claude-plugins-official" $personal
-  "superpowers@claude-plugins-official" true
-  "swift-lsp@claude-plugins-official" $personal
-  "typescript-lsp@claude-plugins-official" $personal
--}}
-{{- $config := dict
-  "$schema" "https://json.schemastore.org/claude-code-settings.json"
-  "autoDreamEnabled" true
-  "effortLevel" "high"
-  "enabledPlugins" $plugins
-  "env" (dict
-    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS" "1"
-    "CLAUDE_CODE_NO_FLICKER" "1"
-    "ENABLE_LSP_TOOL" "1"
-  )
-  "extraKnownMarketplaces" (dict
-    "claude-plugins-official" (dict
-      "source" (dict
-        "repo" "anthropics/claude-plugins-official"
-        "source" "github"
-      )
-    )
-    "cloudflare" (dict
-      "source" (dict
-        "repo" "cloudflare/skills"
-        "source" "github"
-      )
-    )
-  )
-  "skipDangerousModePermissionPrompt" true
-  "statusLine" (dict
-    "command" "bash ~/.claude/statusline-command.sh"
-    "type" "command"
-  )
-  "teammateMode" "tmux"
-  "voiceEnabled" true
--}}
-{{- if $personal -}}
-{{-   $_ := set $config "hooks" (dict
-        "SessionStart" (list
-          (dict
-            "hooks" (list
-              (dict
-                "command" "/Users/carpenter/projects/hippo/shell/claude-session-hook.sh"
-                "type" "command"
-              )
-            )
-          )
-        )
-      )
--}}
-{{- end -}}
-{{ toPrettyJson $config }}
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+    "CLAUDE_CODE_NO_FLICKER": "1",
+    "ENABLE_LSP_TOOL": "1"
+  },
+  "permissions": {
+    "defaultMode": "auto"
+  },
+{{- if $personal }}
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{ .chezmoi.homeDir }}/projects/hippo/shell/claude-session-hook.sh"
+          }
+        ]
+      }
+    ]
+  },
+{{- end }}
+  "statusLine": {
+    "type": "command",
+    "command": "bash ~/.claude/statusline-command.sh"
+  },
+  "enabledPlugins": {
+    "atlassian@claude-plugins-official": {{ $work }},
+    "claude-code-setup@claude-plugins-official": true,
+    "claude-md-management@claude-plugins-official": true,
+    "cloudflare@cloudflare": {{ $personal }},
+    "code-review@claude-plugins-official": true,
+    "code-simplifier@claude-plugins-official": {{ $personal }},
+    "commit-commands@claude-plugins-official": {{ $personal }},
+    "context7@claude-plugins-official": true,
+    "feature-dev@claude-plugins-official": {{ $personal }},
+    "frontend-design@claude-plugins-official": {{ $personal }},
+    "github@claude-plugins-official": true,
+    "gopls-lsp@claude-plugins-official": true,
+    "hookify@claude-plugins-official": {{ $personal }},
+    "lua-lsp@claude-plugins-official": {{ $personal }},
+    "playwright@claude-plugins-official": {{ $personal }},
+    "pyright-lsp@claude-plugins-official": true,
+    "railway@claude-plugins-official": {{ $personal }},
+    "ralph-loop@claude-plugins-official": true,
+    "rust-analyzer-lsp@claude-plugins-official": true,
+    "security-guidance@claude-plugins-official": true,
+    "semgrep@claude-plugins-official": false,
+    "skill-creator@claude-plugins-official": {{ $personal }},
+    "superpowers@claude-plugins-official": true,
+    "swift-lsp@claude-plugins-official": {{ $personal }},
+    "typescript-lsp@claude-plugins-official": {{ $personal }}
+  },
+  "extraKnownMarketplaces": {
+    "claude-plugins-official": {
+      "source": {
+        "source": "github",
+        "repo": "anthropics/claude-plugins-official"
+      }
+    },
+    "cloudflare": {
+      "source": {
+        "source": "github",
+        "repo": "cloudflare/skills"
+      }
+    }
+  },
+  "effortLevel": "high",
+  "autoDreamEnabled": true,
+  "skipDangerousModePermissionPrompt": true,
+  "skipAutoPermissionPrompt": true,
+  "voiceEnabled": true,
+  "teammateMode": "tmux",
+  "model": "sonnet"
+}
