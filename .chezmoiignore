@@ -79,4 +79,9 @@ private_dot_claude.json
 .config/zsh/profile.d/personal-secrets.zsh
 .config/zsh/profile.d/personal-shell-functions.zsh
 .config/aerospace/layouts/workspace-5-comms.sh
+Library/LaunchAgents/com.user.xcode-mcp-proxy.plist
+{{ end }}
+
+{{ if ne .chezmoi.os "darwin" }}
+Library/LaunchAgents/com.user.xcode-mcp-proxy.plist
 {{ end }}

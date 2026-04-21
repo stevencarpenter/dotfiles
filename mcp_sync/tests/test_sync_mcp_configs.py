@@ -96,6 +96,47 @@ def test_transform_to_opencode_with_env(master_config):
     assert result["mcp"]["github"]["environment"]["GITHUB_TOKEN"] == "${GITHUB_TOKEN}"
 
 
+def test_transform_to_opencode_url_server():
+    """URL-based servers render as remote entries, not local command arrays."""
+    master = {
+        "servers": {
+            "xcode": {"type": "http", "url": "http://localhost:9876/mcp"},
+        }
+    }
+    result = transform_to_opencode_format(master)
+
+    entry = result["mcp"]["xcode"]
+    assert entry == {
+        "type": "remote",
+        "url": "http://localhost:9876/mcp",
+        "enabled": True,
+    }
+    assert "command" not in entry
+    assert "timeout" not in entry
+    assert "environment" not in entry
+
+
+def test_transform_to_opencode_mixed_stdio_and_url(master_config):
+    """Stdio servers render unchanged when URL servers are also present."""
+    master = {
+        **master_config,
+        "servers": {
+            **master_config["servers"],
+            "xcode": {"type": "http", "url": "http://localhost:9876/mcp"},
+        },
+    }
+    result = transform_to_opencode_format(master)
+
+    # Stdio entries keep the original local shape
+    assert result["mcp"]["filesystem"]["type"] == "local"
+    assert isinstance(result["mcp"]["filesystem"]["command"], list)
+    assert result["mcp"]["filesystem"]["timeout"] == 30000
+
+    # URL entry uses remote shape
+    assert result["mcp"]["xcode"]["type"] == "remote"
+    assert result["mcp"]["xcode"]["url"] == "http://localhost:9876/mcp"
+
+
 def test_sync_to_locations_creates_parent_dirs(temp_home, monkeypatch_home):
     """Test that sync_to_locations creates parent directories."""
     config = {"mcpServers": {"test": {}}}
@@ -157,6 +198,29 @@ def test_patch_claude_code_config_merges_servers(
     # Master servers should also be present
     assert "filesystem" in result["mcpServers"]
     assert "github" in result["mcpServers"]
+
+
+def test_patch_claude_code_config_passes_url_servers_through(
+    temp_home, monkeypatch_home, claude_config_template
+):
+    """URL-based servers reach ~/.claude.json verbatim (Claude Code reads type:http natively)."""
+    claude_path = temp_home / ".claude.json"
+    claude_path.write_text(
+        json.dumps(claude_config_template, indent=2), encoding="utf-8"
+    )
+
+    master = {
+        "servers": {
+            "xcode": {"type": "http", "url": "http://127.0.0.1:9876/mcp"},
+        }
+    }
+    patch_claude_code_config(master)
+
+    result = json.loads(claude_path.read_text())
+    assert result["mcpServers"]["xcode"] == {
+        "type": "http",
+        "url": "http://127.0.0.1:9876/mcp",
+    }
 
 
 def test_empty_master_config_handling(master_config_file, temp_home, monkeypatch_home):
@@ -347,6 +411,57 @@ def test_sync_codex_mcp_missing_config(temp_home, monkeypatch_home, master_confi
 
     codex_path = temp_home / ".codex" / "config.toml"
     assert codex_path.exists()
+
+
+def test_sync_codex_mcp_url_server(temp_home, monkeypatch_home):
+    """URL-based servers render as `url = "..."` with no command/args."""
+    master = {
+        "servers": {
+            "xcode": {"type": "http", "url": "http://localhost:9876/mcp"},
+        }
+    }
+    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
+    sync_codex_mcp(master)
+
+    result = (temp_home / ".codex" / "config.toml").read_text(encoding="utf-8")
+
+    assert "[mcp_servers.xcode]" in result
+    assert 'url = "http://localhost:9876/mcp"' in result
+    # No stdio fields for a URL server
+    xcode_section = result.split("[mcp_servers.xcode]", 1)[1]
+    # Next section boundary (or EOF) bounds xcode's block
+    xcode_block = xcode_section.split("[mcp_servers.", 1)[0]
+    assert "command =" not in xcode_block
+    assert "args =" not in xcode_block
+    assert "environment =" not in xcode_block
+
+
+def test_sync_codex_mcp_mixed_stdio_and_url(temp_home, monkeypatch_home, master_config):
+    """Stdio server rendering is unchanged when URL servers coexist."""
+    master = {
+        **master_config,
+        "servers": {
+            **master_config["servers"],
+            "xcode": {"type": "http", "url": "http://localhost:9876/mcp"},
+        },
+    }
+    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
+    sync_codex_mcp(master)
+
+    result = (temp_home / ".codex" / "config.toml").read_text(encoding="utf-8")
+
+    # Stdio server keeps command/args
+    fs_block = result.split("[mcp_servers.filesystem]", 1)[1].split("[mcp_servers.", 1)[
+        0
+    ]
+    assert 'command = "node"' in fs_block
+    assert "args =" in fs_block
+    assert "url =" not in fs_block
+
+    # URL server uses url=
+    xcode_block = result.split("[mcp_servers.xcode]", 1)[1].split("[mcp_servers.", 1)[0]
+    assert 'url = "http://localhost:9876/mcp"' in xcode_block
+    assert "command =" not in xcode_block
 
 
 def test_sync_copilot_cli_preserves_auth_tokens(temp_home, monkeypatch_home):
