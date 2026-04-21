@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import json
 
-import pytest
-
 from mcp_sync import (
     deep_merge,
     transform_to_copilot_format,
@@ -260,6 +258,11 @@ class TestEnabledFlagIntegration:
         assert "enabled_server" in generic_config["mcpServers"]
         assert "disabled_server" not in generic_config["mcpServers"]
 
+        github_copilot_path = temp_home / ".config" / "github-copilot" / "mcp.json"
+        github_copilot_config = json.loads(github_copilot_path.read_text())
+        assert "enabled_server" in github_copilot_config["servers"]
+        assert "disabled_server" not in github_copilot_config["servers"]
+
     def test_machine_overlay_disables_server_in_output(
         self, temp_home, master_config_file, monkeypatch_home
     ):
@@ -286,6 +289,33 @@ class TestEnabledFlagIntegration:
         assert "filesystem" not in opencode_config["mcp"]
 
         # Other servers from master should still be present
+        assert "memory" in opencode_config["mcp"]
+
+    def test_tool_override_disables_server_in_output(
+        self, temp_home, master_config_file, monkeypatch_home
+    ):
+        """Per-tool overrides can disable a server via enabled=False."""
+        override_dir = temp_home / ".config" / "mcp" / "overrides"
+        override_dir.mkdir(parents=True, exist_ok=True)
+        override_path = override_dir / "opencode.json"
+        override_path.write_text(
+            json.dumps(
+                {"servers": {"filesystem": {"enabled": False}}},
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+
+        exit_code = run_sync(
+            master_path=master_config_file,
+            home=temp_home,
+        )
+
+        assert exit_code == 0
+
+        opencode_path = temp_home / ".config" / "opencode" / "opencode.json"
+        opencode_config = json.loads(opencode_path.read_text())
+        assert "filesystem" not in opencode_config["mcp"]
         assert "memory" in opencode_config["mcp"]
 
     def test_backward_compatibility_servers_without_enabled(
@@ -320,7 +350,16 @@ class TestCodexSyncWithEnabledFlag:
         }
 
         # Create codex base template
-        codex_template_dir = temp_home / ".local" / "share" / "chezmoi" / "mcp_sync" / "src" / "mcp_sync" / "templates"
+        codex_template_dir = (
+            temp_home
+            / ".local"
+            / "share"
+            / "chezmoi"
+            / "mcp_sync"
+            / "src"
+            / "mcp_sync"
+            / "templates"
+        )
         codex_template_dir.mkdir(parents=True, exist_ok=True)
         (codex_template_dir / "codex.base.toml").write_text(
             "[general]\nmodel = 'claude'\n"
@@ -376,3 +415,48 @@ class TestClaudeCodePatchWithEnabledFlag:
 
         claude_config = json.loads(claude_path.read_text())
         assert "enabled" not in claude_config["mcpServers"]["server"]
+
+    def test_claude_patch_removes_previously_synced_disabled_server(
+        self, temp_home, claude_config_template
+    ):
+        """Disabled servers are removed while unrelated existing servers stay."""
+        claude_path = temp_home / ".claude.json"
+        claude_config_template["mcpServers"]["filesystem"] = {
+            "command": "old-filesystem",
+            "args": ["--legacy"],
+        }
+        claude_path.write_text(json.dumps(claude_config_template), encoding="utf-8")
+
+        master = {
+            "servers": {"filesystem": {"command": "cmd", "args": [], "enabled": False}}
+        }
+
+        patch_claude_code_config(master, home=temp_home)
+
+        claude_config = json.loads(claude_path.read_text())
+        assert "filesystem" not in claude_config["mcpServers"]
+        assert "old_server" in claude_config["mcpServers"]
+
+    def test_claude_patch_tool_override_can_disable_server(
+        self, temp_home, claude_config_template, master_config
+    ):
+        """Claude tool overrides can disable a server via enabled=False."""
+        claude_path = temp_home / ".claude.json"
+        claude_path.write_text(json.dumps(claude_config_template), encoding="utf-8")
+
+        override_dir = temp_home / ".config" / "mcp" / "overrides"
+        override_dir.mkdir(parents=True, exist_ok=True)
+        override_path = override_dir / "claude.json"
+        override_path.write_text(
+            json.dumps(
+                {"servers": {"filesystem": {"enabled": False}}},
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+
+        patch_claude_code_config(master_config, home=temp_home)
+
+        claude_config = json.loads(claude_path.read_text())
+        assert "filesystem" not in claude_config["mcpServers"]
+        assert "github" in claude_config["mcpServers"]
