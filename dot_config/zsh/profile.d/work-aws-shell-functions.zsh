@@ -28,3 +28,23 @@ _awsp_pick() {
         --preview "$preview" \
         --preview-window=right:50%:wrap
 }
+
+# awsp — set AWS_PROFILE in the current shell.
+#   awsp              → fzf picker
+#   awsp <profile>    → direct set
+#   awsp -            → unset AWS_PROFILE only (leaves AWS_ACCESS_KEY_ID etc.)
+awsp() {
+    if [[ "$1" == "-" ]]; then
+        unset AWS_PROFILE
+        print -r -- "AWS_PROFILE unset."
+        return 0
+    fi
+
+    local profile="$1"
+    if [[ -z "$profile" ]]; then
+        profile="$(_awsp_pick)" || return $?
+    fi
+
+    export AWS_PROFILE="$profile"
+    print -r -- "AWS_PROFILE=$AWS_PROFILE"
+}
