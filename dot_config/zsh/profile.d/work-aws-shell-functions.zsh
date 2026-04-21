@@ -90,3 +90,21 @@ awsp() {
     _awsp_check_token "$profile"  # warn on expired/missing token; do not block
     print -r -- "AWS_PROFILE=$AWS_PROFILE"
 }
+
+# awsx — spawn a dedicated context with AWS_PROFILE pre-exported.
+#   Inside tmux → opens a new window named aws:<profile>
+#   Outside tmux → spawns an interactive zsh subshell
+awsx() {
+    local profile="$1"
+    if [[ -z "$profile" ]]; then
+        profile="$(_awsp_pick)" || return $?
+    fi
+
+    _awsp_check_token "$profile"  # warn on expired/missing token; do not block
+
+    if [[ -n "$TMUX" ]]; then
+        tmux new-window -n "aws:${profile}" -e "AWS_PROFILE=${profile}"
+    else
+        AWS_PROFILE="$profile" zsh -i
+    fi
+}
