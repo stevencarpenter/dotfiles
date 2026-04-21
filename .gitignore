@@ -12,6 +12,9 @@ META-INF/
 
 */.config/nvm/*
 
+# Superpowers
+docs/superpowers/**/*
+
 # Repo-local / machine-specific files
 .envrc
 private_dot_claude.json
