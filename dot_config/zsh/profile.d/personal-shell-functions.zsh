@@ -4,8 +4,8 @@
 alias burp='brew update && brew upgrade && vp update -g @github/copilot && claude update && opencode upgrade'
 
 # Load Hippo CLI functions
-source /Users/carpenter/projects/hippo/shell/hippo-env.zsh
-source /Users/carpenter/projects/hippo/shell/hippo.zsh
+source /Users/carpenter/.local/share/shell/hippo-env.zsh
+source /Users/carpenter/.local/share/shell/hippo.zsh
 
 # Vite Plus CLI functions
 source "$HOME/.vite-plus/env"
