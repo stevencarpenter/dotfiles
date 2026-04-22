@@ -120,6 +120,7 @@ if command -v eza >/dev/null 2>&1; then
   alias ls='eza --icons'
   alias ll='eza -la --icons --git'
   alias lt='eza --tree --icons --level=2'
+  alias las='eza -la --total-size --git --tree --icons --level=3'
 else
   alias ls='command ls'
 fi
