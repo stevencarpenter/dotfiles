@@ -5,7 +5,8 @@
   "env": {
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
     "CLAUDE_CODE_NO_FLICKER": "1",
-    "ENABLE_LSP_TOOL": "1"
+    "ENABLE_LSP_TOOL": "1",
+    "CLAUDE_CODE_FORK_SUBAGENTS": "1"
   },
   "permissions": {
     "defaultMode": "auto"
@@ -17,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "{{ .chezmoi.homeDir }}/projects/hippo/shell/claude-session-hook.sh"
+            "command": "{{ .chezmoi.homeDir }}/.local/share/hippo-brain/shell/claude-session-hook.sh"
           }
         ]
       }
@@ -74,6 +75,5 @@
   "skipDangerousModePermissionPrompt": true,
   "skipAutoPermissionPrompt": true,
   "voiceEnabled": true,
-  "teammateMode": "tmux",
-  "model": "sonnet"
+  "teammateMode": "tmux"
 }
