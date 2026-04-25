@@ -5,7 +5,7 @@ alias burp='brew update && brew upgrade && vp update -g @github/copilot && claud
 
 # Load Hippo CLI functions
 source "$HOME/.local/share/hippo-brain/shell/hippo-env.zsh"
-source "$HOME/.local/share/hippo-brain/hippo.zsh"
+source "$HOME/.local/share/hippo-brain/shell/hippo.zsh"
 
 # Vite Plus CLI functions
 source "$HOME/.vite-plus/env"
