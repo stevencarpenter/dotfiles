@@ -3,9 +3,9 @@ base_url = "http://localhost:1234/v1" # LM Studio local server
 timeout_secs = 300                    # HTTP timeout for chat/embed calls
 
 [models]
-enrichment = "qwen/qwen3.6-27b"                    # Daily: MoE, 35B total, 3B active — fast
-enrichment_bulk = "qwen/qwen3.6-27b"               # Bulk: strongest available — slow but reliable
-query = "qwen/qwen3.6-27b"                         # Same model for query reformulation
+enrichment = "gpt-oss-120b"                    # Daily: MoE, 35B total, 3B active — fast
+enrichment_bulk = "gpt-oss-120b"               # Bulk: strongest available — slow but reliable
+query = "gpt-oss-120b"                         # Same model for query reformulation
 embedding = "text-embedding-nomic-embed-text-v2-moe" # Purpose-built embedding model, 768d
 
 [daemon]
