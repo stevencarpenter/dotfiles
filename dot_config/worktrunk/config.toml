@@ -26,28 +26,13 @@
 # # Creates: ~/code/myproject-feature-auth
 worktree-path = "{{ repo_path }}/../{{ repo }}-{{ branch | sanitize }}"
 
-# # Inside the repository
-# # Creates: ~/code/myproject/.worktrees/feature-auth
-# worktree-path = "{{ repo_path }}/.worktrees/{{ branch | sanitize }}"
-#
-# # Centralized worktrees directory
-# # Creates: ~/worktrees/myproject/feature-auth
-# worktree-path = "~/worktrees/{{ repo }}/{{ branch | sanitize }}"
-#
-# `~` expands to the home directory. Relative paths are relative to the repository root.
-#
-# ## LLM commit messages
-#
-# Generate commit messages automatically during merge. Requires an external CLI tool.
-#
-# See LLM commits docs (https://worktrunk.dev/llm-commits/) for setup and Custom prompt templates (#custom-prompt-templates) for template customization.
-#
-
-[pre-start]
+[[pre-start]]
 mise = "wt step mise trust"
+
+[[pre-start]]
 copy = "wt step copy-ignored"
-# Do not auto-trust mise globally; trust per-repo when you intend to execute its tasks.
-# Run manually in trusted repos: wt step mise trust
+
+[[pre-start]]
 open-intellij = "command -v idea >/dev/null 2>&1 && idea {{ worktree_path }} || true"
 
 # ## Command config
@@ -131,7 +116,3 @@ commit = true      # Commit uncommitted changes first (--no-commit to skip)
 [switch.picker]
 # Pager command for diff preview (overrides git's core.pager)
 pager = "delta --paging=never"
-
-# Timeout (ms) for git commands during picker loading (default: 200)
-# Lower values show the TUI faster; 0 disables timeouts
-timeout-ms = 200
