@@ -24,10 +24,10 @@
 #
 # # Default — sibling directory
 # # Creates: ~/code/myproject-feature-auth
-worktree-path = "{{ repo_path }}/../{{ repo }}-{{ branch | sanitize }}"
+worktree-path = "{{ repo_path }}/.claude/worktrees/{{ branch | sanitize }}"
 
-[[pre-start]]
-mise = "wt step mise trust"
+# [[pre-start]]
+# mise = "wt step mise trust"
 
 [[pre-start]]
 copy = "wt step copy-ignored"
