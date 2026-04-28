@@ -1,5 +1,17 @@
+#!/usr/bin/env bash
+# Manages ~/.claude/settings.json idempotently.
+#
+# Reads the existing target from stdin and recursively merges the chezmoi-managed
+# config on top. Keys NOT defined in $managed (e.g. model, effortLevel, editorMode)
+# are preserved from the live file so Claude Code's in-tool changes survive apply.
+# Output is sorted (jq -S) for deterministic diffs.
+
+set -euo pipefail
+
 {{- $personal := hasPrefix "personal" .machine -}}
-{{- $work := hasPrefix "work" .machine -}}
+{{- $work := hasPrefix "work" .machine }}
+
+managed=$(cat <<'JSON'
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "env": {
@@ -70,10 +82,16 @@
       }
     }
   },
-  "effortLevel": "high",
   "autoDreamEnabled": true,
   "skipDangerousModePermissionPrompt": true,
   "skipAutoPermissionPrompt": true,
   "voiceEnabled": true,
   "teammateMode": "tmux"
 }
+JSON
+)
+
+existing=$(cat)
+[[ -z "$existing" ]] && existing='{}'
+
+printf '%s\n' "$existing" | jq -S --argjson managed "$managed" '. * $managed'
