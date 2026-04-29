@@ -198,11 +198,11 @@ run = 'move-node-to-workspace 9'
 # 1: Terminal (Ghostty)
 # 2: Browser (Firefox For Developers Work Profile)
 # 3: IDE (IntelliJ)
-# 4: Slack and Zoom (primary work comms)
+# 4: Slack
 # 5: (unused — personal comms stack not applicable at work)
 # 6: Browser Personal (Firefox Dev Ed.)
 # 7: Notes (Obsidian)
-# 8: Unused
+# 8: Zoom
 # 9: Editor (Zed)
 
 [[on-window-detected]]
@@ -222,12 +222,12 @@ if.app-id = 'com.tinyspeck.slackmacgap'
 run = 'move-node-to-workspace 4'
 
 [[on-window-detected]]
-if.app-id = 'us.zoomus.Zoom'
-run = 'move-node-to-workspace 4'
-
-[[on-window-detected]]
 if.app-id = 'md.obsidian'
 run = 'move-node-to-workspace 7'
+
+[[on-window-detected]]
+if.app-id = 'zoom.us'
+run = 'move-node-to-workspace 8'
 
 [[on-window-detected]]
 if.app-id = 'dev.zed.Zed-Preview'
