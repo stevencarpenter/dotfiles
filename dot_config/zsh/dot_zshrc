@@ -126,12 +126,38 @@ alias emacs='nvim'
 
 # Modern ls (eza)
 if command -v eza >/dev/null 2>&1; then
-  alias la='eza -lah --icons --git'
-  alias lah='eza -lah --icons --git --total-size'
   alias ls='eza --icons'
-  alias ll='eza -lah --git --icons --long --total-size'
-  alias lt='eza -lah --git --icons --level=2 --tree'
-  alias las='eza -lah --git --icons --level=3 --sort=size --total-size --tree'
+  alias la='eza -lah --icons --git'
+  alias ll='eza -lah --icons --git --total-size'
+
+  # Tree variants: hide gitignored files unless --all is passed.
+  # If the target itself is gitignored (e.g. `lt target/`), bypass the
+  # filter so build artifacts stay visible.
+  # Always pass an explicit path — eza 0.23 returns empty with
+  # --git-ignore when no path is given.
+  _eza_tree() {
+    local level=$1; shift
+    local flags=() paths=() show_all=0 a
+    for a in "$@"; do
+      case $a in
+        --all) show_all=1 ;;
+        -*)    flags+=("$a") ;;
+        *)     paths+=("$a") ;;
+      esac
+    done
+    (( ${#paths[@]} == 0 )) && paths=(.)
+    local target_ignored=0 p
+    for p in "${paths[@]}"; do
+      if git check-ignore -q "$p" 2>/dev/null; then
+        target_ignored=1; break
+      fi
+    done
+    local git_filter=()
+    (( show_all || target_ignored )) || git_filter=(--git-ignore)
+    eza -lah --icons --git --tree --level="$level" "${git_filter[@]}" "${flags[@]}" "${paths[@]}"
+  }
+  lt()  { _eza_tree 2 "$@"; }
+  las() { _eza_tree 3 --sort=size --total-size "$@"; }
 else
   alias ls='command ls'
 fi
