@@ -104,6 +104,15 @@ fi
 alias gfp='git fetch --all && git pull'
 alias gss='git status -sb'
 
+# Cargo: the full pre-commit check chain (fmt + check + clippy --fix + test)
+alias crust='cargo fmt --all && cargo check --all && cargo clippy --all-targets --all-features --fix --allow-dirty -- -D warnings && cargo test --workspace'
+
+# uv: sync dev deps and refresh lockfile
+alias uvsl='uv sync --dev && uv lock'
+
+# mise: short form for `mise run <task>`
+alias mr='mise run'
+
 # Docker aliases
 alias docker-clean-unused='docker system prune --all --force --volumes'
 alias docker-clean-all='docker stop $(docker container ls -a -q) 2>/dev/null; docker rm -f $(docker container ls -a -q) 2>/dev/null; docker system prune -a -f --volumes'
@@ -117,9 +126,11 @@ alias emacs='nvim'
 
 # Modern ls (eza)
 if command -v eza >/dev/null 2>&1; then
+  alias la='eza -lah --icons --git'
+  alias lah='eza -lah --icons --git --total-size'
   alias ls='eza --icons'
-  alias ll='eza -la --icons --git'
-  alias lt='eza --tree --icons --level=2'
+  alias ll='eza -lah --long --icons --git'
+  alias lt='eza -lah --tree --icons --level=2'
   alias las='eza -la --total-size --git --tree --icons --level=3'
 else
   alias ls='command ls'
@@ -127,7 +138,6 @@ fi
 
 # Utility aliases
 alias tree='tree -a -I .git'
-alias la='ls -lAh'
 alias sed='gsed'
 alias teeclip='tee >(pbcopy)'
 
@@ -198,14 +208,85 @@ function md() {
   mkdir -p -- "$1" && cd -- "$1"
 }
 
-# Git "whoops" function: create a new branch at the current HEAD, then reset the current branch back one commit.
-# Useful for quickly undoing a mistaken commit while preserving the changes in a new branch.
+# Git "whoops" function: move the last N commits (default 1) onto a new branch, resetting the current branch back N.
+# With --squash, combines the moved commits on the new branch into a single commit (opens editor for the message).
 function goops() {
-  if (( $# != 1 )); then
-    echo "Usage: goops <new-branch-name>" >&2
+  local branch n=1 squash=0
+  while (( $# )); do
+    case "$1" in
+      --squash) squash=1 ;;
+      -*) echo "goops: unknown flag: $1" >&2; return 2 ;;
+      *)
+        if [[ -z "$branch" ]]; then
+          branch="$1"
+        elif [[ "$1" =~ ^[0-9]+$ ]]; then
+          n="$1"
+        else
+          echo "goops: unexpected arg: $1" >&2; return 2
+        fi
+        ;;
+    esac
+    shift
+  done
+  if [[ -z "$branch" ]]; then
+    echo "Usage: goops <new-branch> [N] [--squash]" >&2
     return 2
   fi
-  git branch "$1" && git reset --hard HEAD~1 && git checkout "$1"
+  if (( n < 1 )); then
+    echo "goops: N must be >= 1" >&2
+    return 2
+  fi
+  local source_branch
+  source_branch=$(git symbolic-ref --short HEAD 2>/dev/null) || {
+    echo "goops: not on a branch" >&2
+    return 1
+  }
+  if ! git rev-parse --verify --quiet "HEAD~$n" >/dev/null; then
+    echo "goops: cannot reach HEAD~$n on $source_branch" >&2
+    return 1
+  fi
+  git branch "$branch" && git reset --hard "HEAD~$n" && git checkout "$branch" || return
+  if (( squash )); then
+    git reset --soft "$source_branch" && git commit
+  fi
+}
+
+# Checkout the repo's default branch (main/master/etc.) and fetch+pull.
+# With one arg, also creates a new branch off the freshly-pulled default.
+function gmfp() {
+  if (( $# > 1 )); then
+    echo "Usage: gmfp [new-branch]" >&2
+    return 2
+  fi
+  local default
+  default=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||')
+  if [[ -z "$default" ]]; then
+    for b in main master; do
+      if git show-ref --verify --quiet "refs/remotes/origin/$b"; then
+        default=$b
+        break
+      fi
+    done
+  fi
+  if [[ -z "$default" ]]; then
+    echo "gmfp: could not determine default branch" >&2
+    return 1
+  fi
+  git checkout "$default" && git fetch --all && git pull || return
+  if (( $# == 1 )); then
+    git checkout -b "$1"
+  fi
+}
+
+# Commit all tracked changes with an AI-generated message (uses `claude` directly to avoid
+# claade's token-audit output contaminating the commit message via $()).
+function gcam() {
+  git commit -am "$(claude -p "generate commit message and only return the message")"
+}
+
+# Same as gcam, then push.
+function gcamp() {
+  gcam && git push
 }
 
 # Copy a file to the clipboard and also save it to disk (for easy sharing of files in chat, etc.)
