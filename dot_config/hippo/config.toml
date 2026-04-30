@@ -3,9 +3,9 @@ base_url = "http://localhost:1234/v1" # LM Studio local server
 timeout_secs = 300                    # HTTP timeout for chat/embed calls
 
 [models]
-enrichment = "qwen3.6-35b-a3b-ud-mlx"                    # Daily: MoE, 35B total, 3B active — fast
-enrichment_bulk = "qwen3.6-35b-a3b-ud-mlx"               # Bulk: strongest available — slow but reliable
-query = "qwen3.6-35b-a3b-ud-mlx"                         # Same model for query reformulation
+enrichment = "deepseek-v4-flash-dq"                    # Daily: MoE, 35B total, 3B active — fast
+enrichment_bulk = "deepseek-v4-flash-dq"               # Bulk: strongest available — slow but reliable
+query = "deepseek-v4-flash-dq"                         # Same model for query reformulation
 embedding = "text-embedding-nomic-embed-text-v2-moe" # Purpose-built embedding model, 768d
 
 [daemon]
