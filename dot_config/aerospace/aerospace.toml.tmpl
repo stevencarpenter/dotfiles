@@ -196,13 +196,13 @@ run = 'move-node-to-workspace 9'
 {{- if hasPrefix "work" .machine }}
 # ── Work Machine ──
 # 1: Terminal (Ghostty)
-# 2: Browser (Zen)
+# 2: Browser (Firefox For Developers Work Profile)
 # 3: IDE (IntelliJ)
-# 4: AI (Claude)
+# 4: Slack
 # 5: (unused — personal comms stack not applicable at work)
 # 6: Browser Personal (Firefox Dev Ed.)
 # 7: Notes (Obsidian)
-# 8: Slack
+# 8: Zoom
 # 9: Editor (Zed)
 
 [[on-window-detected]]
@@ -210,7 +210,7 @@ if.app-id = 'com.mitchellh.ghostty'
 run = 'move-node-to-workspace 1'
 
 [[on-window-detected]]
-if.app-id = 'app.zen-browser.zen'
+if.app-id = 'org.mozilla.firefoxdeveloperedition'
 run = 'move-node-to-workspace 2'
 
 [[on-window-detected]]
@@ -218,19 +218,15 @@ if.app-id = 'com.jetbrains.intellij'
 run = 'move-node-to-workspace 3'
 
 [[on-window-detected]]
-if.app-id = 'com.anthropic.claudefordesktop'
+if.app-id = 'com.tinyspeck.slackmacgap'
 run = 'move-node-to-workspace 4'
-
-[[on-window-detected]]
-if.app-id = 'org.mozilla.firefoxdeveloperedition'
-run = 'move-node-to-workspace 6'
 
 [[on-window-detected]]
 if.app-id = 'md.obsidian'
 run = 'move-node-to-workspace 7'
 
 [[on-window-detected]]
-if.app-id = 'com.tinyspeck.slackmacgap'
+if.app-id = 'zoom.us'
 run = 'move-node-to-workspace 8'
 
 [[on-window-detected]]
