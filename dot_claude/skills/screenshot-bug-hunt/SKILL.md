@@ -5,143 +5,72 @@ description: Take screenshots of a running frontend site and find visual, layout
 
 # Screenshot bug hunt
 
-Find visual, layout, and rendering bugs in a frontend site by driving Playwright + headless Chromium, then reading the screenshots back through the image-aware Read tool. Cross-check against the rendered DOM (the `dist/` output) so you catch issues that pure visual inspection misses — broken `href`s, missing alt text, attributes that didn't propagate.
-
-## Why this works
-
-A visual diff catches different bugs than a code review or a unit test:
-
-- Screenshots reveal **layout overlap, sizing weirdness, font issues, motion glitches, ornament misreads** — things humans notice instantly but linters can't see.
-- Built HTML grep-checks reveal **wrong-cased URLs, plugins that silently no-op'd, attributes that didn't survive the build pipeline, link targets that resolve to 404s** — things screenshots miss because the broken-link badge looks fine until clicked.
-- **Together** they catch a class of "tests passed but the build is broken" bugs that neither alone would. Worked example: a rehype link-rewrite plugin had passing unit tests (transformer called directly on a constructed vfile) but never ran in the actual markdown pipeline because Astro 6 silently no-ops named-export plugins registered as bare references — the tuple form `[plugin, {}]` is required. The unit tests had no view into "is the plugin actually wired up at build time?"; a screenshot pass plus a `grep -r 'href=".*\.md"' dist/` exposed the broken hrefs immediately.
-
-## When to invoke
-
-- Before merging a substantial CSS/layout/component change.
-- After upgrading a frontend framework major version (Astro 5→6, Next 14→15, etc.) — config changes silently break plugin pipelines.
-- When a user says "look at the site", "is this rendering right", "screenshot the pages", "playwright check", "visual audit".
-- Iteratively while polishing — capture baseline, fix something, capture again, compare.
-- When something passes tests but the user thinks it looks wrong. Trust the eyes.
+Drive Playwright + headless Chromium against a running site, read the PNGs back through the image-aware Read tool, then cross-check `dist/` HTML with grep to catch what visual review misses.
 
 ## Workflow
 
-### 1. Confirm the dev/preview server is up
+### 1. Server up
 
-The skill inspects `localhost:4321` (Astro default), `localhost:3000` (Next/Vite/etc.), and `localhost:5173` (Vite default). If nothing is listening, start the project's preview script:
+Connect to whatever's already running on `localhost:4321` / `:3000` / `:5173`. If nothing is listening, prefer `pnpm build && pnpm preview` over `pnpm dev` — the dev server skips build-time integrations (Pagefind, OG generation, static-site rendering) and can mask bugs that only surface in production output.
 
-```bash
-# Detect the right command from package.json scripts
-cd <project>/site || cd <project>
-# Use `pnpm preview` for the production build (truer to deployed output);
-# fall back to `pnpm dev` only if no preview script exists.
-pnpm build && pnpm preview &
-```
-
-**Prefer `preview` over `dev`** when possible:
-- The `dev` server may use different code paths (HMR, on-demand compilation) and miss bugs that only surface in production builds.
-- Pagefind/search indexes, OG image generation, and other build-time integrations only run during `build`, not `dev`.
-- Static-site generators (Astro, Eleventy, etc.) often have markedly different output between dev and prod.
-
-If the user has the server running already, just connect — don't restart.
-
-### 2. Bootstrap Playwright into /tmp (one-time)
-
-To avoid polluting the project's `node_modules`, install Playwright in a throwaway directory:
+### 2. Bootstrap Playwright (one-time, idempotent)
 
 ```bash
 bash $SKILL_DIR/scripts/setup.sh
 ```
 
-This creates `/tmp/screenshot-bug-hunt-pw/` with `playwright` installed and Chromium downloaded. The script is idempotent — running it again is a no-op if everything's already there.
+Installs Playwright + Chromium into `/tmp/screenshot-bug-hunt-pw/` so the project's `node_modules` stays clean.
 
-### 3. Run the screenshot pass
-
-The bundled script captures multiple URLs at multiple viewports. By default it auto-discovers pages from `/sitemap-index.xml` (or `/sitemap.xml`); pass an override file for targeted runs.
+### 3. Capture
 
 ```bash
-node $SKILL_DIR/scripts/shoot.mjs \
-  --base http://localhost:4321 \
-  --out /tmp/hippo-screenshots
+node $SKILL_DIR/scripts/shoot.mjs --base http://localhost:4321 --out /tmp/shots
 ```
 
-Output:
-- `/tmp/hippo-screenshots/desktop-<slug>.png` — full-page at 1440×900
-- `/tmp/hippo-screenshots/tablet-<slug>.png` — 1024×900 for breakpoint validation
-- `/tmp/hippo-screenshots/narrow-<slug>.png` — 768×900
-- `/tmp/hippo-screenshots/mobile-<slug>.png` — 480×900
-- `/tmp/hippo-screenshots/detail/<slug>.png` — viewport-only at 1440×900 (legible at native zoom)
+By default discovers pages from `/sitemap-index.xml` (or `/sitemap.xml`); pass `--targets <file.json>` for a custom list (see "Page list overrides" below). Output:
 
-**Why each viewport matters:**
-- **1440** — primary desktop, where most layout decisions are validated.
-- **1024** — common laptop / split-screen; usually where the first responsive breakpoint kicks in.
-- **768** — tablet portrait / small laptop; second breakpoint, rails often collapse here.
-- **480** — small phone; hamburger nav, single-column, scaled type.
+- `desktop-<slug>.png` — full-page 1440×900
+- `tablet-<slug>.png` — 1024×900
+- `narrow-<slug>.png` — 768×900
+- `mobile-<slug>.png` — 480×900
+- `detail/<slug>.png` — viewport-only 1440×900 (legible at native zoom; full-page mode compresses detail)
 
-A page that looks fine at 1440 can break at 1024. A user who screenshots their browser at 800px wide and says "this looks broken" might just be at the wrong viewport — capturing all four lets you tell the difference.
+The four widths exist to catch breakpoint failures: `1440 → 1024 → 768 → 480` covers desktop, split-screen, tablet, and phone.
 
-### 4. Read screenshots back via the Read tool
+### 4. Read screenshots back
 
-Claude Code's `Read` tool displays PNG files inline. Use it to view each screenshot in turn:
+`Read /tmp/shots/detail/<slug>.png` displays inline. Walk through systematically — homepage, marketing pages, docs, 404. Catalog issues; don't fix as you go.
 
-```
-Read /tmp/hippo-screenshots/detail/desktop-00-home.png
-```
+### 5. Cross-check the DOM
 
-Walk through the captures systematically — homepage first, then key marketing/landing pages, then docs/inner pages, then 404. As you view each, catalog issues. Don't try to fix as you go; keep the inspection pass clean. **Note**: full-page screenshots compress detail; use the `detail/` viewport-only captures for closer inspection.
+Visual review misses broken hrefs, missing alt text, attributes that didn't propagate, plugins that no-op'd. Grep `dist/`. The minimum after any substantial change: `grep -roE 'href="[^"]*\.md"' dist/` should be empty on a markdown-driven site. See `references/dom-checks.md` for recipes by bug class.
 
-### 5. Cross-check the rendered DOM
+### 6. Catalog by severity
 
-For every visual bug you suspect, also grep the built HTML to either confirm it or rule it out. This is the step that finds the bugs screenshots miss.
+Critical / High / Medium / Low. Critical = user-visible failure on the golden path (broken nav, broken install command, 404'd canonical). Low = polish. Fix the high-severity items; flag the rest.
 
-See `references/dom-checks.md` for grep recipes by bug type — link rewrites, missing alt text, heading hierarchy, footnote ordering, ARIA landmarks, etc.
+### 7. Fix-and-reshoot
 
-The minimum check after any substantial change: confirm internal links don't 404 by grepping for `href="[^"]*\.md"` (markdown extension leaking through the build) or `href="[^"]*\.html"` (often a bare-build artifact) in `dist/`.
+After each fix: `pnpm build` → re-run shoot.mjs → re-Read the affected screenshot. See `references/iteration-loop.md` for batching tactics, real before/after via `git stash`, and the DevTools Protocol stylesheet-override trick for fast CSS comparisons.
 
-### 6. Catalog bugs with severity
+## Beyond the workflow
 
-Group findings into Critical / High / Medium / Low. Critical means a user-visible failure on the golden path (broken nav, broken install command, 404'd canonical link). Low is polish (a glyph that's 2px off-center). Don't fix everything you find — fix the high-priority items, flag the rest.
+The steps above are a floor. To reach the more interesting bugs:
 
-### 7. Iterate the fix-and-reshoot loop
+- **One regression usually has siblings.** A wide-table fix on one docs page may have created the same regression on every page that uses tables — find them with `grep '<table'` over the source or by scanning the screenshots for the same visual signature.
+- **Prove the rule that's actually winning.** Two CSS rules with equal specificity tie on source order; the earlier one becomes dead code. Confirm via DevTools or `getComputedStyle()` rather than assuming.
+- **Capture a real before/after when "what changed" is ambiguous.** `git stash` + reshoot, or the DevTools stylesheet override (`references/iteration-loop.md`).
 
-After each fix:
+## Artifact discipline
 
-1. `pnpm build` (the preview server doesn't auto-rebuild for static output).
-2. Re-run `node scripts/shoot.mjs` (same args).
-3. Re-Read the relevant screenshots.
-4. Move to the next bug.
-
-See `references/iteration-loop.md` for tactics — when to re-run all viewports vs. one, how to compare baseline vs. fixed, when to use targeted scrolls.
-
-## Go beyond the prescribed workflow
-
-The steps above are a floor, not a ceiling. They're enough to catch the common bugs reliably; they will not always catch the *most interesting* one. When the task allows it, look for ways to go further:
-
-- **If the prompt mentions a specific regression, check whether other components have the same shape of bug.** A wide-table fix on one docs page may have created the same regression on every other page that uses tables. Find them with `grep` (`<table` in `src/content/`) or by listing the screenshots and looking for the same visual signature.
-- **If a CSS rule "fixes" the bug, prove the fix is the rule that's actually winning.** Two rules can target the same selector with equal specificity; the one declared *later* in source order wins, and the earlier one becomes dead code. Use the browser DevTools (or a Playwright `page.evaluate` snippet that reads `getComputedStyle()`) to confirm the rule you wrote is the one applied — not a different rule from earlier in the cascade.
-- **Construct a real before/after when the prompt is ambiguous about "what changed".** It's tempting to capture only the *after* and reason about the diff. But a captured *before* (via `git stash` + reshoot, or via the DevTools Protocol stylesheet-override trick in `references/iteration-loop.md`) is harder to argue with. In one of this skill's own benchmark evals, an unconstrained agent reached for this technique unprompted and surfaced a CSS specificity regression that a structured-workflow run had missed.
-- **Don't stop at the first finding.** The skill biases toward thoroughness; use that. A "yep, fixed" answer is rarely as valuable as "yep, fixed, *and* I noticed two related issues you'll want to know about."
-
-The structured workflow is what makes the floor reliable. Lateral thinking on top of it is what raises the ceiling.
-
-## Artifact discipline (don't blow up the eval viewer)
-
-If you're driving this skill from inside an evaluation harness or any context that captures your `outputs/` directory, **be ruthless about what you save**:
-
-- Save a *representative subset* of screenshots, not every viewport for every page. ~10–20 PNGs is usually plenty; 100+ PNGs will make the viewer unusable.
-- Never dump raw rendered HTML files into `outputs/`. The viewer tries to render them inline and chokes. Cite specific snippets via grep instead.
-- Keep heavy artifacts (full-page captures, raw `dist/` dumps) in `/tmp/` — they're meant to be inspected by the agent, not by the human reviewer afterwards.
-
-The signal you want preserved in `outputs/` is "what bugs did the agent find and how do I see the evidence?" — not "every byte the agent ever looked at."
+When the harness captures `outputs/`: keep it small. ~10–20 PNGs is plenty; 100+ will choke the eval viewer. Never dump raw HTML files — cite snippets from grep instead. Heavy artifacts (full-page captures, raw `dist/` dumps) belong in `/tmp/`, not in `outputs/`.
 
 ## Page list overrides
-
-To screenshot a specific set of URLs (rather than auto-discover from sitemap), create a JSON file and pass `--targets`:
 
 ```json
 [
   { "slug": "00-home", "path": "/" },
-  { "slug": "01-add-source", "path": "/docs/capture/adding-a-source", "scroll": 700 },
-  { "slug": "02-changelog-mid", "path": "/changelog", "scroll": 1500 }
+  { "slug": "01-add-source", "path": "/docs/capture/adding-a-source", "scroll": 700 }
 ]
 ```
 
@@ -149,24 +78,23 @@ To screenshot a specific set of URLs (rather than auto-discover from sitemap), c
 node $SKILL_DIR/scripts/shoot.mjs --targets ./screenshot-targets.json
 ```
 
-The `scroll` field captures the page after scrolling N pixels — useful for sections far below the fold.
-
-## What this skill is NOT for
-
-- **Non-frontend projects** — backend services, CLIs, data pipelines have no visual surface to inspect. Use logs / tests / metrics instead.
-- **Pixel-exact regression testing** — that's a separate discipline (Percy, Chromatic, Playwright snapshot mode). This skill is for *exploratory* visual review by a human-in-the-loop agent.
-- **A11y audits** — there's overlap (axe-core checks happen in CI), but a fully automated a11y pass is outside scope. The screenshots help spot obvious failures (low contrast, missing focus rings) but won't substitute for assistive-tech testing.
+`scroll` captures after scrolling N pixels — useful for sections far below the fold.
 
 ## Common failure modes
 
-- **Screenshots came back narrow when you expected desktop** — your viewport size in Playwright is right, but the user's browser is at a different width. Always confirm the size of the rendered output (`file *.png` or `python -c 'from PIL import Image; print(Image.open("x.png").size)'`) before assuming a layout regression.
-- **Plugins silently no-op'd in production** — if your bug catalog includes "this attribute didn't render", grep `dist/` to confirm. If the attribute IS in the source code but NOT in `dist/`, the build pipeline dropped it. Astro 6 specifically requires the tuple form `[plugin, {}]` for named-export plugins in `markdown.rehypePlugins`; bare references work for default exports but silently no-op for named ones. (See `references/dom-checks.md` for the exact diagnostic.)
-- **`fullPage: true` screenshots are too tall to read detail in** — use `fullPage: false` (viewport only) for detail inspection. The full-page mode is for catching bugs that only appear far below the fold.
-- **Sticky-positioned elements behave weirdly in `fullPage: true` screenshots** — they render at their original-flow position rather than scroll-pinned. This is expected; verify sticky behavior with a viewport-only capture and a `scroll` parameter.
+- **Plugin silently no-op'd in `dist/`.** Source has the transformer; built output doesn't. Astro 6 requires the tuple form `[plugin, {}]` in `markdown.rehypePlugins` for some named-export plugin shapes — bare references silently drop. Verify by adding `process.stdout.write` at module top vs inside the transformer; if the top-level prints once but the transformer never does, registration is wrong.
+- **Screenshots came back narrow when you expected desktop.** Confirm size with `file *.png` or `Image.open(p).size` before calling it a layout bug — the user's browser may be narrower than your assumption.
+- **Sticky elements drift in full-page captures.** They render at original-flow position, not scroll-pinned. Verify sticky behavior with viewport-only + a `scroll` value.
+
+## Not for
+
+- Backend / CLI / pipeline projects — no visual surface. Use logs, tests, metrics.
+- Pixel-exact snapshot regression — Percy / Chromatic / Playwright snapshot mode are the right tool. This skill is exploratory.
+- A11y audits — overlap exists, but assistive-tech testing is outside scope.
 
 ## Reference files
 
-- `references/dom-checks.md` — grep recipes for inspecting built HTML alongside screenshots.
-- `references/iteration-loop.md` — tactics for the fix-and-reshoot loop, including baseline vs. fixed comparison.
-- `scripts/setup.sh` — bootstraps Playwright + Chromium in `/tmp/`.
-- `scripts/shoot.mjs` — the screenshot tool. Driven by sitemap auto-discovery or a `--targets` JSON.
+- `references/dom-checks.md` — grep recipes for built HTML.
+- `references/iteration-loop.md` — fix-and-reshoot tactics, before/after capture techniques.
+- `scripts/setup.sh` — Playwright bootstrap.
+- `scripts/shoot.mjs` — sitemap-driven capture tool.
