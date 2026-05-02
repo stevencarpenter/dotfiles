@@ -79,6 +79,67 @@ compare /tmp/baseline-faq.png /tmp/screenshot-bug-hunt-out/desktop-04-faq.png /t
 # Then Read /tmp/diff-faq.png — pixels that changed are highlighted red.
 ```
 
+## Capturing a true "before" without rebuilding
+
+The hardest baseline to capture is the one you've already overwritten — the user committed the fix, you applied it locally, the original broken state is now only reachable by reverting code. Two reliable ways to recover it:
+
+### Option 1: git stash + reshoot
+
+When the broken state is *uncommitted* (e.g. you're verifying a fix you just made):
+
+```bash
+# 1. Stash the in-progress fix
+git stash push -m "fix-being-tested" -- site/src/styles/prose.css
+
+# 2. Rebuild and shoot the baseline
+pnpm --dir site build
+node $SKILL_DIR/scripts/shoot.mjs --out /tmp/before
+
+# 3. Pop the stash and shoot the after
+git stash pop
+pnpm --dir site build
+node $SKILL_DIR/scripts/shoot.mjs --out /tmp/after
+
+# 4. Read /tmp/before/<file>.png and /tmp/after/<file>.png back-to-back.
+```
+
+This is the gold standard for "did my fix actually do anything?" verification — the comparison is against an identically-built artifact, with only the targeted file changed.
+
+### Option 2: DevTools Protocol stylesheet override (no rebuild)
+
+When the change is purely CSS and rebuilding is slow, you can inject a *reverse* stylesheet at runtime that undoes the fix, then capture, then remove the override and capture again. This avoids any build cost.
+
+```js
+// Driving Playwright via Chrome DevTools Protocol:
+const client = await page.context().newCDPSession(page);
+await client.send('Runtime.evaluate', {
+  expression: `
+    const style = document.createElement('style');
+    style.id = '__reverse-fix';
+    style.textContent = \`
+      /* Undo the fix being tested by re-applying the prior rule */
+      .prose td, .prose th { overflow-wrap: normal !important; }
+    \`;
+    document.head.appendChild(style);
+  `
+});
+
+// ... screenshot the "before" state ...
+
+await client.send('Runtime.evaluate', {
+  expression: `document.getElementById('__reverse-fix')?.remove();`
+});
+
+// ... screenshot the "after" state — this is the real shipped behavior ...
+```
+
+**When to use which:**
+
+- **`git stash`** — you trust the build is reproducible, you have time for two builds, and the change isn't purely cosmetic CSS. This is the safer choice; the captured baseline is byte-identical to what the user would have seen.
+- **DevTools override** — the change is a small CSS rule, rebuilding takes minutes, and you want a tight feedback loop. Trust this less for non-CSS changes (you can't reliably "undo" a JSX restructuring with an injected stylesheet).
+
+The override technique is also useful for *speculative* before/afters: "what would this page look like if we deleted this rule?" — you can capture both states without ever editing source.
+
 ## When to stop
 
 Stop when:

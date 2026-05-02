@@ -1,6 +1,6 @@
 ---
 name: screenshot-bug-hunt
-description: Use this skill whenever the user wants to find visual, layout, or rendering bugs in a frontend site by capturing screenshots and comparing them against expected design. Triggers on phrases like "hunt for visual bugs", "screenshot the site", "playwright check", "visual review", "look at the live site", "audit the pages", "compare desktop and mobile", "verify the design", "is the layout broken", or any time the user wants Claude to *look* at a built site rather than reason about it from code alone. Also use this skill proactively after substantial CSS / component / layout changes when the user asks for a sanity check before merging.
+description: Take screenshots of a running frontend site and find visual, layout, or rendering bugs. USE THIS SKILL whenever the user mentions a site running locally (localhost:3000 / 4321 / 5173 / staging URL / preview / dev server) AND asks any of: "screenshot it", "look at it", "check for regressions", "find visual bugs", "is the layout broken", "verify the design", "audit the pages", "compare desktop and mobile", "playwright check", "visual review", "spot-check rendering", "investigate visually", "sanity check before I commit/merge/ship/deploy", "did anything break", "did this regress", or any phrasing where the user wants Claude to *look at the built site* rather than reason about source code alone. Triggers especially after CSS, component, layout, design-system, or framework-version changes when the user wants a pre-merge sanity check. Also fires on "tell me what's broken on /<page>", "the user reported something looks wrong", "verify the rendering of /<page>". Bias toward triggering: if the user mentions a localhost or staging URL together with any visual or layout concern, use this skill. The cost of an unnecessary trigger is small; the cost of missing a real visual regression is a shipped bug.
 ---
 
 # Screenshot bug hunt
@@ -111,6 +111,27 @@ After each fix:
 4. Move to the next bug.
 
 See `references/iteration-loop.md` for tactics — when to re-run all viewports vs. one, how to compare baseline vs. fixed, when to use targeted scrolls.
+
+## Go beyond the prescribed workflow
+
+The steps above are a floor, not a ceiling. They're enough to catch the common bugs reliably; they will not always catch the *most interesting* one. When the task allows it, look for ways to go further:
+
+- **If the prompt mentions a specific regression, check whether other components have the same shape of bug.** A wide-table fix on one docs page may have created the same regression on every other page that uses tables. Find them with `grep` (`<table` in `src/content/`) or by listing the screenshots and looking for the same visual signature.
+- **If a CSS rule "fixes" the bug, prove the fix is the rule that's actually winning.** Two rules can target the same selector with equal specificity; the one declared *later* in source order wins, and the earlier one becomes dead code. Use the browser DevTools (or a Playwright `page.evaluate` snippet that reads `getComputedStyle()`) to confirm the rule you wrote is the one applied — not a different rule from earlier in the cascade.
+- **Construct a real before/after when the prompt is ambiguous about "what changed".** It's tempting to capture only the *after* and reason about the diff. But a captured *before* (via `git stash` + reshoot, or via the DevTools Protocol stylesheet-override trick in `references/iteration-loop.md`) is harder to argue with. The baseline run in our own evaluations consistently outperformed the with-skill run when it took this extra step.
+- **Don't stop at the first finding.** The skill biases toward thoroughness; use that. A "yep, fixed" answer is rarely as valuable as "yep, fixed, *and* I noticed two related issues you'll want to know about."
+
+The structured workflow is what makes the floor reliable. Lateral thinking on top of it is what raises the ceiling.
+
+## Artifact discipline (don't blow up the eval viewer)
+
+If you're driving this skill from inside an evaluation harness or any context that captures your `outputs/` directory, **be ruthless about what you save**:
+
+- Save a *representative subset* of screenshots, not every viewport for every page. ~10–20 PNGs is usually plenty; 100+ PNGs will make the viewer unusable.
+- Never dump raw rendered HTML files into `outputs/`. The viewer tries to render them inline and chokes. Cite specific snippets via grep instead.
+- Keep heavy artifacts (full-page captures, raw `dist/` dumps) in `/tmp/` — they're meant to be inspected by the agent, not by the human reviewer afterwards.
+
+The signal you want preserved in `outputs/` is "what bugs did the agent find and how do I see the evidence?" — not "every byte the agent ever looked at."
 
 ## Page list overrides
 
