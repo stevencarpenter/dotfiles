@@ -4,7 +4,7 @@ Screenshots show pixels; the DOM shows truth. A badge can render correctly but l
 
 Run all of these against the *built* output (`dist/`, `build/`, `out/` — whichever your project uses). Don't grep the source — the source is what you wrote, not what shipped.
 
-## Detect plugin no-ops (the bug that hid for 3 weeks)
+## Detect plugin no-ops
 
 Symptom: the source code has a rehype/remark/Vite plugin that's supposed to transform something — rewrite links, add anchors, inject metadata — but the transformation never appears in the built output.
 

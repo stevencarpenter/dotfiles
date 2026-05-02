@@ -9,11 +9,11 @@ Find visual, layout, and rendering bugs in a frontend site by driving Playwright
 
 ## Why this works
 
-A visual diff catches different bugs than a code review or a unit test. The pattern that emerged from real use:
+A visual diff catches different bugs than a code review or a unit test:
 
 - Screenshots reveal **layout overlap, sizing weirdness, font issues, motion glitches, ornament misreads** — things humans notice instantly but linters can't see.
 - Built HTML grep-checks reveal **wrong-cased URLs, plugins that silently no-op'd, attributes that didn't survive the build pipeline, link targets that resolve to 404s** — things screenshots miss because the broken-link badge looks fine until clicked.
-- **Together** they catch a class of "tests passed but prod broken" bugs that neither alone would. The lesson from the original use: a unit-tested rehype plugin shipped 3 weeks of broken links because the test harness bypassed the integration path. The screenshot pass + dist-grep caught it in 30 minutes.
+- **Together** they catch a class of "tests passed but the build is broken" bugs that neither alone would. Worked example: a rehype link-rewrite plugin had passing unit tests (transformer called directly on a constructed vfile) but never ran in the actual markdown pipeline because Astro 6 silently no-ops named-export plugins registered as bare references — the tuple form `[plugin, {}]` is required. The unit tests had no view into "is the plugin actually wired up at build time?"; a screenshot pass plus a `grep -r 'href=".*\.md"' dist/` exposed the broken hrefs immediately.
 
 ## When to invoke
 
@@ -118,7 +118,7 @@ The steps above are a floor, not a ceiling. They're enough to catch the common b
 
 - **If the prompt mentions a specific regression, check whether other components have the same shape of bug.** A wide-table fix on one docs page may have created the same regression on every other page that uses tables. Find them with `grep` (`<table` in `src/content/`) or by listing the screenshots and looking for the same visual signature.
 - **If a CSS rule "fixes" the bug, prove the fix is the rule that's actually winning.** Two rules can target the same selector with equal specificity; the one declared *later* in source order wins, and the earlier one becomes dead code. Use the browser DevTools (or a Playwright `page.evaluate` snippet that reads `getComputedStyle()`) to confirm the rule you wrote is the one applied — not a different rule from earlier in the cascade.
-- **Construct a real before/after when the prompt is ambiguous about "what changed".** It's tempting to capture only the *after* and reason about the diff. But a captured *before* (via `git stash` + reshoot, or via the DevTools Protocol stylesheet-override trick in `references/iteration-loop.md`) is harder to argue with. The baseline run in our own evaluations consistently outperformed the with-skill run when it took this extra step.
+- **Construct a real before/after when the prompt is ambiguous about "what changed".** It's tempting to capture only the *after* and reason about the diff. But a captured *before* (via `git stash` + reshoot, or via the DevTools Protocol stylesheet-override trick in `references/iteration-loop.md`) is harder to argue with. In one of this skill's own benchmark evals, an unconstrained agent reached for this technique unprompted and surfaced a CSS specificity regression that a structured-workflow run had missed.
 - **Don't stop at the first finding.** The skill biases toward thoroughness; use that. A "yep, fixed" answer is rarely as valuable as "yep, fixed, *and* I noticed two related issues you'll want to know about."
 
 The structured workflow is what makes the floor reliable. Lateral thinking on top of it is what raises the ceiling.
