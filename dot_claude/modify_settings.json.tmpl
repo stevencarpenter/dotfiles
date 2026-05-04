@@ -1,11 +1,24 @@
+#!/usr/bin/env bash
+# Manages ~/.claude/settings.json idempotently.
+#
+# Reads the existing target from stdin and recursively merges the chezmoi-managed
+# config on top. Keys NOT defined in $managed (e.g. model, effortLevel, editorMode)
+# are preserved from the live file so Claude Code's in-tool changes survive apply.
+# Output is sorted (jq -S) for deterministic diffs.
+
+set -euo pipefail
+
 {{- $personal := hasPrefix "personal" .machine -}}
-{{- $work := hasPrefix "work" .machine -}}
+{{- $work := hasPrefix "work" .machine }}
+
+managed=$(cat <<'JSON'
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "env": {
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
     "CLAUDE_CODE_NO_FLICKER": "1",
-    "ENABLE_LSP_TOOL": "1"
+    "ENABLE_LSP_TOOL": "1",
+    "CLAUDE_CODE_FORK_SUBAGENTS": "1"
   },
   "permissions": {
     "defaultMode": "auto"
@@ -17,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "{{ .chezmoi.homeDir }}/projects/hippo/shell/claude-session-hook.sh"
+            "command": "{{ .chezmoi.homeDir }}/.local/share/hippo-brain/shell/claude-session-hook.sh"
           }
         ]
       }
@@ -69,11 +82,16 @@
       }
     }
   },
-  "effortLevel": "high",
   "autoDreamEnabled": true,
   "skipDangerousModePermissionPrompt": true,
   "skipAutoPermissionPrompt": true,
   "voiceEnabled": true,
-  "teammateMode": "tmux",
-  "model": "sonnet"
+  "teammateMode": "tmux"
 }
+JSON
+)
+
+existing=$(cat)
+[[ -z "$existing" ]] && existing='{}'
+
+printf '%s\n' "$existing" | jq -S --argjson managed "$managed" '. * $managed'

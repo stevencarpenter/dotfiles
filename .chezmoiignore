@@ -61,6 +61,16 @@ private_dot_claude.json
 .claude/*
 !.claude/settings.json
 
+# Track skills authored locally. Most skills under ~/.claude/skills/ are
+# symlinks to ~/.agents/skills/ (managed by claude-plugins) and shouldn't be
+# checked into dotfiles — but skills authored directly belong here. Add new
+# tracked skills by name; the !-prefixed pattern un-ignores the parent dir
+# and its contents so chezmoi can see them.
+!.claude/skills
+.claude/skills/*
+!.claude/skills/screenshot-bug-hunt
+!.claude/skills/screenshot-bug-hunt/**
+
 # Work/personal conditional deployment
 # Skip work files on personal machines
 {{ if not (hasPrefix "work" .machine) }}
