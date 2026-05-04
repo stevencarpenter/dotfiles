@@ -3,9 +3,11 @@
 # Update all the AI CLI tools like a degenerate
 alias burp='brew update && brew upgrade && vp update -g @github/copilot && claude update && opencode upgrade'
 
-# Load Hippo CLI functions
-source "$HOME/.local/share/hippo-brain/shell/hippo-env.zsh"
-source "$HOME/.local/share/hippo-brain/shell/hippo.zsh"
+# Load Hippo CLI functions (only when installed; not on the home-lab box yet)
+if [[ -f "$HOME/.local/share/hippo-brain/shell/hippo.zsh" ]]; then
+    source "$HOME/.local/share/hippo-brain/shell/hippo-env.zsh"
+    source "$HOME/.local/share/hippo-brain/shell/hippo.zsh"
+fi
 
 # Vite Plus CLI functions
 source "$HOME/.vite-plus/env"
