@@ -1,5 +1,5 @@
 {{- /* chezmoi config template — prompts once per machine, caches in chezmoi.toml */ -}}
-{{- $machine := promptStringOnce . "machine" "Machine type (work-mac, personal-mac, work-linux, personal-linux)" -}}
+{{- $machine := promptStringOnce . "machine" "Machine type (personal-mac, work-mac, lab-mac, personal-linux, work-linux)" -}}
 {{- $email := "" -}}
 {{- if hasPrefix "work" $machine -}}
 {{-   $email = promptStringOnce . "email" "Work email address" -}}

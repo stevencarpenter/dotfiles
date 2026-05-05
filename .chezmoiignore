@@ -95,3 +95,15 @@ Library/LaunchAgents/com.user.xcode-mcp-proxy.plist
 {{ if ne .chezmoi.os "darwin" }}
 Library/LaunchAgents/com.user.xcode-mcp-proxy.plist
 {{ end }}
+
+# xcode-mcp-proxy temporarily disabled — keep the plist out of every machine
+# until the source template's `{{ "{{ if false }}" }}` guard is flipped back on.
+Library/LaunchAgents/com.user.xcode-mcp-proxy.plist
+
+# Capability gates (see .chezmoidata/machines.toml)
+# Skip the tiling-WM stack (aerospace + sketchybar) on machines where it's off.
+{{ if not (index .machines .machine).tiling }}
+.config/aerospace
+.config/sketchybar
+.config/borders
+{{ end }}

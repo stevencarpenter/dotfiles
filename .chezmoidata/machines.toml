@@ -1,0 +1,30 @@
+# Machine capability table.
+#
+# Each row maps a machine name (matching the `.machine` data variable from
+# .chezmoi.toml.tmpl) to a set of capability booleans. Templates and
+# .chezmoiignore gate on these capabilities rather than on machine name
+# prefixes so that adding a new machine is a one-row change here, not a
+# scavenger hunt across every gate site.
+#
+# Access pattern in templates:
+#   {{ if (index .machines .machine).tiling }} ... {{ end }}
+#
+# Adding a new machine: copy a row, rename, flip the capabilities you don't
+# want. Adding a new capability: add the key to every row (default-false is
+# fine if you also update the gate sites with `default false` on lookups).
+#
+# Capabilities
+#   tiling — install/configure aerospace + sketchybar + borders (the tiling
+#            window manager stack). Headless / Screen Share boxes set this
+#            false because point-and-click + native macOS windowing is
+#            preferred there.
+
+[machines.personal-mac]
+tiling = true
+
+[machines.work-mac]
+tiling = true
+
+[machines.lab-mac]
+# 2019 i9 MacBook Pro accessed headlessly + via macOS Screen Share.
+tiling = false
