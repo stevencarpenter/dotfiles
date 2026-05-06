@@ -64,8 +64,16 @@ z4h init || return
 # ============================================================================
 
 # === 1. Homebrew Setup (must be early, other tools depend on it) ===
+# Apple Silicon installs to /opt/homebrew, Intel to /usr/local. Probe both so
+# this works on lab-mac (2019 i9) without diverging the dotfiles.
 if [[ $(uname) == "Darwin" ]]; then
-  eval "$(/opt/homebrew/bin/brew shellenv)"
+  for brew_bin in /opt/homebrew/bin/brew /usr/local/bin/brew; do
+    if [[ -x $brew_bin ]]; then
+      eval "$($brew_bin shellenv)"
+      break
+    fi
+  done
+  unset brew_bin
 fi
 
 # === 2. PATH Configuration (consolidated for clarity) ===
@@ -73,7 +81,7 @@ path=(
     $HOME/.opencode/bin
     $HOME/.local/bin
     ~/bin
-    /opt/homebrew/opt/libpq/bin
+    ${HOMEBREW_PREFIX:-/opt/homebrew}/opt/libpq/bin(N-/)
     "/Applications/IntelliJ IDEA.app/Contents/MacOS"
     $HOME/.lmstudio/bin
     $HOME/.amp/bin
