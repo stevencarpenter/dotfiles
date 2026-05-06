@@ -18,13 +18,19 @@
 #            window manager stack). Headless / Screen Share boxes set this
 #            false because point-and-click + native macOS windowing is
 #            preferred there.
+#   atuin  — deploy ~/.config/atuin/config.toml pointing at the self-hosted
+#            atuin server (homelab repo: services/atuin/). Off on work
+#            machines so corporate shells never sync history to the home lab.
 
 [machines.personal-mac]
 tiling = true
+atuin = true
 
 [machines.work-mac]
 tiling = true
+atuin = false
 
 [machines.lab-mac]
 # 2019 i9 MacBook Pro accessed headlessly + via macOS Screen Share.
 tiling = false
+atuin = true

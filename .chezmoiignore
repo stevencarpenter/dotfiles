@@ -107,3 +107,10 @@ Library/LaunchAgents/com.user.xcode-mcp-proxy.plist
 .config/sketchybar
 .config/borders
 {{ end }}
+
+# Skip the atuin client config on machines that should never sync to the
+# self-hosted server (e.g., work machines). Vanilla local-only atuin still
+# works without this file.
+{{ if not (index .machines .machine).atuin }}
+.config/atuin
+{{ end }}
