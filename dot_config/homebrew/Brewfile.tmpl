@@ -64,6 +64,7 @@ brew "gnu-sed"
 brew "shellcheck"
 brew "tmux"
 
+{{- if (index .machines .machine).tiling }}
 # ============================================================================
 # Window Management & Status Bar
 # ============================================================================
@@ -72,6 +73,7 @@ tap "FelixKratz/formulae"
 cask "nikitabobko/tap/aerospace" # Tiling window manager
 brew "sketchybar"                # Custom macOS status bar
 brew "borders"                   # Focused-window borders (JankyBorders)
+{{- end }}
 
 # ============================================================================
 # GUI Applications
@@ -96,7 +98,9 @@ cask "font-meslo-lg-nerd-font"
 cask "font-symbols-only-nerd-font"
 cask "font-jetbrains-mono-nerd-font"
 cask "font-jetbrains-mono"
+{{- if (index .machines .machine).tiling }}
 cask "font-sketchybar-app-font"
+{{- end }}
 
 {{ if hasPrefix "personal" .machine }}
 # ============================================================================

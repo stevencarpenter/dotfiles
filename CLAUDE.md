@@ -74,7 +74,11 @@ auto-detects the deployed machine overlay at `~/.config/mcp/machine/*.json` and 
 
 #### Machine-Type Gating
 
-Configuration is gated by machine type via chezmoi's `.machine` variable (e.g., `personal-mac`, `work-mac`):
+Configuration is gated by machine type via chezmoi's `.machine` variable (e.g., `personal-mac`, `work-mac`, `lab-mac`).
+Two gating styles coexist:
+
+**1. Prefix-based (legacy, identity-flavored gates)** — `{{ if hasPrefix "personal" .machine }}` /
+`{{ if hasPrefix "work" .machine }}`. Used for ownership/secret splits:
 
 - **MCP shared**: `dot_config/mcp/mcp-master.json` — servers deployed to all machines
 - **MCP work-only**: `dot_config/mcp/machine/work.json` — servers added on work machines (e.g., AWS MCP)
@@ -82,6 +86,20 @@ Configuration is gated by machine type via chezmoi's `.machine` variable (e.g., 
 - **Claude hooks**: `dot_claude/settings.json.tmpl` — hippo hook gated behind `{{ if hasPrefix "personal" .machine }}`
 - **AeroSpace workspace assignments**: `dot_config/aerospace/aerospace.toml.tmpl` — separate `personal` / `work` blocks for `on-window-detected` rules; service-mode keybindings for personal layout scripts also gated
 - **`.chezmoiignore`**: gates personal-only files (e.g., `workspace-5-comms.sh`, personal env / shell-function profiles) out of work deploys, and work-only files (e.g., `aws-config-gen/overrides.json`) out of personal deploys
+
+**2. Capability-based (preferred for new gates)** — capabilities live in `.chezmoidata/machines.toml` and are looked up
+as `(index .machines .machine).<capability>`. Adding a future machine is one new row in that table; gate sites don't
+need to change.
+
+Current capabilities:
+
+- **`tiling`** — install/configure aerospace + sketchybar + borders. Off on `lab-mac` (headless / Screen Share machine
+  prefers point-and-click). Gated in `.chezmoiignore` (skips `.config/aerospace`, `.config/sketchybar`) and in
+  `dot_config/homebrew/Brewfile.tmpl` (skips the WM brew block + `font-sketchybar-app-font`).
+
+To add a new machine: add a `[machines.<name>]` row in `.chezmoidata/machines.toml`, set the capabilities you want, and
+add the name to the prompt hint in `.chezmoi.toml.tmpl`. To add a new capability: add the key to every row in
+`machines.toml` and gate the relevant templates / `.chezmoiignore` lines on `(index .machines .machine).<capability>`.
 
 ### Key Directories
 

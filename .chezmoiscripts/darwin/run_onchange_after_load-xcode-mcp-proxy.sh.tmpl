@@ -8,7 +8,10 @@
 # plist-hash: {{ include "Library/LaunchAgents/com.user.xcode-mcp-proxy.plist.tmpl" | sha256sum }}
 set -euo pipefail
 
-{{ if and (hasPrefix "personal" .machine) (eq .chezmoi.os "darwin") -}}
+{{/* xcode-mcp-proxy disabled — flip back to:
+     {{ if and (hasPrefix "personal" .machine) (eq .chezmoi.os "darwin") -}}
+     and re-enable the plist template + .chezmoiignore entry to restore. */}}
+{{ if false -}}
 
 PLIST_PATH="${HOME}/Library/LaunchAgents/com.user.xcode-mcp-proxy.plist"
 LABEL="com.user.xcode-mcp-proxy"
