@@ -21,16 +21,42 @@
 #   atuin  — deploy ~/.config/atuin/config.toml pointing at the self-hosted
 #            atuin server (homelab repo: services/atuin/). Off on work
 #            machines so corporate shells never sync history to the home lab.
+#   mcp    — deploy the MCP master config + run the post-apply sync hook that
+#            generates per-tool MCP configs (codex, opencode, cursor, copilot,
+#            …). Off on machines that don't run a constellation of AI dev
+#            tools (e.g., lab-mac is a headless server — Claude Code only).
+#   hippo  — deploy ~/.config/hippo/ and wire the hippo SessionStart hook into
+#            ~/.claude/settings.json. Off on machines that don't run the
+#            hippo brain locally.
+#   gui    — install GUI applications + display fonts. Off on headless server
+#            machines (e.g., lab-mac) where casks like Raycast / Ghostty /
+#            Obsidian / VS Code add disk + brew-bundle time without ever
+#            being seen. CLI tools that ship as `cask` (e.g. 1password-cli)
+#            stay outside this gate.
+#
+# When adding a capability, add the key to every row below and gate the
+# relevant templates / .chezmoiignore lines on
+# `(index .machines .machine).<capability>`.
 
 [machines.personal-mac]
 tiling = true
 atuin = true
+mcp = true
+hippo = true
+gui = true
 
 [machines.work-mac]
 tiling = true
 atuin = false
+mcp = true
+hippo = false
+gui = true
 
 [machines.lab-mac]
 # 2019 i9 MacBook Pro accessed headlessly + via macOS Screen Share.
+# Server-shaped: Claude Code only, no MCP fan-out, no hippo brain, no GUI casks.
 tiling = false
 atuin = true
+mcp = false
+hippo = false
+gui = false

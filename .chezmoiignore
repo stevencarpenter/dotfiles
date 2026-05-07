@@ -114,3 +114,17 @@ Library/LaunchAgents/com.user.xcode-mcp-proxy.plist
 {{ if not (index .machines .machine).atuin }}
 .config/atuin
 {{ end }}
+
+# Skip the MCP master config + per-tool overrides on machines that don't run
+# the MCP fan-out. The post-apply sync hook itself self-gates on the same
+# capability, so it becomes a no-op without the source files.
+{{ if not (index .machines .machine).mcp }}
+.config/mcp
+{{ end }}
+
+# Skip the hippo brain client config on machines that don't run hippo
+# locally. The hippo SessionStart hook in ~/.claude/settings.json is gated on
+# the same capability via dot_claude/modify_settings.json.tmpl.
+{{ if not (index .machines .machine).hippo }}
+.config/hippo
+{{ end }}

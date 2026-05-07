@@ -9,7 +9,8 @@
 set -euo pipefail
 
 {{- $personal := hasPrefix "personal" .machine -}}
-{{- $work := hasPrefix "work" .machine }}
+{{- $work := hasPrefix "work" .machine -}}
+{{- $hippo := (index .machines .machine).hippo }}
 
 managed=$(cat <<'JSON'
 {
@@ -23,7 +24,7 @@ managed=$(cat <<'JSON'
   "permissions": {
     "defaultMode": "auto"
   },
-{{- if $personal }}
+{{- if $hippo }}
   "hooks": {
     "SessionStart": [
       {
@@ -94,4 +95,23 @@ JSON
 existing=$(cat)
 [[ -z "$existing" ]] && existing='{}'
 
-printf '%s\n' "$existing" | jq -S --argjson managed "$managed" '. * $managed'
+merged=$(printf '%s\n' "$existing" | jq -S --argjson managed "$managed" '. * $managed')
+
+{{- if not $hippo }}
+# Hippo capability is off — strip any previously-injected SessionStart hook
+# pointing into ~/.local/share/hippo-brain/ (legacy state from when this
+# machine was provisioned with hippo on). Recursive merge alone wouldn't
+# remove keys not present in $managed, so we filter explicitly.
+merged=$(printf '%s\n' "$merged" | jq -S '
+  if (.hooks.SessionStart // null) then
+    .hooks.SessionStart |= (
+      map(.hooks |= map(select((.command // "") | contains("/hippo-brain/") | not)))
+      | map(select((.hooks // []) | length > 0))
+    )
+    | (if (.hooks.SessionStart // [] | length) == 0 then del(.hooks.SessionStart) else . end)
+    | (if (.hooks // {} | keys | length) == 0 then del(.hooks) else . end)
+  else . end
+')
+{{- end }}
+
+printf '%s\n' "$merged"

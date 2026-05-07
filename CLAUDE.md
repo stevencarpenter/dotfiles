@@ -80,10 +80,8 @@ Two gating styles coexist:
 **1. Prefix-based (legacy, identity-flavored gates)** — `{{ if hasPrefix "personal" .machine }}` /
 `{{ if hasPrefix "work" .machine }}`. Used for ownership/secret splits:
 
-- **MCP shared**: `dot_config/mcp/mcp-master.json` — servers deployed to all machines
 - **MCP work-only**: `dot_config/mcp/machine/work.json` — servers added on work machines (e.g., AWS MCP)
 - **MCP personal-only**: `dot_config/mcp/machine/personal.json` — servers added on personal machines
-- **Claude hooks**: `dot_claude/settings.json.tmpl` — hippo hook gated behind `{{ if hasPrefix "personal" .machine }}`
 - **AeroSpace workspace assignments**: `dot_config/aerospace/aerospace.toml.tmpl` — separate `personal` / `work` blocks for `on-window-detected` rules; service-mode keybindings for personal layout scripts also gated
 - **`.chezmoiignore`**: gates personal-only files (e.g., `workspace-5-comms.sh`, personal env / shell-function profiles) out of work deploys, and work-only files (e.g., `aws-config-gen/overrides.json`) out of personal deploys
 
@@ -96,6 +94,18 @@ Current capabilities:
 - **`tiling`** — install/configure aerospace + sketchybar + borders. Off on `lab-mac` (headless / Screen Share machine
   prefers point-and-click). Gated in `.chezmoiignore` (skips `.config/aerospace`, `.config/sketchybar`) and in
   `dot_config/homebrew/Brewfile.tmpl` (skips the WM brew block + `font-sketchybar-app-font`).
+- **`atuin`** — deploy `~/.config/atuin/config.toml` pointing at the self-hosted atuin server. Off on work machines so
+  corporate shells never sync history to the home lab. Gated in `.chezmoiignore` (skips `.config/atuin`).
+- **`mcp`** — deploy the MCP master config + run the post-apply sync hook that fans out per-tool MCP configs (codex,
+  opencode, cursor, copilot, …). Off on `lab-mac` (server-shaped, Claude Code only). Gated in `.chezmoiignore` (skips
+  `.config/mcp`), in `.chezmoiscripts/run_after_sync-mcp.sh.tmpl` (body becomes a no-op), and in
+  `dot_config/homebrew/Brewfile.tmpl` (skips `github-mcp-server`).
+- **`hippo`** — deploy `~/.config/hippo/` and wire the hippo SessionStart hook into `~/.claude/settings.json`. Off on
+  `lab-mac` and work machines. Gated in `.chezmoiignore` (skips `.config/hippo`) and in
+  `dot_claude/modify_settings.json.tmpl` (drops the `SessionStart` hook block).
+- **`gui`** — install GUI applications (Raycast, Ghostty, Obsidian, VS Code, 1Password, …) + display fonts (nerd fonts,
+  jetbrains-mono, …). Off on `lab-mac` (headless server — no display, no point installing GUI casks). CLI tools that
+  happen to ship as `cask` (e.g. `1password-cli`) stay outside this gate. Gated in `dot_config/homebrew/Brewfile.tmpl`.
 
 To add a new machine: add a `[machines.<name>]` row in `.chezmoidata/machines.toml`, set the capabilities you want, and
 add the name to the prompt hint in `.chezmoi.toml.tmpl`. To add a new capability: add the key to every row in
