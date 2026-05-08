@@ -8,7 +8,6 @@ import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from string import Template as StringTemplate
-from string.templatelib import Template
 from typing import Any, Callable
 
 type JsonDict = dict[str, Any]
@@ -51,20 +50,8 @@ class SyncTarget:
         )
 
 
-def _render(template: Template | str) -> str | object:
-    if isinstance(template, str):
-        return template
-    substitute = getattr(template, "substitute", None)
-    if callable(substitute):
-        try:
-            return substitute()
-        except TypeError:
-            pass
-    return str(template)
-
-
 def _log(prefix: str, message: str) -> None:
-    print(_render(f"{prefix} {message}"))
+    print(f"{prefix} {message}")
 
 
 def log_success(message: str) -> None:
@@ -166,6 +153,30 @@ def _normalize_servers(master: JsonDict) -> JsonDict:
     return _ensure_mapping(master.get("servers"))
 
 
+# Fields used to gate server inclusion. Stripped from per-tool outputs because
+# downstream MCP clients don't all understand them and it's a sync-time concern.
+_ENABLEMENT_FIELDS: tuple[str, ...] = ("enabled", "disabled")
+
+
+def _is_server_enabled(config: JsonDict) -> bool:
+    """Determine if a server config is enabled.
+
+    Supports two equivalent forms (later wins on collision):
+        "enabled": true | false   (mcp_sync convention)
+        "disabled": true | false  (Claude/Cline schema convention; inverted)
+
+    A server is enabled by default if neither field is present. If both
+    fields are present, "enabled" takes precedence (it is the canonical
+    repo convention; "disabled" exists only for compatibility with foreign
+    schemas that ship with that key, e.g. dot_config/mcp/machine/work.json).
+    """
+    if "enabled" in config:
+        return config["enabled"] is not False
+    if "disabled" in config:
+        return config["disabled"] is not True
+    return True
+
+
 def _filter_enabled_servers(servers: JsonDict) -> JsonDict:
     """Filter servers dict to only include enabled servers.
 
@@ -173,13 +184,15 @@ def _filter_enabled_servers(servers: JsonDict) -> JsonDict:
         servers: Dictionary of server configurations.
 
     Returns:
-        Dictionary containing only servers where enabled is not False.
-        Servers without an 'enabled' field are considered enabled (default).
+        Dictionary containing only servers that are enabled. A server is
+        enabled if it has neither field, or "enabled" is truthy, or
+        "disabled" is falsy (when "enabled" is absent). See
+        ``_is_server_enabled`` for full precedence rules.
     """
     return {
         name: config
         for name, config in servers.items()
-        if isinstance(config, dict) and config.get("enabled", True) is not False
+        if isinstance(config, dict) and _is_server_enabled(config)
     }
 
 
@@ -258,7 +271,9 @@ def sync_codex_mcp(master: JsonDict, home: Path | None = None) -> None:
 
     overrides = _load_override("codex", home_path)
     merged_servers = _merge_override_servers(master, overrides)
-    servers = _strip_server_fields(_filter_enabled_servers(merged_servers), "enabled")
+    servers = _strip_server_fields(
+        _filter_enabled_servers(merged_servers), *_ENABLEMENT_FIELDS
+    )
 
     mcp_section = _render_codex_mcp_section(servers)
     text = base_text.rstrip() + "\n" + mcp_section
@@ -344,9 +359,16 @@ def _load_json(path: Path) -> JsonDict:
         return json.load(handle)
 
 
-def _write_json(path: Path, payload: JsonDict) -> None:
+def _write_json(path: Path, payload: JsonDict, *, sort_keys: bool = True) -> None:
+    """Write JSON to ``path``.
+
+    By default keys are alphabetized for deterministic output (good for
+    files we own end-to-end). Pass ``sort_keys=False`` for files where a
+    third-party tool also writes/reads the document and key ordering
+    carries meaning or churns diffs (e.g. ``~/.claude.json``).
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
-    serialized = json.dumps(payload, indent=2, sort_keys=True)
+    serialized = json.dumps(payload, indent=2, sort_keys=sort_keys)
     path.write_text(serialized + "\n", encoding="utf-8")
 
 
@@ -364,22 +386,34 @@ def patch_claude_code_config(master: JsonDict, home: Path | None = None) -> None
     disabled_servers = {
         key
         for key, val in merged_servers.items()
-        if isinstance(val, dict) and val.get("enabled") is False
+        if isinstance(val, dict) and not _is_server_enabled(val)
     }
     servers = _strip_server_fields(
-        _filter_enabled_servers(merged_servers), "note", "enabled"
+        _filter_enabled_servers(merged_servers), "note", *_ENABLEMENT_FIELDS
     )
 
     existing = _ensure_mapping(claude_cfg.get("mcpServers"))
     preserved_existing = {
         key: value for key, value in existing.items() if key not in disabled_servers
     }
+    # Per-server collisions: managed config fully replaces the existing server
+    # entry. We don't shallow-merge per-server fields because that would leave
+    # stale env/args/etc. behind when master removes them. Hand-edits to
+    # individual server entries in ~/.claude.json (e.g. tweaking `timeout`)
+    # will NOT survive a sync — make those changes in the master config or in
+    # dot_config/mcp/overrides/claude.json instead.
     claude_cfg["mcpServers"] = {**preserved_existing, **servers}
     cleaned_overrides = _override_without_servers(overrides)
     if cleaned_overrides:
         claude_cfg = deep_merge(claude_cfg, cleaned_overrides)
 
-    _write_json(claude_path, claude_cfg)
+    # Preserve key order in ~/.claude.json. Claude Code owns this file and
+    # writes its own state into it (recent projects, transient UI bits, etc.);
+    # alphabetizing the whole document on every sync churns the diff and can
+    # interleave our managed keys with Claude's runtime state in confusing
+    # ways. Per-tool outputs we generate from scratch can stay sort_keys=True
+    # for deterministic diffs.
+    _write_json(claude_path, claude_cfg, sort_keys=False)
     log_success(f"Synced: {claude_path}")
 
 
@@ -400,7 +434,7 @@ def sync_to_locations(
 
 def transform_to_copilot_format(master: JsonDict) -> JsonDict:
     servers = _strip_server_fields(
-        _filter_enabled_servers(_normalize_servers(master)), "enabled"
+        _filter_enabled_servers(_normalize_servers(master)), *_ENABLEMENT_FIELDS
     )
     mcp_servers: JsonDict = {}
     for name, server in servers.items():
@@ -414,15 +448,20 @@ def transform_to_copilot_format(master: JsonDict) -> JsonDict:
 
 def transform_to_identity_format(master: JsonDict) -> JsonDict:
     config = copy.deepcopy(master)
+    # The master config carries an MCP-flavored `$schema` URL, but per-tool
+    # outputs that use the identity transform (vscode, github-copilot) have
+    # their own schema URLs (or none). Don't propagate the master's schema —
+    # let the per-tool base template assert the right one.
+    config.pop("$schema", None)
     config["servers"] = _strip_server_fields(
-        _filter_enabled_servers(_normalize_servers(master)), "enabled"
+        _filter_enabled_servers(_normalize_servers(master)), *_ENABLEMENT_FIELDS
     )
     return config
 
 
 def transform_to_generic_mcp_format(master: JsonDict) -> JsonDict:
     servers = _strip_server_fields(
-        _filter_enabled_servers(_normalize_servers(master)), "enabled"
+        _filter_enabled_servers(_normalize_servers(master)), *_ENABLEMENT_FIELDS
     )
     return {
         "$schema": "https://modelcontextprotocol.io/schema/config.json",
@@ -432,14 +471,14 @@ def transform_to_generic_mcp_format(master: JsonDict) -> JsonDict:
 
 def transform_to_mcpservers_format(master: JsonDict) -> JsonDict:
     servers = _strip_server_fields(
-        _filter_enabled_servers(_normalize_servers(master)), "enabled"
+        _filter_enabled_servers(_normalize_servers(master)), *_ENABLEMENT_FIELDS
     )
     return {"mcpServers": servers}
 
 
 def transform_to_opencode_format(master: JsonDict) -> JsonDict:
     servers = _strip_server_fields(
-        _filter_enabled_servers(_normalize_servers(master)), "enabled"
+        _filter_enabled_servers(_normalize_servers(master)), *_ENABLEMENT_FIELDS
     )
     mcp: JsonDict = {}
     for name, server in servers.items():

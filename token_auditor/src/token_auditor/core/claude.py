@@ -98,7 +98,6 @@ def compute_claude_costs(
         message_costs = calculate_costs(
             provider="claude",
             pricing_model=message_pricing_model,
-            reasoning_effort="",
             input_tokens=snapshot.usage.input_tokens,
             cached_input_tokens=snapshot.usage.cached_input_tokens,
             cache_creation_input_tokens=snapshot.usage.cache_creation_input_tokens,
@@ -113,7 +112,6 @@ def compute_claude_costs(
             standard_costs = calculate_costs(
                 provider="claude",
                 pricing_model=message_pricing_model,
-                reasoning_effort="",
                 input_tokens=snapshot.usage.input_tokens,
                 cached_input_tokens=snapshot.usage.cached_input_tokens,
                 cache_creation_input_tokens=snapshot.usage.cache_creation_input_tokens,

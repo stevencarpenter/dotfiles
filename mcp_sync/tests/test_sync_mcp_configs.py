@@ -19,6 +19,7 @@ from mcp_sync import (
     transform_to_mcpservers_format,
     transform_to_opencode_format,
 )
+from mcp_sync.sync import transform_to_identity_format
 
 
 def test_load_master_config_valid(master_config_file):
@@ -565,6 +566,137 @@ def test_sync_copilot_cli_missing_backup(temp_home, monkeypatch_home):
     # Backup should be created for next run
     backup_path = copilot_dir / "config.backup.json"
     assert backup_path.exists()
+
+
+def test_identity_format_does_not_propagate_master_schema():
+    """The identity transform must not leak master's `$schema` into per-tool outputs.
+
+    vscode/github-copilot have their own schema URLs; per-tool base templates
+    are the source of truth. If the master ships with a different schema URL
+    (e.g. modelcontextprotocol.io), it should NOT end up in those tools'
+    config files.
+    """
+    master = {
+        "$schema": "https://modelcontextprotocol.io/schema/config.json",
+        "servers": {"a": {"command": "x"}},
+    }
+    result = transform_to_identity_format(master)
+    assert "$schema" not in result
+    assert "a" in result["servers"]
+
+
+def test_identity_format_preserves_other_top_level_keys():
+    """`$schema` is the only top-level key we strip — keep the rest."""
+    master = {
+        "$schema": "https://example.invalid/schema.json",
+        "metadata": {"machine": "work"},
+        "servers": {"a": {"command": "x"}},
+    }
+    result = transform_to_identity_format(master)
+    assert "$schema" not in result
+    assert result["metadata"] == {"machine": "work"}
+
+
+def test_patch_claude_preserves_key_order(temp_home, monkeypatch_home):
+    """patch_claude_code_config must NOT alphabetize ~/.claude.json.
+
+    Claude Code owns this file and writes its own runtime state into it.
+    Sorting the whole document on every sync churns the diff and can
+    interleave managed keys with Claude's runtime state in confusing ways.
+    """
+    claude_path = temp_home / ".claude.json"
+    # Deliberately non-alphabetical key order
+    initial = {
+        "version": "1.0",
+        "model": "claude-opus-4-5",
+        "enabledPlugins": ["github"],
+        "mcpServers": {},
+    }
+    claude_path.write_text(json.dumps(initial, indent=2), encoding="utf-8")
+
+    master = {"servers": {"s": {"command": "x", "args": []}}}
+    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
+    patch_claude_code_config(master)
+
+    text = claude_path.read_text(encoding="utf-8")
+    # `version` (which comes first in the input) must still appear before
+    # `enabledPlugins` and `model` (which would come first alphabetically).
+    assert text.index('"version"') < text.index('"model"')
+    assert text.index('"version"') < text.index('"enabledPlugins"')
+
+
+def test_patch_claude_managed_server_replaces_existing_entry(
+    temp_home, monkeypatch_home, claude_config_template
+):
+    """A managed server fully replaces the existing entry on collision.
+
+    DOCUMENTED BEHAVIOR: hand-edits to a managed server's fields in
+    ~/.claude.json (e.g. tweaking timeout or env) will NOT survive sync.
+    Make those changes in master config or in
+    dot_config/mcp/overrides/claude.json.
+
+    This test pins the contract so a future "be helpful and merge" change
+    doesn't slip in silently.
+    """
+    claude_path = temp_home / ".claude.json"
+    # Pre-existing entry has a hand-edited timeout and a stale env var
+    template = dict(claude_config_template)
+    template["mcpServers"] = {
+        "managed-server": {
+            "command": "old-cmd",
+            "timeout": 99999,
+            "env": {"STALE": "yes"},
+        }
+    }
+    claude_path.write_text(json.dumps(template, indent=2), encoding="utf-8")
+
+    master = {
+        "servers": {
+            "managed-server": {"command": "new-cmd", "args": []},
+        }
+    }
+    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
+    patch_claude_code_config(master)
+
+    result = json.loads(claude_path.read_text())
+    entry = result["mcpServers"]["managed-server"]
+    # New value wins
+    assert entry["command"] == "new-cmd"
+    # Hand-edited fields are GONE (this is the documented contract)
+    assert "timeout" not in entry
+    assert "env" not in entry
+
+
+def test_full_sync_does_not_propagate_master_schema_to_identity_tools(
+    temp_home, monkeypatch_home, master_config_file
+):
+    """End-to-end: vscode and github-copilot configs do NOT get master's $schema."""
+    # Ensure master has a $schema
+    master_config_file.write_text(
+        json.dumps(
+            {
+                "$schema": "https://modelcontextprotocol.io/schema/config.json",
+                "servers": {"x": {"command": "x"}},
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    from mcp_sync import main
+
+    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
+    assert main() == 0
+
+    vscode = json.loads((temp_home / ".vscode" / "mcp.json").read_text())
+    assert vscode.get("$schema") != "https://modelcontextprotocol.io/schema/config.json"
+
+    gh_copilot = json.loads(
+        (temp_home / ".config" / "github-copilot" / "mcp.json").read_text()
+    )
+    assert (
+        gh_copilot.get("$schema")
+        != "https://modelcontextprotocol.io/schema/config.json"
+    )
 
 
 if __name__ == "__main__":

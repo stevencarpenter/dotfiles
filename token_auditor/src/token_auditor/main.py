@@ -7,7 +7,6 @@ import sqlite3
 import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
-from typing import SupportsIndex, SupportsInt
 
 from token_auditor._logging import configure
 from token_auditor.core.claude import parse_claude_events
@@ -15,11 +14,9 @@ from token_auditor.core.codex import parse_codex_events
 from token_auditor.core.constants import CLAUDE_SESSION_GLOB, CODEX_SESSION_GLOB, OPENCODE_DB_DEFAULT, PROJECT_NAME
 from token_auditor.core.jsonl import decode_jsonl_lines
 from token_auditor.core.opencode import parse_opencode_rows
-from token_auditor.core.pricing import calculate_costs, resolve_pricing_model
-from token_auditor.core.render import decide_color_enabled, format_tokens, format_usd, paint, render_json_audit, render_text_audit
-from token_auditor.core.session_resolution import choose_claude_session_path, claude_project_dir, claude_project_slug, latest_path
+from token_auditor.core.render import decide_color_enabled, render_json_audit, render_text_audit
+from token_auditor.core.session_resolution import choose_claude_session_path, claude_project_dir, latest_path
 from token_auditor.core.types import AuditRecord, SessionParseError
-from token_auditor.core.utils import safe_int
 from token_auditor.shell.io_adapters import env_value, glob_paths, has_env, is_tty, path_exists, read_lines, sorted_paths_by_mtime
 
 log = logging.getLogger(__name__)
@@ -68,19 +65,6 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     return build_parser().parse_args(argv)
 
 
-def _safe_int(value: str | bytes | bytearray | SupportsInt | SupportsIndex) -> int:
-    """Compatibility wrapper around core integer coercion helpers.
-
-    Args:
-        value (str | bytes | bytearray | SupportsInt | SupportsIndex): Dynamic
-            value that may be integer-like and safe to coerce.
-
-    Returns:
-        int: Parsed integer value, or ``0`` on coercion failures.
-    """
-    return safe_int(value)
-
-
 def _find_latest_session_file(base_dir: Path, session_glob: str) -> Path | None:
     """Find the newest matching session file under a base directory.
 
@@ -94,18 +78,6 @@ def _find_latest_session_file(base_dir: Path, session_glob: str) -> Path | None:
     """
     candidates = sorted_paths_by_mtime(glob_paths(base_dir, session_glob))
     return latest_path(candidates, lambda path: path.stat().st_mtime)
-
-
-def _claude_project_slug(cwd: Path) -> str:
-    """Compatibility wrapper that exposes Claude project slug normalization.
-
-    Args:
-        cwd (Path): Workspace path to normalize into Claude slug format.
-
-    Returns:
-        str: Filesystem-safe Claude project slug derived from the path.
-    """
-    return claude_project_slug(cwd)
 
 
 def _find_latest_claude_session_file(claude_home: Path, cwd: Path) -> Path | None:
@@ -123,56 +95,6 @@ def _find_latest_claude_session_file(claude_home: Path, cwd: Path) -> Path | Non
     project_paths = sorted_paths_by_mtime(glob_paths(project_dir, "*.jsonl")) if path_exists(project_dir) else ()
     global_paths = sorted_paths_by_mtime(glob_paths(claude_home, CLAUDE_SESSION_GLOB))
     return choose_claude_session_path(project_paths, global_paths, lambda path: path.stat().st_mtime)
-
-
-def _resolve_pricing_model(provider: str, model: str) -> str:
-    """Compatibility wrapper for pure pricing-model resolution.
-
-    Args:
-        provider (str): Provider name selecting pricing table namespaces.
-        model (str): Raw model identifier as reported in session logs.
-
-    Returns:
-        str: Canonical pricing model key when known, otherwise ``""``.
-    """
-    return resolve_pricing_model(provider, model)
-
-
-def _calculate_costs(
-    provider: str,
-    pricing_model: str,
-    reasoning_effort: str,
-    input_tokens: int,
-    cached_input_tokens: int,
-    cache_creation_input_tokens: int,
-    output_tokens: int,
-    reasoning_output_tokens: int,
-) -> dict[str, float]:
-    """Compatibility wrapper for pure pricing arithmetic helpers.
-
-    Args:
-        provider (str): Provider namespace for pricing semantics.
-        pricing_model (str): Canonical model key in provider pricing tables.
-        reasoning_effort (str): Reasoning effort that may affect output billing.
-        input_tokens (int): Total input tokens from provider usage metadata.
-        cached_input_tokens (int): Input tokens billed at cached rates.
-        cache_creation_input_tokens (int): Input tokens used to create cache.
-        output_tokens (int): Total output tokens from provider usage metadata.
-        reasoning_output_tokens (int): Output tokens attributed to reasoning.
-
-    Returns:
-        dict[str, float]: Detailed USD cost breakdown for the session.
-    """
-    return calculate_costs(
-        provider=provider,
-        pricing_model=pricing_model,
-        reasoning_effort=reasoning_effort,
-        input_tokens=input_tokens,
-        cached_input_tokens=cached_input_tokens,
-        cache_creation_input_tokens=cache_creation_input_tokens,
-        output_tokens=output_tokens,
-        reasoning_output_tokens=reasoning_output_tokens,
-    )
 
 
 def parse_codex_session_usage(session_file: Path) -> AuditRecord | None:
@@ -272,56 +194,6 @@ def _should_use_color(stream: object | None = None) -> bool:
         is_tty=is_tty(output_stream),
         term=env_value("TERM", ""),
     )
-
-
-def _paint(text: str, color_code_256: int, enabled: bool) -> str:
-    """Compatibility wrapper around the pure ANSI painter.
-
-    Args:
-        text (str): Text payload to colorize when enabled.
-        color_code_256 (int): ANSI 256-color palette index to apply.
-        enabled (bool): Whether ANSI styling should be applied.
-
-    Returns:
-        str: Styled text when enabled, otherwise the original text.
-    """
-    return paint(text, color_code_256, enabled)
-
-
-def _format_usd(value: float) -> str:
-    """Compatibility wrapper around USD formatting helper.
-
-    Args:
-        value (float): Numeric cost value denominated in US dollars.
-
-    Returns:
-        str: Human-readable USD representation with commas and trimmed zeros.
-    """
-    return format_usd(value)
-
-
-def _format_tokens(value: int) -> str:
-    """Compatibility wrapper around token count formatting helper.
-
-    Args:
-        value (int): Raw token count value.
-
-    Returns:
-        str: Human-readable token count string with separators.
-    """
-    return format_tokens(value)
-
-
-def _print_text_audit(audit: AuditRecord) -> None:
-    """Render and emit the human-readable audit report to standard output.
-
-    Args:
-        audit (AuditRecord): Normalized token/cost audit payload.
-
-    Returns:
-        None: The rendered report is printed to standard output.
-    """
-    print(render_text_audit(audit, _should_use_color()))
 
 
 def _resolve_session_file(args: argparse.Namespace) -> Path | None:

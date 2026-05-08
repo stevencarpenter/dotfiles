@@ -9,7 +9,7 @@ dependencies = []
 [project.scripts]
 aws-config-gen = "aws_config_gen.cli:cli"
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "pytest",
     "pytest-cov",

@@ -26,7 +26,6 @@ def test_calculate_costs_for_codex_subtracts_cached_and_cache_creation_from_inpu
     costs = calculate_costs(
         provider="codex",
         pricing_model="gpt-5.3-codex",
-        reasoning_effort="xhigh",
         input_tokens=4045228,
         cached_input_tokens=3780608,
         cache_creation_input_tokens=0,
@@ -46,7 +45,6 @@ def test_calculate_costs_for_claude_uses_direct_input_tokens() -> None:
     costs = calculate_costs(
         provider="claude",
         pricing_model="claude-haiku-4-5",
-        reasoning_effort="",
         input_tokens=36,
         cached_input_tokens=165811,
         cache_creation_input_tokens=62198,
@@ -67,7 +65,6 @@ def test_calculate_costs_returns_zero_breakdown_for_unknown_pricing_models() -> 
         calculate_costs(
             provider="claude",
             pricing_model="",
-            reasoning_effort="",
             input_tokens=1,
             cached_input_tokens=2,
             cache_creation_input_tokens=3,
@@ -87,7 +84,6 @@ def test_calculate_costs_long_context_applies_premium_rates() -> None:
     costs = calculate_costs(
         provider="claude",
         pricing_model="claude-opus-4-6",
-        reasoning_effort="",
         input_tokens=1000,
         cached_input_tokens=500_000,
         cache_creation_input_tokens=100_000,
@@ -108,7 +104,6 @@ def test_calculate_costs_long_context_falls_back_for_haiku() -> None:
     costs = calculate_costs(
         provider="claude",
         pricing_model="claude-haiku-4-5",
-        reasoning_effort="",
         input_tokens=36,
         cached_input_tokens=165811,
         cache_creation_input_tokens=62198,
@@ -129,7 +124,6 @@ def test_calculate_costs_long_context_false_uses_standard_rates() -> None:
     costs = calculate_costs(
         provider="claude",
         pricing_model="claude-opus-4-6",
-        reasoning_effort="",
         input_tokens=1000,
         cached_input_tokens=500_000,
         cache_creation_input_tokens=100_000,

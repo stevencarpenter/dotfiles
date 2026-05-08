@@ -129,7 +129,13 @@ def merge_config(existing_content: str, generated_block: str) -> str:
 
 
 def write_config(config_path: Path, generated_block: str) -> None:
-    """Atomically write the merged config to disk."""
+    """Atomically write the merged config to disk.
+
+    If the config file already exists, its mode is preserved. Otherwise, the
+    file is created with mode 0o600 (owner read/write only). AWS config
+    contains SSO session URLs, account IDs, and role names that should not
+    be world-readable.
+    """
     existing_content = ""
     existing_mode: int | None = None
     if config_path.exists():
@@ -141,6 +147,6 @@ def write_config(config_path: Path, generated_block: str) -> None:
     config_path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = config_path.with_suffix(".tmp")
     tmp_path.write_text(merged)
-    if existing_mode is not None:
-        os.chmod(tmp_path, existing_mode)
+    target_mode = existing_mode if existing_mode is not None else 0o600
+    os.chmod(tmp_path, target_mode)
     os.replace(tmp_path, config_path)

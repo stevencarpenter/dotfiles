@@ -85,5 +85,5 @@ To rotate the GitHub token, run `gh auth refresh` or `gh auth login` — no dotf
 
 **Testing sync changes:**
 ```bash
-uv run --project mcp_sync --extra dev pytest mcp_sync/tests -v
+uv run --project mcp_sync --group dev pytest mcp_sync/tests -v
 ```

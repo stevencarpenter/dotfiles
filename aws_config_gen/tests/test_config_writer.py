@@ -241,6 +241,32 @@ def test_write_config_preserves_existing_mode(tmp_path: Path):
     assert config_path.stat().st_mode & 0o777 == 0o600
 
 
+def test_write_config_new_file_is_owner_only(tmp_path: Path):
+    """New AWS config files must default to 0o600 — not world-readable.
+
+    AWS config contains SSO start URLs, account IDs, and role names that
+    should not be exposed to other local users.
+    """
+    config_path = tmp_path / "config"
+    block = f"{BEGIN_MARKER}\nmanaged content\n{END_MARKER}\n"
+
+    write_config(config_path, block)
+
+    assert config_path.stat().st_mode & 0o777 == 0o600
+
+
+def test_write_config_preserves_more_restrictive_mode(tmp_path: Path):
+    """If user has set the file to 0o400 (read-only), preserve it."""
+    config_path = tmp_path / "config"
+    config_path.write_text("[profile manual]\nregion = us-east-1\n")
+    os.chmod(config_path, 0o400)
+
+    block = f"{BEGIN_MARKER}\nmanaged content\n{END_MARKER}\n"
+    write_config(config_path, block)
+
+    assert config_path.stat().st_mode & 0o777 == 0o400
+
+
 # --- Marker corruption tests ---
 
 

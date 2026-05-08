@@ -13,7 +13,7 @@
         "SECURITY_SCANNING": "enabled",
         "FASTMCP_LOG_LEVEL": "ERROR"
       },
-      "disabled": false,
+      "enabled": true,
       "autoApprove": []
     }
   }

@@ -7,7 +7,7 @@ name = "aws-config-gen"
 version = "0.1.0"
 source = { editable = "." }
 
-[package.optional-dependencies]
+[package.dev-dependencies]
 dev = [
     { name = "pytest" },
     { name = "pytest-cov" },
@@ -15,12 +15,13 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [
-    { name = "pytest", marker = "extra == 'dev'" },
-    { name = "pytest-cov", marker = "extra == 'dev'" },
-    { name = "ruff", marker = "extra == 'dev'" },
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-cov" },
+    { name = "ruff" },
 ]
-provides-extras = ["dev"]
 
 [[package]]
 name = "colorama"
