@@ -67,6 +67,10 @@ private_dot_claude.json
 # repo. If a future skill ever needs to ride along with the dotfiles, add it
 # back with a `!.claude/skills/<name>` un-ignore pattern.
 
+# Track Claude Code lifecycle hooks.
+!.claude/hooks
+!.claude/hooks/**
+
 # Work/personal/lab conditional deployment
 # Skip work files on non-work machines
 {{ if not (hasPrefix "work" .machine) }}
