@@ -13,6 +13,7 @@ seven_d=$(echo "$input"    | jq -r '.rate_limits.seven_day.used_percentage // em
 session=$(echo "$input"    | jq -r '.session_name // empty')
 vim_mode=$(echo "$input"   | jq -r '.vim.mode // empty')
 worktree=$(echo "$input"   | jq -r '.worktree.branch // empty')
+effort=$(echo "$input"     | jq -r '.effort.level // empty')
 
 # user=$(whoami)
 # host=$(hostname -s)
@@ -63,6 +64,24 @@ if [ -n "$model" ]; then
   short_model="$model"
   short_model="${short_model/Claude /}"          # strip "Claude " prefix
   model_part="${FG_YELLOW} ${BOLD}${short_model}${RESET}"
+fi
+
+# ── Effort Level ─────────────────────────────────────────────
+# .effort.level is present when the active model supports a reasoning-effort
+# parameter (Opus / Sonnet / Haiku 4.x). Absent for older models. Color
+# escalates with the spend level so a glance tells you when you're running
+# the meter.
+effort_part=""
+if [ -n "$effort" ]; then
+  case "$effort" in
+    low)    eff_color="${FG_GRAY}"    ;;
+    medium) eff_color="${FG_CYAN}"    ;;
+    high)   eff_color="${FG_YELLOW}"  ;;
+    xhigh)  eff_color="${FG_MAGENTA}" ;;
+    max)    eff_color="${FG_RED}"     ;;
+    *)      eff_color="${FG_GRAY}"    ;;
+  esac
+  effort_part="${eff_color} ${effort}${RESET}"
 fi
 
 # ── Context Progress Bar ─────────────────────────────────────
@@ -179,6 +198,7 @@ line="${dir_display}"
 
 if [ -n "$git_part" ];     then line="${line}${SEP}${git_part}"; fi
 if [ -n "$model_part" ];   then line="${line}${SEP}${model_part}"; fi
+if [ -n "$effort_part" ];  then line="${line}${SEP}${effort_part}"; fi
 if [ -n "$ctx_part" ];     then line="${line}${SEP}${ctx_part}"; fi
 if [ -n "$limits_part" ];  then line="${line}${SEP}${limits_part}"; fi
 if [ -n "$vim_part" ];     then line="${line}${SEP}${vim_part}"; fi
