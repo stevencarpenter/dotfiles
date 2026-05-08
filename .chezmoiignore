@@ -61,18 +61,14 @@ private_dot_claude.json
 .claude/*
 !.claude/settings.json
 
-# Track skills authored locally. Most skills under ~/.claude/skills/ are
-# symlinks to ~/.agents/skills/ (managed by claude-plugins) and shouldn't be
-# checked into dotfiles — but skills authored directly belong here. Add new
-# tracked skills by name; the !-prefixed pattern un-ignores the parent dir
-# and its contents so chezmoi can see them.
-!.claude/skills
-.claude/skills/*
-!.claude/skills/screenshot-bug-hunt
-!.claude/skills/screenshot-bug-hunt/**
+# Skills under ~/.claude/skills/ are not tracked here. Skills installed by
+# claude-plugins are symlinks to ~/.agents/skills/, and locally authored
+# skills also live in ~/.agents/skills/ so they can be reused outside this
+# repo. If a future skill ever needs to ride along with the dotfiles, add it
+# back with a `!.claude/skills/<name>` un-ignore pattern.
 
-# Work/personal conditional deployment
-# Skip work files on personal machines
+# Work/personal/lab conditional deployment
+# Skip work files on non-work machines
 {{ if not (hasPrefix "work" .machine) }}
 .config/aws-config-gen/overrides.json
 .config/mcp/machine/work.json
@@ -82,7 +78,7 @@ private_dot_claude.json
 .config/zsh/profile.d/work-aws-shell-functions.zsh
 {{ end }}
 
-# Skip personal files on work machines
+# Skip personal files on non-personal machines
 {{ if not (hasPrefix "personal" .machine) }}
 .config/mcp/machine/personal.json
 .config/zsh/.personal.env
@@ -92,12 +88,21 @@ private_dot_claude.json
 Library/LaunchAgents/com.user.xcode-mcp-proxy.plist
 {{ end }}
 
+# Skip lab files on non-lab machines
+{{ if ne .machine "lab-mac" }}
+.config/mcp/machine/lab.json
+{{ end }}
+
 {{ if ne .chezmoi.os "darwin" }}
 Library/LaunchAgents/com.user.xcode-mcp-proxy.plist
 {{ end }}
 
-# xcode-mcp-proxy temporarily disabled — keep the plist out of every machine
-# until the source template's `{{ "{{ if false }}" }}` guard is flipped back on.
+# xcode-mcp-proxy temporarily disabled — this is the SINGLE kill-switch.
+# Remove this line (and its comment) to re-enable. The plist template + the
+# load script already gate themselves on (personal-mac && darwin), so simply
+# un-ignoring restores the feature on personal-mac without touching three
+# files. Lines 81-89 above also gate the plist on hasPrefix "personal" —
+# that gate becomes the only restriction once this line is gone.
 Library/LaunchAgents/com.user.xcode-mcp-proxy.plist
 
 # Capability gates (see .chezmoidata/machines.toml)

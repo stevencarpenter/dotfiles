@@ -110,9 +110,9 @@ cask "font-sketchybar-app-font"
 {{- end }}
 {{- end }}
 
-{{ if hasPrefix "personal" .machine }}
+{{ if (index .machines .machine).dev }}
 # ============================================================================
-# Personal-only tooling
+# Dev-flavored tooling (personal + lab; not on work, which curates its own dev stack)
 # ============================================================================
 brew "railway"                   # Railway CLI
 cask "font-anonymous-pro"

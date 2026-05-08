@@ -28,11 +28,29 @@
 #   hippo  — deploy ~/.config/hippo/ and wire the hippo SessionStart hook into
 #            ~/.claude/settings.json. Off on machines that don't run the
 #            hippo brain locally.
-#   gui    — install GUI applications + display fonts. Off on headless server
-#            machines (e.g., lab-mac) where casks like Raycast / Ghostty /
-#            Obsidian / VS Code add disk + brew-bundle time without ever
-#            being seen. CLI tools that ship as `cask` (e.g. 1password-cli)
-#            stay outside this gate.
+#   gui    — install GUI applications + display fonts. On for any machine
+#            with a usable display, including lab-mac which is reached via
+#            macOS Screen Share (so Raycast / Ghostty / Obsidian / VS Code
+#            / 1Password etc. stay useful there). Only flip false for
+#            genuinely headless boxes with no Screen Share path. CLI tools
+#            that ship as `cask` (e.g. 1password-cli) stay outside this gate.
+#   dev    — machine does language / web / mobile development. Gates
+#            language-LSP plugins, copilot trusted folders for personal
+#            projects, and dev-flavored Brewfile entries. Off on work
+#            because work has its own dev-tool curation (mise infra block,
+#            corporate dev environment) that we don't want to double-stack.
+#   aws_sso — machine should run the AWS SSO profile generator
+#            (aws_config_gen/) via the post-apply hook. Work-only because
+#            personal / lab don't have AWS SSO. Scoped narrower than a
+#            generic `aws` capability so future AWS-adjacent gates (CLI,
+#            SDK, profiles) can carry their own keys without overloading.
+#   infra  — install infrastructure / cluster-ops tooling via mise:
+#            Kubernetes (kubectl, helm, k9s, kustomize, minikube, argo),
+#            IaC (terraform), build (gradle, pnpm, goreleaser), corporate
+#            access (teleport-ent), and ops databases (mysql, duckdb).
+#            Distinct from `aws_sso` so AWS-only gates stay narrow; lab
+#            can flip this on later if homelab k8s/terraform work moves
+#            there.
 #
 # When adding a capability, add the key to every row below and gate the
 # relevant templates / .chezmoiignore lines on
@@ -44,6 +62,9 @@ atuin = true
 mcp = true
 hippo = true
 gui = true
+dev = true
+aws_sso = false
+infra = false
 
 [machines.work-mac]
 tiling = true
@@ -51,12 +72,21 @@ atuin = false
 mcp = true
 hippo = false
 gui = true
+dev = false
+aws_sso = true
+infra = true
 
 [machines.lab-mac]
-# 2019 i9 MacBook Pro accessed headlessly + via macOS Screen Share.
-# Server-shaped: Claude Code only, no MCP fan-out, no hippo brain, no GUI casks.
+# 2019 i9 MacBook Pro accessed via macOS Screen Share, used as a personal
+# homelab. Runs full Claude Code + MCP fan-out (mcp = true) and does
+# language/web/mobile development through the Screen Share session
+# (dev = true). Tiling off because Screen Share prefers native macOS
+# windowing, and hippo off because no local LM is hosted here.
 tiling = false
 atuin = true
-mcp = false
+mcp = true
 hippo = false
-gui = false
+gui = true
+dev = true
+aws_sso = false
+infra = false

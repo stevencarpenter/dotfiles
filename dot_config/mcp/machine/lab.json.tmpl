@@ -1,0 +1,36 @@
+{{/* Lab-mac MCP overlay.
+
+     Curated set for the homelab box (2019 i9 MacBook Pro, headless +
+     Screen Share). Lab runs the homelab services (Grafana, Railway-deployed
+     bits) but does NOT run the hippo brain locally — that lives on
+     personal-mac. We omit the hippo MCP server because the personal.json
+     template wires hippo as a local stdio process at
+     /Users/carpenter/projects/hippo/brain, which doesn't exist on lab.
+
+     If lab ever needs to query hippo as a remote client, switch hippo to
+     an http transport in mcp-master.json (so personal + lab can both reach
+     the brain) and add it back here.
+
+     The github MCP server is already in mcp-master.json, so it's not
+     repeated here. */}}
+{
+  "$schema": "https://modelcontextprotocol.io/schema/config.json",
+  "servers": {
+    "grafana": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["mcp-grafana", "--disable-write"],
+      "env": {
+        "GRAFANA_URL": "http://localhost:3000"
+      }
+    },
+    "railway-mcp-server": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@railway/mcp-server"
+      ]
+    }
+  }
+}

@@ -6,12 +6,14 @@
 # prompts on every launch).
 #
 # plist-hash: {{ include "Library/LaunchAgents/com.user.xcode-mcp-proxy.plist.tmpl" | sha256sum }}
+#
+# Single off-switch: the matching `.chezmoiignore` entry. When that line is
+# removed (re-enabling the feature), this guard restricts execution to
+# personal macOS machines. The plist + this script have no `{{ "{{ if false }}" }}`
+# wrappers — the .chezmoiignore is the only kill-switch.
 set -euo pipefail
 
-{{/* xcode-mcp-proxy disabled — flip back to:
-     {{ if and (hasPrefix "personal" .machine) (eq .chezmoi.os "darwin") -}}
-     and re-enable the plist template + .chezmoiignore entry to restore. */}}
-{{ if false -}}
+{{ if and (hasPrefix "personal" .machine) (eq .chezmoi.os "darwin") -}}
 
 PLIST_PATH="${HOME}/Library/LaunchAgents/com.user.xcode-mcp-proxy.plist"
 LABEL="com.user.xcode-mcp-proxy"
