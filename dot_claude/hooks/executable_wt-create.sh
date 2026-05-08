@@ -5,6 +5,8 @@
 # Any non-zero exit aborts worktree creation in Claude Code.
 set -euo pipefail
 
+command -v wt >/dev/null 2>&1 || { echo "wt-create.sh: wt not on PATH; hook cannot create worktree" >&2; exit 1; }
+
 payload="$(cat)"
 
 # Derive a unique suffix. If Claude proposed a path, reuse its tail; otherwise
