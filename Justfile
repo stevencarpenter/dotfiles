@@ -23,16 +23,16 @@ apply-verbose:
 
 # Lint mcp_sync
 mcp-lint:
-    uv run --project mcp_sync --extra dev ruff check mcp_sync/src mcp_sync/tests
-    uv run --project mcp_sync --extra dev ruff format --check mcp_sync/src mcp_sync/tests
+    uv run --project mcp_sync --group dev ruff check mcp_sync/src mcp_sync/tests
+    uv run --project mcp_sync --group dev ruff format --check mcp_sync/src mcp_sync/tests
 
 # Test mcp_sync
 mcp-test *FLAGS:
-    uv run --project mcp_sync --extra dev pytest mcp_sync/tests --cov=mcp_sync --cov-report=term-missing {{ FLAGS }}
+    uv run --project mcp_sync --group dev pytest mcp_sync/tests --cov=mcp_sync --cov-report=term-missing {{ FLAGS }}
 
 # Format mcp_sync
 mcp-fmt:
-    uv run --project mcp_sync --extra dev ruff format mcp_sync/src mcp_sync/tests
+    uv run --project mcp_sync --group dev ruff format mcp_sync/src mcp_sync/tests
 
 # Run mcp sync manually
 mcp-sync:
@@ -42,16 +42,16 @@ mcp-sync:
 
 # Lint aws_config_gen
 aws-lint:
-    uv run --project aws_config_gen --extra dev ruff check aws_config_gen/src aws_config_gen/tests
-    uv run --project aws_config_gen --extra dev ruff format --check aws_config_gen/src aws_config_gen/tests
+    uv run --project aws_config_gen --group dev ruff check aws_config_gen/src aws_config_gen/tests
+    uv run --project aws_config_gen --group dev ruff format --check aws_config_gen/src aws_config_gen/tests
 
 # Test aws_config_gen
 aws-test *FLAGS:
-    uv run --project aws_config_gen --extra dev pytest aws_config_gen/tests --cov=aws_config_gen --cov-report=term-missing {{ FLAGS }}
+    uv run --project aws_config_gen --group dev pytest aws_config_gen/tests --cov=aws_config_gen --cov-report=term-missing {{ FLAGS }}
 
 # Format aws_config_gen
 aws-fmt:
-    uv run --project aws_config_gen --extra dev ruff format aws_config_gen/src aws_config_gen/tests
+    uv run --project aws_config_gen --group dev ruff format aws_config_gen/src aws_config_gen/tests
 
 # Run aws config gen (dry-run)
 aws-gen:
@@ -76,3 +76,9 @@ check: lint test
 # Run pre-commit on all files
 pre-commit:
     pre-commit run --all-files
+
+# ── Capability Audit ─────────────────────────────────────
+
+# Audit machine capability gates (orphans, undefined, prefix migrations)
+audit-capabilities:
+    bash .agents/skills/machine-capability-audit/scripts/audit.sh
