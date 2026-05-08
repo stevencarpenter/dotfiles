@@ -38,6 +38,21 @@ managed=$(cat <<'JSON'
       }
     ],
 {{- end }}
+    "WorktreeCreate": [
+      {
+        "hooks": [
+          { "type": "command", "command": "{{ .chezmoi.homeDir }}/.claude/hooks/wt-create.sh" }
+        ]
+      }
+    ],
+    "WorktreeRemove": [
+      {
+        "hooks": [
+          { "type": "command", "command": "{{ .chezmoi.homeDir }}/.claude/hooks/wt-remove.sh" }
+        ]
+      }
+    ]
+  },
     "PreToolUse": [
       {
         "matcher": "Edit|Write|MultiEdit",
@@ -110,7 +125,11 @@ managed=$(cat <<'JSON'
   "skipDangerousModePermissionPrompt": true,
   "skipAutoPermissionPrompt": true,
   "voiceEnabled": true,
-  "teammateMode": "tmux"
+  "teammateMode": "tmux",
+  "worktree": {
+    "baseRef": "fresh"
+  },
+  "cleanupPeriodDays": 14
 }
 JSON
 )
