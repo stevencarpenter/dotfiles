@@ -33,6 +33,12 @@
 #            Obsidian / VS Code add disk + brew-bundle time without ever
 #            being seen. CLI tools that ship as `cask` (e.g. 1password-cli)
 #            stay outside this gate.
+#   wireguard — deploy a `~/.config/wireguard/peer_<host>.conf` (or equivalent)
+#            referring to the homelab WG server. Off everywhere by default
+#            because Tailscale already covers the "phone home" use case;
+#            flip on per-machine when there's a concrete reason to also run
+#            a raw WG tunnel (devices that can't run Tailscale, backup path,
+#            etc.). Server-side stack lives in homelab repo services/wireguard/.
 #
 # When adding a capability, add the key to every row below and gate the
 # relevant templates / .chezmoiignore lines on
@@ -44,6 +50,7 @@ atuin = true
 mcp = true
 hippo = true
 gui = true
+wireguard = false
 
 [machines.work-mac]
 tiling = true
@@ -51,6 +58,7 @@ atuin = false
 mcp = true
 hippo = false
 gui = true
+wireguard = false
 
 [machines.lab-mac]
 # 2019 i9 MacBook Pro accessed headlessly + via macOS Screen Share.
@@ -60,3 +68,4 @@ atuin = true
 mcp = false
 hippo = false
 gui = false
+wireguard = false
