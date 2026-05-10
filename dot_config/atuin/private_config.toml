@@ -1,0 +1,22 @@
+# Self-hosted atuin sync target. Server lives on i9
+# (homelab repo: services/atuin/, fronted by Caddy at logbook.snugmarina.org).
+# Deployed only on machines where the `atuin` capability is true (see
+# .chezmoidata/machines.toml). Source filename is private_config.toml so
+# chezmoi deploys it as ~/.config/atuin/config.toml with mode 0600.
+#
+# Verify the server is healthy from any tailnet device:
+#   curl -fsSL https://logbook.snugmarina.org   # → "goodbye and good luck"
+#
+# Bootstrap on a fresh machine (server registration must be open — see
+# homelab repo services/atuin/README.md "Bootstrap: register accounts"):
+#   atuin register -u <username> -e <email> -p <password>   # first machine
+#   atuin login    -u <username>                            # subsequent machines
+#   atuin import auto
+#   atuin sync
+sync_address = "https://logbook.snugmarina.org"
+
+# Use the tmux popup for interactive Ctrl-R search (atuin upstream default
+# is false). Requires tmux >= 3.2; falls back to inline rendering outside
+# tmux. The ATUIN_TMUX_POPUP env var can override at runtime.
+[tmux]
+enabled = true

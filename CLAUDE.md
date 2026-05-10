@@ -1,32 +1,60 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code (claude.ai/code) and Codex (`AGENTS.md` is a symlink to this file) when
+working in this repo. Global personal preferences live in `~/.claude/CLAUDE.md`; do not duplicate
+them here.
 
 ## What This Is
 
 A personal dotfiles repository managed by [Chezmoi](https://www.chezmoi.io/) for macOS. Secrets are
-encrypted with age (key sourced from 1Password). The centerpiece is a custom Python tool (`mcp_sync/`) that syncs a
-single master MCP config to 8+ AI development tools.
+encrypted with age (key sourced from 1Password). The repo also vendors three small Python tools
+(`mcp_sync/`, `aws_config_gen/`, `token_auditor/`) that ship alongside the dotfiles.
 
 ## Commands
 
-### MCP Sync (Python, in `mcp_sync/`)
+All Python commands run from the repo root. Each tool is its own `uv` project.
 
-All commands run from the repo root, not inside `mcp_sync/`:
+All three Python tools use PEP 735 `[dependency-groups]`; install dev deps with `--group dev`.
+
+### MCP Sync (`mcp_sync/`)
 
 ```bash
 # Lint
-uv run --project mcp_sync --extra dev ruff check mcp_sync/src mcp_sync/tests
-uv run --project mcp_sync --extra dev ruff format --check mcp_sync/src mcp_sync/tests
+uv run --project mcp_sync --group dev ruff check mcp_sync/src mcp_sync/tests
+uv run --project mcp_sync --group dev ruff format --check mcp_sync/src mcp_sync/tests
 
-# Test (all)
-uv run --project mcp_sync --extra dev pytest mcp_sync/tests --cov=mcp_sync --cov-report=term-missing
-
-# Test (single file)
-uv run --project mcp_sync --extra dev pytest mcp_sync/tests/test_sync_mcp_configs.py -v
+# Test
+uv run --project mcp_sync --group dev pytest mcp_sync/tests --cov=mcp_sync --cov-report=term-missing
+uv run --project mcp_sync --group dev pytest mcp_sync/tests/test_sync_mcp_configs.py -v  # single file
 
 # Run sync manually
 uv run --project mcp_sync sync-mcp-configs
+```
+
+### AWS Config Gen (`aws_config_gen/`)
+
+```bash
+# Lint
+uv run --project aws_config_gen --group dev ruff check aws_config_gen/src aws_config_gen/tests
+uv run --project aws_config_gen --group dev ruff format --check aws_config_gen/src aws_config_gen/tests
+
+# Test
+uv run --project aws_config_gen --group dev pytest aws_config_gen/tests --cov=aws_config_gen --cov-report=term-missing
+
+# Run
+uv run --project aws_config_gen aws-config-gen
+```
+
+### Token Auditor (`token_auditor/`)
+
+```bash
+cd token_auditor
+uv sync --locked --group dev
+uv run ruff check .
+uv run ruff format --check .
+uv run ty check .
+uv run pytest -v          # 100% coverage required
+uv run token-auditor --help   # or `uv run codax --help`
 ```
 
 ### Chezmoi
@@ -62,50 +90,93 @@ Source files use Chezmoi prefixes that transform on apply:
 The sync tool reads `dot_config/mcp/mcp-master.json` and generates tool-specific configs:
 
 - **Master config**: `dot_config/mcp/mcp-master.json` — shared servers deployed to all machines
-- **Machine overlays**: `dot_config/mcp/machine/{work,personal}.json` — machine-type-specific servers (e.g., AWS MCP on
-  work only), deployed conditionally by chezmoi
-- **Per-tool overrides**: `dot_config/mcp/overrides/` — JSON files that add/override servers for specific tools (e.g., `claude.json`, `copilot.json`)
+- **Machine overlays**: `dot_config/mcp/machine/{personal.json.tmpl,work.json}` — machine-type-specific
+  servers (e.g., AWS MCP on work only), deployed conditionally by chezmoi
 - **Templates**: `mcp_sync/src/mcp_sync/templates/` — base config templates per tool
-- **Transform functions** in `sync.py`: `transform_to_copilot_format()`, `transform_to_generic_mcp_format()`, `transform_to_mcpservers_format()`, `transform_to_opencode_format()`
-- **Merge order**: base template + master + machine overlay + per-tool overrides (later values win)
+- **Transform functions** in `sync.py`: `transform_to_copilot_format()`, `transform_to_generic_mcp_format()`,
+  `transform_to_mcpservers_format()`, `transform_to_opencode_format()`
+- **Merge order**: base template + master + machine overlay (later values win). A
+  `dot_config/mcp/overrides/` per-tool override layer is planned but not yet on disk.
 
-The sync runs automatically after `chezmoi apply` via `.chezmoiscripts/run_after_sync-mcp.sh.tmpl`. The hook
-auto-detects the deployed machine overlay at `~/.config/mcp/machine/*.json` and passes it via `--machine-config`.
+The sync runs automatically after `chezmoi apply` via `.chezmoiscripts/run_after_sync-mcp.sh.tmpl`.
+The hook auto-detects the deployed machine overlay at `~/.config/mcp/machine/*.json` and passes it
+via `--machine-config`.
 
 #### Machine-Type Gating
 
-Configuration is gated by machine type via chezmoi's `.machine` variable (e.g., `personal-mac`, `work-mac`, `lab-mac`).
-Two gating styles coexist:
+Configuration is gated by machine type via chezmoi's `.machine` variable (e.g., `personal-mac`,
+`work-mac`, `lab-mac`). Two gating styles coexist:
 
 **1. Prefix-based (legacy, identity-flavored gates)** — `{{ if hasPrefix "personal" .machine }}` /
 `{{ if hasPrefix "work" .machine }}`. Used for ownership/secret splits:
 
-- **MCP shared**: `dot_config/mcp/mcp-master.json` — servers deployed to all machines
 - **MCP work-only**: `dot_config/mcp/machine/work.json` — servers added on work machines (e.g., AWS MCP)
-- **MCP personal-only**: `dot_config/mcp/machine/personal.json` — servers added on personal machines
-- **Claude hooks**: `dot_claude/settings.json.tmpl` — hippo hook gated behind `{{ if hasPrefix "personal" .machine }}`
-- **AeroSpace workspace assignments**: `dot_config/aerospace/aerospace.toml.tmpl` — separate `personal` / `work` blocks for `on-window-detected` rules; service-mode keybindings for personal layout scripts also gated
-- **`.chezmoiignore`**: gates personal-only files (e.g., `workspace-5-comms.sh`, personal env / shell-function profiles) out of work deploys, and work-only files (e.g., `aws-config-gen/overrides.json`) out of personal deploys
+- **MCP personal-only**: `dot_config/mcp/machine/personal.json.tmpl` — servers added on personal machines
+- **AeroSpace workspace assignments**: `dot_config/aerospace/aerospace.toml.tmpl` — separate
+  `personal` / `work` blocks for `on-window-detected` rules; service-mode keybindings for personal
+  layout scripts also gated
+- **`.chezmoiignore`**: gates personal-only files (e.g., `workspace-5-comms.sh`, personal env /
+  shell-function profiles) out of work deploys, and work-only files (e.g.,
+  `aws-config-gen/overrides.json`) out of personal deploys
 
-**2. Capability-based (preferred for new gates)** — capabilities live in `.chezmoidata/machines.toml` and are looked up
-as `(index .machines .machine).<capability>`. Adding a future machine is one new row in that table; gate sites don't
-need to change.
+**2. Capability-based (preferred for new gates)** — capabilities live in `.chezmoidata/machines.toml`
+and are looked up as `(index .machines .machine).<capability>`. Adding a future machine is one new
+row in that table; gate sites don't need to change.
 
-Current capabilities:
+Current capabilities (one row per machine in `machines.toml`):
 
-- **`tiling`** — install/configure aerospace + sketchybar + borders. Off on `lab-mac` (headless / Screen Share machine
-  prefers point-and-click). Gated in `.chezmoiignore` (skips `.config/aerospace`, `.config/sketchybar`) and in
-  `dot_config/homebrew/Brewfile.tmpl` (skips the WM brew block + `font-sketchybar-app-font`).
+- **`tiling`** — install/configure aerospace + sketchybar + borders. Off on `lab-mac` (Screen Share
+  machine prefers point-and-click). Gated in `.chezmoiignore` (skips `.config/aerospace`,
+  `.config/sketchybar`) and in `dot_config/homebrew/Brewfile.tmpl` (skips the WM brew block +
+  `font-sketchybar-app-font`).
+- **`atuin`** — deploy `~/.config/atuin/config.toml` (mode 0600 via the source's `private_`
+  prefix) pointing at the self-hosted atuin server on `i9`
+  (`https://logbook.snugmarina.org`). Off on work machines so corporate shells never sync history
+  to the home lab. Gated in `.chezmoiignore` (skips `.config/atuin`).
+- **`mcp`** — deploy the MCP master config + run the post-apply sync hook that fans out per-tool MCP
+  configs (codex, opencode, cursor, copilot, …). Off on machines that don't run a constellation of
+  AI dev tools. Gated in `.chezmoiignore` (skips `.config/mcp`), in
+  `.chezmoiscripts/run_after_sync-mcp.sh.tmpl` (body becomes a no-op), and in
+  `dot_config/homebrew/Brewfile.tmpl` (skips `github-mcp-server`).
+- **`hippo`** — deploy `~/.config/hippo/` and wire the hippo SessionStart hook into
+  `~/.claude/settings.json`. Off on `lab-mac` and work machines. Gated in `.chezmoiignore` (skips
+  `.config/hippo`) and in `dot_claude/modify_settings.json.tmpl` (drops the `SessionStart` hook
+  block).
+- **`gui`** — install GUI applications (Raycast, Ghostty, Obsidian, VS Code, 1Password, …) +
+  display fonts. On for any machine with a usable display, including `lab-mac` while it's still
+  being stood up via macOS Screen Share. Flip false once a machine is genuinely headless with no
+  Screen Share path. CLI tools that ship as `cask` (e.g. `1password-cli`) stay outside this gate.
+  Gated in `dot_config/homebrew/Brewfile.tmpl`.
+- **`dev`** — machine does language / web / mobile development. Gates language-LSP plugins,
+  Brewfile dev-flavored block (railway CLI, dev fonts), and `dot_claude/modify_settings.json.tmpl`
+  plugin enablement (cloudflare, frontend-design, lsps, playwright, railway). Off on work
+  (work has its own dev curation) and off on `lab-mac` (home server, not a dev box).
+- **`aws_sso`** — deploy AWS SSO profile generator output (`~/.aws/config` from `aws_config_gen`)
+  and related shell helpers. Off on machines without AWS access. Work-only today. Gated in
+  `.chezmoiignore` (skips `aws-config-gen/` overrides + `.aws/`) and in any shell profile that
+  sources AWS helpers.
+- **`infra`** — install infrastructure / cluster-ops tooling via mise: Kubernetes (kubectl, helm,
+  k9s, kustomize, minikube, argo), IaC (terraform), build (gradle, pnpm, goreleaser), corporate
+  access (teleport-ent), ops databases (mysql, duckdb). Currently work-only; `lab-mac` flips this
+  on once homelab IaC actually moves there.
 
-To add a new machine: add a `[machines.<name>]` row in `.chezmoidata/machines.toml`, set the capabilities you want, and
-add the name to the prompt hint in `.chezmoi.toml.tmpl`. To add a new capability: add the key to every row in
-`machines.toml` and gate the relevant templates / `.chezmoiignore` lines on `(index .machines .machine).<capability>`.
+> No `wireguard` capability is defined. The home network uses Tailscale (which speaks WireGuard
+> under the hood) for the "phone home" use case; if a future device needs a raw WG tunnel, add
+> the capability then with a real consumer in tree. See `docs/networking.md`.
+
+To add a new machine: add a `[machines.<name>]` row in `.chezmoidata/machines.toml`, set the
+capabilities you want, and add the name to the prompt hint in `.chezmoi.toml.tmpl`. To add a new
+capability: add the key to every row in `machines.toml` and gate the relevant templates /
+`.chezmoiignore` lines on `(index .machines .machine).<capability>`.
 
 ### Key Directories
 
-- `dot_config/mcp/` — Master MCP config and per-tool overrides
-- `mcp_sync/` — Python sync tool (uv project, Python 3.14+, no runtime deps)
+- `dot_config/mcp/` — Master MCP config + per-machine overlays (per-tool overrides directory is planned)
+- `mcp_sync/` — MCP fan-out tool (uv project, Python 3.14+, no runtime deps)
+- `aws_config_gen/` — AWS SSO profile generator (uv project, Python 3.14+)
+- `token_auditor/` — Token usage auditor / `codax` CLI (uv project, Python 3.14+, 100% coverage gate)
 - `.chezmoiscripts/` — Post-apply hooks (MCP sync, macOS setup)
+- `.chezmoidata/machines.toml` — Per-machine capability table (single source of truth for gating)
 - `dot_config/zsh/` — Zsh config; `encrypted_dot_env` holds API keys
 - `dot_config/nvim/` — Neovim config (LazyVim)
 - `scripts/` — Utility scripts
@@ -113,58 +184,52 @@ add the name to the prompt hint in `.chezmoi.toml.tmpl`. To add a new capability
 
 ### Tmux Status Bar Integration
 
-A monitor script (`dot_config/tmux/scripts/claude-pane-monitor.sh`) runs every status-interval and sets per-window `@claude_state` options. The everforest color palette is defined inline (no theme plugin) so the monitor has full control over `window-status-format` and `window-status-current-format` with stoplight colors:
+A monitor script (`dot_config/tmux/scripts/claude-pane-monitor.sh`) runs every status-interval and
+sets per-window `@claude_state` options. The everforest color palette is defined inline (no theme
+plugin) so the monitor has full control over `window-status-format` and
+`window-status-current-format` with stoplight colors:
 
 - **Green** (`#a7c080`) — actively working (braille spinner in pane title)
 - **Yellow** (`#dbbc7f`) — waiting for input (pane title contains ✳)
 
-Window names show `#{pane_title}` via `automatic-rename-format`, so tabs display Claude session names and state spinners instead of version numbers.
+Window names show `#{pane_title}` via `automatic-rename-format`, so tabs display Claude session
+names and state spinners instead of version numbers.
 
 ### Encrypted Secrets
 
 Environment variables live in `dot_config/zsh/encrypted_dot_env`. To update:
 1. Edit `~/.config/zsh/.env`
 2. Run `chezmoi add --encrypt ~/.config/zsh/.env`
-3. Verify encryption: `head -3 ~/.local/share/chezmoi/dot_config/zsh/encrypted_dot_env` should show `-----BEGIN AGE ENCRYPTED FILE-----`
+3. Verify encryption: `head -3 ~/.local/share/chezmoi/dot_config/zsh/encrypted_dot_env` should show
+   `-----BEGIN AGE ENCRYPTED FILE-----`
 
 ## CI
 
-GitHub Actions (`.github/workflows/mcp-sync-ci.yml`) runs on changes to `mcp_sync/`:
-- **Lint job**: ruff check + ruff format --check
-- **Test job**: pytest with coverage
+GitHub Actions in `.github/workflows/`:
+- `mcp-sync-ci.yml`, `aws-config-gen-ci.yml`, `token-auditor-ci.yml` — lint + test for each Python tool
+- `dotfiles-hygiene-ci.yml` — repo-wide hygiene checks
 
 ## Style
 
 - Shell scripts: `set -euo pipefail`, bash
 - Python: ruff for linting and formatting, no runtime dependencies, Python 3.14+
+  - 4-space indentation, `snake_case` for modules/functions, `PascalCase` for classes
+  - Verbose Google-style docstrings on classes/functions with typed `Args:` / `Returns:` sections;
+    include `Raises:` when relevant
 - Package manager: uv (not pip/poetry)
+- Tests: `test_*.py` filenames and `test_*` function names (enforced by pre-commit)
+- Chezmoi sources: keep `dot_` prefixes on managed dotfiles and `encrypted_` on age-encrypted sources
+- Prefer small, focused edits; keep scripts idempotent and safe to re-run
 
-## Figma MCP Integration
+## Commits & Pull Requests
 
-> This is a developer tooling / dotfiles repository. It has **no UI framework, design system, component library, or styling layer**. If you receive a Figma URL in this context, it is almost certainly for reference (documentation, diagrams, or screenshots) — not for component implementation.
+History uses Conventional Commit prefixes: `feat:`, `fix:`, `chore:`, `docs:`, `refactor:`.
 
-### What does not exist in this repo
-
-- No frontend framework (React, Vue, Svelte, etc.)
-- No CSS methodology or styling system
-- No design tokens (colors, typography, spacing)
-- No icon library or asset pipeline
-- No component library or Storybook
-
-### If Figma designs ever apply here
-
-The only plausible Figma use-cases in this repo are:
-1. **Architecture diagrams** — export as PNG/SVG to `docs/`
-2. **Documentation screenshots** — place in `docs/` alongside the relevant `.md` file
-
-### Figma MCP Required Flow (for any project, not this repo)
-
-When implementing Figma designs in a separate project via these dotfiles' tooling:
-
-1. Run `get_design_context` for the target node(s) to get structured representation
-2. Run `get_screenshot` for visual reference
-3. If `get_design_context` response is truncated, use `get_metadata` first to get the node map, then re-fetch specific nodes
-4. IMPORTANT: Use localhost asset sources from the Figma MCP server directly — do not create placeholders
-5. IMPORTANT: Do not install icon packages; use assets from the Figma payload
-6. Translate React+Tailwind output into the target project's stack/conventions
-7. Validate final UI against the Figma screenshot before marking complete
+- Format: `type: short imperative summary` (optionally append `(#NN)` for PR/issue references)
+- Keep each commit scoped to one concern
+- PRs should include: purpose, key changed paths, test/lint evidence, and any config/security
+  impact (especially secrets, MCP, or shell-startup behavior)
+- Include screenshots only when UI/docs rendering changes need visual confirmation
+- **Do not add `Co-Authored-By: Claude` (or any "generated by Claude" / "created by Claude")
+  trailer to commits in this repo.** This overrides the harness default. Slash commands that
+  template a Co-Authored-By trailer must strip it before committing here.

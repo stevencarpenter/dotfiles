@@ -1,0 +1,12 @@
+# Gitleaks config for chezmoi dotfiles repo.
+# Extends the default ruleset; adds allowlist for age-encrypted blobs.
+# https://github.com/gitleaks/gitleaks/blob/master/config/gitleaks.toml
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Ignore age-encrypted secret files (encrypted at rest by chezmoi)"
+paths = [
+  '''(^|/)encrypted_[^/]+\.age$''',
+]

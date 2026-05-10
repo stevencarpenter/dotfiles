@@ -97,14 +97,6 @@ MODEL_PRICING_PREFIX_ALIASES: dict[str, tuple[tuple[str, str], ...]] = {
     "opencode": (),
 }
 
-REASONING_EFFORT_MULTIPLIER: dict[str, float] = {
-    "none": 1.0,
-    "low": 1.0,
-    "medium": 1.0,
-    "high": 1.0,
-    "xhigh": 1.0,
-}
-
 LONG_CONTEXT_INPUT_THRESHOLD: int = 200_000
 
 LONG_CONTEXT_PRICING_USD_PER_1M: dict[str, dict[str, float]] = {

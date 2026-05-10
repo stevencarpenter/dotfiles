@@ -156,3 +156,107 @@ class TestRunSyncWithMachineConfig:
         opencode_path = temp_home / ".config" / "opencode" / "opencode.json"
         opencode_config = json.loads(opencode_path.read_text())
         assert "filesystem" in opencode_config["mcp"]
+
+    def test_machine_overlay_disabled_field_blocks_server(
+        self, temp_home, master_config_file, monkeypatch_home
+    ):
+        """Machine overlay using `disabled: true` filters the server out everywhere.
+
+        Pins the bugfix for the dead-disable mechanism: prior code only
+        respected `enabled`, so a `disabled: true` server (Cline/Claude
+        schema convention) silently leaked into all generated configs.
+        """
+        machine = {
+            "servers": {
+                "filesystem": {"disabled": True},
+            }
+        }
+        machine_path = temp_home / "machine.json"
+        machine_path.write_text(json.dumps(machine), encoding="utf-8")
+
+        exit_code = run_sync(
+            master_path=master_config_file,
+            home=temp_home,
+            machine_config_path=machine_path,
+        )
+        assert exit_code == 0
+
+        opencode = json.loads(
+            (temp_home / ".config" / "opencode" / "opencode.json").read_text()
+        )
+        assert "filesystem" not in opencode["mcp"]
+        assert "memory" in opencode["mcp"]
+
+        generic = json.loads(
+            (temp_home / ".config" / "mcp" / "mcp_config.json").read_text()
+        )
+        assert "filesystem" not in generic["mcpServers"]
+
+        vscode = json.loads((temp_home / ".vscode" / "mcp.json").read_text())
+        assert "filesystem" not in vscode["servers"]
+
+    def test_machine_overlay_disabled_false_keeps_server(
+        self, temp_home, master_config_file, monkeypatch_home
+    ):
+        """Machine overlay using `disabled: false` keeps the server (work.json case)."""
+        machine = {
+            "servers": {
+                "work-tool": {
+                    "command": "work-tool",
+                    "args": [],
+                    "disabled": False,
+                }
+            }
+        }
+        machine_path = temp_home / "machine.json"
+        machine_path.write_text(json.dumps(machine), encoding="utf-8")
+
+        exit_code = run_sync(
+            master_path=master_config_file,
+            home=temp_home,
+            machine_config_path=machine_path,
+        )
+        assert exit_code == 0
+
+        opencode = json.loads(
+            (temp_home / ".config" / "opencode" / "opencode.json").read_text()
+        )
+        assert "work-tool" in opencode["mcp"]
+        # Sync-time fields must not leak into the per-tool output
+        assert "disabled" not in opencode["mcp"]["work-tool"]
+
+    def test_machine_overlay_top_level_key_reaches_per_tool_outputs(
+        self, temp_home, master_config_file, monkeypatch_home
+    ):
+        """run_sync(machine_config_path=...) merges overlay servers into all tool outputs."""
+        machine = {
+            "servers": {
+                "extra": {"command": "extra-cmd", "args": ["--go"], "type": "local"}
+            }
+        }
+        machine_path = temp_home / "machine.json"
+        machine_path.write_text(json.dumps(machine), encoding="utf-8")
+
+        exit_code = run_sync(
+            master_path=master_config_file,
+            home=temp_home,
+            machine_config_path=machine_path,
+        )
+        assert exit_code == 0
+
+        # Every JSON-based tool output should include the overlay server
+        for relative_path, container in [
+            (".config/.copilot/mcp-config.json", "mcpServers"),
+            (".config/github-copilot/mcp.json", "servers"),
+            (".config/github-copilot/intellij/mcp.json", "servers"),
+            (".config/mcp/mcp_config.json", "mcpServers"),
+            (".config/opencode/opencode.json", "mcp"),
+            (".config/cursor/mcp.json", "mcpServers"),
+            (".vscode/mcp.json", "servers"),
+            (".junie/mcp/mcp.json", "mcpServers"),
+            (".lmstudio/mcp.json", "mcpServers"),
+        ]:
+            payload = json.loads((temp_home / relative_path).read_text())
+            assert "extra" in payload[container], (
+                f"machine overlay server missing from {relative_path}"
+            )

@@ -13,6 +13,7 @@ seven_d=$(echo "$input"    | jq -r '.rate_limits.seven_day.used_percentage // em
 session=$(echo "$input"    | jq -r '.session_name // empty')
 vim_mode=$(echo "$input"   | jq -r '.vim.mode // empty')
 worktree=$(echo "$input"   | jq -r '.worktree.branch // empty')
+effort=$(echo "$input"     | jq -r '.effort.level // empty')
 
 # user=$(whoami)
 # host=$(hostname -s)
@@ -63,6 +64,24 @@ if [ -n "$model" ]; then
   short_model="$model"
   short_model="${short_model/Claude /}"          # strip "Claude " prefix
   model_part="${FG_YELLOW} ${BOLD}${short_model}${RESET}"
+fi
+
+# ── Effort Level ─────────────────────────────────────────────
+# .effort.level is present when the active model supports a reasoning-effort
+# parameter (Opus / Sonnet / Haiku 4.x). Absent for older models. Color
+# escalates with the spend level so a glance tells you when you're running
+# the meter.
+effort_part=""
+if [ -n "$effort" ]; then
+  case "$effort" in
+    low)    eff_color="${FG_GRAY}"    ;;
+    medium) eff_color="${FG_CYAN}"    ;;
+    high)   eff_color="${FG_YELLOW}"  ;;
+    xhigh)  eff_color="${FG_MAGENTA}" ;;
+    max)    eff_color="${FG_RED}"     ;;
+    *)      eff_color="${FG_GRAY}"    ;;
+  esac
+  effort_part="${eff_color} ${effort}${RESET}"
 fi
 
 # ── Context Progress Bar ─────────────────────────────────────
@@ -126,14 +145,66 @@ if [ -n "$session" ]; then
   session_part="${FG_GRAY} ${session}${RESET}"
 fi
 
+# ── Machine ──────────────────────────────────────────────────
+# Source: ~/.config/chezmoi/chezmoi.toml line `machine = "<name>"`. Reading
+# this directly with awk is ~1-2ms; `chezmoi data` would shell out to a Go
+# binary and add ~100ms+ per status tick — too expensive.
+machine_part=""
+machine=""
+if [ -r "$HOME/.config/chezmoi/chezmoi.toml" ]; then
+  machine=$(awk -F'"' '/^machine[[:space:]]*=/ { print $2; exit }' "$HOME/.config/chezmoi/chezmoi.toml" 2>/dev/null)
+fi
+if [ -n "$machine" ]; then
+  case "$machine" in
+    personal-mac) m_icon=" "; m_color="${FG_GREEN}"; m_short="personal" ;;
+    work-mac)     m_icon=" "; m_color="${FG_BLUE}";  m_short="work"     ;;
+    lab-mac)      m_icon=" "; m_color="${FG_CYAN}";  m_short="lab"      ;;
+    *)            m_icon=" "; m_color="${FG_GRAY}";  m_short="$machine" ;;
+  esac
+  machine_part="${m_color}${m_icon}${m_short}${RESET}"
+fi
+
+# ── Hippo Daemon ─────────────────────────────────────────────
+# Cheap liveness probe: socket file existence at the well-known path. A real
+# RTT ping would be more accurate (catches stale socket files left by a
+# crashed daemon) but would require either `nc -U` with a timeout or a CLI
+# subprocess on every tick — too costly. Only shown on personal-mac (the
+# only machine with hippo capability per .chezmoidata/machines.toml).
+hippo_part=""
+if [ "$machine" = "personal-mac" ]; then
+  if [ -S "$HOME/.local/share/hippo/daemon.sock" ]; then
+    hippo_part="${FG_GREEN}hp✓${RESET}"
+  else
+    hippo_part="${FG_RED}hp✗${RESET}"
+  fi
+fi
+
+# ── Tree State ───────────────────────────────────────────────
+# Surface dirty-tree count when in a git repo. Replaces a Stop-event
+# pre-commit-run hook (rejected as too slow + always-fires-regardless-of-cwd)
+# with a passive indicator: ±N marks N files modified/staged/untracked.
+# One extra git invocation per status tick (~5-15ms); only shown when dirty.
+tree_part=""
+git_root=$(git -C "${cwd/#\~/$HOME}" rev-parse --show-toplevel 2>/dev/null)
+if [ -n "$git_root" ]; then
+  dirty=$(git -C "$git_root" status --porcelain 2>/dev/null | wc -l | tr -d ' ')
+  if [ "$dirty" -gt 0 ]; then
+    tree_part="${FG_YELLOW}±${dirty}${RESET}"
+  fi
+fi
+
 # ── Assemble ─────────────────────────────────────────────────
 line="${dir_display}"
 
 if [ -n "$git_part" ];     then line="${line}${SEP}${git_part}"; fi
 if [ -n "$model_part" ];   then line="${line}${SEP}${model_part}"; fi
+if [ -n "$effort_part" ];  then line="${line}${SEP}${effort_part}"; fi
 if [ -n "$ctx_part" ];     then line="${line}${SEP}${ctx_part}"; fi
 if [ -n "$limits_part" ];  then line="${line}${SEP}${limits_part}"; fi
 if [ -n "$vim_part" ];     then line="${line}${SEP}${vim_part}"; fi
 if [ -n "$session_part" ]; then line="${line}${SEP}${session_part}"; fi
+if [ -n "$machine_part" ]; then line="${line}${SEP}${machine_part}"; fi
+if [ -n "$hippo_part" ];   then line="${line}${SEP}${hippo_part}"; fi
+if [ -n "$tree_part" ];    then line="${line}${SEP}${tree_part}"; fi
 
 printf '%b' "${line}"

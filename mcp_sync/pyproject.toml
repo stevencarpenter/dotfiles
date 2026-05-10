@@ -9,7 +9,7 @@ dependencies = []
 [project.scripts]
 sync-mcp-configs = "mcp_sync.cli:cli"
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "pytest",
     "pytest-cov",

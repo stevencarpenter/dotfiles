@@ -103,7 +103,6 @@ def finalize_codex_state(state: CodexState, session_file: Path) -> AuditRecord |
     costs = calculate_costs(
         provider="codex",
         pricing_model=pricing_model,
-        reasoning_effort=state.reasoning_effort,
         input_tokens=usage.input_tokens,
         cached_input_tokens=usage.cached_input_tokens,
         cache_creation_input_tokens=usage.cache_creation_input_tokens,

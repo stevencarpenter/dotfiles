@@ -1,6 +1,7 @@
 {
   "$schema": "https://modelcontextprotocol.io/schema/config.json",
   "servers": {
+    {{- if (index .machines .machine).hippo }}
     "hippo": {
       "type": "stdio",
       "command": "uv",
@@ -12,6 +13,7 @@
       ],
       "autoApprove": ["ask", "search_knowledge", "search_events", "get_entities"]
     },
+    {{- end }}
     "grafana": {
       "type": "stdio",
       "command": "uvx",

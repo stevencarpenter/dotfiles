@@ -22,8 +22,8 @@ jobs:
       - name: Lint with ruff
         working-directory: aws_config_gen
         run: |
-          uv run --extra dev ruff check src tests
-          uv run --extra dev ruff format --check src tests
+          uv run --group dev ruff check src tests
+          uv run --group dev ruff format --check src tests
 
   test:
     runs-on: ubuntu-latest
@@ -35,4 +35,4 @@ jobs:
 
       - name: Run tests
         working-directory: aws_config_gen
-        run: uv run --extra dev pytest --cov=aws_config_gen --cov-report=term-missing
+        run: uv run --group dev pytest --cov=aws_config_gen --cov-report=term-missing

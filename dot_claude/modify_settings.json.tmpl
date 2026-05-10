@@ -9,7 +9,9 @@
 set -euo pipefail
 
 {{- $personal := hasPrefix "personal" .machine -}}
-{{- $work := hasPrefix "work" .machine }}
+{{- $work := hasPrefix "work" .machine -}}
+{{- $hippo := (index .machines .machine).hippo -}}
+{{- $dev := (index .machines .machine).dev }}
 
 managed=$(cat <<'JSON'
 {
@@ -23,8 +25,8 @@ managed=$(cat <<'JSON'
   "permissions": {
     "defaultMode": "auto"
   },
-{{- if $personal }}
   "hooks": {
+{{- if $hippo }}
     "SessionStart": [
       {
         "hooks": [
@@ -34,9 +36,31 @@ managed=$(cat <<'JSON'
           }
         ]
       }
+    ],
+{{- end }}
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "input=$(cat); path=$(printf '%s' \"$input\" | jq -r '.tool_input.file_path // empty'); base=$(basename \"${path:-}\"); case \"$base\" in encrypted_*) printf \"Edit encrypted_* via 'chezmoi add --encrypt' instead of direct write\\n\" >&2; exit 2 ;; esac; exit 0"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "input=$(cat); path=$(printf '%s' \"$input\" | jq -r '.tool_input.file_path // empty'); [ -z \"$path\" ] && exit 0; case \"$path\" in *.tmpl) ;; *) exit 0 ;; esac; src=$(chezmoi source-path 2>/dev/null) || exit 0; case \"$path\" in \"$src\"/*) ;; *) exit 0 ;; esac; err=$(chezmoi execute-template < \"$path\" 2>&1 >/dev/null); rc=$?; [ $rc -ne 0 ] && printf 'chezmoi execute-template failed for %s: %s\\n' \"$path\" \"$err\" >&2; exit 0"
+          }
+        ]
+      }
     ]
   },
-{{- end }}
   "statusLine": {
     "type": "command",
     "command": "bash ~/.claude/statusline-command.sh"
@@ -45,28 +69,28 @@ managed=$(cat <<'JSON'
     "atlassian@claude-plugins-official": {{ $work }},
     "claude-code-setup@claude-plugins-official": true,
     "claude-md-management@claude-plugins-official": true,
-    "cloudflare@cloudflare": {{ $personal }},
+    "cloudflare@cloudflare": {{ $dev }},
     "code-review@claude-plugins-official": true,
     "code-simplifier@claude-plugins-official": {{ $personal }},
     "commit-commands@claude-plugins-official": {{ $personal }},
     "context7@claude-plugins-official": true,
     "feature-dev@claude-plugins-official": {{ $personal }},
-    "frontend-design@claude-plugins-official": {{ $personal }},
+    "frontend-design@claude-plugins-official": {{ $dev }},
     "github@claude-plugins-official": true,
     "gopls-lsp@claude-plugins-official": true,
     "hookify@claude-plugins-official": {{ $personal }},
-    "lua-lsp@claude-plugins-official": {{ $personal }},
-    "playwright@claude-plugins-official": {{ $personal }},
+    "lua-lsp@claude-plugins-official": {{ $dev }},
+    "playwright@claude-plugins-official": {{ $dev }},
     "pyright-lsp@claude-plugins-official": true,
-    "railway@claude-plugins-official": {{ $personal }},
+    "railway@claude-plugins-official": {{ $dev }},
     "ralph-loop@claude-plugins-official": true,
     "rust-analyzer-lsp@claude-plugins-official": true,
     "security-guidance@claude-plugins-official": true,
     "semgrep@claude-plugins-official": false,
     "skill-creator@claude-plugins-official": {{ $personal }},
     "superpowers@claude-plugins-official": true,
-    "swift-lsp@claude-plugins-official": {{ $personal }},
-    "typescript-lsp@claude-plugins-official": {{ $personal }}
+    "swift-lsp@claude-plugins-official": {{ $dev }},
+    "typescript-lsp@claude-plugins-official": {{ $dev }}
   },
   "extraKnownMarketplaces": {
     "claude-plugins-official": {
@@ -94,4 +118,23 @@ JSON
 existing=$(cat)
 [[ -z "$existing" ]] && existing='{}'
 
-printf '%s\n' "$existing" | jq -S --argjson managed "$managed" '. * $managed'
+merged=$(printf '%s\n' "$existing" | jq -S --argjson managed "$managed" '. * $managed')
+
+{{- if not $hippo }}
+# Hippo capability is off — strip any previously-injected SessionStart hook
+# pointing into ~/.local/share/hippo-brain/ (legacy state from when this
+# machine was provisioned with hippo on). Recursive merge alone wouldn't
+# remove keys not present in $managed, so we filter explicitly.
+merged=$(printf '%s\n' "$merged" | jq -S '
+  if (.hooks.SessionStart // null) then
+    .hooks.SessionStart |= (
+      map(.hooks |= map(select((.command // "") | contains("/hippo-brain/") | not)))
+      | map(select((.hooks // []) | length > 0))
+    )
+    | (if (.hooks.SessionStart // [] | length) == 0 then del(.hooks.SessionStart) else . end)
+    | (if (.hooks // {} | keys | length) == 0 then del(.hooks) else . end)
+  else . end
+')
+{{- end }}
+
+printf '%s\n' "$merged"

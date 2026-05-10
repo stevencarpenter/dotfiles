@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Only run on work machines (AWS SSO is work-only)
-{{ if not (hasPrefix "work" .machine) }}
+# Only run on machines with AWS SSO (capability-gated; see .chezmoidata/machines.toml).
+{{ if not (index .machines .machine).aws_sso }}
 exit 0
 {{ end }}
 

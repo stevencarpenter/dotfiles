@@ -10,16 +10,9 @@ from typing import TypedDict
 import pytest
 
 from tests.conftest import write_session_file
+from token_auditor.core.session_resolution import claude_project_slug
 from token_auditor.core.types import SessionParseError
 from token_auditor.main import (
-    _calculate_costs,
-    _claude_project_slug,
-    _format_tokens,
-    _format_usd,
-    _paint,
-    _print_text_audit,
-    _resolve_pricing_model,
-    _safe_int,
     _should_use_color,
     main,
     parse_claude_session_usage,
@@ -216,51 +209,6 @@ def test_parse_wrappers_raise_on_malformed_json(tmp_path: Path) -> None:
         parse_opencode_session_usage(invalid_sqlite, Path("/tmp"))
 
 
-def test_compatibility_wrappers_delegate_to_core_helpers(capsys) -> None:
-    assert _safe_int("9") == 9
-    assert _resolve_pricing_model("codex", "gpt-5-codex-2026-02-14") == "gpt-5-codex"
-    costs = _calculate_costs(
-        provider="claude",
-        pricing_model="claude-haiku-4-5",
-        reasoning_effort="",
-        input_tokens=1,
-        cached_input_tokens=2,
-        cache_creation_input_tokens=3,
-        output_tokens=4,
-        reasoning_output_tokens=0,
-    )
-    assert costs["session_total_cost_usd"] > 0
-    assert _paint("x", 108, True).startswith("\x1b[38;5;108m")
-    assert _format_usd(0.1011496) == "$0.1011496"
-    assert _format_tokens(12345) == "12,345 tokens"
-
-    _print_text_audit(
-        {
-            "provider": "codex",
-            "session_id": "abc",
-            "session_file": "/tmp/s.jsonl",
-            "timestamp": "2026-02-28T08:10:00Z",
-            "model": "gpt-5-codex",
-            "pricing_model": "gpt-5-codex",
-            "reasoning_effort": "low",
-            "input_tokens": 10,
-            "cached_input_tokens": 0,
-            "cache_creation_input_tokens": 0,
-            "output_tokens": 1,
-            "reasoning_output_tokens": 0,
-            "total_tokens": 11,
-            "input_cost_usd": 0.0000125,
-            "cached_input_cost_usd": 0.0,
-            "cache_creation_input_cost_usd": 0.0,
-            "output_cost_usd": 0.00001,
-            "reasoning_output_cost_usd": 0.0,
-            "session_total_cost_usd": 0.0000225,
-        }
-    )
-    out = capsys.readouterr().out
-    assert "Codex Token Audit" in out
-
-
 def test_main_prints_latest_codex_session_audit(tmp_path: Path, capsys) -> None:
     codex_home = tmp_path / ".codex"
     session_dir = codex_home / "sessions" / "2026" / "02" / "28"
@@ -309,7 +257,7 @@ def test_main_prints_latest_claude_session_audit_prefers_current_project(tmp_pat
     cwd = tmp_path / "workspace"
     cwd.mkdir(parents=True)
 
-    project_dir = claude_home / "projects" / _claude_project_slug(cwd)
+    project_dir = claude_home / "projects" / claude_project_slug(cwd)
     global_dir = claude_home / "projects" / "other-project"
 
     write_session_file(

@@ -12,8 +12,8 @@ npm = "11"
 sbt = "1.12"
 usage = "latest"
 
-{{ if hasPrefix "work" .machine }}
-# Infrastructure Tools (work machines only)
+{{ if (index .machines .machine).infra }}
+# Infrastructure Tools (machines with infra capability)
 gradle = "9"
 pnpm = "latest"
 argo = "latest"

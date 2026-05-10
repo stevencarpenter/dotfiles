@@ -52,7 +52,9 @@ brew "git-extras"
 brew "git-secrets"
 brew "git-delta"
 brew "gh"
+{{- if (index .machines .machine).mcp }}
 brew "github-mcp-server"     # GitHub MCP server (native, gh-token backed)
+{{- end }}
 brew "lazydocker"
 brew "lazygit"
 
@@ -76,14 +78,19 @@ brew "borders"                   # Focused-window borders (JankyBorders)
 {{- end }}
 
 # ============================================================================
-# GUI Applications
+# CLI tools that ship as casks
+# ============================================================================
+cask "1password-cli"          # `op` binary — secret access from CLI
+
+{{- if (index .machines .machine).gui }}
+# ============================================================================
+# GUI Applications (skipped on headless machines via `gui` capability)
 # ============================================================================
 cask "alt-tab"                # Window switcher
 cask "ghostty"                # Terminal emulator
 cask "raycast"                # Launcher
 cask "visual-studio-code"
 cask "1password"
-cask "1password-cli"
 cask "bbedit"
 cask "obsidian"
 cask "orbstack"               # Docker/Linux VMs
@@ -101,10 +108,11 @@ cask "font-jetbrains-mono"
 {{- if (index .machines .machine).tiling }}
 cask "font-sketchybar-app-font"
 {{- end }}
+{{- end }}
 
-{{ if hasPrefix "personal" .machine }}
+{{ if (index .machines .machine).dev }}
 # ============================================================================
-# Personal-only tooling
+# Dev-flavored tooling (personal-mac only; work-mac curates its own dev stack, lab-mac is a home server)
 # ============================================================================
 brew "railway"                   # Railway CLI
 cask "font-anonymous-pro"

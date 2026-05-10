@@ -97,6 +97,65 @@ class TestFilterEnabledServers:
         assert "invalid" not in result
         assert "also_invalid" not in result
 
+    def test_filter_respects_disabled_true(self):
+        """Servers with disabled=True are filtered out (Cline/Claude schema convention)."""
+        servers = {
+            "kept": {"command": "cmd1"},
+            "dropped": {"command": "cmd2", "disabled": True},
+        }
+        result = _filter_enabled_servers(servers)
+        assert "kept" in result
+        assert "dropped" not in result
+
+    def test_filter_keeps_disabled_false(self):
+        """Servers with disabled=False are kept (the work.json convention)."""
+        servers = {
+            "explicit": {"command": "cmd1", "disabled": False},
+            "implicit": {"command": "cmd2"},
+        }
+        result = _filter_enabled_servers(servers)
+        assert "explicit" in result
+        assert "implicit" in result
+
+    def test_filter_enabled_takes_precedence_over_disabled(self):
+        """When both fields are present, `enabled` wins."""
+        # enabled=True, disabled=True → kept (enabled wins)
+        servers = {
+            "conflicted": {"command": "x", "enabled": True, "disabled": True},
+        }
+        assert "conflicted" in _filter_enabled_servers(servers)
+
+        # enabled=False, disabled=False → dropped (enabled wins)
+        servers = {
+            "conflicted": {"command": "x", "enabled": False, "disabled": False},
+        }
+        assert "conflicted" not in _filter_enabled_servers(servers)
+
+
+class TestEnablementFieldStripping:
+    """Both `enabled` and `disabled` are sync-time concerns and must not leak."""
+
+    def test_copilot_strips_disabled_field(self):
+        master = {"servers": {"s": {"command": "cmd", "disabled": False}}}
+        result = transform_to_copilot_format(master)
+        assert "disabled" not in result["mcpServers"]["s"]
+        assert "enabled" not in result["mcpServers"]["s"]
+
+    def test_generic_mcp_strips_disabled_field(self):
+        master = {"servers": {"s": {"command": "cmd", "disabled": False}}}
+        result = transform_to_generic_mcp_format(master)
+        assert "disabled" not in result["mcpServers"]["s"]
+
+    def test_mcpservers_strips_disabled_field(self):
+        master = {"servers": {"s": {"command": "cmd", "disabled": False}}}
+        result = transform_to_mcpservers_format(master)
+        assert "disabled" not in result["mcpServers"]["s"]
+
+    def test_opencode_strips_disabled_field(self):
+        master = {"servers": {"s": {"command": "cmd", "args": [], "disabled": False}}}
+        result = transform_to_opencode_format(master)
+        assert "disabled" not in result["mcp"]["s"]
+
 
 class TestTransformWithEnabledFlag:
     """Test that all transform functions respect the enabled flag."""

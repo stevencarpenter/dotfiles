@@ -21,5 +21,28 @@ repos:
         args:
           - "--allow-missing-credentials"
 
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
+
+  - repo: local
+    hooks:
+      - id: machine-capability-audit
+        name: Machine capability gating audit
+        description: Find orphan capabilities, undefined gates, and prefix gates that could migrate
+        language: script
+        entry: .agents/skills/machine-capability-audit/scripts/audit.sh
+        files: ^(\.chezmoidata/machines\.toml|\.chezmoiignore|.+\.tmpl)$
+        pass_filenames: false
+
+      - id: strip-claude-trailer
+        name: Strip Co-Authored-By Claude trailer
+        description: Enforce the no-Claude-attribution rule from dot_claude/CLAUDE.md
+        language: script
+        entry: scripts/strip-claude-trailer.sh
+        stages: [commit-msg]
+
+default_install_hook_types: [pre-commit, commit-msg]
 default_language_version:
   python: python3.14

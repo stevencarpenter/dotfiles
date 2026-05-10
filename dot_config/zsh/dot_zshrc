@@ -315,7 +315,25 @@ function gmfp() {
 # Commit all tracked changes with an AI-generated message (uses `claude` directly to avoid
 # claade's token-audit output contaminating the commit message via $()).
 function gcam() {
-  git commit -am "$(claude -p "generate commit message and only return the message")"
+  if ! command -v claude >/dev/null 2>&1; then
+    echo "gcam: 'claude' CLI not found in PATH" >&2
+    return 127
+  fi
+  local msg rc
+  msg="$(claude -p "generate commit message and only return the message")"
+  rc=$?
+  if (( rc != 0 )); then
+    echo "gcam: claude exited with status $rc; aborting commit" >&2
+    return $rc
+  fi
+  # Trim leading/trailing whitespace
+  msg="${msg#"${msg%%[![:space:]]*}"}"
+  msg="${msg%"${msg##*[![:space:]]}"}"
+  if [[ -z "$msg" ]]; then
+    echo "gcam: claude returned an empty message; aborting commit" >&2
+    return 1
+  fi
+  git commit -am "$msg"
 }
 
 # Same as gcam, then push.
@@ -415,10 +433,10 @@ if command -v mise >/dev/null 2>&1; then
   }
 fi
 
-# atuin (shell history)
+# atuin (shell history) - skip silently on machines without atuin installed
 [[ -f "$HOME/.local/bin/env" ]] && . "$HOME/.local/bin/env" || true
 [[ -f "$HOME/.atuin/bin/env" ]] && . "$HOME/.atuin/bin/env" || true
-eval "$(atuin init zsh)"
+command -v atuin >/dev/null 2>&1 && eval "$(atuin init zsh)"
 
 # === 9. Completions ===
 # Defer custom completion registration until after first prompt.

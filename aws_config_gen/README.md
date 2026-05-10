@@ -206,13 +206,13 @@ Any profiles inside the markers are replaced on the next run. Profiles outside t
 Run all tests:
 
 ```bash
-uv run --project aws_config_gen --extra dev pytest aws_config_gen/tests --cov=aws_config_gen --cov-report=term-missing
+uv run --project aws_config_gen --group dev pytest aws_config_gen/tests --cov=aws_config_gen --cov-report=term-missing
 ```
 
 Run a specific test file:
 
 ```bash
-uv run --project aws_config_gen --extra dev pytest aws_config_gen/tests/test_naming.py -v
+uv run --project aws_config_gen --group dev pytest aws_config_gen/tests/test_naming.py -v
 ```
 
 ### Linting and Formatting
@@ -220,13 +220,13 @@ uv run --project aws_config_gen --extra dev pytest aws_config_gen/tests/test_nam
 Check code with Ruff:
 
 ```bash
-uv run --project aws_config_gen --extra dev ruff check aws_config_gen/src aws_config_gen/tests
+uv run --project aws_config_gen --group dev ruff check aws_config_gen/src aws_config_gen/tests
 ```
 
 Format code:
 
 ```bash
-uv run --project aws_config_gen --extra dev ruff format aws_config_gen/src aws_config_gen/tests
+uv run --project aws_config_gen --group dev ruff format aws_config_gen/src aws_config_gen/tests
 ```
 
 ### Project Structure

@@ -1,6 +1,6 @@
 """Pure pricing model resolution and cost arithmetic for token_auditor."""
 
-from token_auditor.core.constants import LONG_CONTEXT_PRICING_USD_PER_1M, MODEL_PRICING_ALIASES, MODEL_PRICING_PREFIX_ALIASES, REASONING_EFFORT_MULTIPLIER, TOKEN_PRICING_USD_PER_1M
+from token_auditor.core.constants import LONG_CONTEXT_PRICING_USD_PER_1M, MODEL_PRICING_ALIASES, MODEL_PRICING_PREFIX_ALIASES, TOKEN_PRICING_USD_PER_1M
 from token_auditor.core.types import CostBreakdown
 
 
@@ -45,7 +45,6 @@ def zero_costs() -> CostBreakdown:
 def calculate_costs(
     provider: str,
     pricing_model: str,
-    reasoning_effort: str,
     input_tokens: int,
     cached_input_tokens: int,
     cache_creation_input_tokens: int,
@@ -61,7 +60,6 @@ def calculate_costs(
         return zero_costs()
     else:
         pricing = provider_pricing[pricing_model]
-    effort_multiplier = REASONING_EFFORT_MULTIPLIER.get(reasoning_effort, 1.0)
 
     billable_input_tokens = max(0, input_tokens - cached_input_tokens - cache_creation_input_tokens) if provider == "codex" else max(0, input_tokens)
     non_reasoning_output_tokens = max(0, output_tokens - reasoning_output_tokens)
@@ -70,7 +68,7 @@ def calculate_costs(
     cached_input_cost = cached_input_tokens * (pricing["cached_input_tokens"] / 1_000_000)
     cache_creation_input_cost = cache_creation_input_tokens * (pricing["cache_creation_input_tokens"] / 1_000_000)
     output_cost = non_reasoning_output_tokens * (pricing["output_tokens"] / 1_000_000)
-    reasoning_output_cost = reasoning_output_tokens * (pricing["output_tokens"] / 1_000_000) * effort_multiplier
+    reasoning_output_cost = reasoning_output_tokens * (pricing["output_tokens"] / 1_000_000)
     session_total_cost = input_cost + cached_input_cost + cache_creation_input_cost + output_cost + reasoning_output_cost
 
     return {
