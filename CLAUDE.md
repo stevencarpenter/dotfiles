@@ -129,9 +129,10 @@ Current capabilities (one row per machine in `machines.toml`):
   machine prefers point-and-click). Gated in `.chezmoiignore` (skips `.config/aerospace`,
   `.config/sketchybar`) and in `dot_config/homebrew/Brewfile.tmpl` (skips the WM brew block +
   `font-sketchybar-app-font`).
-- **`atuin`** — deploy `~/.config/atuin/config.toml` pointing at the self-hosted atuin server. Off
-  on work machines so corporate shells never sync history to the home lab. Gated in
-  `.chezmoiignore` (skips `.config/atuin`).
+- **`atuin`** — deploy `~/.config/atuin/config.toml` (mode 0600 via the source's `private_`
+  prefix) pointing at the self-hosted atuin server on `i9`
+  (`https://logbook.snugmarina.org`). Off on work machines so corporate shells never sync history
+  to the home lab. Gated in `.chezmoiignore` (skips `.config/atuin`).
 - **`mcp`** — deploy the MCP master config + run the post-apply sync hook that fans out per-tool MCP
   configs (codex, opencode, cursor, copilot, …). Off on machines that don't run a constellation of
   AI dev tools. Gated in `.chezmoiignore` (skips `.config/mcp`), in
@@ -142,16 +143,26 @@ Current capabilities (one row per machine in `machines.toml`):
   `.config/hippo`) and in `dot_claude/modify_settings.json.tmpl` (drops the `SessionStart` hook
   block).
 - **`gui`** — install GUI applications (Raycast, Ghostty, Obsidian, VS Code, 1Password, …) +
-  display fonts. On for any machine with a usable display, including `lab-mac` (reached via macOS
-  Screen Share). Only flip false for genuinely headless boxes with no Screen Share path. CLI tools
-  that ship as `cask` (e.g. `1password-cli`) stay outside this gate. Gated in
-  `dot_config/homebrew/Brewfile.tmpl`.
-- **`dev`** — install developer toolchain (language runtimes via mise, build tooling, debuggers,
-  CLIs that aren't useful on a non-coding box). Gate sites: `dot_config/homebrew/Brewfile.tmpl` and
-  any mise / shell-rc templates that pull in dev-only behavior.
+  display fonts. On for any machine with a usable display, including `lab-mac` while it's still
+  being stood up via macOS Screen Share. Flip false once a machine is genuinely headless with no
+  Screen Share path. CLI tools that ship as `cask` (e.g. `1password-cli`) stay outside this gate.
+  Gated in `dot_config/homebrew/Brewfile.tmpl`.
+- **`dev`** — machine does language / web / mobile development. Gates language-LSP plugins,
+  Brewfile dev-flavored block (railway CLI, dev fonts), and `dot_claude/modify_settings.json.tmpl`
+  plugin enablement (cloudflare, frontend-design, lsps, playwright, railway). Off on work
+  (work has its own dev curation) and off on `lab-mac` (home server, not a dev box).
 - **`aws_sso`** — deploy AWS SSO profile generator output (`~/.aws/config` from `aws_config_gen`)
-  and related shell helpers. Off on machines without AWS access. Gated in `.chezmoiignore` (skips
-  `aws-config-gen/` overrides + `.aws/`) and in any shell profile that sources AWS helpers.
+  and related shell helpers. Off on machines without AWS access. Work-only today. Gated in
+  `.chezmoiignore` (skips `aws-config-gen/` overrides + `.aws/`) and in any shell profile that
+  sources AWS helpers.
+- **`infra`** — install infrastructure / cluster-ops tooling via mise: Kubernetes (kubectl, helm,
+  k9s, kustomize, minikube, argo), IaC (terraform), build (gradle, pnpm, goreleaser), corporate
+  access (teleport-ent), ops databases (mysql, duckdb). Currently work-only; `lab-mac` flips this
+  on once homelab IaC actually moves there.
+
+> No `wireguard` capability is defined. The home network uses Tailscale (which speaks WireGuard
+> under the hood) for the "phone home" use case; if a future device needs a raw WG tunnel, add
+> the capability then with a real consumer in tree. See `docs/networking.md`.
 
 To add a new machine: add a `[machines.<name>]` row in `.chezmoidata/machines.toml`, set the
 capabilities you want, and add the name to the prompt hint in `.chezmoi.toml.tmpl`. To add a new
