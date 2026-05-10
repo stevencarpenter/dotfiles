@@ -112,7 +112,7 @@ cask "font-sketchybar-app-font"
 
 {{ if (index .machines .machine).dev }}
 # ============================================================================
-# Dev-flavored tooling (personal + lab; not on work, which curates its own dev stack)
+# Dev-flavored tooling (personal-mac only; work-mac curates its own dev stack, lab-mac is a home server)
 # ============================================================================
 brew "railway"                   # Railway CLI
 cask "font-anonymous-pro"
