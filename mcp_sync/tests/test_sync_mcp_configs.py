@@ -357,9 +357,7 @@ def test_sync_opencode_mcp_template_includes_local_inference_providers(
     monkeypatch_home.setattr(Path, "home", lambda: temp_home)
     sync_opencode_mcp(master_config)
 
-    cfg = json.loads(
-        (temp_home / ".config" / "opencode" / "opencode.json").read_text()
-    )
+    cfg = json.loads((temp_home / ".config" / "opencode" / "opencode.json").read_text())
 
     providers = cfg.get("provider", {})
     assert {"lmstudio", "omlx"} <= providers.keys()
