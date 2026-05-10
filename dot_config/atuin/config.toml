@@ -1,9 +1,0 @@
-# Self-hosted atuin sync target. Server lives on i9
-# (homelab repo: services/atuin/). Deployed only on machines where the
-# `atuin` capability is true (see .chezmoidata/machines.toml).
-#
-# After this file is in place, on a fresh machine:
-#   atuin login -u <username>     # uses sync_address below
-#   atuin import auto
-#   atuin sync
-sync_address = "https://logbook.snugmarina.org"
