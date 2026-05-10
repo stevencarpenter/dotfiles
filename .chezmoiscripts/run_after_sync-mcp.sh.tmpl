@@ -5,9 +5,10 @@ set -euo pipefail
 # Triggered by: chezmoi apply
 #
 # Self-gates on the `mcp` machine capability — on machines where mcp=false
-# (e.g., lab-mac), the body collapses to a no-op and chezmoi doesn't even
-# render an executable. The .chezmoiignore already excludes ~/.config/mcp/
-# on those machines, so there'd be no master config to sync anyway.
+# the body collapses to a no-op. The .chezmoiignore already excludes
+# ~/.config/mcp/ on those machines, so there'd be no master config to sync
+# anyway. Today no machine has mcp=false; the gate exists for future
+# headless/server-only machines.
 
 {{ if not (index .machines .machine).mcp -}}
 echo "MCP sync skipped (machine capability mcp=false)."
