@@ -344,6 +344,31 @@ def test_sync_opencode_mcp_missing_config(temp_home, monkeypatch_home, master_co
     assert opencode_path.exists()
 
 
+def test_sync_opencode_mcp_template_includes_local_inference_providers(
+    temp_home, monkeypatch_home, master_config
+):
+    """Generated config carries the lmstudio + omlx local inference providers.
+
+    Pins the template's provider section so a future refactor of
+    `transform_to_opencode_format` or the merge logic can't silently drop
+    them. The deployed providers must each route to a real local server
+    via @ai-sdk/openai-compatible.
+    """
+    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
+    sync_opencode_mcp(master_config)
+
+    cfg = json.loads(
+        (temp_home / ".config" / "opencode" / "opencode.json").read_text()
+    )
+
+    providers = cfg.get("provider", {})
+    assert {"lmstudio", "omlx"} <= providers.keys()
+    assert providers["lmstudio"]["npm"] == "@ai-sdk/openai-compatible"
+    assert providers["lmstudio"]["options"]["baseURL"] == "http://localhost:1234/v1"
+    assert providers["omlx"]["npm"] == "@ai-sdk/openai-compatible"
+    assert providers["omlx"]["options"]["baseURL"] == "http://localhost:8000/v1"
+
+
 def test_sync_codex_mcp_with_existing_config(
     temp_home, monkeypatch_home, master_config
 ):
