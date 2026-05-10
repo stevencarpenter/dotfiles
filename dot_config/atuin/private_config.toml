@@ -15,7 +15,8 @@
 #   atuin sync
 sync_address = "https://logbook.snugmarina.org"
 
-# Sync every 10 minutes instead of the default 1 hour. Fast enough that
-# history typed on one machine shows up shortly on the others, slow enough
-# to avoid hammering the server.
-sync_frequency = "10m"
+# Use the tmux popup for interactive Ctrl-R search (atuin upstream default
+# is false). Requires tmux >= 3.2; falls back to inline rendering outside
+# tmux. The ATUIN_TMUX_POPUP env var can override at runtime.
+[tmux]
+enabled = true
