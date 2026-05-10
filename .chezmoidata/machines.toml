@@ -24,21 +24,22 @@
 #   mcp    — deploy the MCP master config + run the post-apply sync hook that
 #            generates per-tool MCP configs (codex, opencode, cursor, copilot,
 #            …). Off on machines that don't run a constellation of AI dev
-#            tools (e.g., lab-mac is a headless server — Claude Code only).
+#            tools.
 #   hippo  — deploy ~/.config/hippo/ and wire the hippo SessionStart hook into
 #            ~/.claude/settings.json. Off on machines that don't run the
 #            hippo brain locally.
 #   gui    — install GUI applications + display fonts. On for any machine
-#            with a usable display, including lab-mac which is reached via
-#            macOS Screen Share (so Raycast / Ghostty / Obsidian / VS Code
-#            / 1Password etc. stay useful there). Only flip false for
-#            genuinely headless boxes with no Screen Share path. CLI tools
-#            that ship as `cask` (e.g. 1password-cli) stay outside this gate.
+#            with a usable display, including lab-mac while it's reached via
+#            macOS Screen Share (so Raycast / Ghostty / Obsidian / VS Code /
+#            1Password etc. stay useful there). Flip false once a machine is
+#            genuinely headless with no Screen Share path. CLI tools that
+#            ship as `cask` (e.g. 1password-cli) stay outside this gate.
 #   dev    — machine does language / web / mobile development. Gates
 #            language-LSP plugins, copilot trusted folders for personal
 #            projects, and dev-flavored Brewfile entries. Off on work
 #            because work has its own dev-tool curation (mise infra block,
 #            corporate dev environment) that we don't want to double-stack.
+#            Off on lab because lab is a home server, not a dev box.
 #   aws_sso — machine should run the AWS SSO profile generator
 #            (aws_config_gen/) via the post-apply hook. Work-only because
 #            personal / lab don't have AWS SSO. Scoped narrower than a
@@ -48,9 +49,14 @@
 #            Kubernetes (kubectl, helm, k9s, kustomize, minikube, argo),
 #            IaC (terraform), build (gradle, pnpm, goreleaser), corporate
 #            access (teleport-ent), and ops databases (mysql, duckdb).
-#            Distinct from `aws_sso` so AWS-only gates stay narrow; lab
-#            can flip this on later if homelab k8s/terraform work moves
-#            there.
+#            Distinct from `aws_sso` so AWS-only gates stay narrow; lab can
+#            flip this on later when homelab IaC (terraform / k8s) actually
+#            moves there.
+#
+# Note on VPN: there is intentionally no `wireguard` capability. The home
+# network uses Tailscale (which speaks WireGuard under the hood) for the
+# "phone home" use case; if a future device needs a raw WG tunnel, add the
+# capability then with a real consumer in tree.
 #
 # When adding a capability, add the key to every row below and gate the
 # relevant templates / .chezmoiignore lines on
@@ -77,16 +83,20 @@ aws_sso = true
 infra = true
 
 [machines.lab-mac]
-# 2019 i9 MacBook Pro accessed via macOS Screen Share, used as a personal
-# homelab. Runs full Claude Code + MCP fan-out (mcp = true) and does
-# language/web/mobile development through the Screen Share session
-# (dev = true). Tiling off because Screen Share prefers native macOS
-# windowing, and hippo off because no local LM is hosted here.
+# 2019 i9 Intel MacBook Pro, accessed via macOS Screen Share. Home-server
+# defacto: runs adguard + Tailscale for the LAN, hosts the self-hosted
+# atuin sync server (so atuin is also true here as a client). Currently
+# being stood up — Claude Code + MCP fan-out are on so the assistant has
+# local context (lab.json overlay carries Grafana + Railway MCP for
+# home-ops). No hippo (no local LM), no dev tooling, no work / aws_sso.
+# Flip `infra = true` once homelab IaC (terraform / k8s) actually moves
+# here. Flip `gui = false` once stand-up is done and Screen Share use
+# tapers off.
 tiling = false
 atuin = true
 mcp = true
 hippo = false
 gui = true
-dev = true
+dev = false
 aws_sso = false
 infra = false
