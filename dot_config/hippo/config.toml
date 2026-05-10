@@ -1,12 +1,12 @@
-[lmstudio]
-base_url = "http://localhost:1234/v1" # LM Studio local server
+[inference]
+base_url = "http://localhost:8000/v1" # oMLX local server (LM Studio: :1234)
 timeout_secs = 300                    # HTTP timeout for chat/embed calls
 
 [models]
-enrichment = "qwen3.6-35b-a3b-ud-mlx"                    # Daily: MoE, 35B total, 3B active — fast
-enrichment_bulk = "qwen3.6-35b-a3b-ud-mlx"               # Bulk: strongest available — slow but reliable
-query = "qwen3.6-35b-a3b-ud-mlx"                         # Same model for query reformulation
-embedding = "text-embedding-nomic-embed-text-v2-moe" # Purpose-built embedding model, 768d
+enrichment = "Qwen3.6-35B-A3B-UD-MLX-4bit"          # Daily: MoE, 35B total, 3B active — fast (omlx model ID)
+enrichment_bulk = "Qwen3.6-35B-A3B-UD-MLX-4bit"     # Bulk: strongest available — slow but reliable
+query = "Qwen3.6-35B-A3B-UD-MLX-4bit"               # Same model for query reformulation
+embedding = "nomicai-modernbert-embed-base-8bit"    # 768d MLX embedding (ModernBERT, nomic lineage)
 
 [daemon]
 flush_interval_ms = 100 # Write buffer flush interval (ms)
