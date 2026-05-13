@@ -320,7 +320,7 @@ function gcam() {
     return 127
   fi
   local msg rc
-  msg="$(claude -p "generate commit message and only return the message")"
+  msg="$(claude -p "generate commit message and only return the message in plaintext with no quoting, newlines, emoji, or formatting")"
   rc=$?
   if (( rc != 0 )); then
     echo "gcam: claude exited with status $rc; aborting commit" >&2

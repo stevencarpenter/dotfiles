@@ -91,6 +91,7 @@ Library/LaunchAgents/com.user.xcode-mcp-proxy.plist
 # Skip lab files on non-lab machines
 {{ if ne .machine "lab-mac" }}
 .config/mcp/machine/lab.json
+.config/zsh/profile.d/lab-shell-functions.zsh
 {{ end }}
 
 {{ if ne .chezmoi.os "darwin" }}
