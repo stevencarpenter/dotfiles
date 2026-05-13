@@ -10,7 +10,8 @@
 # end so a quick `burp` makes its own diagnostics obvious.
 function burp() {
     local failed=()
-    brew update && brew upgrade              || failed+=('brew')
+    brew update                             || failed+=('brew update')
+    brew upgrade                            || failed+=('brew upgrade')
     npm install -g @anthropic-ai/claude-code || failed+=('claude')
     npm install -g @openai/codex             || failed+=('codex')
     npm install -g @github/copilot           || failed+=('copilot')
