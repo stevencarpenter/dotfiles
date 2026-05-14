@@ -67,6 +67,10 @@ private_dot_claude.json
 # repo. If a future skill ever needs to ride along with the dotfiles, add it
 # back with a `!.claude/skills/<name>` un-ignore pattern.
 
+# Track Claude Code lifecycle hooks.
+!.claude/hooks
+!.claude/hooks/**
+
 # Work/personal/lab conditional deployment
 # Skip work files on non-work machines
 {{ if not (hasPrefix "work" .machine) }}
@@ -92,6 +96,12 @@ Library/LaunchAgents/com.user.xcode-mcp-proxy.plist
 {{ if ne .machine "lab-mac" }}
 .config/mcp/machine/lab.json
 .config/zsh/profile.d/lab-shell-functions.zsh
+{{ end }}
+
+# Skip homelab-access tooling on work machines (tailscale exit-node helpers
+# only make sense on machines that talk to the home tailnet).
+{{ if hasPrefix "work" .machine }}
+.config/zsh/profile.d/tailscale.zsh
 {{ end }}
 
 {{ if ne .chezmoi.os "darwin" }}

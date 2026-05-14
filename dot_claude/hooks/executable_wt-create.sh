@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Claude Code WorktreeCreate hook — delegates to Worktrunk.
+# Reads JSON {worktree_path?, base_branch?} from stdin (Claude Code payload).
+# Writes the wt-created worktree path to stdout (Claude Code uses this).
+# Any non-zero exit aborts worktree creation in Claude Code.
+set -euo pipefail
+
+command -v wt >/dev/null 2>&1 || { echo "wt-create.sh: wt not on PATH; hook cannot create worktree" >&2; exit 1; }
+command -v jq >/dev/null 2>&1 || { echo "wt-create.sh: jq not on PATH; hook cannot parse payload" >&2; exit 1; }
+
+payload="$(cat)"
+
+# Derive a unique suffix. If Claude proposed a path, reuse its tail; otherwise
+# fall back to timestamp + PID for uniqueness across concurrent subagents.
+proposed=$(printf '%s' "$payload" | jq -r '.worktree_path // ""' 2>/dev/null || true)
+
+suffix=""
+if [ -n "$proposed" ]; then
+  candidate="$(basename -- "$proposed")"
+  candidate="${candidate#worktree-}"
+  # Only accept the candidate if it makes a legal git ref under claude/.
+  # Skips junk like "" or "/" that basename can return for odd inputs.
+  if [ -n "$candidate" ] \
+      && git check-ref-format --allow-onelevel "claude/$candidate" >/dev/null 2>&1; then
+    suffix="$candidate"
+  fi
+fi
+
+[ -z "$suffix" ] && suffix="$(date +%s)-$$"
+
+branch="claude/${suffix}"
+
+# Delegate to wt. --format=json is documented as designed for this hook.
+# Output schema (verified 2026-05-08):
+#   {"action":"created","branch":"...","path":"...","created_branch":true,"base_branch":"main"}
+result="$(wt switch --create --no-cd --yes --format=json "$branch")"
+printf '%s' "$result" | jq -r '.path'
