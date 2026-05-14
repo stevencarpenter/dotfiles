@@ -6,16 +6,26 @@
 set -euo pipefail
 
 command -v wt >/dev/null 2>&1 || { echo "wt-create.sh: wt not on PATH; hook cannot create worktree" >&2; exit 1; }
+command -v jq >/dev/null 2>&1 || { echo "wt-create.sh: jq not on PATH; hook cannot parse payload" >&2; exit 1; }
 
 payload="$(cat)"
 
 # Derive a unique suffix. If Claude proposed a path, reuse its tail; otherwise
 # fall back to timestamp + PID for uniqueness across concurrent subagents.
-proposed=$(printf '%s' "$payload" \
-  | python3 -c "import json,sys; print(json.load(sys.stdin).get('worktree_path',''))" 2>/dev/null \
-  || true)
-suffix="$(basename "${proposed:-}")"
-suffix="${suffix#worktree-}"
+proposed=$(printf '%s' "$payload" | jq -r '.worktree_path // ""' 2>/dev/null || true)
+
+suffix=""
+if [ -n "$proposed" ]; then
+  candidate="$(basename -- "$proposed")"
+  candidate="${candidate#worktree-}"
+  # Only accept the candidate if it makes a legal git ref under claude/.
+  # Skips junk like "" or "/" that basename can return for odd inputs.
+  if [ -n "$candidate" ] \
+      && git check-ref-format --allow-onelevel "claude/$candidate" >/dev/null 2>&1; then
+    suffix="$candidate"
+  fi
+fi
+
 [ -z "$suffix" ] && suffix="$(date +%s)-$$"
 
 branch="claude/${suffix}"
@@ -24,4 +34,4 @@ branch="claude/${suffix}"
 # Output schema (verified 2026-05-08):
 #   {"action":"created","branch":"...","path":"...","created_branch":true,"base_branch":"main"}
 result="$(wt switch --create --no-cd --yes --format=json "$branch")"
-printf '%s' "$result" | python3 -c "import json,sys; print(json.load(sys.stdin)['path'])"
+printf '%s' "$result" | jq -r '.path'
