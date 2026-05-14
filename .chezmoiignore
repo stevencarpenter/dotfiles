@@ -98,6 +98,12 @@ Library/LaunchAgents/com.user.xcode-mcp-proxy.plist
 .config/zsh/profile.d/lab-shell-functions.zsh
 {{ end }}
 
+# Skip homelab-access tooling on work machines (tailscale exit-node helpers
+# only make sense on machines that talk to the home tailnet).
+{{ if hasPrefix "work" .machine }}
+.config/zsh/profile.d/tailscale.zsh
+{{ end }}
+
 {{ if ne .chezmoi.os "darwin" }}
 Library/LaunchAgents/com.user.xcode-mcp-proxy.plist
 {{ end }}
