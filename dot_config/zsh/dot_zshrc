@@ -436,6 +436,9 @@ fi
 # atuin (shell history) - skip silently on machines without atuin installed
 [[ -f "$HOME/.local/bin/env" ]] && . "$HOME/.local/bin/env" || true
 [[ -f "$HOME/.atuin/bin/env" ]] && . "$HOME/.atuin/bin/env" || true
+# Scrub a stale ATUIN_TMUX_POPUP a long-lived tmux server may have frozen in;
+# atuin's config.toml [tmux] block should be the only source of truth.
+unset ATUIN_TMUX_POPUP
 command -v atuin >/dev/null 2>&1 && eval "$(atuin init zsh)"
 
 # === 9. Completions ===
