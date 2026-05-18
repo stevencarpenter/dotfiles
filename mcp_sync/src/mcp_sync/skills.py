@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from mcp_sync.sync import log_info
+
 type JsonDict = dict[str, Any]
 
 _DURATION_UNITS = {"s": 1, "m": 60, "h": 3600, "d": 86400}
@@ -122,3 +124,37 @@ def resolve_skills(manifest: JsonDict) -> list[ResolvedSkill]:
             raise ValueError(f"Source {source_name!r} has invalid type {source_type!r}")
         resolved.append(ResolvedSkill(name, source_name, source_type, subpath, mode))
     return resolved
+
+
+def load_state(path: Path) -> JsonDict:
+    """Load the sync state file, returning an empty skeleton if absent/invalid.
+
+    Args:
+        path: Path to ``skills-state.json``.
+
+    Returns:
+        A dict with ``deployed`` and ``sources`` keys guaranteed present.
+    """
+    if not path.is_file():
+        return {"deployed": {}, "sources": {}}
+    try:
+        with open(path, encoding="utf-8") as handle:
+            data = json.load(handle)
+    except (json.JSONDecodeError, OSError):
+        log_info(f"Ignoring unreadable state file: {path}")
+        return {"deployed": {}, "sources": {}}
+    data.setdefault("deployed", {})
+    data.setdefault("sources", {})
+    return data
+
+
+def write_state(path: Path, state: JsonDict) -> None:
+    """Persist the sync state file with deterministic key ordering.
+
+    Args:
+        path: Destination path; parent directories are created as needed.
+        state: The state mapping to serialize.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    serialized = json.dumps(state, indent=2, sort_keys=True)
+    path.write_text(serialized + "\n", encoding="utf-8")

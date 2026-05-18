@@ -8,8 +8,10 @@ import pytest
 
 from mcp_sync.skills import ResolvedSkill
 from mcp_sync.skills import load_skills_manifest
+from mcp_sync.skills import load_state
 from mcp_sync.skills import parse_duration
 from mcp_sync.skills import resolve_skills
+from mcp_sync.skills import write_state
 
 
 def test_parse_duration_hours():
@@ -133,3 +135,23 @@ def test_resolve_skills_local_entry_honors_explicit_path():
     assert aliased == ResolvedSkill(
         "aliased", "personal", "local", "skills/personal/custom-dir", "symlink"
     )
+
+
+def test_load_state_missing_returns_skeleton(tmp_path):
+    assert load_state(tmp_path / "none.json") == {"deployed": {}, "sources": {}}
+
+
+def test_write_then_load_state_roundtrips(tmp_path):
+    path = tmp_path / "state" / "skills-state.json"
+    state = {
+        "deployed": {"tdd": {"mode": "copy", "source": "mattpocock"}},
+        "sources": {"mattpocock": {"last_fetch": 123.0}},
+    }
+    write_state(path, state)
+    assert load_state(path) == state
+
+
+def test_load_state_invalid_json_returns_skeleton(tmp_path):
+    path = tmp_path / "bad.json"
+    path.write_text("{not json")
+    assert load_state(path) == {"deployed": {}, "sources": {}}
