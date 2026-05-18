@@ -43,6 +43,7 @@ README.md
 CLAUDE.md
 docs
 scripts
+skills
 private_dot_claude.json
 
 # Ignore copilot generated garbage. Fuck you copilot, Microsoft, pedophile Bill Gates.
@@ -61,11 +62,10 @@ private_dot_claude.json
 .claude/*
 !.claude/settings.json
 
-# Skills under ~/.claude/skills/ are not tracked here. Skills installed by
-# claude-plugins are symlinks to ~/.agents/skills/, and locally authored
-# skills also live in ~/.agents/skills/ so they can be reused outside this
-# repo. If a future skill ever needs to ride along with the dotfiles, add it
-# back with a `!.claude/skills/<name>` un-ignore pattern.
+# ~/.claude/skills/ is managed by mcp_sync's sync-skills command, not chezmoi.
+# sync-skills copies vendored skills from a git cache and symlinks personal
+# skills from skills/personal/ in this repo. chezmoi must not deploy into
+# that directory. See docs/superpowers/specs/2026-05-17-skill-distribution-design.md.
 
 # Track Claude Code lifecycle hooks.
 !.claude/hooks
@@ -76,6 +76,7 @@ private_dot_claude.json
 {{ if not (hasPrefix "work" .machine) }}
 .config/aws-config-gen/overrides.json
 .config/mcp/machine/work.json
+.config/skills/machine/work.json
 .config/zsh/.work.env
 .config/zsh/profile.d/work-secrets.zsh
 .config/zsh/profile.d/work-shell-functions.zsh
@@ -85,6 +86,7 @@ private_dot_claude.json
 # Skip personal files on non-personal machines
 {{ if not (hasPrefix "personal" .machine) }}
 .config/mcp/machine/personal.json
+.config/skills/machine/personal.json
 .config/zsh/.personal.env
 .config/zsh/profile.d/personal-secrets.zsh
 .config/zsh/profile.d/personal-shell-functions.zsh
@@ -95,6 +97,7 @@ Library/LaunchAgents/com.user.xcode-mcp-proxy.plist
 # Skip lab files on non-lab machines
 {{ if ne .machine "lab-mac" }}
 .config/mcp/machine/lab.json
+.config/skills/machine/lab.json
 .config/zsh/profile.d/lab-shell-functions.zsh
 {{ end }}
 
@@ -136,6 +139,10 @@ Library/LaunchAgents/com.user.xcode-mcp-proxy.plist
 # capability, so it becomes a no-op without the source files.
 {{ if not (index .machines .machine).mcp }}
 .config/mcp
+{{ end }}
+
+{{ if not (index .machines .machine).skills }}
+.config/skills
 {{ end }}
 
 # Skip the hippo brain client config on machines that don't run hippo
