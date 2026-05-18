@@ -46,8 +46,7 @@ def test_work_and_lab_overlays_disable_all_git_sourced_skills():
     git_skills = {
         name
         for name, entry in manifest["skills"].items()
-        if entry is not False
-        and manifest["sources"][entry["source"]]["type"] == "git"
+        if entry is not False and manifest["sources"][entry["source"]]["type"] == "git"
     }
     for overlay_name in ("work.json", "lab.json"):
         overlay = json.loads(
@@ -175,7 +174,9 @@ def test_resolve_skills_rejects_unsafe_skill_names(bad_name):
         resolve_skills(manifest)
 
 
-@pytest.mark.parametrize("bad_path", ["../outside", "/tmp/outside", "skills/../outside"])
+@pytest.mark.parametrize(
+    "bad_path", ["../outside", "/tmp/outside", "skills/../outside"]
+)
 def test_resolve_skills_rejects_unsafe_explicit_paths(bad_path):
     manifest = _manifest()
     manifest["skills"]["refactor"] = {"source": "personal", "path": bad_path}

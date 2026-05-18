@@ -197,8 +197,7 @@ def resolve_skills(manifest: JsonDict) -> list[ResolvedSkill]:
                 source_path = source.get("path")
                 if not source_path:
                     raise ValueError(
-                        f"Local source {source_name!r} is missing required "
-                        "'path' field"
+                        f"Local source {source_name!r} is missing required 'path' field"
                     )
                 _validate_relative_manifest_path(source_path, label="source path")
                 subpath = f"{source_path}/{name}"
