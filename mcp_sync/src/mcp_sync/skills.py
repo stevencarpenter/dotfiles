@@ -187,6 +187,8 @@ def ensure_git_source(
     cache_root: Path,
     state: JsonDict,
     now: float,
+    *,
+    force: bool = False,
 ) -> Path:
     """Ensure a git source is cloned and current within its refresh period.
 
@@ -201,6 +203,7 @@ def ensure_git_source(
         cache_root: Root directory for source clones.
         state: The mutable sync state mapping.
         now: Current time as epoch seconds.
+        force: When True, refetch even if the cache is within ``refreshPeriod``.
 
     Returns:
         Path to the cached clone.
@@ -210,7 +213,7 @@ def ensure_git_source(
     refresh_s = parse_duration(source.get("refreshPeriod", DEFAULT_REFRESH))
     last_fetch = state.get("sources", {}).get(name, {}).get("last_fetch", 0)
 
-    if cache_dir.is_dir() and (now - last_fetch) < refresh_s:
+    if not force and cache_dir.is_dir() and (now - last_fetch) < refresh_s:
         log_info(f"Source {name!r} cache is fresh; skipping fetch")
         return cache_dir
 
@@ -317,7 +320,8 @@ def run_skills_sync(
         now: Override for the current time as epoch seconds (testing).
 
     Returns:
-        0 on success, 1 on a configuration error.
+        0 on success, 1 on a configuration error or if any skill failed
+        to deploy.
     """
     home_path = home or Path.home()
     repo = repo_root or home_path / ".local" / "share" / "chezmoi"
@@ -349,6 +353,7 @@ def run_skills_sync(
     state_path = home_path / ".local" / "state" / "mcp-sync" / "skills-state.json"
     target_root = home_path / ".claude" / "skills"
     state = load_state(state_path)
+    prior = state.get("deployed", {})
     sources = manifest["sources"]
 
     git_caches: dict[str, Path] = {}
@@ -362,7 +367,35 @@ def run_skills_sync(
                 now_ts,
             )
 
+    # A resolved git skill missing from its (time-fresh) cache means the cache
+    # predates a manifest change. Force one refetch per affected source so a
+    # newly added skill deploys immediately rather than waiting out the
+    # refresh period.
+    refreshed: set[str] = set()
+    for skill in resolved:
+        if skill.source_type != "git" or skill.source_name in refreshed:
+            continue
+        if not (git_caches[skill.source_name] / skill.subpath).is_dir():
+            log_info(
+                f"Skill {skill.name!r} absent from cache; "
+                f"refetching source {skill.source_name!r}"
+            )
+            git_caches[skill.source_name] = ensure_git_source(
+                skill.source_name,
+                sources[skill.source_name],
+                cache_root,
+                state,
+                now_ts,
+                force=True,
+            )
+            refreshed.add(skill.source_name)
+
+    # Deploy. A per-skill failure is logged and skipped; the run finishes the
+    # remaining skills and reports failure via the exit code. A skill that
+    # fails but was deployed by a prior run keeps that prior state record so
+    # garbage collection stays accurate.
     deployed: JsonDict = {}
+    failed = False
     for skill in resolved:
         if skill.source_type == "git":
             src = git_caches[skill.source_name] / skill.subpath
@@ -372,19 +405,38 @@ def run_skills_sync(
             deploy_skill(src, target_root / skill.name, skill.mode)
         except FileNotFoundError as exc:
             log_error(str(exc))
-            return 1
+            failed = True
+            if skill.name in prior:
+                deployed[skill.name] = prior[skill.name]
+            continue
         deployed[skill.name] = {
             "mode": skill.mode,
             "source": skill.source_name,
         }
         log_success(f"Deployed skill: {skill.name} ({skill.mode})")
 
-    for name in garbage_collect(state.get("deployed", {}), set(deployed), target_root):
+    # Garbage-collect skills no longer in the manifest. A skill still resolved
+    # but failed to deploy this run is intentionally NOT collected — its prior
+    # copy is left in place.
+    resolved_names = {skill.name for skill in resolved}
+    for name in garbage_collect(prior, resolved_names, target_root):
         log_success(f"Removed orphaned skill: {name}")
 
+    # Drop state records for sources no longer referenced by any skill.
+    active_sources = {
+        skill.source_name for skill in resolved if skill.source_type == "git"
+    }
+    state["sources"] = {
+        name: record
+        for name, record in state.get("sources", {}).items()
+        if name in active_sources
+    }
     state["deployed"] = deployed
     write_state(state_path, state)
 
     print()
+    if failed:
+        log_error("Skill sync completed with errors.")
+        return 1
     log_success("Skill sync complete!")
     return 0

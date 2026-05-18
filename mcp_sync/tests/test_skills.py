@@ -419,3 +419,125 @@ def test_run_skills_sync_machine_overlay_disables_skill(tmp_path):
     assert rc == 0
     assert (home / ".claude" / "skills" / "refactor").exists()
     assert not (home / ".claude" / "skills" / "extra").exists()
+
+
+def test_ensure_git_source_force_bypasses_freshness(tmp_path, monkeypatch):
+    calls = []
+    monkeypatch.setattr(skills_mod, "_git", lambda *a, **k: calls.append(a))
+    cache_root = tmp_path / "cache"
+    (cache_root / "mp").mkdir(parents=True)
+    source = {"type": "git", "url": "u", "ref": "main", "refreshPeriod": "168h"}
+    state = {"sources": {"mp": {"last_fetch": 1000.0}}}
+    ensure_git_source("mp", source, cache_root, state, now=1000.0 + 60, force=True)
+    assert ("fetch", "origin", "main") in calls
+
+
+def test_run_skills_sync_refetches_skill_absent_from_fresh_cache(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    repo = tmp_path / "repo"
+    cache_mp = home / ".cache" / "mcp-sync" / "skills" / "mp"
+    cache_mp.mkdir(parents=True)  # cache exists but does NOT contain the skill
+
+    def fake_git(*args, **kwargs):
+        # Simulate a fetch bringing the skill into the cache.
+        if args and args[0] == "fetch":
+            d = cache_mp / "skills" / "engineering" / "tdd"
+            d.mkdir(parents=True, exist_ok=True)
+            (d / "SKILL.md").write_text("# tdd")
+
+    monkeypatch.setattr(skills_mod, "_git", fake_git)
+    state = home / ".local" / "state" / "mcp-sync" / "skills-state.json"
+    _write_json(state, {"deployed": {}, "sources": {"mp": {"last_fetch": 5000.0}}})
+    manifest = home / ".config" / "skills" / "skills-master.json"
+    _write_json(
+        manifest,
+        {
+            "sources": {"mp": {"type": "git", "url": "u", "refreshPeriod": "168h"}},
+            "skills": {"tdd": {"source": "mp", "path": "skills/engineering/tdd"}},
+        },
+    )
+    # now is within the refresh window, so the cache is "time-fresh".
+    rc = run_skills_sync(home=home, repo_root=repo, now=5000.0 + 3600)
+    assert rc == 0
+    assert (home / ".claude" / "skills" / "tdd" / "SKILL.md").read_text() == "# tdd"
+
+
+def test_run_skills_sync_skips_failed_skill_and_continues(tmp_path):
+    home = tmp_path / "home"
+    repo = tmp_path / "repo"
+    good = repo / "skills" / "personal" / "good"
+    good.mkdir(parents=True)
+    (good / "SKILL.md").write_text("# good")
+    # "bad" has a manifest entry but no source directory on disk.
+    manifest = home / ".config" / "skills" / "skills-master.json"
+    _write_json(
+        manifest,
+        {
+            "sources": {"personal": {"type": "local", "path": "skills/personal"}},
+            "skills": {
+                "good": {"source": "personal"},
+                "bad": {"source": "personal"},
+            },
+        },
+    )
+    rc = run_skills_sync(home=home, repo_root=repo, now=1.0)
+    assert rc == 1  # the run reports failure
+    assert (home / ".claude" / "skills" / "good" / "SKILL.md").read_text() == "# good"
+    assert not (home / ".claude" / "skills" / "bad").exists()
+
+
+def test_run_skills_sync_keeps_prior_copy_of_failed_resolved_skill(tmp_path):
+    home = tmp_path / "home"
+    repo = tmp_path / "repo"
+    # "x" was deployed by a prior run; its source directory is now missing.
+    prior_x = home / ".claude" / "skills" / "x"
+    prior_x.mkdir(parents=True)
+    (prior_x / "SKILL.md").write_text("# old x")
+    state = home / ".local" / "state" / "mcp-sync" / "skills-state.json"
+    _write_json(
+        state,
+        {
+            "deployed": {"x": {"mode": "copy", "source": "personal"}},
+            "sources": {},
+        },
+    )
+    manifest = home / ".config" / "skills" / "skills-master.json"
+    _write_json(
+        manifest,
+        {
+            "sources": {"personal": {"type": "local", "path": "skills/personal"}},
+            "skills": {"x": {"source": "personal"}},  # still in the manifest
+        },
+    )
+    rc = run_skills_sync(home=home, repo_root=repo, now=1.0)
+    assert rc == 1
+    # x failed to deploy but is still resolved — its prior copy must survive.
+    assert (prior_x / "SKILL.md").read_text() == "# old x"
+    written = json.loads(state.read_text())
+    assert written["deployed"]["x"] == {"mode": "copy", "source": "personal"}
+
+
+def test_run_skills_sync_prunes_dropped_source_from_state(tmp_path):
+    home = tmp_path / "home"
+    repo = tmp_path / "repo"
+    refactor = repo / "skills" / "personal" / "refactor"
+    refactor.mkdir(parents=True)
+    (refactor / "SKILL.md").write_text("# refactor")
+    state = home / ".local" / "state" / "mcp-sync" / "skills-state.json"
+    _write_json(
+        state,
+        {"deployed": {}, "sources": {"deadsource": {"last_fetch": 999.0}}},
+    )
+    manifest = home / ".config" / "skills" / "skills-master.json"
+    _write_json(
+        manifest,
+        {
+            "sources": {"personal": {"type": "local", "path": "skills/personal"}},
+            "skills": {"refactor": {"source": "personal"}},
+        },
+    )
+    rc = run_skills_sync(home=home, repo_root=repo, now=1.0)
+    assert rc == 0
+    written = json.loads(state.read_text())
+    # "deadsource" is referenced by nothing in the manifest — pruned.
+    assert written["sources"] == {}
