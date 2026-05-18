@@ -140,10 +140,21 @@ After the first `chezmoi apply` with `sync-skills`, remove the stale state by
 hand (destructive — review before running):
 
 ```bash
-# Remove dangling symlinks that point into ~/.agents/skills/
+# Remove only dangling symlinks whose stored target points into ~/.agents/skills/.
 for link in ~/.claude/skills/*; do
-  [ -L "$link" ] && [ ! -e "$link" ] && rm -v "$link"
+  [ -L "$link" ] || continue
+  target="$(readlink "$link")"
+  case "$target" in
+    "$HOME/.agents/skills/"*|~/.agents/skills/*)
+      [ -e "$link" ] || rm -v "$link"
+      ;;
+  esac
 done
-# Once skills/personal/ has replaced it, retire the old directory:
-rm -rf ~/.agents
+```
+
+Do not delete `~/.agents` wholesale. After confirming nothing else uses it, move
+the old skills directory aside first:
+
+```bash
+mv ~/.agents/skills ~/.agents/skills.retired-$(date +%Y%m%d)
 ```
