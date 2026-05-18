@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from mcp_sync.sync import deep_merge, log_error, log_info, log_success
+from .sync import deep_merge, log_error, log_info, log_success
 
 type JsonDict = dict[str, Any]
 
@@ -158,6 +158,8 @@ def write_state(path: Path, state: JsonDict) -> None:
         path: Destination path; parent directories are created as needed.
         state: The state mapping to serialize.
     """
+    # Kept deliberately parallel to sync.py's _write_json; not shared because
+    # that helper is private to that module and the duplication is trivial.
     path.parent.mkdir(parents=True, exist_ok=True)
     serialized = json.dumps(state, indent=2, sort_keys=True)
     path.write_text(serialized + "\n", encoding="utf-8")

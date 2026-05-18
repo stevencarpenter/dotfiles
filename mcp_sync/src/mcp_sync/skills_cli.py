@@ -6,7 +6,7 @@ import argparse
 from pathlib import Path
 from typing import Sequence
 
-from mcp_sync.skills import run_skills_sync
+from .skills import run_skills_sync
 
 
 def build_parser() -> argparse.ArgumentParser:
