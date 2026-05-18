@@ -40,7 +40,7 @@ fix the test first.
 ### 3. List the deployment targets (sanity check before diffing)
 
 ```bash
-uv run --project mcp_sync python .agents/skills/mcp-sync-verify/scripts/list_targets.py
+uv run --project mcp_sync python .claude/skills/mcp-sync-verify/scripts/list_targets.py
 ```
 
 Targets are discovered dynamically from `mcp_sync.sync._build_targets` plus the three
@@ -53,7 +53,7 @@ This list will not go stale when a target is added in `sync.py`.
 sandbox approach below redirects all writes via `--home <tmpdir>`:
 
 ```bash
-bash .agents/skills/mcp-sync-verify/scripts/dry_run_diff.sh
+bash .claude/skills/mcp-sync-verify/scripts/dry_run_diff.sh
 ```
 
 What the script does:

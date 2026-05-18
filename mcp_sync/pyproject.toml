@@ -8,6 +8,7 @@ dependencies = []
 
 [project.scripts]
 sync-mcp-configs = "mcp_sync.cli:cli"
+sync-skills = "mcp_sync.skills_cli:cli"
 
 [dependency-groups]
 dev = [

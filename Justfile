@@ -81,4 +81,4 @@ pre-commit:
 
 # Audit machine capability gates (orphans, undefined, prefix migrations)
 audit-capabilities:
-    bash .agents/skills/machine-capability-audit/scripts/audit.sh
+    bash .claude/skills/machine-capability-audit/scripts/audit.sh

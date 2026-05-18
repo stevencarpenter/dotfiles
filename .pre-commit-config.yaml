@@ -32,7 +32,7 @@ repos:
         name: Machine capability gating audit
         description: Find orphan capabilities, undefined gates, and prefix gates that could migrate
         language: script
-        entry: .agents/skills/machine-capability-audit/scripts/audit.sh
+        entry: .claude/skills/machine-capability-audit/scripts/audit.sh
         files: ^(\.chezmoidata/machines\.toml|\.chezmoiignore|.+\.tmpl)$
         pass_filenames: false
 
