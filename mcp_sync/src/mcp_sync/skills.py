@@ -256,3 +256,42 @@ def deploy_skill(src: Path, target: Path, mode: str) -> None:
         shutil.copytree(src, target)
     else:
         raise ValueError(f"Unknown deploy mode: {mode!r}")
+
+
+def garbage_collect(
+    previous: JsonDict,
+    current_names: set[str],
+    target_root: Path,
+) -> list[str]:
+    """Remove skills deployed by a prior run but absent from this run.
+
+    An entry is removed only when it still matches the shape the prior run
+    recorded — a symlink we created, or a directory we copied. If the user
+    has since replaced it with something else, it is logged and left alone.
+    Anything the sync never recorded is never inspected.
+
+    Args:
+        previous: The prior run's ``state["deployed"]`` mapping.
+        current_names: Skill names resolved in this run.
+        target_root: The ``~/.claude/skills/`` directory.
+
+    Returns:
+        Names that were actually removed, sorted.
+    """
+    removed: list[str] = []
+    for name, record in sorted(previous.items()):
+        if name in current_names:
+            continue
+        path = target_root / name
+        if not path.exists() and not path.is_symlink():
+            continue
+        mode = record.get("mode")
+        if mode == "symlink" and path.is_symlink():
+            path.unlink()
+            removed.append(name)
+        elif mode == "copy" and path.is_dir() and not path.is_symlink():
+            shutil.rmtree(path)
+            removed.append(name)
+        else:
+            log_info(f"Skipping GC of {name!r}: no longer matches recorded mode")
+    return removed

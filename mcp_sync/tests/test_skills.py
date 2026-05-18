@@ -14,6 +14,7 @@ from mcp_sync.skills import load_state
 from mcp_sync.skills import parse_duration
 from mcp_sync.skills import resolve_skills
 from mcp_sync.skills import deploy_skill
+from mcp_sync.skills import garbage_collect
 from mcp_sync.skills import write_state
 
 
@@ -245,3 +246,46 @@ def test_deploy_skill_symlink_is_idempotent(tmp_path):
 def test_deploy_skill_missing_source_raises(tmp_path):
     with pytest.raises(FileNotFoundError):
         deploy_skill(tmp_path / "nope", tmp_path / "target", "copy")
+
+
+def test_garbage_collect_removes_orphaned_symlink(tmp_path):
+    target_root = tmp_path / "skills"
+    target_root.mkdir()
+    real = tmp_path / "real"
+    real.mkdir()
+    (target_root / "old").symlink_to(real)
+    previous = {"old": {"mode": "symlink", "source": "personal"}}
+    removed = garbage_collect(previous, set(), target_root)
+    assert removed == ["old"]
+    assert not (target_root / "old").is_symlink()
+
+
+def test_garbage_collect_removes_orphaned_copy(tmp_path):
+    target_root = tmp_path / "skills"
+    (target_root / "old").mkdir(parents=True)
+    previous = {"old": {"mode": "copy", "source": "mattpocock"}}
+    removed = garbage_collect(previous, set(), target_root)
+    assert removed == ["old"]
+    assert not (target_root / "old").exists()
+
+
+def test_garbage_collect_keeps_still_resolved_skills(tmp_path):
+    target_root = tmp_path / "skills"
+    (target_root / "keep").mkdir(parents=True)
+    previous = {"keep": {"mode": "copy", "source": "mattpocock"}}
+    removed = garbage_collect(previous, {"keep"}, target_root)
+    assert removed == []
+    assert (target_root / "keep").exists()
+
+
+def test_garbage_collect_skips_entry_that_changed_shape(tmp_path):
+    # Recorded as a copy, but now a symlink: the user replaced it. Leave it.
+    target_root = tmp_path / "skills"
+    target_root.mkdir()
+    real = tmp_path / "real"
+    real.mkdir()
+    (target_root / "old").symlink_to(real)
+    previous = {"old": {"mode": "copy", "source": "mattpocock"}}
+    removed = garbage_collect(previous, set(), target_root)
+    assert removed == []
+    assert (target_root / "old").is_symlink()
