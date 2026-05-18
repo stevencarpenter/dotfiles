@@ -161,17 +161,19 @@ def test_load_state_invalid_json_returns_skeleton(tmp_path):
 
 def test_ensure_git_source_clones_when_cache_absent(tmp_path, monkeypatch):
     calls = []
-    monkeypatch.setattr(skills_mod, "_git", lambda *a, **k: calls.append((a, k)))
+    monkeypatch.setattr(skills_mod, "_git", lambda *a, **k: calls.append(a))
     cache_root = tmp_path / "cache"
     source = {"type": "git", "url": "https://example.com/x", "ref": "main"}
     state = {"deployed": {}, "sources": {}}
     result = ensure_git_source("mattpocock", source, cache_root, state, now=1000.0)
     assert result == cache_root / "mattpocock"
-    assert calls[0][0] == (
+    assert calls[0] == (
         "clone",
         "https://example.com/x",
         str(cache_root / "mattpocock"),
     )
+    assert ("fetch", "origin", "main") in calls
+    assert ("reset", "--hard", "FETCH_HEAD") in calls
     assert state["sources"]["mattpocock"]["last_fetch"] == 1000.0
 
 
