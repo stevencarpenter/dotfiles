@@ -256,8 +256,10 @@ def ensure_git_source(
     """Ensure a git source is cloned and current within its refresh period.
 
     Skips all network access when the cached clone was fetched more recently
-    than ``refreshPeriod``. On a fetch, mutates
-    ``state["sources"][name]["last_fetch"]`` to ``now``.
+    than ``refreshPeriod`` *and* its stored ``url``/``ref`` still match the
+    manifest. A changed ``url`` or ``ref`` forces a refetch even within the
+    refresh window. On a fetch, records ``last_fetch``, ``url``, and ``ref``
+    in ``state["sources"][name]``.
 
     Args:
         name: Source name (also the cache subdirectory name).
@@ -272,23 +274,41 @@ def ensure_git_source(
         Path to the cached clone.
     """
     cache_dir = cache_root / name
+    url = source["url"]
     ref = source.get("ref", DEFAULT_REF)
     refresh_s = parse_duration(source.get("refreshPeriod", DEFAULT_REFRESH))
-    last_fetch = state.get("sources", {}).get(name, {}).get("last_fetch", 0)
+    prior = state.get("sources", {}).get(name, {})
+    last_fetch = prior.get("last_fetch", 0)
+    # A stored identity that no longer matches the manifest forces a refetch
+    # regardless of the refresh timer. A missing stored identity (pre-feature
+    # state) is treated as matching, so it never triggers a spurious fetch.
+    identity_changed = prior.get("url", url) != url or prior.get("ref", ref) != ref
 
-    if not force and cache_dir.is_dir() and (now - last_fetch) < refresh_s:
+    if (
+        not force
+        and not identity_changed
+        and cache_dir.is_dir()
+        and (now - last_fetch) < refresh_s
+    ):
         log_info(f"Source {name!r} cache is fresh; skipping fetch")
         return cache_dir
 
     if not cache_dir.is_dir():
         cache_dir.parent.mkdir(parents=True, exist_ok=True)
-        log_info(f"Cloning source {name!r} from {source['url']}")
-        _git("clone", source["url"], str(cache_dir))
+        log_info(f"Cloning source {name!r} from {url}")
+        _git("clone", url, str(cache_dir))
+    elif prior.get("url", url) != url:
+        log_info(f"Source {name!r} URL changed; updating origin to {url}")
+        _git("remote", "set-url", "origin", url, cwd=cache_dir)
     log_info(f"Fetching source {name!r} at ref {ref!r}")
     _git("fetch", "origin", ref, cwd=cache_dir)
     _git("reset", "--hard", "FETCH_HEAD", cwd=cache_dir)
 
-    state.setdefault("sources", {})[name] = {"last_fetch": now}
+    state.setdefault("sources", {})[name] = {
+        "last_fetch": now,
+        "url": url,
+        "ref": ref,
+    }
     return cache_dir
 
 
@@ -473,9 +493,18 @@ def run_skills_sync(
     prior = dict(state.get("deployed", {}))
     sources = manifest["sources"]
 
+    # Fetch each git source once. A git failure does not abort the run: if a
+    # stale cache exists it is reused, otherwise the source is marked failed
+    # and its skills are skipped so unrelated (local) skills still deploy.
+    failed = False
+    failed_sources: set[str] = set()
     git_caches: dict[str, Path] = {}
     for skill in resolved:
-        if skill.source_type == "git" and skill.source_name not in git_caches:
+        if skill.source_type != "git" or skill.source_name in git_caches:
+            continue
+        if skill.source_name in failed_sources:
+            continue
+        try:
             git_caches[skill.source_name] = ensure_git_source(
                 skill.source_name,
                 sources[skill.source_name],
@@ -483,6 +512,15 @@ def run_skills_sync(
                 state,
                 now_ts,
             )
+        except subprocess.CalledProcessError as exc:
+            log_error(f"Git source {skill.source_name!r} failed: {exc}")
+            failed = True
+            cache_dir = cache_root / skill.source_name
+            if cache_dir.is_dir():
+                log_info(f"Using stale cache for source {skill.source_name!r}")
+                git_caches[skill.source_name] = cache_dir
+            else:
+                failed_sources.add(skill.source_name)
 
     # A resolved git skill missing from its (time-fresh) cache means the cache
     # predates a manifest change. Force one refetch per affected source so a
@@ -492,19 +530,25 @@ def run_skills_sync(
     for skill in resolved:
         if skill.source_type != "git" or skill.source_name in refreshed:
             continue
+        if skill.source_name not in git_caches:
+            continue
         if not (git_caches[skill.source_name] / skill.subpath).is_dir():
             log_info(
                 f"Skill {skill.name!r} absent from cache; "
                 f"refetching source {skill.source_name!r}"
             )
-            git_caches[skill.source_name] = ensure_git_source(
-                skill.source_name,
-                sources[skill.source_name],
-                cache_root,
-                state,
-                now_ts,
-                force=True,
-            )
+            try:
+                git_caches[skill.source_name] = ensure_git_source(
+                    skill.source_name,
+                    sources[skill.source_name],
+                    cache_root,
+                    state,
+                    now_ts,
+                    force=True,
+                )
+            except subprocess.CalledProcessError as exc:
+                log_error(f"Refetch of source {skill.source_name!r} failed: {exc}")
+                failed = True
             refreshed.add(skill.source_name)
 
     # Deploy. A per-skill failure is logged and skipped; the run finishes the
@@ -512,8 +556,16 @@ def run_skills_sync(
     # fails but was deployed by a prior run keeps that prior state record so
     # garbage collection stays accurate.
     deployed: JsonDict = {}
-    failed = False
     for skill in resolved:
+        if skill.source_type == "git" and skill.source_name in failed_sources:
+            log_error(
+                f"Skipping skill {skill.name!r}: "
+                f"source {skill.source_name!r} unavailable"
+            )
+            failed = True
+            if skill.name in prior:
+                deployed[skill.name] = prior[skill.name]
+            continue
         if skill.source_type == "git":
             src = git_caches[skill.source_name] / skill.subpath
         else:

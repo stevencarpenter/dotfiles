@@ -239,6 +239,33 @@ def test_ensure_git_source_refetches_when_stale(tmp_path, monkeypatch):
     assert state["sources"]["mattpocock"]["last_fetch"] == 1000.0 + 99999
 
 
+def test_ensure_git_source_refetches_when_ref_changes_even_if_fresh(
+    tmp_path, monkeypatch
+):
+    calls = []
+    monkeypatch.setattr(skills_mod, "_git", lambda *a, **k: calls.append((a, k)))
+    cache_root = tmp_path / "cache"
+    (cache_root / "mp").mkdir(parents=True)
+    source = {"type": "git", "url": "u", "ref": "v2", "refreshPeriod": "168h"}
+    state = {"sources": {"mp": {"last_fetch": 1000.0, "url": "u", "ref": "v1"}}}
+    ensure_git_source("mp", source, cache_root, state, now=1000.0 + 60)
+    assert any(args == ("fetch", "origin", "v2") for args, _ in calls)
+    assert state["sources"]["mp"]["ref"] == "v2"
+    assert state["sources"]["mp"]["url"] == "u"
+
+
+def test_ensure_git_source_updates_origin_when_url_changes(tmp_path, monkeypatch):
+    calls = []
+    monkeypatch.setattr(skills_mod, "_git", lambda *a, **k: calls.append((a, k)))
+    cache_root = tmp_path / "cache"
+    (cache_root / "mp").mkdir(parents=True)
+    source = {"type": "git", "url": "new-url", "ref": "main", "refreshPeriod": "168h"}
+    state = {"sources": {"mp": {"last_fetch": 1000.0, "url": "old-url", "ref": "main"}}}
+    ensure_git_source("mp", source, cache_root, state, now=1000.0 + 60)
+    assert any(args == ("remote", "set-url", "origin", "new-url") for args, _ in calls)
+    assert any(args == ("fetch", "origin", "main") for args, _ in calls)
+
+
 def _make_skill(root, name):
     directory = root / name
     directory.mkdir(parents=True)
@@ -587,6 +614,36 @@ def test_run_skills_sync_keeps_prior_copy_of_failed_resolved_skill(tmp_path):
     assert (prior_x / "SKILL.md").read_text() == "# old x"
     written = json.loads(state.read_text())
     assert written["deployed"]["x"] == {"mode": "copy", "source": "personal"}
+
+
+def test_run_skills_sync_git_failure_still_deploys_local_skill(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    repo = tmp_path / "repo"
+    local = repo / "skills" / "personal" / "refactor"
+    local.mkdir(parents=True)
+    (local / "SKILL.md").write_text("# refactor")
+    manifest = home / ".config" / "skills" / "skills-master.json"
+    _write_json(
+        manifest,
+        {
+            "sources": {
+                "mp": {"type": "git", "url": "u", "ref": "main"},
+                "personal": {"type": "local", "path": "skills/personal"},
+            },
+            "skills": {
+                "tdd": {"source": "mp", "path": "skills/engineering/tdd"},
+                "refactor": {"source": "personal"},
+            },
+        },
+    )
+
+    def fail_git(*args, **kwargs):
+        raise skills_mod.subprocess.CalledProcessError(128, ["git", *args])
+
+    monkeypatch.setattr(skills_mod, "_git", fail_git)
+    rc = run_skills_sync(home=home, repo_root=repo, now=1.0)
+    assert rc == 1
+    assert (home / ".claude" / "skills" / "refactor").is_symlink()
 
 
 def test_run_skills_sync_prunes_dropped_source_from_state(tmp_path):
