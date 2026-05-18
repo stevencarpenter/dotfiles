@@ -289,3 +289,19 @@ def test_garbage_collect_skips_entry_that_changed_shape(tmp_path):
     removed = garbage_collect(previous, set(), target_root)
     assert removed == []
     assert (target_root / "old").is_symlink()
+
+
+def test_garbage_collect_removes_broken_orphaned_symlink(tmp_path):
+    target_root = tmp_path / "skills"
+    target_root.mkdir()
+    real = tmp_path / "real"
+    real.mkdir()
+    link = target_root / "old"
+    link.symlink_to(real)
+    real.rmdir()
+    assert not link.exists()
+    assert link.is_symlink()
+    previous = {"old": {"mode": "symlink", "source": "personal"}}
+    removed = garbage_collect(previous, set(), target_root)
+    assert removed == ["old"]
+    assert not link.is_symlink()
