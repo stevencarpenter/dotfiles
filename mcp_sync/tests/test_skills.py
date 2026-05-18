@@ -635,6 +635,42 @@ def test_run_skills_sync_refetches_skill_absent_from_fresh_cache(tmp_path, monke
     assert (home / ".claude" / "skills" / "tdd" / "SKILL.md").read_text() == "# tdd"
 
 
+def test_run_skills_sync_skips_skill_with_unexpected_error_and_continues(tmp_path):
+    home = tmp_path / "home"
+    repo = tmp_path / "repo"
+    good = repo / "skills" / "personal" / "good"
+    good.mkdir(parents=True)
+    (good / "SKILL.md").write_text("# good")
+    # A vendored skill whose cached source smuggles in a symlink — deploy
+    # raises ValueError, which must be logged-and-skipped, not abort the run.
+    cached = home / ".cache" / "mcp-sync" / "skills" / "mp" / "skills" / "bad"
+    cached.mkdir(parents=True)
+    (cached / "SKILL.md").write_text("# bad")
+    (cached / "leak").symlink_to(tmp_path)
+    state = home / ".local" / "state" / "mcp-sync" / "skills-state.json"
+    _write_json(state, {"deployed": {}, "sources": {"mp": {"last_fetch": 5000.0}}})
+    manifest = home / ".config" / "skills" / "skills-master.json"
+    _write_json(
+        manifest,
+        {
+            "sources": {
+                "mp": {"type": "git", "url": "u", "refreshPeriod": "168h"},
+                "personal": {"type": "local", "path": "skills/personal"},
+            },
+            "skills": {
+                "bad": {"source": "mp", "path": "skills/bad"},
+                "good": {"source": "personal"},
+            },
+        },
+    )
+    rc = run_skills_sync(home=home, repo_root=repo, now=5000.0 + 3600)
+    assert rc == 1
+    assert (home / ".claude" / "skills" / "good" / "SKILL.md").read_text() == "# good"
+    assert not (home / ".claude" / "skills" / "bad").exists()
+    # State is still written despite the per-skill failure.
+    assert state.is_file()
+
+
 def test_run_skills_sync_skips_failed_skill_and_continues(tmp_path):
     home = tmp_path / "home"
     repo = tmp_path / "repo"

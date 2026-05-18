@@ -616,8 +616,8 @@ def run_skills_sync(
         target = _safe_target(target_root, skill.name)
         try:
             deploy_skill(src, target, skill.mode)
-        except FileNotFoundError as exc:
-            log_error(str(exc))
+        except (OSError, ValueError) as exc:
+            log_error(f"Failed to deploy skill {skill.name!r}: {exc}")
             failed = True
             if skill.name in prior:
                 deployed[skill.name] = prior[skill.name]
