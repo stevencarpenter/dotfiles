@@ -353,7 +353,7 @@ def run_skills_sync(
     state_path = home_path / ".local" / "state" / "mcp-sync" / "skills-state.json"
     target_root = home_path / ".claude" / "skills"
     state = load_state(state_path)
-    prior = state.get("deployed", {})
+    prior = dict(state.get("deployed", {}))
     sources = manifest["sources"]
 
     git_caches: dict[str, Path] = {}
