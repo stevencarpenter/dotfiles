@@ -298,6 +298,24 @@ def _remove_path(path: Path) -> None:
         shutil.rmtree(path)
 
 
+def _assert_tree_has_no_symlinks(root: Path) -> None:
+    """Reject a source tree that contains any symlink.
+
+    Copy-mode deployment uses ``shutil.copytree`` with default settings, which
+    follows symlinks — vendored third-party content could otherwise smuggle a
+    link pointing anywhere on disk into ``~/.claude/skills/``.
+
+    Args:
+        root: The source skill directory about to be copied.
+
+    Raises:
+        ValueError: If any entry under ``root`` is a symlink.
+    """
+    for path in root.rglob("*"):
+        if path.is_symlink():
+            raise ValueError(f"Refusing to copy symlink from vendored skill: {path}")
+
+
 def deploy_skill(src: Path, target: Path, mode: str) -> None:
     """Deploy one skill directory to its target under ``~/.claude/skills/``.
 
@@ -319,6 +337,7 @@ def deploy_skill(src: Path, target: Path, mode: str) -> None:
         _remove_path(target)
         target.symlink_to(src)
     elif mode == "copy":
+        _assert_tree_has_no_symlinks(src)
         _remove_path(target)
         shutil.copytree(src, target)
     else:

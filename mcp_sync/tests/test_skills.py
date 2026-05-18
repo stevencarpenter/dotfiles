@@ -284,6 +284,17 @@ def test_deploy_skill_missing_source_raises(tmp_path):
         deploy_skill(tmp_path / "nope", tmp_path / "target", "copy")
 
 
+def test_deploy_skill_copy_rejects_symlink_inside_source(tmp_path):
+    src = _make_skill(tmp_path / "src", "tdd")
+    outside = tmp_path / "outside-secret"
+    outside.write_text("secret")
+    (src / "leak").symlink_to(outside)
+    target = tmp_path / "claude" / "skills" / "tdd"
+    with pytest.raises(ValueError, match="symlink"):
+        deploy_skill(src, target, "copy")
+    assert not target.exists()
+
+
 def test_garbage_collect_removes_orphaned_symlink(tmp_path):
     target_root = tmp_path / "skills"
     target_root.mkdir()
