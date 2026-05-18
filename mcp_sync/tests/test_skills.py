@@ -16,6 +16,7 @@ from mcp_sync.skills import resolve_skills
 from mcp_sync.skills import deploy_skill
 from mcp_sync.skills import garbage_collect
 from mcp_sync.skills import write_state
+from mcp_sync.skills import run_skills_sync
 
 
 def test_parse_duration_hours():
@@ -305,3 +306,116 @@ def test_garbage_collect_removes_broken_orphaned_symlink(tmp_path):
     removed = garbage_collect(previous, set(), target_root)
     assert removed == ["old"]
     assert not link.is_symlink()
+
+
+def _write_json(path, payload):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload))
+
+
+def test_run_skills_sync_deploys_local_and_vendored(tmp_path):
+    home = tmp_path / "home"
+    repo = tmp_path / "repo"
+    personal = repo / "skills" / "personal" / "refactor"
+    personal.mkdir(parents=True)
+    (personal / "SKILL.md").write_text("# refactor")
+    # Pre-populate the git cache so no network access is needed.
+    cached = (
+        home
+        / ".cache"
+        / "mcp-sync"
+        / "skills"
+        / "mattpocock"
+        / "skills"
+        / "engineering"
+        / "tdd"
+    )
+    cached.mkdir(parents=True)
+    (cached / "SKILL.md").write_text("# tdd")
+    state = home / ".local" / "state" / "mcp-sync" / "skills-state.json"
+    _write_json(
+        state, {"deployed": {}, "sources": {"mattpocock": {"last_fetch": 5000.0}}}
+    )
+    manifest = home / ".config" / "skills" / "skills-master.json"
+    _write_json(
+        manifest,
+        {
+            "sources": {
+                "mattpocock": {"type": "git", "url": "u", "refreshPeriod": "168h"},
+                "personal": {"type": "local", "path": "skills/personal"},
+            },
+            "skills": {
+                "tdd": {"source": "mattpocock", "path": "skills/engineering/tdd"},
+                "refactor": {"source": "personal"},
+            },
+        },
+    )
+    rc = run_skills_sync(home=home, repo_root=repo, now=5000.0 + 3600)
+    assert rc == 0
+    skills_dir = home / ".claude" / "skills"
+    assert (skills_dir / "tdd" / "SKILL.md").read_text() == "# tdd"
+    assert (skills_dir / "refactor").is_symlink()
+    written = json.loads(state.read_text())
+    assert written["deployed"]["tdd"] == {"mode": "copy", "source": "mattpocock"}
+
+
+def test_run_skills_sync_garbage_collects_dropped_skill(tmp_path):
+    home = tmp_path / "home"
+    repo = tmp_path / "repo"
+    refactor = repo / "skills" / "personal" / "refactor"
+    refactor.mkdir(parents=True)
+    (refactor / "SKILL.md").write_text("# refactor")
+    orphan = home / ".claude" / "skills" / "old-skill"
+    orphan.mkdir(parents=True)
+    (orphan / "SKILL.md").write_text("# old")
+    state = home / ".local" / "state" / "mcp-sync" / "skills-state.json"
+    _write_json(
+        state,
+        {
+            "deployed": {"old-skill": {"mode": "copy", "source": "mattpocock"}},
+            "sources": {},
+        },
+    )
+    manifest = home / ".config" / "skills" / "skills-master.json"
+    _write_json(
+        manifest,
+        {
+            "sources": {"personal": {"type": "local", "path": "skills/personal"}},
+            "skills": {"refactor": {"source": "personal"}},
+        },
+    )
+    rc = run_skills_sync(home=home, repo_root=repo, now=1.0)
+    assert rc == 0
+    assert not orphan.exists()
+
+
+def test_run_skills_sync_missing_manifest_returns_1(tmp_path):
+    assert run_skills_sync(home=tmp_path / "empty", repo_root=tmp_path) == 1
+
+
+def test_run_skills_sync_machine_overlay_disables_skill(tmp_path):
+    home = tmp_path / "home"
+    repo = tmp_path / "repo"
+    for name in ("refactor", "extra"):
+        directory = repo / "skills" / "personal" / name
+        directory.mkdir(parents=True)
+        (directory / "SKILL.md").write_text(f"# {name}")
+    manifest = home / ".config" / "skills" / "skills-master.json"
+    _write_json(
+        manifest,
+        {
+            "sources": {"personal": {"type": "local", "path": "skills/personal"}},
+            "skills": {
+                "refactor": {"source": "personal"},
+                "extra": {"source": "personal"},
+            },
+        },
+    )
+    overlay = home / ".config" / "skills" / "machine" / "work.json"
+    _write_json(overlay, {"skills": {"extra": False}})
+    rc = run_skills_sync(
+        home=home, repo_root=repo, machine_config_path=overlay, now=1.0
+    )
+    assert rc == 0
+    assert (home / ".claude" / "skills" / "refactor").exists()
+    assert not (home / ".claude" / "skills" / "extra").exists()

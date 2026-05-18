@@ -6,11 +6,12 @@ import json
 import re
 import shutil
 import subprocess
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from mcp_sync.sync import log_info
+from mcp_sync.sync import deep_merge, log_error, log_info, log_success
 
 type JsonDict = dict[str, Any]
 
@@ -295,3 +296,93 @@ def garbage_collect(
         else:
             log_info(f"Skipping GC of {name!r}: no longer matches recorded mode")
     return removed
+
+
+def run_skills_sync(
+    manifest_path: Path | None = None,
+    machine_config_path: Path | None = None,
+    home: Path | None = None,
+    repo_root: Path | None = None,
+    now: float | None = None,
+) -> int:
+    """Synchronize ``~/.claude/skills/`` from the skills manifest.
+
+    Args:
+        manifest_path: Override for the master manifest path.
+        machine_config_path: Optional machine overlay JSON path.
+        home: Override for the home directory (testing).
+        repo_root: Override for the chezmoi repo root (testing).
+        now: Override for the current time as epoch seconds (testing).
+
+    Returns:
+        0 on success, 1 on a configuration error.
+    """
+    home_path = home or Path.home()
+    repo = repo_root or home_path / ".local" / "share" / "chezmoi"
+    now_ts = now if now is not None else time.time()
+    manifest_file = (
+        manifest_path or home_path / ".config" / "skills" / "skills-master.json"
+    )
+    if not manifest_file.is_file():
+        log_error(f"Skills manifest not found at {manifest_file}")
+        log_info("Run 'chezmoi apply' to deploy dotfiles first")
+        return 1
+
+    log_info("Syncing Claude skills from manifest...")
+    manifest = load_skills_manifest(manifest_file)
+
+    if machine_config_path and machine_config_path.is_file():
+        with open(machine_config_path, encoding="utf-8") as handle:
+            overlay = json.load(handle)
+        log_info(f"Applying machine overlay: {machine_config_path}")
+        manifest = deep_merge(manifest, overlay)
+
+    try:
+        resolved = resolve_skills(manifest)
+    except ValueError as exc:
+        log_error(f"Manifest error: {exc}")
+        return 1
+
+    cache_root = home_path / ".cache" / "mcp-sync" / "skills"
+    state_path = home_path / ".local" / "state" / "mcp-sync" / "skills-state.json"
+    target_root = home_path / ".claude" / "skills"
+    state = load_state(state_path)
+    sources = manifest["sources"]
+
+    git_caches: dict[str, Path] = {}
+    for skill in resolved:
+        if skill.source_type == "git" and skill.source_name not in git_caches:
+            git_caches[skill.source_name] = ensure_git_source(
+                skill.source_name,
+                sources[skill.source_name],
+                cache_root,
+                state,
+                now_ts,
+            )
+
+    deployed: JsonDict = {}
+    for skill in resolved:
+        if skill.source_type == "git":
+            src = git_caches[skill.source_name] / skill.subpath
+        else:
+            src = repo / skill.subpath
+        try:
+            deploy_skill(src, target_root / skill.name, skill.mode)
+        except FileNotFoundError as exc:
+            log_error(str(exc))
+            return 1
+        deployed[skill.name] = {
+            "mode": skill.mode,
+            "source": skill.source_name,
+        }
+        log_success(f"Deployed skill: {skill.name} ({skill.mode})")
+
+    for name in garbage_collect(state.get("deployed", {}), set(deployed), target_root):
+        log_success(f"Removed orphaned skill: {name}")
+
+    state["deployed"] = deployed
+    write_state(state_path, state)
+
+    print()
+    log_success("Skill sync complete!")
+    return 0
