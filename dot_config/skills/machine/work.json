@@ -1,1 +1,20 @@
-{ "skills": {} }
+{
+  "skills": {
+    "caveman": false,
+    "edit-article": false,
+    "git-guardrails-claude-code": false,
+    "grill-me": false,
+    "grill-with-docs": false,
+    "improve-codebase-architecture": false,
+    "migrate-to-shoehorn": false,
+    "obsidian-vault": false,
+    "scaffold-exercises": false,
+    "setup-pre-commit": false,
+    "tdd": false,
+    "to-issues": false,
+    "to-prd": false,
+    "triage": false,
+    "write-a-skill": false,
+    "zoom-out": false
+  }
+}

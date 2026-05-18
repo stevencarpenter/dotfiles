@@ -3,7 +3,7 @@
     "mattpocock": {
       "type": "git",
       "url": "https://github.com/mattpocock/skills",
-      "ref": "main",
+      "ref": "e74f0061bb67222181640effa98c675bdb2fdaa7",
       "refreshPeriod": "168h"
     },
     "personal": {
