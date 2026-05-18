@@ -284,6 +284,21 @@ def test_deploy_skill_missing_source_raises(tmp_path):
         deploy_skill(tmp_path / "nope", tmp_path / "target", "copy")
 
 
+def test_deploy_skill_copy_failure_keeps_existing_target(tmp_path, monkeypatch):
+    src = _make_skill(tmp_path / "src", "tdd")
+    target = tmp_path / "claude" / "skills" / "tdd"
+    target.mkdir(parents=True)
+    (target / "SKILL.md").write_text("# old")
+
+    def fail_copytree(*args, **kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(skills_mod.shutil, "copytree", fail_copytree)
+    with pytest.raises(OSError, match="disk full"):
+        deploy_skill(src, target, "copy")
+    assert (target / "SKILL.md").read_text() == "# old"
+
+
 def test_deploy_skill_copy_rejects_symlink_inside_source(tmp_path):
     src = _make_skill(tmp_path / "src", "tdd")
     outside = tmp_path / "outside-secret"

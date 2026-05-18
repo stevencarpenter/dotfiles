@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import subprocess
 import time
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -316,6 +318,38 @@ def _assert_tree_has_no_symlinks(root: Path) -> None:
             raise ValueError(f"Refusing to copy symlink from vendored skill: {path}")
 
 
+def _replace_directory_from_copy(src: Path, target: Path) -> None:
+    """Replace ``target`` with a fresh copy of ``src`` without an unsafe gap.
+
+    The copy lands in a sibling temp directory first; only after it succeeds is
+    the existing target renamed aside and the temp moved into place. A failed
+    copy therefore leaves the previous target untouched.
+
+    Args:
+        src: Source skill directory.
+        target: Destination directory.
+
+    Raises:
+        OSError: If the copy or rename fails; the prior target is restored.
+    """
+    target.parent.mkdir(parents=True, exist_ok=True)
+    suffix = f"{os.getpid()}-{uuid.uuid4().hex}"
+    tmp = target.parent / f".{target.name}.tmp-{suffix}"
+    backup = target.parent / f".{target.name}.bak-{suffix}"
+    try:
+        shutil.copytree(src, tmp)
+        if target.exists() or target.is_symlink():
+            target.rename(backup)
+        tmp.rename(target)
+    except Exception:
+        if not target.exists() and backup.exists():
+            backup.rename(target)
+        raise
+    finally:
+        _remove_path(tmp)
+        _remove_path(backup)
+
+
 def deploy_skill(src: Path, target: Path, mode: str) -> None:
     """Deploy one skill directory to its target under ``~/.claude/skills/``.
 
@@ -338,8 +372,7 @@ def deploy_skill(src: Path, target: Path, mode: str) -> None:
         target.symlink_to(src)
     elif mode == "copy":
         _assert_tree_has_no_symlinks(src)
-        _remove_path(target)
-        shutil.copytree(src, target)
+        _replace_directory_from_copy(src, target)
     else:
         raise ValueError(f"Unknown deploy mode: {mode!r}")
 
