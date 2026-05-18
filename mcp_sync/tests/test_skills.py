@@ -408,9 +408,7 @@ def test_garbage_collect_removes_orphaned_symlink(tmp_path):
     real = tmp_path / "real"
     real.mkdir()
     (target_root / "old").symlink_to(real)
-    previous = {
-        "old": {"mode": "symlink", "source": "personal", "target": str(real)}
-    }
+    previous = {"old": {"mode": "symlink", "source": "personal", "target": str(real)}}
     removed = garbage_collect(previous, set(), target_root)
     assert removed == ["old"]
     assert not (target_root / "old").is_symlink()
@@ -426,9 +424,7 @@ def test_garbage_collect_keeps_replaced_symlink(tmp_path):
     theirs.mkdir()
     link = target_root / "old"
     link.symlink_to(theirs)
-    previous = {
-        "old": {"mode": "symlink", "source": "personal", "target": str(ours)}
-    }
+    previous = {"old": {"mode": "symlink", "source": "personal", "target": str(ours)}}
     removed = garbage_collect(previous, set(), target_root)
     assert removed == []
     assert link.is_symlink()
@@ -514,9 +510,7 @@ def test_garbage_collect_removes_broken_orphaned_symlink(tmp_path):
     real.rmdir()
     assert not link.exists()
     assert link.is_symlink()
-    previous = {
-        "old": {"mode": "symlink", "source": "personal", "target": str(real)}
-    }
+    previous = {"old": {"mode": "symlink", "source": "personal", "target": str(real)}}
     removed = garbage_collect(previous, set(), target_root)
     assert removed == ["old"]
     assert not link.is_symlink()
