@@ -1,0 +1,33 @@
+{
+  "sources": {
+    "mattpocock": {
+      "type": "git",
+      "url": "https://github.com/mattpocock/skills",
+      "ref": "e74f0061bb67222181640effa98c675bdb2fdaa7",
+      "refreshPeriod": "168h"
+    },
+    "personal": {
+      "type": "local",
+      "path": "skills/personal"
+    }
+  },
+  "skills": {
+    "caveman": { "source": "mattpocock", "path": "skills/productivity/caveman" },
+    "grill-me": { "source": "mattpocock", "path": "skills/productivity/grill-me" },
+    "write-a-skill": { "source": "mattpocock", "path": "skills/productivity/write-a-skill" },
+    "grill-with-docs": { "source": "mattpocock", "path": "skills/engineering/grill-with-docs" },
+    "improve-codebase-architecture": { "source": "mattpocock", "path": "skills/engineering/improve-codebase-architecture" },
+    "tdd": { "source": "mattpocock", "path": "skills/engineering/tdd" },
+    "to-issues": { "source": "mattpocock", "path": "skills/engineering/to-issues" },
+    "to-prd": { "source": "mattpocock", "path": "skills/engineering/to-prd" },
+    "triage": { "source": "mattpocock", "path": "skills/engineering/triage" },
+    "zoom-out": { "source": "mattpocock", "path": "skills/engineering/zoom-out" },
+    "git-guardrails-claude-code": { "source": "mattpocock", "path": "skills/misc/git-guardrails-claude-code" },
+    "migrate-to-shoehorn": { "source": "mattpocock", "path": "skills/misc/migrate-to-shoehorn" },
+    "scaffold-exercises": { "source": "mattpocock", "path": "skills/misc/scaffold-exercises" },
+    "setup-pre-commit": { "source": "mattpocock", "path": "skills/misc/setup-pre-commit" },
+    "edit-article": { "source": "mattpocock", "path": "skills/personal/edit-article" },
+    "obsidian-vault": { "source": "mattpocock", "path": "skills/personal/obsidian-vault" },
+    "refactor": { "source": "personal" }
+  }
+}

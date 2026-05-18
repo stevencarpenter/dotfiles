@@ -17,7 +17,7 @@ Static-analysis pass over the chezmoi capability gating system. Detects orphans 
 ## Run
 
 ```bash
-bash dot_claude/skills/machine-capability-audit/scripts/audit.sh
+bash .claude/skills/machine-capability-audit/scripts/audit.sh
 ```
 
 The script roots itself via `chezmoi source-path` (or `REPO_ROOT=…` override), so it works from anywhere. It exits non-zero when orphans or undefined gates are found — handy if this is later wired into the Justfile or a pre-commit hook.

@@ -111,3 +111,50 @@ uv sync --group dev
 uv run ruff check src tests
 uv run pytest -v
 ```
+
+## Skill Sync (`sync-skills`)
+
+`sync-skills` deploys Claude Code skills to `~/.claude/skills/`, mirroring how
+`sync-mcp-configs` deploys MCP configs.
+
+- **Manifest:** `~/.config/skills/skills-master.json` declares `sources` (git or
+  local) and an explicit `skills` allow-list. A machine overlay in
+  `~/.config/skills/machine/` disables a skill on that machine by setting it to
+  `false` inside its `skills` object, e.g. `{ "skills": { "caveman": false } }`.
+- **Vendored skills** (git sources) are cloned into `~/.cache/mcp-sync/skills/`
+  and **copied** into place; re-fetched only after `refreshPeriod`.
+- **Personal skills** come from a `local` source — the `personal` source's
+  `path` (currently `skills/personal/` in the chezmoi repo) — deployed as a
+  **symlink**, so edits to the source are live without re-running the sync.
+- **Garbage collection:** `~/.local/state/mcp-sync/skills-state.json` records
+  what each run deployed; skills dropped from the manifest are removed on the
+  next run. Skills the sync never deployed are never touched.
+
+Run manually with `uv run --project mcp_sync sync-skills`. It runs automatically
+after `chezmoi apply` via `.chezmoiscripts/run_after_sync-skills.sh.tmpl`.
+
+### One-time migration cleanup
+
+Before this feature, `~/.claude/skills/` held symlinks into `~/.agents/skills/`.
+After the first `chezmoi apply` with `sync-skills`, remove the stale state by
+hand (destructive — review before running):
+
+```bash
+# Remove only dangling symlinks whose stored target points into ~/.agents/skills/.
+for link in ~/.claude/skills/*; do
+  [ -L "$link" ] || continue
+  target="$(readlink "$link")"
+  case "$target" in
+    "$HOME/.agents/skills/"*)
+      [ -e "$link" ] || rm -v "$link"
+      ;;
+  esac
+done
+```
+
+Do not delete `~/.agents` wholesale. After confirming nothing else uses it, move
+the old skills directory aside first:
+
+```bash
+mv ~/.agents/skills ~/.agents/skills.retired-$(date +%Y%m%d)
+```

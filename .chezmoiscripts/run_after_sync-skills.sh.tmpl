@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Post-apply hook: sync Claude Code skills from the skills manifest.
+# Triggered by: chezmoi apply
+#
+# Self-gates on the `skills` machine capability — on machines where
+# skills=false the body collapses to a no-op. The .chezmoiignore already
+# excludes ~/.config/skills/ on those machines.
+
+{{ if not (index .machines .machine).skills -}}
+echo "Skill sync skipped (machine capability skills=false)."
+exit 0
+{{- else -}}
+
+# sync-skills ships as an entry point of the mcp_sync uv project (alongside
+# sync-mcp-configs) — the project dir is mcp_sync/ by design, not a slip.
+SYNC_PROJECT="${HOME}/.local/share/chezmoi/mcp_sync"
+STRICT_MODE="${MCP_SYNC_STRICT:-0}"
+
+fail_or_warn() {
+  local message="$1"
+  if [[ "${STRICT_MODE}" == "1" ]]; then
+    echo "Error: ${message}" >&2
+    exit 1
+  fi
+  echo "Warning: ${message}" >&2
+}
+
+if ! command -v uv >/dev/null 2>&1; then
+  fail_or_warn "uv is not installed; skipping skill sync."
+  exit 0
+fi
+
+if [[ -f "${SYNC_PROJECT}/pyproject.toml" ]]; then
+  sync_cmd=(sync-skills)
+
+  # Select the overlay for THIS machine type, rendered from chezmoi's .machine
+  # data — never whatever stale overlay happens to sort first on disk after a
+  # machine-type change.
+  MACHINE_DIR="${HOME}/.config/skills/machine"
+  MACHINE_OVERLAY=""
+  {{- if hasPrefix "personal" .machine }}
+  MACHINE_OVERLAY="${MACHINE_DIR}/personal.json"
+  {{- else if hasPrefix "work" .machine }}
+  MACHINE_OVERLAY="${MACHINE_DIR}/work.json"
+  {{- else if eq .machine "lab-mac" }}
+  MACHINE_OVERLAY="${MACHINE_DIR}/lab.json"
+  {{- end }}
+
+  if [[ -n "${MACHINE_OVERLAY}" && -f "${MACHINE_OVERLAY}" ]]; then
+    sync_cmd+=(--machine-config "${MACHINE_OVERLAY}")
+  fi
+
+  if ! uv run --project "${SYNC_PROJECT}" "${sync_cmd[@]}"; then
+    fail_or_warn "Skill sync failed."
+    exit 0
+  fi
+else
+  echo "Warning: skill sync project not found at ${SYNC_PROJECT}." >&2
+  exit 0
+fi
+
+{{- end }}

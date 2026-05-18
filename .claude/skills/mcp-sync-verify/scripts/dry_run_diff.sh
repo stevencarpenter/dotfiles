@@ -8,7 +8,7 @@
 # can diff non-destructively.
 #
 # Usage:
-#   bash .agents/skills/mcp-sync-verify/scripts/dry_run_diff.sh [machine_overlay.json]
+#   bash .claude/skills/mcp-sync-verify/scripts/dry_run_diff.sh [machine_overlay.json]
 
 set -euo pipefail
 

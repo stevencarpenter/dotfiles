@@ -5,7 +5,7 @@ sync functions (codex, claude.json patch, copilot-cli) so this never
 goes stale when a new target is added in sync.py.
 
 Usage:
-    uv run --project mcp_sync python .agents/skills/mcp-sync-verify/scripts/list_targets.py
+    uv run --project mcp_sync python .claude/skills/mcp-sync-verify/scripts/list_targets.py
 """
 
 from __future__ import annotations

@@ -25,6 +25,10 @@
 #            generates per-tool MCP configs (codex, opencode, cursor, copilot,
 #            …). Off on machines that don't run a constellation of AI dev
 #            tools.
+#   skills — deploy ~/.config/skills/ (the skill manifest + machine overlays)
+#            and run the post-apply sync-skills hook that populates
+#            ~/.claude/skills/ from vendored (mattpocock) and personal
+#            skills. Off on machines that don't run Claude Code skills.
 #   hippo  — deploy ~/.config/hippo/ and wire the hippo SessionStart hook into
 #            ~/.claude/settings.json. Off on machines that don't run the
 #            hippo brain locally.
@@ -66,6 +70,7 @@
 tiling = true
 atuin = true
 mcp = true
+skills = true
 hippo = true
 gui = true
 dev = true
@@ -76,6 +81,7 @@ infra = false
 tiling = true
 atuin = false
 mcp = true
+skills = true
 hippo = false
 gui = true
 dev = false
@@ -95,6 +101,7 @@ infra = true
 tiling = false
 atuin = true
 mcp = true
+skills = true
 hippo = false
 gui = true
 dev = false
