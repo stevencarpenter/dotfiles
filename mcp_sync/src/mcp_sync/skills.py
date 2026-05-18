@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -158,3 +159,64 @@ def write_state(path: Path, state: JsonDict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     serialized = json.dumps(state, indent=2, sort_keys=True)
     path.write_text(serialized + "\n", encoding="utf-8")
+
+
+def _git(*args: str, cwd: Path | None = None) -> None:
+    """Run a git command, raising ``CalledProcessError`` on failure.
+
+    Args:
+        *args: Arguments passed to ``git``.
+        cwd: Working directory for the command.
+    """
+    subprocess.run(
+        ["git", *args],
+        cwd=cwd,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
+def ensure_git_source(
+    name: str,
+    source: JsonDict,
+    cache_root: Path,
+    state: JsonDict,
+    now: float,
+) -> Path:
+    """Ensure a git source is cloned and current within its refresh period.
+
+    Skips all network access when the cached clone was fetched more recently
+    than ``refreshPeriod``. On a fetch, mutates
+    ``state["sources"][name]["last_fetch"]`` to ``now``.
+
+    Args:
+        name: Source name (also the cache subdirectory name).
+        source: The source definition (``url``, optional ``ref`` and
+            ``refreshPeriod``).
+        cache_root: Root directory for source clones.
+        state: The mutable sync state mapping.
+        now: Current time as epoch seconds.
+
+    Returns:
+        Path to the cached clone.
+    """
+    cache_dir = cache_root / name
+    ref = source.get("ref", DEFAULT_REF)
+    refresh_s = parse_duration(source.get("refreshPeriod", DEFAULT_REFRESH))
+    last_fetch = state.get("sources", {}).get(name, {}).get("last_fetch", 0)
+
+    if cache_dir.is_dir() and (now - last_fetch) < refresh_s:
+        log_info(f"Source {name!r} cache is fresh; skipping fetch")
+        return cache_dir
+
+    if not cache_dir.is_dir():
+        cache_dir.parent.mkdir(parents=True, exist_ok=True)
+        log_info(f"Cloning source {name!r} from {source['url']}")
+        _git("clone", source["url"], str(cache_dir))
+    log_info(f"Fetching source {name!r} at ref {ref!r}")
+    _git("fetch", "origin", ref, cwd=cache_dir)
+    _git("reset", "--hard", "FETCH_HEAD", cwd=cache_dir)
+
+    state.setdefault("sources", {})[name] = {"last_fetch": now}
+    return cache_dir
