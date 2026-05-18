@@ -343,13 +343,16 @@ def _assert_tree_has_no_symlinks(root: Path) -> None:
     follows symlinks — vendored third-party content could otherwise smuggle a
     link pointing anywhere on disk into ``~/.claude/skills/``.
 
+    The scan itself never follows symlinked directories (``recurse_symlinks``
+    is left ``False``), so a symlink loop is reported rather than traversed.
+
     Args:
         root: The source skill directory about to be copied.
 
     Raises:
         ValueError: If any entry under ``root`` is a symlink.
     """
-    for path in root.rglob("*"):
+    for path in root.rglob("*", recurse_symlinks=False):
         if path.is_symlink():
             raise ValueError(f"Refusing to copy symlink from vendored skill: {path}")
 

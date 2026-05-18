@@ -391,6 +391,17 @@ def test_deploy_skill_copy_rejects_symlink_inside_source(tmp_path):
     assert not target.exists()
 
 
+def test_deploy_skill_copy_rejects_symlinked_directory(tmp_path):
+    # A symlinked *directory* must be reported, not descended into — the scan
+    # never follows it, so a symlink loop cannot stall the safety check.
+    src = _make_skill(tmp_path / "src", "tdd")
+    (src / "loop").symlink_to(src)
+    target = tmp_path / "claude" / "skills" / "tdd"
+    with pytest.raises(ValueError, match="symlink"):
+        deploy_skill(src, target, "copy")
+    assert not target.exists()
+
+
 def test_garbage_collect_removes_orphaned_symlink(tmp_path):
     target_root = tmp_path / "skills"
     target_root.mkdir()
