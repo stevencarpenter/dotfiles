@@ -5,11 +5,19 @@ on:
     paths:
       - "mcp_sync/**"
       - "dot_config/skills/**"
+      - "skills/**"
+      - ".chezmoidata/machines.toml"
+      - ".chezmoiignore"
+      - ".chezmoiscripts/run_after_sync-skills.sh.tmpl"
       - ".github/workflows/mcp-sync-ci.yml"
   pull_request:
     paths:
       - "mcp_sync/**"
       - "dot_config/skills/**"
+      - "skills/**"
+      - ".chezmoidata/machines.toml"
+      - ".chezmoiignore"
+      - ".chezmoiscripts/run_after_sync-skills.sh.tmpl"
       - ".github/workflows/mcp-sync-ci.yml"
 
 jobs:
@@ -41,4 +49,6 @@ jobs:
 
       - name: Run tests
         working-directory: mcp_sync
-        run: uv run --group dev pytest --cov=mcp_sync --cov-report=term-missing
+        run: |
+          uv run --group dev pytest --cov=mcp_sync --cov-report=term-missing
+          uv run --group dev sync-skills --help

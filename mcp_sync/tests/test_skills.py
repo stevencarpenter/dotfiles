@@ -233,19 +233,19 @@ def test_load_state_invalid_json_returns_skeleton(tmp_path):
 
 def test_ensure_git_source_clones_when_cache_absent(tmp_path, monkeypatch):
     calls = []
-    monkeypatch.setattr(skills_mod, "_git", lambda *a, **k: calls.append(a))
+    monkeypatch.setattr(skills_mod, "_git", lambda *a, **k: calls.append((a, k)))
     cache_root = tmp_path / "cache"
     source = {"type": "git", "url": "https://example.com/x", "ref": "main"}
     state = {"deployed": {}, "sources": {}}
     result = ensure_git_source("mattpocock", source, cache_root, state, now=1000.0)
     assert result == cache_root / "mattpocock"
+    cache_dir = cache_root / "mattpocock"
     assert calls[0] == (
-        "clone",
-        "https://example.com/x",
-        str(cache_root / "mattpocock"),
+        ("clone", "https://example.com/x", str(cache_dir)),
+        {},
     )
-    assert ("fetch", "origin", "main") in calls
-    assert ("reset", "--hard", "FETCH_HEAD") in calls
+    assert (("fetch", "origin", "main"), {"cwd": cache_dir}) in calls
+    assert (("reset", "--hard", "FETCH_HEAD"), {"cwd": cache_dir}) in calls
     assert state["sources"]["mattpocock"]["last_fetch"] == 1000.0
 
 
@@ -262,14 +262,15 @@ def test_ensure_git_source_skips_fetch_when_cache_fresh(tmp_path, monkeypatch):
 
 def test_ensure_git_source_refetches_when_stale(tmp_path, monkeypatch):
     calls = []
-    monkeypatch.setattr(skills_mod, "_git", lambda *a, **k: calls.append(a))
+    monkeypatch.setattr(skills_mod, "_git", lambda *a, **k: calls.append((a, k)))
     cache_root = tmp_path / "cache"
     (cache_root / "mattpocock").mkdir(parents=True)
     source = {"type": "git", "url": "u", "ref": "v2", "refreshPeriod": "1h"}
     state = {"sources": {"mattpocock": {"last_fetch": 1000.0}}}
     ensure_git_source("mattpocock", source, cache_root, state, now=1000.0 + 99999)
-    assert ("fetch", "origin", "v2") in calls
-    assert ("reset", "--hard", "FETCH_HEAD") in calls
+    cache_dir = cache_root / "mattpocock"
+    assert (("fetch", "origin", "v2"), {"cwd": cache_dir}) in calls
+    assert (("reset", "--hard", "FETCH_HEAD"), {"cwd": cache_dir}) in calls
     assert state["sources"]["mattpocock"]["last_fetch"] == 1000.0 + 99999
 
 
