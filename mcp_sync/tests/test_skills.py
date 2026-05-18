@@ -384,13 +384,39 @@ def test_garbage_collect_removes_orphaned_symlink(tmp_path):
     assert not (target_root / "old").is_symlink()
 
 
-def test_garbage_collect_removes_orphaned_copy(tmp_path):
+def test_garbage_collect_removes_copy_with_matching_marker(tmp_path):
     target_root = tmp_path / "skills"
-    (target_root / "old").mkdir(parents=True)
-    previous = {"old": {"mode": "copy", "source": "mattpocock"}}
+    copied = target_root / "old"
+    copied.mkdir(parents=True)
+    (copied / "SKILL.md").write_text("# old")
+    (copied / ".mcp-sync-managed").write_text("mcp-sync-managed-v1\n")
+    previous = {
+        "old": {
+            "mode": "copy",
+            "source": "mattpocock",
+            "marker": "mcp-sync-managed-v1",
+        }
+    }
     removed = garbage_collect(previous, set(), target_root)
     assert removed == ["old"]
-    assert not (target_root / "old").exists()
+    assert not copied.exists()
+
+
+def test_garbage_collect_keeps_replaced_copy_without_marker(tmp_path):
+    target_root = tmp_path / "skills"
+    replaced = target_root / "old"
+    replaced.mkdir(parents=True)
+    (replaced / "SKILL.md").write_text("# user replacement")
+    previous = {
+        "old": {
+            "mode": "copy",
+            "source": "mattpocock",
+            "marker": "mcp-sync-managed-v1",
+        }
+    }
+    removed = garbage_collect(previous, set(), target_root)
+    assert removed == []
+    assert replaced.exists()
 
 
 def test_garbage_collect_keeps_still_resolved_skills(tmp_path):
@@ -490,7 +516,12 @@ def test_run_skills_sync_deploys_local_and_vendored(tmp_path):
     assert (skills_dir / "tdd" / "SKILL.md").read_text() == "# tdd"
     assert (skills_dir / "refactor").is_symlink()
     written = json.loads(state.read_text())
-    assert written["deployed"]["tdd"] == {"mode": "copy", "source": "mattpocock"}
+    assert written["deployed"]["tdd"] == {
+        "mode": "copy",
+        "source": "mattpocock",
+        "marker": "mcp-sync-managed-v1",
+    }
+    assert (skills_dir / "tdd" / ".mcp-sync-managed").is_file()
 
 
 def test_run_skills_sync_garbage_collects_dropped_skill(tmp_path):
@@ -502,11 +533,18 @@ def test_run_skills_sync_garbage_collects_dropped_skill(tmp_path):
     orphan = home / ".claude" / "skills" / "old-skill"
     orphan.mkdir(parents=True)
     (orphan / "SKILL.md").write_text("# old")
+    (orphan / ".mcp-sync-managed").write_text("mcp-sync-managed-v1\n")
     state = home / ".local" / "state" / "mcp-sync" / "skills-state.json"
     _write_json(
         state,
         {
-            "deployed": {"old-skill": {"mode": "copy", "source": "mattpocock"}},
+            "deployed": {
+                "old-skill": {
+                    "mode": "copy",
+                    "source": "mattpocock",
+                    "marker": "mcp-sync-managed-v1",
+                }
+            },
             "sources": {},
         },
     )

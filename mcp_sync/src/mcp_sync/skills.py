@@ -25,6 +25,12 @@ DEFAULT_REF = "main"
 
 _SAFE_SKILL_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
+# A marker file written into every copy-mode skill directory. Garbage
+# collection of a copy-mode skill requires this marker to still match, proving
+# the directory is one this tool deployed rather than a user/plugin replacement.
+_MANAGED_MARKER = ".mcp-sync-managed"
+_MANAGED_MARKER_VALUE = "mcp-sync-managed-v1"
+
 
 def parse_duration(text: str) -> int:
     """Parse a single-unit duration (e.g. '168h', '7d') into seconds.
@@ -404,6 +410,9 @@ def deploy_skill(src: Path, target: Path, mode: str) -> None:
     elif mode == "copy":
         _assert_tree_has_no_symlinks(src)
         _replace_directory_from_copy(src, target)
+        (target / _MANAGED_MARKER).write_text(
+            _MANAGED_MARKER_VALUE + "\n", encoding="utf-8"
+        )
     else:
         raise ValueError(f"Unknown deploy mode: {mode!r}")
 
@@ -416,9 +425,10 @@ def garbage_collect(
     """Remove skills deployed by a prior run but absent from this run.
 
     An entry is removed only when it still matches the shape the prior run
-    recorded — a symlink we created, or a directory we copied. If the user
-    has since replaced it with something else, it is logged and left alone.
-    Anything the sync never recorded is never inspected.
+    recorded — a symlink we created, or a copied directory still carrying a
+    matching ``.mcp-sync-managed`` ownership marker. If the user has since
+    replaced it with something else (or it predates the marker), it is logged
+    and left alone. Anything the sync never recorded is never inspected.
 
     Args:
         previous: The prior run's ``state["deployed"]`` mapping.
@@ -444,8 +454,20 @@ def garbage_collect(
             path.unlink()
             removed.append(name)
         elif mode == "copy" and path.is_dir() and not path.is_symlink():
-            shutil.rmtree(path)
-            removed.append(name)
+            marker = path / _MANAGED_MARKER
+            expected = record.get("marker")
+            if (
+                expected
+                and marker.is_file()
+                and marker.read_text(encoding="utf-8").strip() == expected
+            ):
+                shutil.rmtree(path)
+                removed.append(name)
+            else:
+                log_info(
+                    f"Skipping GC of {name!r}: copy-mode ownership marker "
+                    "missing or mismatched"
+                )
         else:
             log_info(f"Skipping GC of {name!r}: no longer matches recorded mode")
     return removed
@@ -601,10 +623,10 @@ def run_skills_sync(
             if skill.name in prior:
                 deployed[skill.name] = prior[skill.name]
             continue
-        deployed[skill.name] = {
-            "mode": skill.mode,
-            "source": skill.source_name,
-        }
+        record: JsonDict = {"mode": skill.mode, "source": skill.source_name}
+        if skill.mode == "copy":
+            record["marker"] = _MANAGED_MARKER_VALUE
+        deployed[skill.name] = record
         log_success(f"Deployed skill: {skill.name} ({skill.mode})")
 
     # Garbage-collect skills no longer in the manifest. A skill still resolved
