@@ -190,6 +190,20 @@ def test_resolve_skills_rejects_unsafe_local_source_path():
         resolve_skills(manifest)
 
 
+def test_resolve_skills_rejects_git_source_without_url():
+    manifest = _manifest()
+    del manifest["sources"]["mattpocock"]["url"]
+    with pytest.raises(ValueError, match="missing required 'url'"):
+        resolve_skills(manifest)
+
+
+def test_resolve_skills_rejects_local_source_without_path():
+    manifest = _manifest()
+    del manifest["sources"]["personal"]["path"]
+    with pytest.raises(ValueError, match="missing required 'path'"):
+        resolve_skills(manifest)
+
+
 def test_resolve_skills_rejects_unsafe_git_skill_path():
     manifest = _manifest()
     manifest["skills"]["tdd"] = {"source": "mattpocock", "path": "../outside"}
@@ -664,6 +678,35 @@ def test_run_skills_sync_git_failure_still_deploys_local_skill(tmp_path, monkeyp
     rc = run_skills_sync(home=home, repo_root=repo, now=1.0)
     assert rc == 1
     assert (home / ".claude" / "skills" / "refactor").is_symlink()
+
+
+def test_run_skills_sync_non_object_manifest_returns_1(tmp_path):
+    home = tmp_path / "home"
+    manifest = home / ".config" / "skills" / "skills-master.json"
+    _write_json(manifest, [])
+    assert run_skills_sync(home=home, repo_root=tmp_path, now=1.0) == 1
+
+
+def test_run_skills_sync_non_object_overlay_returns_1(tmp_path):
+    home = tmp_path / "home"
+    repo = tmp_path / "repo"
+    refactor = repo / "skills" / "personal" / "refactor"
+    refactor.mkdir(parents=True)
+    (refactor / "SKILL.md").write_text("# refactor")
+    manifest = home / ".config" / "skills" / "skills-master.json"
+    _write_json(
+        manifest,
+        {
+            "sources": {"personal": {"type": "local", "path": "skills/personal"}},
+            "skills": {"refactor": {"source": "personal"}},
+        },
+    )
+    overlay = home / ".config" / "skills" / "machine" / "work.json"
+    _write_json(overlay, [])
+    assert (
+        run_skills_sync(home=home, repo_root=repo, machine_config_path=overlay, now=1.0)
+        == 1
+    )
 
 
 def test_run_skills_sync_prunes_dropped_source_from_state(tmp_path):

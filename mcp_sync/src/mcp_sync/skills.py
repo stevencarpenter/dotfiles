@@ -149,8 +149,9 @@ def resolve_skills(manifest: JsonDict) -> list[ResolvedSkill]:
         overlay ``false`` value.
 
     Raises:
-        ValueError: If a skill references an unknown source, a git-sourced
-            skill omits the required ``path``, or a source has an invalid type.
+        ValueError: If a skill name or path is unsafe, references an unknown
+            source, omits a required field, or a source has an invalid type
+            or omits its required ``url``/``path``.
     """
     sources = manifest.get("sources", {})
     resolved: list[ResolvedSkill] = []
@@ -172,6 +173,10 @@ def resolve_skills(manifest: JsonDict) -> list[ResolvedSkill]:
         if not source_type:
             raise ValueError(f"Source {source_name!r} is missing required 'type' field")
         if source_type == "git":
+            if not source.get("url"):
+                raise ValueError(
+                    f"Git source {source_name!r} is missing required 'url' field"
+                )
             subpath = entry.get("path")
             if not subpath:
                 raise ValueError(f"Git-sourced skill {name!r} requires a 'path'")
@@ -183,8 +188,14 @@ def resolve_skills(manifest: JsonDict) -> list[ResolvedSkill]:
                 _validate_relative_manifest_path(explicit, label="skill path")
                 subpath = explicit
             else:
-                _validate_relative_manifest_path(source["path"], label="source path")
-                subpath = f"{source['path']}/{name}"
+                source_path = source.get("path")
+                if not source_path:
+                    raise ValueError(
+                        f"Local source {source_name!r} is missing required "
+                        "'path' field"
+                    )
+                _validate_relative_manifest_path(source_path, label="source path")
+                subpath = f"{source_path}/{name}"
             mode = "symlink"
         else:
             raise ValueError(f"Source {source_name!r} has invalid type {source_type!r}")
@@ -472,11 +483,22 @@ def run_skills_sync(
         return 1
 
     log_info("Syncing Claude skills from manifest...")
-    manifest = load_skills_manifest(manifest_file)
+    try:
+        manifest = load_skills_manifest(manifest_file)
+    except (json.JSONDecodeError, OSError, ValueError) as exc:
+        log_error(f"Manifest error: {exc}")
+        return 1
 
     if machine_config_path and machine_config_path.is_file():
-        with open(machine_config_path, encoding="utf-8") as handle:
-            overlay = json.load(handle)
+        try:
+            with open(machine_config_path, encoding="utf-8") as handle:
+                overlay = json.load(handle)
+        except (json.JSONDecodeError, OSError) as exc:
+            log_error(f"Machine overlay error: {exc}")
+            return 1
+        if not isinstance(overlay, dict):
+            log_error(f"Machine overlay root must be an object: {machine_config_path}")
+            return 1
         log_info(f"Applying machine overlay: {machine_config_path}")
         manifest = deep_merge(manifest, overlay)
 
