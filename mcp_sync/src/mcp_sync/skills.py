@@ -100,12 +100,16 @@ def resolve_skills(manifest: JsonDict) -> list[ResolvedSkill]:
         if not isinstance(entry, dict):
             raise ValueError(f"Skill {name!r} must be an object or false")
         source_name = entry.get("source")
+        if not source_name:
+            raise ValueError(f"Skill {name!r} is missing required 'source' field")
         if source_name not in sources:
             raise ValueError(
                 f"Skill {name!r} references unknown source {source_name!r}"
             )
         source = sources[source_name]
         source_type = source.get("type")
+        if not source_type:
+            raise ValueError(f"Source {source_name!r} is missing required 'type' field")
         if source_type == "git":
             subpath = entry.get("path")
             if not subpath:

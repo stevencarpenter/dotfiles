@@ -105,3 +105,31 @@ def test_resolve_skills_rejects_git_entry_without_path():
     manifest["skills"]["nopath"] = {"source": "mattpocock"}
     with pytest.raises(ValueError, match="requires a 'path'"):
         resolve_skills(manifest)
+
+
+def test_resolve_skills_rejects_entry_without_source():
+    manifest = _manifest()
+    manifest["skills"]["nosrc"] = {"path": "skills/x/nosrc"}
+    with pytest.raises(ValueError, match="missing required 'source'"):
+        resolve_skills(manifest)
+
+
+def test_resolve_skills_rejects_source_without_type():
+    manifest = _manifest()
+    manifest["sources"]["typeless"] = {"url": "https://example.com/y"}
+    manifest["skills"]["t"] = {"source": "typeless", "path": "skills/x/t"}
+    with pytest.raises(ValueError, match="missing required 'type'"):
+        resolve_skills(manifest)
+
+
+def test_resolve_skills_local_entry_honors_explicit_path():
+    manifest = _manifest()
+    manifest["skills"]["aliased"] = {
+        "source": "personal",
+        "path": "skills/personal/custom-dir",
+    }
+    resolved = resolve_skills(manifest)
+    aliased = next(s for s in resolved if s.name == "aliased")
+    assert aliased == ResolvedSkill(
+        "aliased", "personal", "local", "skills/personal/custom-dir", "symlink"
+    )
