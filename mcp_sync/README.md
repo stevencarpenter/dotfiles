@@ -118,12 +118,14 @@ uv run pytest -v
 `sync-mcp-configs` deploys MCP configs.
 
 - **Manifest:** `~/.config/skills/skills-master.json` declares `sources` (git or
-  local) and an explicit `skills` allow-list. Machine overlays in
-  `~/.config/skills/machine/` disable skills per machine (`"name": false`).
+  local) and an explicit `skills` allow-list. A machine overlay in
+  `~/.config/skills/machine/` disables a skill on that machine by setting it to
+  `false` inside its `skills` object, e.g. `{ "skills": { "caveman": false } }`.
 - **Vendored skills** (git sources) are cloned into `~/.cache/mcp-sync/skills/`
   and **copied** into place; re-fetched only after `refreshPeriod`.
-- **Personal skills** (local source) live in `skills/personal/` in the chezmoi
-  repo and are **symlinked**, so edits are live.
+- **Personal skills** come from a `local` source — the `personal` source's
+  `path` (currently `skills/personal/` in the chezmoi repo) — deployed as a
+  **symlink**, so edits to the source are live without re-running the sync.
 - **Garbage collection:** `~/.local/state/mcp-sync/skills-state.json` records
   what each run deployed; skills dropped from the manifest are removed on the
   next run. Skills the sync never deployed are never touched.
