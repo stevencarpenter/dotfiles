@@ -13,6 +13,8 @@ echo "Skill sync skipped (machine capability skills=false)."
 exit 0
 {{- else -}}
 
+# sync-skills ships as an entry point of the mcp_sync uv project (alongside
+# sync-mcp-configs) — the project dir is mcp_sync/ by design, not a slip.
 SYNC_PROJECT="${HOME}/.local/share/chezmoi/mcp_sync"
 STRICT_MODE="${MCP_SYNC_STRICT:-0}"
 
