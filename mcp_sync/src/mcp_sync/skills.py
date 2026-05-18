@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -220,3 +221,38 @@ def ensure_git_source(
 
     state.setdefault("sources", {})[name] = {"last_fetch": now}
     return cache_dir
+
+
+def _remove_path(path: Path) -> None:
+    """Remove a file, symlink, or directory tree if it exists."""
+    if path.is_symlink() or path.is_file():
+        path.unlink()
+    elif path.is_dir():
+        shutil.rmtree(path)
+
+
+def deploy_skill(src: Path, target: Path, mode: str) -> None:
+    """Deploy one skill directory to its target under ``~/.claude/skills/``.
+
+    Args:
+        src: Source skill directory.
+        target: Destination directory.
+        mode: ``"copy"`` (vendored skills) or ``"symlink"`` (local skills).
+
+    Raises:
+        FileNotFoundError: If ``src`` does not exist.
+        ValueError: If ``mode`` is neither ``"copy"`` nor ``"symlink"``.
+    """
+    if not src.is_dir():
+        raise FileNotFoundError(f"Skill source not found: {src}")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if mode == "symlink":
+        if target.is_symlink() and target.resolve() == src.resolve():
+            return
+        _remove_path(target)
+        target.symlink_to(src)
+    elif mode == "copy":
+        _remove_path(target)
+        shutil.copytree(src, target)
+    else:
+        raise ValueError(f"Unknown deploy mode: {mode!r}")

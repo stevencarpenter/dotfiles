@@ -13,6 +13,7 @@ from mcp_sync.skills import load_skills_manifest
 from mcp_sync.skills import load_state
 from mcp_sync.skills import parse_duration
 from mcp_sync.skills import resolve_skills
+from mcp_sync.skills import deploy_skill
 from mcp_sync.skills import write_state
 
 
@@ -199,3 +200,48 @@ def test_ensure_git_source_refetches_when_stale(tmp_path, monkeypatch):
     assert ("fetch", "origin", "v2") in calls
     assert ("reset", "--hard", "FETCH_HEAD") in calls
     assert state["sources"]["mattpocock"]["last_fetch"] == 1000.0 + 99999
+
+
+def _make_skill(root, name):
+    directory = root / name
+    directory.mkdir(parents=True)
+    (directory / "SKILL.md").write_text(f"# {name}")
+    return directory
+
+
+def test_deploy_skill_copy_creates_real_directory(tmp_path):
+    src = _make_skill(tmp_path / "src", "tdd")
+    target = tmp_path / "claude" / "skills" / "tdd"
+    deploy_skill(src, target, "copy")
+    assert (target / "SKILL.md").read_text() == "# tdd"
+    assert not target.is_symlink()
+
+
+def test_deploy_skill_symlink_points_at_source(tmp_path):
+    src = _make_skill(tmp_path / "src", "refactor")
+    target = tmp_path / "claude" / "skills" / "refactor"
+    deploy_skill(src, target, "symlink")
+    assert target.is_symlink()
+    assert target.resolve() == src.resolve()
+
+
+def test_deploy_skill_copy_replaces_stale_content(tmp_path):
+    src = _make_skill(tmp_path / "src", "tdd")
+    target = tmp_path / "claude" / "skills" / "tdd"
+    target.mkdir(parents=True)
+    (target / "stale.md").write_text("old")
+    deploy_skill(src, target, "copy")
+    assert not (target / "stale.md").exists()
+
+
+def test_deploy_skill_symlink_is_idempotent(tmp_path):
+    src = _make_skill(tmp_path / "src", "refactor")
+    target = tmp_path / "claude" / "skills" / "refactor"
+    deploy_skill(src, target, "symlink")
+    deploy_skill(src, target, "symlink")
+    assert target.resolve() == src.resolve()
+
+
+def test_deploy_skill_missing_source_raises(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        deploy_skill(tmp_path / "nope", tmp_path / "target", "copy")
