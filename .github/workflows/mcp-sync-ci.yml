@@ -4,10 +4,12 @@ on:
   push:
     paths:
       - "mcp_sync/**"
+      - "dot_config/skills/**"
       - ".github/workflows/mcp-sync-ci.yml"
   pull_request:
     paths:
       - "mcp_sync/**"
+      - "dot_config/skills/**"
       - ".github/workflows/mcp-sync-ci.yml"
 
 jobs:

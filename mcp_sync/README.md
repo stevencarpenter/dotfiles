@@ -111,3 +111,37 @@ uv sync --group dev
 uv run ruff check src tests
 uv run pytest -v
 ```
+
+## Skill Sync (`sync-skills`)
+
+`sync-skills` deploys Claude Code skills to `~/.claude/skills/`, mirroring how
+`sync-mcp-configs` deploys MCP configs.
+
+- **Manifest:** `~/.config/skills/skills-master.json` declares `sources` (git or
+  local) and an explicit `skills` allow-list. Machine overlays in
+  `~/.config/skills/machine/` disable skills per machine (`"name": false`).
+- **Vendored skills** (git sources) are cloned into `~/.cache/mcp-sync/skills/`
+  and **copied** into place; re-fetched only after `refreshPeriod`.
+- **Personal skills** (local source) live in `skills/personal/` in the chezmoi
+  repo and are **symlinked**, so edits are live.
+- **Garbage collection:** `~/.local/state/mcp-sync/skills-state.json` records
+  what each run deployed; skills dropped from the manifest are removed on the
+  next run. Skills the sync never deployed are never touched.
+
+Run manually with `uv run --project mcp_sync sync-skills`. It runs automatically
+after `chezmoi apply` via `.chezmoiscripts/run_after_sync-skills.sh.tmpl`.
+
+### One-time migration cleanup
+
+Before this feature, `~/.claude/skills/` held symlinks into `~/.agents/skills/`.
+After the first `chezmoi apply` with `sync-skills`, remove the stale state by
+hand (destructive — review before running):
+
+```bash
+# Remove dangling symlinks that point into ~/.agents/skills/
+for link in ~/.claude/skills/*; do
+  [ -L "$link" ] && [ ! -e "$link" ] && rm -v "$link"
+done
+# Once skills/personal/ has replaced it, retire the old directory:
+rm -rf ~/.agents
+```
