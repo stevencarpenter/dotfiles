@@ -408,10 +408,43 @@ def test_garbage_collect_removes_orphaned_symlink(tmp_path):
     real = tmp_path / "real"
     real.mkdir()
     (target_root / "old").symlink_to(real)
-    previous = {"old": {"mode": "symlink", "source": "personal"}}
+    previous = {
+        "old": {"mode": "symlink", "source": "personal", "target": str(real)}
+    }
     removed = garbage_collect(previous, set(), target_root)
     assert removed == ["old"]
     assert not (target_root / "old").is_symlink()
+
+
+def test_garbage_collect_keeps_replaced_symlink(tmp_path):
+    # The user (or a plugin) repointed our symlink at their own directory.
+    target_root = tmp_path / "skills"
+    target_root.mkdir()
+    ours = tmp_path / "ours"
+    ours.mkdir()
+    theirs = tmp_path / "theirs"
+    theirs.mkdir()
+    link = target_root / "old"
+    link.symlink_to(theirs)
+    previous = {
+        "old": {"mode": "symlink", "source": "personal", "target": str(ours)}
+    }
+    removed = garbage_collect(previous, set(), target_root)
+    assert removed == []
+    assert link.is_symlink()
+
+
+def test_garbage_collect_skips_symlink_without_recorded_target(tmp_path):
+    # Pre-feature state has no recorded target — treat conservatively, keep it.
+    target_root = tmp_path / "skills"
+    target_root.mkdir()
+    real = tmp_path / "real"
+    real.mkdir()
+    (target_root / "old").symlink_to(real)
+    previous = {"old": {"mode": "symlink", "source": "personal"}}
+    removed = garbage_collect(previous, set(), target_root)
+    assert removed == []
+    assert (target_root / "old").is_symlink()
 
 
 def test_garbage_collect_removes_copy_with_matching_marker(tmp_path):
@@ -481,7 +514,9 @@ def test_garbage_collect_removes_broken_orphaned_symlink(tmp_path):
     real.rmdir()
     assert not link.exists()
     assert link.is_symlink()
-    previous = {"old": {"mode": "symlink", "source": "personal"}}
+    previous = {
+        "old": {"mode": "symlink", "source": "personal", "target": str(real)}
+    }
     removed = garbage_collect(previous, set(), target_root)
     assert removed == ["old"]
     assert not link.is_symlink()
@@ -552,6 +587,11 @@ def test_run_skills_sync_deploys_local_and_vendored(tmp_path):
         "marker": "mcp-sync-managed-v1",
     }
     assert (skills_dir / "tdd" / ".mcp-sync-managed").is_file()
+    assert written["deployed"]["refactor"] == {
+        "mode": "symlink",
+        "source": "personal",
+        "target": str(repo / "skills" / "personal" / "refactor"),
+    }
 
 
 def test_run_skills_sync_garbage_collects_dropped_skill(tmp_path):

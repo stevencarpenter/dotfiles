@@ -432,10 +432,11 @@ def garbage_collect(
     """Remove skills deployed by a prior run but absent from this run.
 
     An entry is removed only when it still matches the shape the prior run
-    recorded — a symlink we created, or a copied directory still carrying a
-    matching ``.mcp-sync-managed`` ownership marker. If the user has since
-    replaced it with something else (or it predates the marker), it is logged
-    and left alone. Anything the sync never recorded is never inspected.
+    recorded — a symlink still pointing at its recorded target, or a copied
+    directory still carrying a matching ``.mcp-sync-managed`` ownership marker.
+    If the user has since replaced it with something else (or it predates the
+    target/marker bookkeeping), it is logged and left alone. Anything the sync
+    never recorded is never inspected.
 
     Args:
         previous: The prior run's ``state["deployed"]`` mapping.
@@ -458,8 +459,15 @@ def garbage_collect(
             continue
         mode = record.get("mode")
         if mode == "symlink" and path.is_symlink():
-            path.unlink()
-            removed.append(name)
+            expected = record.get("target")
+            if expected and os.readlink(path) == expected:
+                path.unlink()
+                removed.append(name)
+            else:
+                log_info(
+                    f"Skipping GC of {name!r}: symlink no longer points at "
+                    "the recorded target"
+                )
         elif mode == "copy" and path.is_dir() and not path.is_symlink():
             marker = path / _MANAGED_MARKER
             expected = record.get("marker")
@@ -633,6 +641,8 @@ def run_skills_sync(
         record: JsonDict = {"mode": skill.mode, "source": skill.source_name}
         if skill.mode == "copy":
             record["marker"] = _MANAGED_MARKER_VALUE
+        else:
+            record["target"] = str(src)
         deployed[skill.name] = record
         log_success(f"Deployed skill: {skill.name} ({skill.mode})")
 
