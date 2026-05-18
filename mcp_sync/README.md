@@ -145,7 +145,7 @@ for link in ~/.claude/skills/*; do
   [ -L "$link" ] || continue
   target="$(readlink "$link")"
   case "$target" in
-    "$HOME/.agents/skills/"*|~/.agents/skills/*)
+    "$HOME/.agents/skills/"*)
       [ -e "$link" ] || rm -v "$link"
       ;;
   esac
