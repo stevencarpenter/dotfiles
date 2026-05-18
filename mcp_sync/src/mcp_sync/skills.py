@@ -382,8 +382,13 @@ def _replace_directory_from_copy(src: Path, target: Path) -> None:
             backup.rename(target)
         raise
     finally:
-        _remove_path(tmp)
-        _remove_path(backup)
+        # Best-effort: a cleanup failure must not mask an otherwise-successful
+        # deploy, nor replace the real exception on the failure path.
+        for leftover in (tmp, backup):
+            try:
+                _remove_path(leftover)
+            except OSError:
+                log_info(f"Best-effort cleanup left {leftover} behind")
 
 
 def deploy_skill(src: Path, target: Path, mode: str) -> None:

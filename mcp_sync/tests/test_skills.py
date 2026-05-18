@@ -362,6 +362,24 @@ def test_deploy_skill_copy_failure_keeps_existing_target(tmp_path, monkeypatch):
     assert (target / "SKILL.md").read_text() == "# old"
 
 
+def test_deploy_skill_copy_cleanup_failure_does_not_mask_success(tmp_path, monkeypatch):
+    src = _make_skill(tmp_path / "src", "tdd")
+    target = tmp_path / "claude" / "skills" / "tdd"
+    target.mkdir(parents=True)
+    (target / "SKILL.md").write_text("# old")
+    real_rmtree = skills_mod.shutil.rmtree
+
+    def flaky_rmtree(path, *args, **kwargs):
+        # The post-rename cleanup of the backup directory fails transiently.
+        if ".bak-" in str(path):
+            raise OSError("cleanup boom")
+        return real_rmtree(path, *args, **kwargs)
+
+    monkeypatch.setattr(skills_mod.shutil, "rmtree", flaky_rmtree)
+    deploy_skill(src, target, "copy")  # must not raise
+    assert (target / "SKILL.md").read_text() == "# tdd"
+
+
 def test_deploy_skill_copy_rejects_symlink_inside_source(tmp_path):
     src = _make_skill(tmp_path / "src", "tdd")
     outside = tmp_path / "outside-secret"
