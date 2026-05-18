@@ -142,6 +142,41 @@ def test_resolve_skills_local_entry_honors_explicit_path():
     )
 
 
+@pytest.mark.parametrize(
+    "bad_name",
+    ["", ".", "..", "../escaped", "nested/name", "/tmp/owned", "space name"],
+)
+def test_resolve_skills_rejects_unsafe_skill_names(bad_name):
+    manifest = _manifest()
+    manifest["skills"] = {
+        bad_name: {"source": "personal", "path": "skills/personal/refactor"}
+    }
+    with pytest.raises(ValueError, match="unsafe skill name"):
+        resolve_skills(manifest)
+
+
+@pytest.mark.parametrize("bad_path", ["../outside", "/tmp/outside", "skills/../outside"])
+def test_resolve_skills_rejects_unsafe_explicit_paths(bad_path):
+    manifest = _manifest()
+    manifest["skills"]["refactor"] = {"source": "personal", "path": bad_path}
+    with pytest.raises(ValueError, match="unsafe skill path"):
+        resolve_skills(manifest)
+
+
+def test_resolve_skills_rejects_unsafe_local_source_path():
+    manifest = _manifest()
+    manifest["sources"]["personal"]["path"] = "../outside"
+    with pytest.raises(ValueError, match="unsafe source path"):
+        resolve_skills(manifest)
+
+
+def test_resolve_skills_rejects_unsafe_git_skill_path():
+    manifest = _manifest()
+    manifest["skills"]["tdd"] = {"source": "mattpocock", "path": "../outside"}
+    with pytest.raises(ValueError, match="unsafe skill path"):
+        resolve_skills(manifest)
+
+
 def test_load_state_missing_returns_skeleton(tmp_path):
     assert load_state(tmp_path / "none.json") == {"deployed": {}, "sources": {}}
 
@@ -306,6 +341,17 @@ def test_garbage_collect_removes_broken_orphaned_symlink(tmp_path):
     removed = garbage_collect(previous, set(), target_root)
     assert removed == ["old"]
     assert not link.is_symlink()
+
+
+def test_garbage_collect_skips_unsafe_state_name(tmp_path):
+    target_root = tmp_path / "skills"
+    target_root.mkdir()
+    escaped = tmp_path / "escaped"
+    escaped.mkdir()
+    previous = {"../escaped": {"mode": "copy", "source": "personal"}}
+    removed = garbage_collect(previous, set(), target_root)
+    assert removed == []
+    assert escaped.exists()
 
 
 def _write_json(path, payload):

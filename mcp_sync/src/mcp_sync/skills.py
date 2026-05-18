@@ -21,6 +21,8 @@ _DURATION_RE = re.compile(r"^(\d+)([smhd])$")
 DEFAULT_REFRESH = "168h"
 DEFAULT_REF = "main"
 
+_SAFE_SKILL_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+
 
 def parse_duration(text: str) -> int:
     """Parse a single-unit duration (e.g. '168h', '7d') into seconds.
@@ -83,6 +85,57 @@ class ResolvedSkill:
     mode: str
 
 
+def _validate_skill_name(name: str) -> None:
+    """Reject skill names that could escape the managed skills directory.
+
+    Args:
+        name: A manifest skill key or a recorded state key.
+
+    Raises:
+        ValueError: If the name is not a safe single path component.
+    """
+    if not isinstance(name, str) or not _SAFE_SKILL_NAME_RE.fullmatch(name):
+        raise ValueError(f"unsafe skill name: {name!r}")
+
+
+def _validate_relative_manifest_path(path_text: str, *, label: str) -> None:
+    """Reject manifest paths that are absolute or contain traversal segments.
+
+    Args:
+        path_text: A path string drawn from the manifest.
+        label: Human-readable label used to phrase the error message.
+
+    Raises:
+        ValueError: If the path is absolute or contains ``.``, ``..``, or empty
+            components.
+    """
+    path = Path(path_text)
+    if path.is_absolute() or any(part in {"", ".", ".."} for part in path.parts):
+        raise ValueError(f"unsafe {label}: {path_text!r}")
+
+
+def _safe_target(root: Path, name: str) -> Path:
+    """Resolve a skill target under ``root``, refusing names that escape it.
+
+    Args:
+        root: The managed ``~/.claude/skills/`` directory.
+        name: The skill directory name.
+
+    Returns:
+        The validated ``root / name`` path.
+
+    Raises:
+        ValueError: If ``name`` is unsafe or resolves outside ``root``.
+    """
+    _validate_skill_name(name)
+    # Resolve only the (trusted) root chain — never the leaf, since a
+    # symlink-mode skill deliberately points outside the skills directory.
+    root_resolved = root.resolve(strict=False)
+    if (root_resolved / name).parent != root_resolved:
+        raise ValueError(f"skill target escapes target root: {name!r}")
+    return root / name
+
+
 def resolve_skills(manifest: JsonDict) -> list[ResolvedSkill]:
     """Resolve the manifest's skill map into a deployable list.
 
@@ -100,6 +153,7 @@ def resolve_skills(manifest: JsonDict) -> list[ResolvedSkill]:
     sources = manifest.get("sources", {})
     resolved: list[ResolvedSkill] = []
     for name, entry in sorted(manifest.get("skills", {}).items()):
+        _validate_skill_name(name)
         if entry is False:
             continue
         if not isinstance(entry, dict):
@@ -119,9 +173,16 @@ def resolve_skills(manifest: JsonDict) -> list[ResolvedSkill]:
             subpath = entry.get("path")
             if not subpath:
                 raise ValueError(f"Git-sourced skill {name!r} requires a 'path'")
+            _validate_relative_manifest_path(subpath, label="skill path")
             mode = "copy"
         elif source_type == "local":
-            subpath = entry.get("path") or f"{source['path']}/{name}"
+            explicit = entry.get("path")
+            if explicit:
+                _validate_relative_manifest_path(explicit, label="skill path")
+                subpath = explicit
+            else:
+                _validate_relative_manifest_path(source["path"], label="source path")
+                subpath = f"{source['path']}/{name}"
             mode = "symlink"
         else:
             raise ValueError(f"Source {source_name!r} has invalid type {source_type!r}")
@@ -288,7 +349,11 @@ def garbage_collect(
     for name, record in sorted(previous.items()):
         if name in current_names:
             continue
-        path = target_root / name
+        try:
+            path = _safe_target(target_root, name)
+        except ValueError:
+            log_info(f"Skipping GC of unsafe state entry: {name!r}")
+            continue
         if not path.exists() and not path.is_symlink():
             continue
         mode = record.get("mode")
@@ -401,8 +466,9 @@ def run_skills_sync(
             src = git_caches[skill.source_name] / skill.subpath
         else:
             src = repo / skill.subpath
+        target = _safe_target(target_root, skill.name)
         try:
-            deploy_skill(src, target_root / skill.name, skill.mode)
+            deploy_skill(src, target, skill.mode)
         except FileNotFoundError as exc:
             log_error(str(exc))
             failed = True
