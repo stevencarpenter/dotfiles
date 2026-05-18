@@ -141,6 +141,9 @@ Library/LaunchAgents/com.user.xcode-mcp-proxy.plist
 .config/mcp
 {{ end }}
 
+# Skip the skills manifest + machine overlays on machines that don't run
+# Claude Code skills. The post-apply sync-skills hook self-gates on the
+# same capability, so it becomes a no-op without the source files.
 {{ if not (index .machines .machine).skills }}
 .config/skills
 {{ end }}
