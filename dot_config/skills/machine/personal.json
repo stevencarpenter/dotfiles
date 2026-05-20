@@ -1,1 +1,6 @@
-{ "skills": {} }
+{
+  "skills": {
+    "using-hippo-brain": { "source": "personal" },
+    "monitoring-hippo": { "source": "personal" }
+  }
+}
