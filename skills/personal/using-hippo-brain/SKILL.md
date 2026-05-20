@@ -63,13 +63,18 @@ Prefer the structured retrievers (`search_hybrid` / `search_knowledge`) over
 ## Scope every query
 
 All retrieval tools (`search_hybrid`, `search_knowledge`, `search_events`,
-`get_context`, `ask`) share these filters — using them is the biggest
+`get_context`, `ask`) accept `project` and `since` — using them is the biggest
 precision win:
 
 - `project=<repo-or-cwd-substring>` — restrict to the repo you're in.
 - `since="24h"` / `"7d"` / `"30m"` — bound the time window.
-- `source="shell"|"claude"|"browser"|"workflow"` — restrict by origin.
-- `branch=<git-branch>` — exact-match the branch.
+
+Most also accept, with two exceptions to watch:
+
+- `source=` — origin filter. `search_hybrid` / `search_knowledge` /
+  `get_context` / `ask` take `shell|claude|browser|workflow`; `search_events`
+  takes `shell|claude|browser|all` (no `workflow`).
+- `branch=<git-branch>` — exact-match the branch. Not available on `get_context`.
 
 When working in a specific repo, default to scoping by `project` — an
 unscoped query searches every project you've ever touched.
