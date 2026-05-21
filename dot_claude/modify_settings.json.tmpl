@@ -2,13 +2,15 @@
 # Manages ~/.claude/settings.json idempotently.
 #
 # Reads the existing target from stdin and recursively merges the chezmoi-managed
-# config on top. Keys NOT defined in $managed (e.g. model, effortLevel, editorMode)
-# are preserved from the live file so Claude Code's in-tool changes survive apply.
+# config on top. Keys NOT defined in $managed (e.g. editorMode, theme) are preserved
+# from the live file so Claude Code's in-tool changes survive apply. As a refinement,
+# model and effortLevel are *seeded* with a cross-machine default (opus[1m] / xhigh)
+# only when the live file has no value yet, so a fresh machine gets the default while
+# an in-tool override (model picker 'd', or /effort) still survives apply.
 # Output is sorted (jq -S) for deterministic diffs.
 
 set -euo pipefail
 
-{{- $personal := hasPrefix "personal" .machine -}}
 {{- $work := hasPrefix "work" .machine -}}
 {{- $hippo := (index .machines .machine).hippo -}}
 {{- $dev := (index .machines .machine).dev }}
@@ -85,14 +87,14 @@ managed=$(cat <<'JSON'
     "claude-md-management@claude-plugins-official": true,
     "cloudflare@cloudflare": {{ $dev }},
     "code-review@claude-plugins-official": true,
-    "code-simplifier@claude-plugins-official": {{ $personal }},
-    "commit-commands@claude-plugins-official": {{ $personal }},
+    "code-simplifier@claude-plugins-official": true,
+    "commit-commands@claude-plugins-official": true,
     "context7@claude-plugins-official": true,
-    "feature-dev@claude-plugins-official": {{ $personal }},
+    "feature-dev@claude-plugins-official": true,
     "frontend-design@claude-plugins-official": {{ $dev }},
     "github@claude-plugins-official": true,
     "gopls-lsp@claude-plugins-official": true,
-    "hookify@claude-plugins-official": {{ $personal }},
+    "hookify@claude-plugins-official": true,
     "lua-lsp@claude-plugins-official": {{ $dev }},
     "playwright@claude-plugins-official": {{ $dev }},
     "pyright-lsp@claude-plugins-official": true,
@@ -101,7 +103,7 @@ managed=$(cat <<'JSON'
     "rust-analyzer-lsp@claude-plugins-official": true,
     "security-guidance@claude-plugins-official": true,
     "semgrep@claude-plugins-official": false,
-    "skill-creator@claude-plugins-official": {{ $personal }},
+    "skill-creator@claude-plugins-official": true,
     "superpowers@claude-plugins-official": true,
     "swift-lsp@claude-plugins-official": {{ $dev }},
     "typescript-lsp@claude-plugins-official": {{ $dev }}
@@ -137,6 +139,16 @@ existing=$(cat)
 [[ -z "$existing" ]] && existing='{}'
 
 merged=$(printf '%s\n' "$existing" | jq -S --argjson managed "$managed" '. * $managed')
+
+# Seed cross-machine defaults for model + effort. These stay OUT of $managed so an
+# in-tool override survives apply; we only set them when the live file has no value
+# yet (fresh machine). Effort is seeded to xhigh (the highest level that persists);
+# max is intentionally not pinned here because it can't persist via effortLevel and
+# would require CLAUDE_CODE_EFFORT_LEVEL=max, which also overrides per-session /effort.
+merged=$(printf '%s\n' "$merged" | jq -S '
+  (if .model == null then .model = "opus[1m]" else . end)
+  | (if .effortLevel == null then .effortLevel = "xhigh" else . end)
+')
 
 {{- if not $hippo }}
 # Hippo capability is off — strip any previously-injected SessionStart hook
