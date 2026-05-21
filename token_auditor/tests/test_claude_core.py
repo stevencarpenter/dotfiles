@@ -260,7 +260,7 @@ def test_parse_claude_events_returns_none_when_no_usage_bearing_messages_exist()
     assert parse_claude_events(({"sessionId": "empty", "message": "not-a-dict"},), Path("/tmp/no-usage.jsonl")) is None
 
 
-def test_compute_claude_costs_applies_long_context_for_messages_over_200k() -> None:
+def test_compute_claude_costs_bills_flat_rates_for_messages_over_200k() -> None:
     """Single-model Opus session: one message under 200K, one over."""
     under = extract_claude_message_snapshot(
         {
@@ -299,15 +299,15 @@ def test_compute_claude_costs_applies_long_context_for_messages_over_200k() -> N
     deduped = reduce_message_snapshots((under, over))
     costs, premium = compute_claude_costs(deduped)
 
-    # m1 (60,100 total input — standard): $0.1005
-    # m2 (301,000 total input — long context): $0.96
-    assert costs["session_total_cost_usd"] == pytest.approx(1.0605)
+    # 1M context bills flat now: both messages use standard Opus rates regardless of
+    # the 200K threshold. m1 = $0.1005, m2 = $0.4925.
+    assert costs["session_total_cost_usd"] == pytest.approx(0.593)
 
-    # Premium = long_context_cost - standard_cost for m2 = $0.96 - $0.4925
-    assert premium == pytest.approx(0.4675)
+    # No >200K premium under flat billing.
+    assert premium == pytest.approx(0.0)
 
 
-def test_compute_claude_costs_mixed_model_with_long_context() -> None:
+def test_compute_claude_costs_mixed_model_over_200k_bills_flat() -> None:
     """Opus over 200K + Haiku under 200K — both model resolution and threshold detection."""
     opus = extract_claude_message_snapshot(
         {
@@ -346,12 +346,11 @@ def test_compute_claude_costs_mixed_model_with_long_context() -> None:
     deduped = reduce_message_snapshots((opus, haiku))
     costs, premium = compute_claude_costs(deduped)
 
-    # Opus (300,500 input — long context): $1.4925
-    # Haiku (50,100 input — standard, no long context tier): $0.0191
-    assert costs["session_total_cost_usd"] == pytest.approx(1.5116)
+    # Flat billing: Opus (300,500 input) = $0.7525 standard, Haiku (50,100) = $0.0191.
+    assert costs["session_total_cost_usd"] == pytest.approx(0.7716)
 
-    # Premium = opus_lc - opus_std = $1.4925 - $0.7525
-    assert premium == pytest.approx(0.74)
+    # No >200K premium under flat billing.
+    assert premium == pytest.approx(0.0)
 
 
 def test_compute_claude_costs_single_model_matches_per_message_sum() -> None:
@@ -420,8 +419,8 @@ def test_parse_claude_events_includes_long_context_premium_field() -> None:
     )
 
     assert usage is not None
-    # 250,100 total input > 200K threshold
-    # Long context Opus: input=100*10/M=0.001, cached=250000*1.0/M=0.25, output=500*37.5/M=0.01875
-    assert usage["session_total_cost_usd"] == pytest.approx(0.26975)
-    # Standard would be: input=0.0005, cached=0.125, output=0.0125 = 0.138
-    assert usage["long_context_premium_usd"] == pytest.approx(0.13175)
+    # 250,100 total input > 200K, but the 1M context bills flat now:
+    # input=100*5/M=0.0005, cached=250000*0.5/M=0.125, output=500*25/M=0.0125 = 0.138
+    assert usage["session_total_cost_usd"] == pytest.approx(0.138)
+    # Field is retained by design but is always 0.0 under flat billing.
+    assert usage["long_context_premium_usd"] == pytest.approx(0.0)

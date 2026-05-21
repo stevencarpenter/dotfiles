@@ -23,7 +23,9 @@ def resolve_pricing_model(provider: str, model: str) -> str:
             return target
 
     if provider == "codex":
-        for priced_model in provider_pricing:
+        # Longest (most specific) prefix wins so e.g. "gpt-5.4-mini-<date>" resolves to
+        # "gpt-5.4-mini", not "gpt-5.4".
+        for priced_model in sorted(provider_pricing, key=lambda name: len(name), reverse=True):
             if normalized.startswith(f"{priced_model}-"):
                 return priced_model
 
