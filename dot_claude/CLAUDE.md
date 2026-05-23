@@ -45,6 +45,10 @@ This user has spent significant effort configuring MCP servers, plugins, skills,
 
 Also use the `LSP` tool for language-server-level diagnostics, hover info, go-to-definition, and references — this gives semantic understanding beyond text search. Language-specific LSP plugins are installed: **Swift, TypeScript, Python (pyright), Go (gopls), Rust (rust-analyzer), Lua**. Use LSP before falling back to grep for symbol resolution, type checking, or finding references.
 
+### Shell tooling
+
+- **Always use `rg` (ripgrep) instead of `grep`.** `rg` is installed and faster, respects `.gitignore`, and has saner defaults. This applies in Bash, in shell pipelines, and anywhere you would have reached for `grep`. The only exception is when a script is being shipped to a machine without ripgrep available — and that is not the case on any machine in this dotfiles repo.
+
 ### Experimental Agent Teams (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`)
 
 Agent teams are enabled with **tmux mode** (`teammateMode: tmux`) — each agent spawns in its own tmux window. Use `TeamCreate` to spin up parallel teams of specialized agents for independent workstreams. Prefer teams over single agents when tasks have 2+ independent subtasks.

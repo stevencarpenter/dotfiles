@@ -2,10 +2,11 @@
 .git
 .idea
 
-# Ignore all claude-mem generated CLAUDE.md files (keep only root CLAUDE.md for project instructions)
+# Ignore all claude-mem generated CLAUDE.md files. (The repo-root CLAUDE.md is
+# also ignored below — it's project instructions for in-repo work, not a
+# dotfile to deploy to ~/.)
 **/.git/CLAUDE.md
 **/.git/**/CLAUDE.md
-!CLAUDE.md
 
 .chezmoiscripts/CLAUDE.md
 .chezmoiignore/**/*.md
@@ -41,6 +42,8 @@ docs/**/CLAUDE.md
 .gitignore
 README.md
 CLAUDE.md
+AGENTS.md
+Justfile
 docs
 scripts
 skills
@@ -58,8 +61,18 @@ private_dot_claude.json
 **/*.pyc
 **/*.pyo
 
+# In-repo Python tool projects — these live in the source tree only.
+# Post-apply hooks invoke them via ${HOME}/.local/share/chezmoi/<tool>
+# (see .chezmoiscripts/run_after_sync-*.sh.tmpl). They must NOT be copied
+# into ~/ — without this gate, build artifacts (*.egg-info, build/, dist/)
+# leak into the home directory on every `chezmoi apply`.
+aws_config_gen
+mcp_sync
+token_auditor
+
 # Ignore claude transient data (target paths under ~/.claude/)
 .claude/*
+!.claude/CLAUDE.md
 !.claude/settings.json
 
 # ~/.claude/skills/ is managed by mcp_sync's sync-skills command, not chezmoi.
