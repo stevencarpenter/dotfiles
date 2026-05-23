@@ -169,7 +169,7 @@ fi
 # RTT ping would be more accurate (catches stale socket files left by a
 # crashed daemon) but would require either `nc -U` with a timeout or a CLI
 # subprocess on every tick — too costly. Only shown on personal-mac (the
-# only machine with hippo capability per .chezmoidata/machines.toml).
+# machine that runs the hippo brain; hippo is personal-only).
 hippo_part=""
 if [ "$machine" = "personal-mac" ]; then
   if [ -S "$HOME/.local/share/hippo/daemon.sock" ]; then

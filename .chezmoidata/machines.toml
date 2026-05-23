@@ -29,9 +29,6 @@
 #            and run the post-apply sync-skills hook that populates
 #            ~/.claude/skills/ from vendored (mattpocock) and personal
 #            skills. Off on machines that don't run Claude Code skills.
-#   hippo  — deploy ~/.config/hippo/ and wire the hippo SessionStart hook into
-#            ~/.claude/settings.json. Off on machines that don't run the
-#            hippo brain locally.
 #   gui    — install GUI applications + display fonts. On for any machine
 #            with a usable display, including lab-mac while it's reached via
 #            macOS Screen Share (so Raycast / Ghostty / Obsidian / VS Code /
@@ -71,7 +68,6 @@ tiling = true
 atuin = true
 mcp = true
 skills = true
-hippo = true
 gui = true
 dev = true
 aws_sso = false
@@ -82,7 +78,6 @@ tiling = true
 atuin = false
 mcp = true
 skills = true
-hippo = false
 gui = true
 dev = false
 aws_sso = true
@@ -93,8 +88,9 @@ infra = true
 # defacto: runs adguard + Tailscale for the LAN, hosts the self-hosted
 # atuin sync server (so atuin is also true here as a client). Currently
 # being stood up — Claude Code + MCP fan-out are on so the assistant has
-# local context (lab.json overlay carries Grafana + Railway MCP for
-# home-ops). No hippo (no local LM), no dev tooling, no work / aws_sso.
+# local context (lab.json overlay carries just the Grafana MCP for
+# home-ops — Railway is a plugin now, not an MCP server). No dev / work /
+# aws_sso, and no local LM (hippo is personal-only).
 # Flip `infra = true` once homelab IaC (terraform / k8s) actually moves
 # here. Flip `gui = false` once stand-up is done and Screen Share use
 # tapers off.
@@ -102,7 +98,6 @@ tiling = false
 atuin = true
 mcp = true
 skills = true
-hippo = false
 gui = true
 dev = false
 aws_sso = false

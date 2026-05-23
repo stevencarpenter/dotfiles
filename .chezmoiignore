@@ -100,6 +100,8 @@ token_auditor
 {{ if not (hasPrefix "personal" .machine) }}
 .config/mcp/machine/personal.json
 .config/skills/machine/personal.json
+# hippo brain client config — hippo runs only on personal (needs a local LM)
+.config/hippo
 .config/zsh/.personal.env
 .config/zsh/profile.d/personal-secrets.zsh
 .config/zsh/profile.d/personal-shell-functions.zsh
@@ -159,11 +161,4 @@ Library/LaunchAgents/com.user.xcode-mcp-proxy.plist
 # same capability, so it becomes a no-op without the source files.
 {{ if not (index .machines .machine).skills }}
 .config/skills
-{{ end }}
-
-# Skip the hippo brain client config on machines that don't run hippo
-# locally. The hippo SessionStart hook in ~/.claude/settings.json is gated on
-# the same capability via dot_claude/modify_settings.json.tmpl.
-{{ if not (index .machines .machine).hippo }}
-.config/hippo
 {{ end }}

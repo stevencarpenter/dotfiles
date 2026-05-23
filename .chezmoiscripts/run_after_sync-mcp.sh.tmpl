@@ -35,15 +35,21 @@ fi
 if [[ -f "${SYNC_PROJECT}/pyproject.toml" ]]; then
   sync_cmd=(sync-mcp-configs)
 
-  # Detect machine-type overlay (chezmoi deploys only the matching one)
+  # Select the overlay for THIS machine type, rendered from chezmoi's .machine
+  # data — never whatever stale overlay happens to sort first on disk after a
+  # machine-type change.
   MACHINE_DIR="${HOME}/.config/mcp/machine"
-  if [[ -d "${MACHINE_DIR}" ]]; then
-    for f in "${MACHINE_DIR}"/*.json; do
-      if [[ -f "$f" ]]; then
-        sync_cmd+=(--machine-config "$f")
-        break
-      fi
-    done
+  MACHINE_OVERLAY=""
+  {{- if hasPrefix "personal" .machine }}
+  MACHINE_OVERLAY="${MACHINE_DIR}/personal.json"
+  {{- else if hasPrefix "work" .machine }}
+  MACHINE_OVERLAY="${MACHINE_DIR}/work.json"
+  {{- else if eq .machine "lab-mac" }}
+  MACHINE_OVERLAY="${MACHINE_DIR}/lab.json"
+  {{- end }}
+
+  if [[ -n "${MACHINE_OVERLAY}" && -f "${MACHINE_OVERLAY}" ]]; then
+    sync_cmd+=(--machine-config "${MACHINE_OVERLAY}")
   fi
 
   if ! uv run --project "${SYNC_PROJECT}" "${sync_cmd[@]}"; then

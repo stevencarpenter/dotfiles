@@ -12,7 +12,7 @@
 set -euo pipefail
 
 {{- $work := hasPrefix "work" .machine -}}
-{{- $hippo := (index .machines .machine).hippo -}}
+{{- $hippo := hasPrefix "personal" .machine -}}
 {{- $dev := (index .machines .machine).dev }}
 
 managed=$(cat <<'JSON'
@@ -150,8 +150,8 @@ merged=$(printf '%s\n' "$merged" | jq -S '
 ')
 
 {{- if not $hippo }}
-# Hippo capability is off — strip any previously-injected SessionStart hook
-# pointing into ~/.local/share/hippo-brain/ (legacy state from when this
+# Hippo runs only on personal — strip any previously-injected SessionStart
+# hook pointing into ~/.local/share/hippo-brain/ (legacy state from when this
 # machine was provisioned with hippo on). Recursive merge alone wouldn't
 # remove keys not present in $managed, so we filter explicitly.
 merged=$(printf '%s\n' "$merged" | jq -S '

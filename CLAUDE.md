@@ -99,8 +99,9 @@ The sync tool reads `dot_config/mcp/mcp-master.json` and generates tool-specific
   `dot_config/mcp/overrides/` per-tool override layer is planned but not yet on disk.
 
 The sync runs automatically after `chezmoi apply` via `.chezmoiscripts/run_after_sync-mcp.sh.tmpl`.
-The hook auto-detects the deployed machine overlay at `~/.config/mcp/machine/*.json` and passes it
-via `--machine-config`.
+The hook selects the overlay for the deployed machine type (rendered from `.machine`, mirroring the
+skills sync) and passes it via `--machine-config` — it does not glob whatever overlay sorts first on
+disk, so a stale overlay left by a machine-type change can't be picked up.
 
 #### Machine-Type Gating
 
@@ -112,6 +113,11 @@ Configuration is gated by machine type via chezmoi's `.machine` variable (e.g., 
 
 - **MCP work-only**: `dot_config/mcp/machine/work.json` — servers added on work machines (e.g., AWS MCP)
 - **MCP personal-only**: `dot_config/mcp/machine/personal.json.tmpl` — servers added on personal machines
+- **hippo (personal-only)**: `~/.config/hippo/` + the hippo `SessionStart` hook
+  (`dot_claude/modify_settings.json.tmpl`) deploy only on personal-mac, the box that runs the local
+  LM brain. Gated via `hasPrefix "personal"` in `.chezmoiignore` and `modify_settings.json.tmpl`.
+  Formerly a `hippo` capability; collapsed to an identity gate since hippo is intrinsically personal
+  (lab and work never run it, and lab/personal are unrelated machines).
 - **AeroSpace workspace assignments**: `dot_config/aerospace/aerospace.toml.tmpl` — separate
   `personal` / `work` blocks for `on-window-detected` rules; service-mode keybindings for personal
   layout scripts also gated
@@ -135,13 +141,15 @@ Current capabilities (one row per machine in `machines.toml`):
   to the home lab. Gated in `.chezmoiignore` (skips `.config/atuin`).
 - **`mcp`** — deploy the MCP master config + run the post-apply sync hook that fans out per-tool MCP
   configs (codex, opencode, cursor, copilot, …). Off on machines that don't run a constellation of
-  AI dev tools. Gated in `.chezmoiignore` (skips `.config/mcp`), in
-  `.chezmoiscripts/run_after_sync-mcp.sh.tmpl` (body becomes a no-op), and in
-  `dot_config/homebrew/Brewfile.tmpl` (skips `github-mcp-server`).
-- **`hippo`** — deploy `~/.config/hippo/` and wire the hippo SessionStart hook into
-  `~/.claude/settings.json`. Off on `lab-mac` and work machines. Gated in `.chezmoiignore` (skips
-  `.config/hippo`) and in `dot_claude/modify_settings.json.tmpl` (drops the `SessionStart` hook
-  block).
+  AI dev tools. Gated in `.chezmoiignore` (skips `.config/mcp`) and in
+  `.chezmoiscripts/run_after_sync-mcp.sh.tmpl` (body becomes a no-op). (github MCP moved from a
+  brew formula to the `github@claude-plugins-official` plugin — a remote HTTP server — so `mcp` no
+  longer gates a Brewfile entry.)
+- **`skills`** — deploy `~/.config/skills/` (the skill manifest + machine overlays) and run the
+  post-apply `sync-skills` hook that populates `~/.claude/skills/` from vendored (mattpocock) +
+  personal skills. Off on machines that don't run Claude Code skills. Gated in `.chezmoiignore`
+  (skips `.config/skills`) and in `.chezmoiscripts/run_after_sync-skills.sh.tmpl` (body becomes a
+  no-op).
 - **`gui`** — install GUI applications (Raycast, Ghostty, Obsidian, VS Code, 1Password, …) +
   display fonts. On for any machine with a usable display, including `lab-mac` while it's still
   being stood up via macOS Screen Share. Flip false once a machine is genuinely headless with no
