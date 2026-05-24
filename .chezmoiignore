@@ -107,6 +107,8 @@ token_auditor
 .config/zsh/profile.d/personal-shell-functions.zsh
 .config/aerospace/layouts/workspace-5-comms.sh
 Library/LaunchAgents/com.user.xcode-mcp-proxy.plist
+# SSH include snippet for reaching the i9 home server (client-side; m5 only)
+.ssh/config.d/homelab
 {{ end }}
 
 # Skip lab files on non-lab machines
