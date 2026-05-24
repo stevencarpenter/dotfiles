@@ -15,6 +15,15 @@
 #   atuin sync
 sync_address = "https://logbook.snugmarina.org"
 
+history_filter = [
+    "DIUN_TOKEN",
+    "NTFY_PASSWORD",
+    "NTFY_ADMIN_PASS",
+    "DIUN_USER_PASS",
+    "tk_[A-Za-z0-9_]+",
+    "op item create .*password",
+]
+
 # Use the tmux popup for interactive Ctrl-R search (atuin upstream default
 # is false). Requires tmux >= 3.2; falls back to inline rendering outside
 # tmux. The ATUIN_TMUX_POPUP env var can override at runtime.
