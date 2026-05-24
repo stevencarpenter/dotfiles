@@ -5,7 +5,7 @@ alias burp='brew update && brew upgrade && claude update && opencode upgrade'
 
 # Jump into the long-lived tmux session on the i9 home server. mosh survives
 # laptop sleep / network roam; `tmux new -A -s main` attaches-or-creates so you
-# always land back where you left off. Plain `ssh i9` (see ~/.ssh/config.d/homelab)
+# always land back where you left off. Plain `ssh i9` (Host i9 in ~/.ssh/config)
 # stays available for one-off / scp / non-interactive use.
 alias i9='mosh i9 -- tmux new -A -s main'
 

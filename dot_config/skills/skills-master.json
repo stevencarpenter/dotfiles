@@ -28,6 +28,7 @@
     "setup-pre-commit": { "source": "mattpocock", "path": "skills/misc/setup-pre-commit" },
     "edit-article": { "source": "mattpocock", "path": "skills/personal/edit-article" },
     "obsidian-vault": { "source": "mattpocock", "path": "skills/personal/obsidian-vault" },
-    "refactor": { "source": "personal" }
+    "refactor": { "source": "personal" },
+    "claude-cost": { "source": "personal" }
   }
 }
