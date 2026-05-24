@@ -47,12 +47,13 @@
 #            generic `aws` capability so future AWS-adjacent gates (CLI,
 #            SDK, profiles) can carry their own keys without overloading.
 #   infra  — install infrastructure / cluster-ops tooling via mise:
-#            Kubernetes (kubectl, helm, k9s, kustomize, minikube, argo),
-#            IaC (terraform), build (gradle, pnpm, goreleaser), corporate
-#            access (teleport-ent), and ops databases (mysql, duckdb).
-#            Distinct from `aws_sso` so AWS-only gates stay narrow; lab can
-#            flip this on later when homelab IaC (terraform / k8s) actually
-#            moves there.
+#            Kubernetes (kubectl, helm, k9s, kustomize), corporate access
+#            (teleport-ent), and ops databases (mysql, duckdb). IaC
+#            (terraform) and build tooling (gradle, goreleaser, pnpm) live in
+#            the global mise block now — they install on every machine and
+#            are not gated here. Distinct from `aws_sso` so AWS-only gates
+#            stay narrow; lab can flip this on later when homelab cluster-ops
+#            (k8s) actually moves there.
 #
 # Note on VPN: there is intentionally no `wireguard` capability. The home
 # network uses Tailscale (which speaks WireGuard under the hood) for the

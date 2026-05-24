@@ -164,9 +164,10 @@ Current capabilities (one row per machine in `machines.toml`):
   `.chezmoiignore` (skips `aws-config-gen/` overrides + `.aws/`) and in any shell profile that
   sources AWS helpers.
 - **`infra`** — install infrastructure / cluster-ops tooling via mise: Kubernetes (kubectl, helm,
-  k9s, kustomize, minikube, argo), IaC (terraform), build (gradle, pnpm, goreleaser), corporate
-  access (teleport-ent), ops databases (mysql, duckdb). Currently work-only; `lab-mac` flips this
-  on once homelab IaC actually moves there.
+  k9s, kustomize), corporate access (teleport-ent), ops databases (mysql, duckdb). IaC (terraform)
+  and build tooling (gradle, goreleaser, pnpm) live in the global mise block now — they install on
+  every machine and are not gated here. Currently work-only; `lab-mac` flips this on once homelab
+  cluster-ops (k8s) actually moves there.
 
 > No `wireguard` capability is defined. The home network uses Tailscale (which speaks WireGuard
 > under the hood) for the "phone home" use case; if a future device needs a raw WG tunnel, add
