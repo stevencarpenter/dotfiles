@@ -187,6 +187,7 @@ capability: add the key to every row in `machines.toml` and gate the relevant te
 - `.chezmoiscripts/` — Post-apply hooks (MCP sync, macOS setup)
 - `.chezmoidata/machines.toml` — Per-machine capability table (single source of truth for gating)
 - `dot_config/zsh/` — Zsh config; `encrypted_dot_env` holds API keys
+- `private_dot_ssh/` — chezmoi-managed `~/.ssh/config` (homelab / i9 access over Tailscale; personal + lab)
 - `dot_config/nvim/` — Neovim config (LazyVim)
 - `scripts/` — Utility scripts
 - `docs/ai-tools/` — Setup guides for MCP, Copilot, etc.

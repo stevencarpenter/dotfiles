@@ -22,6 +22,14 @@ What this repo currently touches networking-wise:
 - `dot_config/aerospace/`, `dot_config/sketchybar/` — local UI, not network.
 - Tailscale itself is installed via Homebrew (cask); its config lives in
   user libraries managed by the GUI app, not chezmoi.
+- `private_dot_ssh/private_config` → `~/.ssh/config` — chezmoi-managed ssh
+  config (personal + lab; work excluded for now). Carries `Host i9`
+  (Tailscale MagicDNS) plus keepalive / `ControlMaster` defaults, and
+  reproduces the OrbStack include + 1Password `IdentityAgent` those tools
+  would otherwise auto-inject. Paired with the personal-only `i9` shell alias
+  (`mosh i9 -- tmux new -A -s main`) and `mosh` in the Brewfile, this is the
+  primary "reach the i9 home server" path — it replaces leaving a macOS
+  Screen Share session open.
 
 Everything else — DNS, firewall, VPN exit nodes — is unmanaged from this
 repo today. Some of that should change; some should stay outside the repo.
@@ -40,6 +48,14 @@ repo today. Some of that should change; some should stay outside the repo.
 - **Mullvad, if and when it's worth it, rides Tailscale's exit-node
   add-on** rather than a parallel raw-WG setup. The `tsexit mullvad`
   helper is already wired for this.
+- **SSH into i9 over Tailscale + mosh + tmux, not Screen Share.** Screen
+  Share's `screensharingd` continuously re-encodes screen motion and was the
+  dominant heat/fan source on the thermally-marginal 2019 i9 — it only runs
+  while a session is connected. SSH + a long-lived tmux session is the daily
+  path now; Screen Share stays *enabled* for the rare GUI need on i9's
+  unreliable display, just not left open. `~/.ssh/config` is chezmoi-managed
+  (personal + lab) to make this repeatable; work-mac is excluded until it
+  gets its own per-machine block.
 
 ## Recommendations
 

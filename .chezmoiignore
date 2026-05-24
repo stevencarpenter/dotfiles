@@ -107,8 +107,6 @@ token_auditor
 .config/zsh/profile.d/personal-shell-functions.zsh
 .config/aerospace/layouts/workspace-5-comms.sh
 Library/LaunchAgents/com.user.xcode-mcp-proxy.plist
-# SSH include snippet for reaching the i9 home server (client-side; m5 only)
-.ssh/config.d/homelab
 {{ end }}
 
 # Skip lab files on non-lab machines
@@ -122,6 +120,10 @@ Library/LaunchAgents/com.user.xcode-mcp-proxy.plist
 # only make sense on machines that talk to the home tailnet).
 {{ if hasPrefix "work" .machine }}
 .config/zsh/profile.d/tailscale.zsh
+# chezmoi-managed ~/.ssh/config carries homelab (i9) access; work-mac keeps its
+# own corporate ssh config until work-specific blocks are added (see
+# private_dot_ssh/private_config header).
+.ssh/config
 {{ end }}
 
 {{ if ne .chezmoi.os "darwin" }}
