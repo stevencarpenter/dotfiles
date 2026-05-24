@@ -1,0 +1,22 @@
+# .understandignore — patterns for files/dirs to exclude from analysis
+# Syntax: same as .gitignore (globs, # comments, ! negation, trailing / for dirs)
+# Lines below are suggestions — uncomment to activate.
+# Use ! prefix to force-include something excluded by defaults.
+#
+# Built-in defaults (always excluded unless negated):
+#   node_modules/, .git/, .venv/, venv/, __pycache__/, dist/, build/, obj/,
+#   *.lock, *.min.js, *.map, images/fonts/media, LICENSE, etc.
+#
+# Whole-repo scope selected — only the built-in defaults above are active.
+# Uncomment below to trim further.
+
+# --- Detected directories (uncomment to exclude) ---
+
+# docs/
+# scripts/
+
+# --- Test file patterns (uncomment to exclude) ---
+
+# *.test.*
+# *.spec.*
+# *.snap

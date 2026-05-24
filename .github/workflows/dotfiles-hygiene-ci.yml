@@ -52,9 +52,11 @@ jobs:
           if not isinstance(data, dict):
               raise SystemExit("mcp-master.json must be a JSON object")
 
+          # Master may define zero shared servers; the per-machine servers
+          # live in machine overlays (dot_config/mcp/machine/*.json).
           servers = data.get("servers")
-          if not isinstance(servers, dict) or not servers:
-              raise SystemExit("mcp-master.json must define a non-empty 'servers' object")
+          if not isinstance(servers, dict):
+              raise SystemExit("mcp-master.json must define a 'servers' object")
 
           for server_name, server_config in servers.items():
               if not isinstance(server_config, dict):

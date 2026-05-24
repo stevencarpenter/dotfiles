@@ -1,7 +1,6 @@
 {
   "$schema": "https://modelcontextprotocol.io/schema/config.json",
   "servers": {
-    {{- if (index .machines .machine).hippo }}
     "hippo": {
       "type": "stdio",
       "command": "uv",
@@ -13,7 +12,6 @@
       ],
       "autoApprove": ["ask", "search_knowledge", "search_events", "get_entities"]
     },
-    {{- end }}
     "grafana": {
       "type": "stdio",
       "command": "uvx",
@@ -21,20 +19,6 @@
       "env": {
         "GRAFANA_URL": "http://localhost:3000"
       }
-    },
-    "railway-mcp-server": {
-      "type": "stdio",
-      "command": "npx",
-      "args": [
-        "-y",
-        "@railway/mcp-server"
-      ]
-    }{{/* xcode MCP disabled — uncomment (and restore the leading comma) to re-enable
-    ,
-    "xcode": {
-      "type": "http",
-      "url": "http://127.0.0.1:9876/mcp"
     }
-    */}}
   }
 }

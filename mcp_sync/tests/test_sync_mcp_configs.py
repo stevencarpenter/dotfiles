@@ -392,8 +392,8 @@ hide_gpt5_1_migration_prompt = true
 
     result = codex_path.read_text(encoding="utf-8")
 
-    # Base template settings should be present
-    assert 'model = "gpt-5.4"' in result
+    # Base template settings should be present (template model overwrites existing)
+    assert 'model = "gpt-5.5"' in result
 
     # MCP servers should be added
     assert "[mcp_servers.filesystem]" in result

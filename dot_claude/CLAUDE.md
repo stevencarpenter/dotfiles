@@ -43,7 +43,11 @@ This user has spent significant effort configuring MCP servers, plugins, skills,
 | Running tests/builds | `mcp__idea__execute_run_configuration` or `mcp__idea__build_project` |
 | GitHub operations | `mcp__github__*` tools |
 
-Also use the `LSP` tool for language-server-level diagnostics, hover info, go-to-definition, and references — this gives semantic understanding beyond text search. Language-specific LSP plugins are installed: **Swift, TypeScript, Python (pyright), Go (gopls), Rust (rust-analyzer), Lua**. Use LSP before falling back to grep for symbol resolution, type checking, or finding references.
+Also use the `LSP` tool for language-server-level diagnostics, hover info, go-to-definition, and references — this gives semantic understanding beyond text search. Language-specific LSP plugins are installed: **Swift, TypeScript, Python (pyright), Go (gopls), Rust (rust-analyzer), Lua**. Use LSP before falling back to `rg` for symbol resolution, type checking, or finding references.
+
+### Shell tooling
+
+- **Always use `rg` (ripgrep) instead of `grep`.** `rg` is installed and faster, respects `.gitignore`, and has saner defaults. This applies in Bash, in shell pipelines, and anywhere you would have reached for `grep`. The only exception is when a script is being shipped to a machine without ripgrep available — and that is not the case on any machine in this dotfiles repo.
 
 ### Experimental Agent Teams (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`)
 

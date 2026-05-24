@@ -25,17 +25,20 @@ The script roots itself via `chezmoi source-path` (or `REPO_ROOT=…` override),
 ## Output shape
 
 ```
-# Capabilities defined: atuin, aws_sso, dev, gui, hippo, mcp, tiling
+# Capabilities defined: atuin,aws_sso,dev,gui,infra,mcp,skills,tiling
 # Per capability:
-##  atuin: 1 consumers (.chezmoiignore:115)
-##  aws_sso: 0 consumers — ORPHAN
-##  dev: 0 consumers — ORPHAN
-##  gui: 1 consumers (dot_config/homebrew/Brewfile.tmpl:85)
-##  hippo: 2 consumers (.chezmoiignore:129, dot_claude/modify_settings.json.tmpl:13)
-##  mcp: 3 consumers (.chezmoiignore:122, dot_config/homebrew/Brewfile.tmpl:55, .chezmoiscripts/run_after_sync-mcp.sh.tmpl:12)
-##  tiling: 3 consumers (.chezmoiignore:106, dot_config/homebrew/Brewfile.tmpl:69, dot_config/homebrew/Brewfile.tmpl:108)
+##  atuin: 1 consumers (.chezmoiignore:148)
+##  aws_sso: 1 consumers (.chezmoiscripts/run_after_sync-aws-config.sh.tmpl:5)
+##  dev: 3 consumers (dot_config/homebrew/Brewfile.tmpl:110, dot_config/dot_copilot/config.json.tmpl:11, dot_claude/modify_settings.json.tmpl:16)
+##  gui: 1 consumers (dot_config/homebrew/Brewfile.tmpl:82)
+##  infra: 1 consumers (dot_config/mise/config.toml.tmpl:19)
+##  mcp: 2 consumers (.chezmoiscripts/run_after_sync-mcp.sh.tmpl:13, .chezmoiignore:155)
+##  skills: 2 consumers (.chezmoiscripts/run_after_sync-skills.sh.tmpl:11, .chezmoiignore:162)
+##  tiling: 3 consumers (dot_config/homebrew/Brewfile.tmpl:66, dot_config/homebrew/Brewfile.tmpl:105, .chezmoiignore:139)
+# (a capability with no consumers prints "0 consumers — ORPHAN")
 # Prefix-based gates that could migrate:
-##  dot_config/dot_copilot/config.json.tmpl:11 (hasPrefix "personal")
+##  dot_config/homebrew/Brewfile.tmpl:135 (hasPrefix "work")
+##  dot_config/dot_copilot/config.json.tmpl:12 (hasPrefix "work")
 ##  ...
 ```
 

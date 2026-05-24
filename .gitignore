@@ -66,3 +66,8 @@ private_dot_claude.json
 
 # Codex sandbox env (machine-local)
 /.codex/environments/environment.toml
+
+# understand-anything: track the graph + fingerprints + meta, but not the
+# transient per-run scratch dirs (recreated and deleted on each /understand run)
+.understand-anything/intermediate/
+.understand-anything/tmp/
