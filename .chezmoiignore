@@ -122,7 +122,7 @@ Library/LaunchAgents/com.user.xcode-mcp-proxy.plist
 .config/zsh/profile.d/tailscale.zsh
 # chezmoi-managed ~/.ssh/config carries homelab (i9) access; work-mac keeps its
 # own corporate ssh config until work-specific blocks are added (see
-# private_dot_ssh/private_config header).
+# private_dot_ssh/encrypted_private_config.age header).
 .ssh/config
 {{ end }}
 

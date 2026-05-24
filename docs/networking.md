@@ -22,8 +22,9 @@ What this repo currently touches networking-wise:
 - `dot_config/aerospace/`, `dot_config/sketchybar/` — local UI, not network.
 - Tailscale itself is installed via Homebrew (cask); its config lives in
   user libraries managed by the GUI app, not chezmoi.
-- `private_dot_ssh/private_config` → `~/.ssh/config` — chezmoi-managed ssh
-  config (personal + lab; work excluded for now). Carries `Host i9`
+- `private_dot_ssh/encrypted_private_config.age` → `~/.ssh/config` — chezmoi-managed
+  ssh config, age-encrypted at rest and deployed mode 0600 (personal + lab; work
+  excluded for now). Carries `Host i9`
   (Tailscale MagicDNS) plus keepalive / `ControlMaster` defaults, and
   reproduces the OrbStack include + 1Password `IdentityAgent` those tools
   would otherwise auto-inject. Paired with the personal-only `i9` shell alias
