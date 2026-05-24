@@ -120,6 +120,10 @@ Library/LaunchAgents/com.user.xcode-mcp-proxy.plist
 # only make sense on machines that talk to the home tailnet).
 {{ if hasPrefix "work" .machine }}
 .config/zsh/profile.d/tailscale.zsh
+# chezmoi-managed ~/.ssh/config carries homelab (i9) access; work-mac keeps its
+# own corporate ssh config until work-specific blocks are added (see
+# private_dot_ssh/encrypted_private_config.age header).
+.ssh/config
 {{ end }}
 
 {{ if ne .chezmoi.os "darwin" }}
