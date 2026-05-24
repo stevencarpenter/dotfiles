@@ -10,21 +10,21 @@ Estimates what your AI coding-agent token usage **would cost at pay-as-you-go AP
 ## Quick start
 
 ```bash
-python3 "$SKILL_DIR/scripts/cost.py"                 # current month, both providers
-python3 "$SKILL_DIR/scripts/cost.py" day             # today
-python3 "$SKILL_DIR/scripts/cost.py" week            # current ISO week
-python3 "$SKILL_DIR/scripts/cost.py" year            # year to date
+python3 "${CLAUDE_SKILL_DIR}/scripts/cost.py"                 # current month, both providers
+python3 "${CLAUDE_SKILL_DIR}/scripts/cost.py" day             # today
+python3 "${CLAUDE_SKILL_DIR}/scripts/cost.py" week            # current ISO week
+python3 "${CLAUDE_SKILL_DIR}/scripts/cost.py" year            # year to date
 ```
 
 Pick a provider, an explicit period, a trailing window, or JSON:
 
 ```bash
-python3 "$SKILL_DIR/scripts/cost.py" month --provider claude    # Claude Code only
-python3 "$SKILL_DIR/scripts/cost.py" month --provider codex     # Codex only
-python3 "$SKILL_DIR/scripts/cost.py" month 2026-04              # a specific month
-python3 "$SKILL_DIR/scripts/cost.py" week 2026-W20             # a specific ISO week
-python3 "$SKILL_DIR/scripts/cost.py" month --trailing          # rolling last 30 days
-python3 "$SKILL_DIR/scripts/cost.py" year --json               # JSON for piping
+python3 "${CLAUDE_SKILL_DIR}/scripts/cost.py" month --provider claude    # Claude Code only
+python3 "${CLAUDE_SKILL_DIR}/scripts/cost.py" month --provider codex     # Codex only
+python3 "${CLAUDE_SKILL_DIR}/scripts/cost.py" month 2026-04              # a specific month
+python3 "${CLAUDE_SKILL_DIR}/scripts/cost.py" week 2026-W20             # a specific ISO week
+python3 "${CLAUDE_SKILL_DIR}/scripts/cost.py" month --trailing          # rolling last 30 days
+python3 "${CLAUDE_SKILL_DIR}/scripts/cost.py" year --json               # JSON for piping
 ```
 
 Options: `--provider claude|codex|all` (default `all`), `--trailing` (1d/7d/30d/365d), `--utc` (default is system local tz), `--by-day`, `--dir PATH` (Claude logs), `--codex-dir PATH` (Codex base), `--rates FILE`, `--json`.
@@ -46,7 +46,7 @@ Shared: window isolation by per-message/per-turn timestamp; system-local-tz buck
 Rates are baked into `scripts/cost.py` (`ANTHROPIC_RATES`, `OPENAI_RATES`, `ANTH_CACHE`, `RATES_AS_OF`), matched by longest model-id prefix. Edit those constants when prices change, or override without touching code:
 
 ```bash
-python3 "$SKILL_DIR/scripts/cost.py" month --rates my-rates.json
+python3 "${CLAUDE_SKILL_DIR}/scripts/cost.py" month --rates my-rates.json
 ```
 
 See `scripts/rates.example.json` for the override format (`anthropic` / `openai` / `_cache_multipliers`; entries merge over defaults). Verify against <https://platform.claude.com/docs/en/about-claude/pricing> and <https://developers.openai.com/api/docs/pricing> if `RATES_AS_OF` looks stale.

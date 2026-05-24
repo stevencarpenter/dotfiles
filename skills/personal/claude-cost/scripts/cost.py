@@ -76,8 +76,15 @@ def load_rates(path):
             override = json.load(fh)
         if "_cache_multipliers" in override:
             cache.update(override.pop("_cache_multipliers"))
-        anth.update(override.get("anthropic", {}))
-        oai.update(override.get("openai", {}))
+        # Per-field merge: update each model's fields without dropping unlisted ones.
+        for model_id, fields in override.get("anthropic", {}).items():
+            if model_id not in anth:
+                anth[model_id] = {}
+            anth[model_id].update(fields)
+        for model_id, fields in override.get("openai", {}).items():
+            if model_id not in oai:
+                oai[model_id] = {}
+            oai[model_id].update(fields)
     return {
         "anthropic": anth, "openai": oai, "cache": cache,
         "anth_keys": sorted(anth, key=len, reverse=True),
@@ -97,7 +104,11 @@ def _lookup(model_id, table, keys):
 # --------------------------------------------------------------------------- #
 def parse_ts(ts):
     try:
-        return dt.datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        dt_obj = dt.datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        # If still naive (no trailing Z or offset), assume UTC.
+        if dt_obj.tzinfo is None:
+            dt_obj = dt_obj.replace(tzinfo=dt.timezone.utc)
+        return dt_obj
     except Exception:
         return None
 
@@ -118,7 +129,8 @@ def local_tz():
             return ZoneInfo(tzv)
         except Exception:
             pass
-    return dt.datetime.now().astimezone().tzinfo
+    # Fallback: use UTC rather than a fixed-offset tzinfo.
+    return dt.timezone.utc
 
 
 def period_bounds(gran, period, trailing, tz, now):
@@ -135,19 +147,31 @@ def period_bounds(gran, period, trailing, tz, now):
         return start, start + dt.timedelta(days=1), d.isoformat()
     if gran == "week":
         if period:
-            y, w = period.upper().split("-W")
-            monday = dt.date.fromisocalendar(int(y), int(w), 1)
+            try:
+                y, w = period.upper().split("-W")
+                monday = dt.date.fromisocalendar(int(y), int(w), 1)
+            except (ValueError, IndexError) as e:
+                raise ValueError(f"Invalid week format (expected YYYY-Www): {period}") from e
         else:
             monday = now.date() - dt.timedelta(days=now.weekday())
         start = at(monday.year, monday.month, monday.day)
         iso = monday.isocalendar()
         return start, start + dt.timedelta(days=7), f"{iso[0]}-W{iso[1]:02d} (wk of {monday.isoformat()})"
     if gran == "month":
-        y, m = (int(x) for x in period.split("-")) if period else (now.year, now.month)
+        if period:
+            try:
+                y, m = (int(x) for x in period.split("-"))
+            except (ValueError, IndexError) as e:
+                raise ValueError(f"Invalid month format (expected YYYY-MM): {period}") from e
+        else:
+            y, m = now.year, now.month
         start = at(y, m, 1)
         end = at(y + 1, 1, 1) if m == 12 else at(y, m + 1, 1)
         return start, end, f"{y}-{m:02d}"
-    y = int(period) if period else now.year
+    try:
+        y = int(period) if period else now.year
+    except ValueError as e:
+        raise ValueError(f"Invalid year format (expected YYYY): {period}") from e
     return at(y, 1, 1), at(y + 1, 1, 1), str(y)
 
 
@@ -196,7 +220,7 @@ def scan_claude(logdir, start, end, tz, gran, by_day):
                     "c5": cc.get("ephemeral_5m_input_tokens", 0) or 0,
                     "c1": cc.get("ephemeral_1h_input_tokens", 0) or 0,
                 }
-                mid = msg.get("id") or d.get("requestId") or d.get("uuid") or id(d)
+                mid = msg.get("id") or d.get("requestId") or d.get("uuid") or f"_nokey_{fp}_{raw}"
                 rec = seen.get(mid)
                 if rec is None:
                     seen[mid] = {
@@ -208,9 +232,14 @@ def scan_claude(logdir, start, end, tz, gran, by_day):
                         "t": fields,
                     }
                 else:
+                    # Max-merge per field, but cap total at reported cc to avoid overcounting cache.
                     for k, v in fields.items():
                         if v > rec["t"][k]:
                             rec["t"][k] = v
+                    # Rebalance if c5+c1 now exceeds cc (possible after per-field max-merge).
+                    if rec["t"]["c5"] + rec["t"]["c1"] > rec["t"]["cc"]:
+                        excess = rec["t"]["c5"] + rec["t"]["c1"] - rec["t"]["cc"]
+                        rec["t"]["c5"] = max(0, rec["t"]["c5"] - excess)
     return list(seen.values()), raw, len(files)
 
 
@@ -225,6 +254,9 @@ def price_claude(rec, rates):
     rem = t["cc"] - c5 - c1
     if rem > 0:
         c5 += rem
+    # Safety: if c5+c1 > cc (possible after per-field max-merge), reset to cc.
+    if c5 + c1 > t["cc"]:
+        c5 = max(0, t["cc"] - c1)
     buckets = [
         ("input (uncached)", t["inp"], bi),
         ("cache read", t["cr"], bi * cm["read"]),
@@ -257,7 +289,7 @@ def claude_display(model, rates):
 def scan_codex(codex_base, start, end, tz, gran, by_day):
     base = os.path.expanduser(codex_base)
     files = glob.glob(os.path.join(base, "sessions", "**", "*.jsonl"), recursive=True)
-    files += glob.glob(os.path.join(base, "archived_sessions", "*.jsonl"))
+    files += glob.glob(os.path.join(base, "archived_sessions", "**", "*.jsonl"), recursive=True)
     by_sid = {}
     for fp in files:
         m = _SID_RE.search(os.path.basename(fp))
@@ -392,7 +424,8 @@ def print_provider(provider, agg, unknown, width):
             comp[label] += a["nominal"][label]
         nominal_sum = sum(a["nominal"].values())
         if abs(a["actual"] - nominal_sum) > 0.005:
-            note = "adj (" + ", ".join(f"{n}x{c}" for n, c in a["flags"].items()) + ")"
+            mults = {"fast": ANTH_FAST_MULT, "batch": ANTH_BATCH_MULT, "us-geo": ANTH_US_GEO_MULT}
+            note = "adj (" + ", ".join(f"{mults[f]:.1f}x" for f in a["flags"].keys() if f in mults) + ")"
             print(f"    {note:<28}{usd(a['actual'] - nominal_sum):>30}")
         print(f"    {'SUBTOTAL':<18}{'':>16}{'':>10}{usd(a['actual']):>14}")
     print(f"\n  {PROVIDER_TITLE[provider]} subtotal: {usd(subtotal)}")

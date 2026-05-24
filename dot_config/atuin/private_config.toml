@@ -21,7 +21,11 @@ history_filter = [
     "NTFY_ADMIN_PASS",
     "DIUN_USER_PASS",
     "tk_[A-Za-z0-9_]+",
-    "op item create .*password",
+    "op item (create|edit).*password",
+    "sk-proj-[A-Za-z0-9_-]+",
+    "ghp_[A-Za-z0-9]+",
+    "xox[bap]-[A-Za-z0-9-]+",
+    "AKIA[0-9A-Z]{16}",
 ]
 
 # Use the tmux popup for interactive Ctrl-R search (atuin upstream default
