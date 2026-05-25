@@ -409,7 +409,10 @@ function claade() {
   if [[ -n "$git_root" ]]; then
     s="${git_root}/.claude/settings.local.json"
     if [[ -f "$s" ]] && jq -e '.hooks == {}' "$s" &>/dev/null; then
-      jq 'del(.hooks)' "$s" > "${s}.tmp" && mv "${s}.tmp" "$s"
+      jq 'del(.hooks)' "$s" > "${s}.tmp" && mv "${s}.tmp" "$s" || {
+        rm -f "${s}.tmp"
+        echo "claade: failed to strip empty hooks from $s" >&2
+      }
     fi
   fi
   _with_project_venv command claude "$@"
