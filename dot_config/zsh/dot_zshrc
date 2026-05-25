@@ -349,6 +349,7 @@ function copyfile() {
 # server it spawns — e.g. Claude Code's Pyright — resolves project deps), then
 # prints a token-usage audit for the session. Two orthogonal helpers below are
 # composed per tool; provider and whether to pass --cwd are set per tool.
+
 # Run a command inside the project's uv venv when one exists (else unchanged),
 # scoped to a subshell so the caller's shell is untouched.
 function _with_project_venv() {
