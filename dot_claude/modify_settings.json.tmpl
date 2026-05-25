@@ -153,9 +153,12 @@ merged=$(printf '%s\n' "$merged" | jq -S '
 # command sandbox blocks by default — so in-sandbox `git commit` fails on any
 # partial-stage commit. Kept OUT of $managed and merged ensure-present (not
 # replaced) so paths added later via /sandbox survive apply. Idempotent.
+# allowWrite is normalized to an array first (null/missing/corrupt non-array all
+# become []) so a hand-mangled value can't error out the whole apply under set -e.
 merged=$(printf '%s\n' "$merged" | jq -S --arg p "{{ .chezmoi.homeDir }}/.cache/pre-commit" '
-  if (.sandbox.filesystem.allowWrite // []) | index($p) then .
-  else .sandbox.filesystem.allowWrite = ((.sandbox.filesystem.allowWrite // []) + [$p]) end
+  (.sandbox.filesystem.allowWrite // [] | if type == "array" then . else [] end) as $aw
+  | if ($aw | index($p)) then .
+    else .sandbox.filesystem.allowWrite = ($aw + [$p]) end
 ')
 
 {{- if not $hippo }}

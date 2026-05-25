@@ -38,10 +38,6 @@ zstyle ':z4h:autosuggestions' forward-char 'accept'
 # Recursively traverse directories when TAB-completing files.
 zstyle ':z4h:fzf-complete' recurse-dirs 'yes'
 
-# Enable direnv to automatically source .envrc files.
-zstyle ':z4h:direnv'         enable 'yes'
-zstyle ':z4h:direnv:success' notify 'yes'
-
 # Enable ('yes') or disable ('no') automatic teleportation of z4h over SSH.
 zstyle ':z4h:ssh:example-hostname1'   enable 'yes'
 zstyle ':z4h:ssh:*.example-hostname2' enable 'no'
@@ -349,39 +345,71 @@ function copyfile() {
   fi
 }
 
-# Wrappers for LLM CLI tools that run the command, then run a token audit on the session afterward.
-# The audit looks for provider-specific environment variables and CLI args to determine which provider to audit for.
-# The audit tool is configured to look for sessions started in the current working directory, so the wrapper
-# can optionally pass the CWD to the auditor if the tool being wrapped does not have a --cwd option itself (e.g. Claude).
-function _run_with_token_audit() {
-  local wrapper_name="$1"
-  local command_name="$2"
-  local provider="$3"
-  local use_cwd="$4"
-  shift 4
+# AI CLI wrappers. Each runs the tool in the project's uv venv (so a language
+# server it spawns — e.g. Claude Code's Pyright — resolves project deps), then
+# prints a token-usage audit for the session. Two orthogonal helpers below are
+# composed per tool; provider and whether to pass --cwd are set per tool.
 
-  local token_auditor_project="$HOME/.local/share/chezmoi/token_auditor"
-  command "$command_name" "$@"
-  local command_rc=$?
-
-  if [[ -d "$token_auditor_project" ]]; then
-    local -a audit_cmd=(
-      uv run --project "$token_auditor_project"
-      token-auditor --provider "$provider"
+# Run an AI CLI tool inside the project's uv venv when one exists (else run it
+# as-is), scoped to a subshell so the caller's shell is untouched. The tool is
+# resolved to an absolute path from the *current* (pre-venv) PATH up front, then
+# the venv bin dir is prepended only inside the subshell. So a child the tool
+# spawns (e.g. Claude Code's Pyright) resolves project deps via the venv, but a
+# repo-controlled .venv/bin/<tool> shim cannot shadow the trusted entrypoint.
+# Setting PATH/VIRTUAL_ENV directly (vs sourcing .venv/bin/activate) likewise
+# avoids running a repo-controlled activate script on launch; these exports are
+# activate's only functional effect, the rest being interactive-prompt cosmetics
+# a one-shot subshell never uses. A stray .venv in a non-Python repo is still
+# picked up for codex/opencode, but that only alters the confined subshell's env
+# and the tool binary itself stays the trusted one — harmless.
+# Args: $1 — tool name to resolve; $2.. — the tool's own args.
+function _with_project_venv() {
+  local bin
+  bin=$(command -v -- "$1") || {
+    echo "_with_project_venv: '$1' not found on PATH" >&2
+    return 127
+  }
+  if [[ -x .venv/bin/python ]]; then
+    (
+      export VIRTUAL_ENV="$PWD/.venv"
+      export PATH="$VIRTUAL_ENV/bin:$PATH"
+      unset PYTHONHOME
+      "$bin" "${@:2}"
     )
-    if [[ "$use_cwd" == "1" ]]; then
-      audit_cmd+=(--cwd "$PWD")
-    fi
-    "${audit_cmd[@]}" || echo "${wrapper_name}: failed to print session usage audit" >&2
   else
-    echo "${wrapper_name}: project not found at $token_auditor_project" >&2
+    "$bin" "${@:2}"
   fi
-
-  return $command_rc
 }
 
-# Wrappers for specific tools. The provider and whether to pass the CWD to the auditor are configured based on the tool's characteristics and typical usage patterns.
-function codax() { _run_with_token_audit codax codex codex 0 "$@"; }
+# Print a token-usage audit for $provider's most recent session. Runs the auditor
+# in its own --project environment, so it is independent of any active venv.
+function _audit_token_usage() {
+  local wrapper_name="$1"
+  local provider="$2"
+  local use_cwd="$3"
+
+  local token_auditor_project="$HOME/.local/share/chezmoi/token_auditor"
+  if [[ ! -d "$token_auditor_project" ]]; then
+    echo "${wrapper_name}: project not found at $token_auditor_project" >&2
+    return 0
+  fi
+
+  local -a audit_cmd=(
+    uv run --project "$token_auditor_project"
+    token-auditor --provider "$provider"
+  )
+  if [[ "$use_cwd" == "1" ]]; then
+    audit_cmd+=(--cwd "$PWD")
+  fi
+  "${audit_cmd[@]}" || echo "${wrapper_name}: failed to print session usage audit" >&2
+}
+
+function codax() {
+  _with_project_venv codex "$@"
+  local rc=$?
+  _audit_token_usage codax codex 0
+  return $rc
+}
 function claade() {
   # Claude Code writes "hooks": {} to settings.local.json when saving permissions,
   # which shadows global SessionStart hooks. Strip it before launch.
@@ -390,12 +418,23 @@ function claade() {
   if [[ -n "$git_root" ]]; then
     s="${git_root}/.claude/settings.local.json"
     if [[ -f "$s" ]] && jq -e '.hooks == {}' "$s" &>/dev/null; then
-      jq 'del(.hooks)' "$s" > "${s}.tmp" && mv "${s}.tmp" "$s"
+      jq 'del(.hooks)' "$s" > "${s}.tmp" && mv "${s}.tmp" "$s" || {
+        rm -f "${s}.tmp"
+        echo "claade: failed to strip empty hooks from $s" >&2
+      }
     fi
   fi
-  _run_with_token_audit claade claude claude 1 "$@"
+  _with_project_venv claude "$@"
+  local rc=$?
+  _audit_token_usage claade claude 1
+  return $rc
 }
-function opencade() { _run_with_token_audit opencade opencode opencode 1 "$@"; }
+function opencade() {
+  _with_project_venv opencode "$@"
+  local rc=$?
+  _audit_token_usage opencade opencode 1
+  return $rc
+}
 
 # Chezmoi apply helper (kept separate so it can be regression-tested)
 chezmoi_apply_helper="${XDG_CONFIG_HOME:-$HOME/.config}/zsh/lib/chezmoi-apply.zsh"

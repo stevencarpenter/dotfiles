@@ -16,7 +16,27 @@ terraform = "1.14"
 gradle = "9"
 goreleaser = "latest"
 
-{{ if (index .machines .machine).infra }}
+# LSP servers (backing binaries for the Claude Code *-lsp plugins; the plugins are
+# integration shims only — the servers must resolve on $PATH). All-machines set
+# matches the always-enabled plugins: pyright-lsp, gopls-lsp, rust-analyzer-lsp.
+"npm:pyright" = "latest"                  # pyright-langserver (Python)
+"go:golang.org/x/tools/gopls" = "latest"  # gopls (Go)
+rust-analyzer = "latest"                  # rust-analyzer (Rust)
+
+# Neovim tooling — nvim-treesitter requires the tree-sitter CLI on $PATH to
+# compile parsers (Mason is disabled for it). All machines, since nvim deploys
+# everywhere.
+tree-sitter = "latest"
+{{- if (index .machines .machine).dev }}
+
+# LSP servers for dev machines — matches the dev-gated plugins typescript-lsp and
+# lua-lsp (swift-lsp's sourcekit-lsp ships with Xcode, so no install needed here).
+"npm:typescript-language-server" = "latest"
+"npm:typescript" = "latest"               # tsserver — required by typescript-language-server
+lua-language-server = "latest"
+{{- end }}
+{{- if (index .machines .machine).infra }}
+
 # Infrastructure Tools (machines with infra capability)
 helm = "3"
 k9s = "latest"
@@ -27,4 +47,4 @@ teleport-ent = "16"
 # Databases (work machines only)
 mysql = "8"
 duckdb = "latest"
-{{ end }}
+{{- end }}
