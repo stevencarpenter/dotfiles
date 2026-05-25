@@ -1,0 +1,15 @@
+{
+  "pythonVersion": "3.14",
+  "venvPath": "token_auditor",
+  "venv": ".venv",
+  "extraPaths": [
+    "token_auditor/src",
+    "mcp_sync/src",
+    "aws_config_gen/src"
+  ],
+  "exclude": [
+    "**/.venv",
+    "**/node_modules",
+    "**/__pycache__"
+  ]
+}
