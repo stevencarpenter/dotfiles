@@ -350,25 +350,34 @@ function copyfile() {
 # prints a token-usage audit for the session. Two orthogonal helpers below are
 # composed per tool; provider and whether to pass --cwd are set per tool.
 
-# Run a command inside the project's uv venv when one exists (else unchanged),
-# scoped to a subshell so the caller's shell is untouched. We set the venv env
-# directly (PATH/VIRTUAL_ENV) instead of sourcing .venv/bin/activate, so a
-# repo-controlled activate script can't execute arbitrary code just because we
-# cd'd into the repo. These three exports are activate's only functional effect;
-# the rest of that script is interactive-prompt cosmetics a one-shot subshell
-# never uses. Used by every wrapper below, so a stray .venv in a non-Python repo
-# is picked up for codex/opencode too — intentional and harmless, since the env
-# change is confined to the subshell.
+# Run an AI CLI tool inside the project's uv venv when one exists (else run it
+# as-is), scoped to a subshell so the caller's shell is untouched. The tool is
+# resolved to an absolute path from the *current* (pre-venv) PATH up front, then
+# the venv bin dir is prepended only inside the subshell. So a child the tool
+# spawns (e.g. Claude Code's Pyright) resolves project deps via the venv, but a
+# repo-controlled .venv/bin/<tool> shim cannot shadow the trusted entrypoint.
+# Setting PATH/VIRTUAL_ENV directly (vs sourcing .venv/bin/activate) likewise
+# avoids running a repo-controlled activate script on launch; these exports are
+# activate's only functional effect, the rest being interactive-prompt cosmetics
+# a one-shot subshell never uses. A stray .venv in a non-Python repo is still
+# picked up for codex/opencode, but that only alters the confined subshell's env
+# and the tool binary itself stays the trusted one — harmless.
+# Args: $1 — tool name to resolve; $2.. — the tool's own args.
 function _with_project_venv() {
+  local bin
+  bin=$(command -v -- "$1") || {
+    echo "_with_project_venv: '$1' not found on PATH" >&2
+    return 127
+  }
   if [[ -x .venv/bin/python ]]; then
     (
       export VIRTUAL_ENV="$PWD/.venv"
       export PATH="$VIRTUAL_ENV/bin:$PATH"
       unset PYTHONHOME
-      "$@"
+      "$bin" "${@:2}"
     )
   else
-    "$@"
+    "$bin" "${@:2}"
   fi
 }
 
@@ -396,7 +405,7 @@ function _audit_token_usage() {
 }
 
 function codax() {
-  _with_project_venv command codex "$@"
+  _with_project_venv codex "$@"
   local rc=$?
   _audit_token_usage codax codex 0
   return $rc
@@ -415,13 +424,13 @@ function claade() {
       }
     fi
   fi
-  _with_project_venv command claude "$@"
+  _with_project_venv claude "$@"
   local rc=$?
   _audit_token_usage claade claude 1
   return $rc
 }
 function opencade() {
-  _with_project_venv command opencode "$@"
+  _with_project_venv opencode "$@"
   local rc=$?
   _audit_token_usage opencade opencode 1
   return $rc
