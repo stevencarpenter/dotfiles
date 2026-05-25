@@ -351,7 +351,9 @@ function copyfile() {
 # composed per tool; provider and whether to pass --cwd are set per tool.
 
 # Run a command inside the project's uv venv when one exists (else unchanged),
-# scoped to a subshell so the caller's shell is untouched.
+# scoped to a subshell so the caller's shell is untouched. Used by every wrapper
+# below, so a stray .venv in a non-Python repo is sourced for codex/opencode too
+# — intentional and harmless, since activation is confined to the subshell.
 function _with_project_venv() {
   if [[ -r .venv/bin/activate ]]; then
     ( source .venv/bin/activate; "$@" )
@@ -370,7 +372,7 @@ function _audit_token_usage() {
   local token_auditor_project="$HOME/.local/share/chezmoi/token_auditor"
   if [[ ! -d "$token_auditor_project" ]]; then
     echo "${wrapper_name}: project not found at $token_auditor_project" >&2
-    return
+    return 0
   fi
 
   local -a audit_cmd=(
