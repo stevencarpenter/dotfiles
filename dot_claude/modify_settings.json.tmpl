@@ -148,6 +148,16 @@ merged=$(printf '%s\n' "$merged" | jq -S '
   | (if .effortLevel == null then .effortLevel = "xhigh" else . end)
 ')
 
+# Ensure the pre-commit cache dir is sandbox-writable. pre-commit stashes
+# unstaged files under ~/.cache/pre-commit before running hooks, which the
+# command sandbox blocks by default — so in-sandbox `git commit` fails on any
+# partial-stage commit. Kept OUT of $managed and merged ensure-present (not
+# replaced) so paths added later via /sandbox survive apply. Idempotent.
+merged=$(printf '%s\n' "$merged" | jq -S --arg p "{{ .chezmoi.homeDir }}/.cache/pre-commit" '
+  if (.sandbox.filesystem.allowWrite // []) | index($p) then .
+  else .sandbox.filesystem.allowWrite = ((.sandbox.filesystem.allowWrite // []) + [$p]) end
+')
+
 {{- if not $hippo }}
 # Hippo runs only on personal — strip any previously-injected SessionStart
 # hook pointing into ~/.local/share/hippo-brain/ (legacy state from when this
