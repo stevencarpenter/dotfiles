@@ -26,9 +26,64 @@ def test_resolve_pricing_model_handles_current_fleet_models() -> None:
     assert resolve_pricing_model("codex", "gpt-5.4-mini-2026-03-17") == "gpt-5.4-mini"
     assert resolve_pricing_model("codex", "gpt-5.5-2026-04-01") == "gpt-5.5"
     # Bare Claude aliases (logged for some sessions) map to the current fleet.
-    assert resolve_pricing_model("claude", "opus") == "claude-opus-4-7"
+    assert resolve_pricing_model("claude", "opus") == "claude-opus-4-8"
     assert resolve_pricing_model("claude", "sonnet") == "claude-sonnet-4-6"
     assert resolve_pricing_model("claude", "haiku") == "claude-haiku-4-5"
+
+
+def test_resolve_pricing_model_handles_opus_4_8() -> None:
+    # Opus 4.8 resolves directly, via its 1M-context suffix alias, and via a date-suffixed prefix.
+    assert resolve_pricing_model("claude", "claude-opus-4-8") == "claude-opus-4-8"
+    assert resolve_pricing_model("claude", "claude-opus-4-8[1m]") == "claude-opus-4-8"
+    assert resolve_pricing_model("claude", "claude-opus-4-8-20260528") == "claude-opus-4-8"
+
+
+def test_calculate_costs_for_opus_4_8_uses_verified_standard_rates() -> None:
+    # platform.claude.com: Opus 4.8 standard = $5 input / $0.50 cache read / $6.25 5m cache
+    # write / $25 output per MTok — unchanged from Opus 4.5/4.6/4.7.
+    costs = calculate_costs(
+        provider="claude",
+        pricing_model="claude-opus-4-8",
+        input_tokens=1_000_000,
+        cached_input_tokens=1_000_000,
+        cache_creation_input_tokens=1_000_000,
+        output_tokens=1_000_000,
+        reasoning_output_tokens=0,
+    )
+
+    assert costs["input_cost_usd"] == pytest.approx(5.00)
+    assert costs["cached_input_cost_usd"] == pytest.approx(0.50)
+    assert costs["cache_creation_input_cost_usd"] == pytest.approx(6.25)
+    assert costs["output_cost_usd"] == pytest.approx(25.00)
+    assert costs["session_total_cost_usd"] == pytest.approx(36.75)
+
+
+def test_calculate_costs_opus_4_8_long_context_bills_flat_standard_rates() -> None:
+    # Opus 4.8 includes the full 1M context window at standard pricing (no >200K surcharge),
+    # so long_context=True yields the same costs as standard.
+    standard = calculate_costs(
+        provider="claude",
+        pricing_model="claude-opus-4-8",
+        input_tokens=1000,
+        cached_input_tokens=500_000,
+        cache_creation_input_tokens=100_000,
+        output_tokens=5000,
+        reasoning_output_tokens=0,
+        long_context=False,
+    )
+    long_context = calculate_costs(
+        provider="claude",
+        pricing_model="claude-opus-4-8",
+        input_tokens=1000,
+        cached_input_tokens=500_000,
+        cache_creation_input_tokens=100_000,
+        output_tokens=5000,
+        reasoning_output_tokens=0,
+        long_context=True,
+    )
+
+    assert long_context == standard
+    assert long_context["session_total_cost_usd"] == pytest.approx(1.005)
 
 
 def test_resolve_pricing_model_returns_empty_for_unknown_or_blank_models() -> None:
