@@ -1116,6 +1116,9 @@ function __icon_map() {
    "Screencap")
         icon_result=":screencap:"
         ;;
+   "Screen Sharing")
+        icon_result=":desktop:"
+        ;;
    "Scribus")
         icon_result=":scribus:"
         ;;

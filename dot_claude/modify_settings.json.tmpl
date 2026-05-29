@@ -7,7 +7,8 @@
 # model and effortLevel are *seeded* with a cross-machine default (opus[1m] / xhigh)
 # only when the live file has no value yet, so a fresh machine gets the default while
 # an in-tool override (model picker 'd', or /effort) still survives apply.
-# Output is sorted (jq -S) for deterministic diffs.
+# Output preserves the live JSON key order so Claude Code's own settings
+# serializer does not fight chezmoi with order-only drift.
 
 set -euo pipefail
 
@@ -136,14 +137,14 @@ JSON
 existing=$(cat)
 [[ -z "$existing" ]] && existing='{}'
 
-merged=$(printf '%s\n' "$existing" | jq -S --argjson managed "$managed" '. * $managed')
+merged=$(printf '%s\n' "$existing" | jq --argjson managed "$managed" '. * $managed')
 
 # Seed cross-machine defaults for model + effort. These stay OUT of $managed so an
 # in-tool override survives apply; we only set them when the live file has no value
 # yet (fresh machine). Effort is seeded to xhigh (the highest level that persists);
 # max is intentionally not pinned here because it can't persist via effortLevel and
 # would require CLAUDE_CODE_EFFORT_LEVEL=max, which also overrides per-session /effort.
-merged=$(printf '%s\n' "$merged" | jq -S '
+merged=$(printf '%s\n' "$merged" | jq '
   (if .model == null then .model = "opus[1m]" else . end)
   | (if .effortLevel == null then .effortLevel = "xhigh" else . end)
 ')
@@ -155,7 +156,7 @@ merged=$(printf '%s\n' "$merged" | jq -S '
 # replaced) so paths added later via /sandbox survive apply. Idempotent.
 # allowWrite is normalized to an array first (null/missing/corrupt non-array all
 # become []) so a hand-mangled value can't error out the whole apply under set -e.
-merged=$(printf '%s\n' "$merged" | jq -S --arg p "{{ .chezmoi.homeDir }}/.cache/pre-commit" '
+merged=$(printf '%s\n' "$merged" | jq --arg p "{{ .chezmoi.homeDir }}/.cache/pre-commit" '
   (.sandbox.filesystem.allowWrite // [] | if type == "array" then . else [] end) as $aw
   | if ($aw | index($p)) then .
     else .sandbox.filesystem.allowWrite = ($aw + [$p]) end
@@ -166,7 +167,7 @@ merged=$(printf '%s\n' "$merged" | jq -S --arg p "{{ .chezmoi.homeDir }}/.cache/
 # hook pointing into ~/.local/share/hippo-brain/ (legacy state from when this
 # machine was provisioned with hippo on). Recursive merge alone wouldn't
 # remove keys not present in $managed, so we filter explicitly.
-merged=$(printf '%s\n' "$merged" | jq -S '
+merged=$(printf '%s\n' "$merged" | jq '
   if (.hooks.SessionStart // null) then
     .hooks.SessionStart |= (
       map(.hooks |= map(select((.command // "") | contains("/hippo-brain/") | not)))

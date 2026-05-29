@@ -55,7 +55,9 @@ color_for_app() {
     raycast)                            echo "0xffff6363" ;;  # raycast red
     orbstack)                           echo "0xff3b82f6" ;;  # orbstack blue
     claude)                             echo "0xffcc9b7a" ;;  # claude tan
+    codex)                              echo "0xff10a37f" ;;  # openai green
     cursor)                             echo "0xff007acc" ;;  # cursor blue
+    *"screen sharing"*)                 echo "0xff4097e2" ;;  # screen sharing blue
     zoom*)                              echo "0xff2d8cff" ;;  # zoom blue
     *teams*)                            echo "0xff6264a7" ;;  # teams purple
     notion)                             echo "0xffe0e0e0" ;;  # notion off-white

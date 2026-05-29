@@ -110,7 +110,7 @@ pyrightconfig.json
 .config/zsh/.personal.env
 .config/zsh/profile.d/personal-secrets.zsh
 .config/zsh/profile.d/personal-shell-functions.zsh
-.config/aerospace/layouts/workspace-5-comms.sh
+.config/aerospace/layouts/workspace-8-comms.sh
 Library/LaunchAgents/com.user.xcode-mcp-proxy.plist
 {{ end }}
 

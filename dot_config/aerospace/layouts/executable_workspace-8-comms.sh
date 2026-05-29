@@ -1,5 +1,5 @@
 #!/bin/bash
-# Workspace 5: Comms — 2x1 left, 1 right
+# Workspace 8: Comms — 2x1 left, 1 right
 #
 #   ┌──────────┬──────────┐
 #   │   Mail   │          │
@@ -7,11 +7,11 @@
 #   │ Calendar │          │
 #   └──────────┴──────────┘
 #
-# Usage: ~/.config/aerospace/layouts/workspace-5-comms.sh
+# Usage: ~/.config/aerospace/layouts/workspace-8-comms.sh
 
 set -euo pipefail
 
-WORKSPACE=5
+WORKSPACE=8
 
 get_window_id() {
   aerospace list-windows --workspace "$WORKSPACE" --format '%{window-id}|%{app-name}' \

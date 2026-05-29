@@ -125,7 +125,7 @@ f = ['flatten-workspace-tree', 'mode main']
 b = ['balance-sizes', 'mode main']
 {{- if hasPrefix "personal" .machine }}
 # Personal workspace layout scripts
-5 = ['exec-and-forget ~/.config/aerospace/layouts/workspace-5-comms.sh', 'mode main']
+8 = ['exec-and-forget ~/.config/aerospace/layouts/workspace-8-comms.sh', 'mode main']
 {{- end }}
 {{- if hasPrefix "work" .machine }}
 # Work workspace layout scripts (add as needed)
@@ -138,12 +138,12 @@ esc = 'mode main'
 # 1: Terminal (Ghostty)
 # 2: Browser (Firefox)
 # 3: IDE (IntelliJ)
-# 4: AI (Claude, LM Studio)
-# 5: Comms (Mail, Calendar, Messages)
-# 6: Gaming (Steam)
+# 4: Slack
+# 5: AI (Claude, Codex, LM Studio)
+# 6: Editor (Cursor)
 # 7: Notes (Obsidian)
-# 8: Slack
-# 9: Editor (Zed)
+# 8: Comms (Mail, Calendar, Messages)
+# 9: Remote Access (Screen Sharing)
 
 [[on-window-detected]]
 if.app-id = 'com.mitchellh.ghostty'
@@ -158,39 +158,43 @@ if.app-id = 'com.jetbrains.intellij'
 run = 'move-node-to-workspace 3'
 
 [[on-window-detected]]
-if.app-id = 'com.anthropic.claudefordesktop'
+if.app-id = 'com.tinyspeck.slackmacgap'
 run = 'move-node-to-workspace 4'
+
+[[on-window-detected]]
+if.app-id = 'com.anthropic.claudefordesktop'
+run = 'move-node-to-workspace 5'
+
+[[on-window-detected]]
+if.app-id = 'com.openai.codex'
+run = 'move-node-to-workspace 5'
 
 [[on-window-detected]]
 if.app-id = 'ai.elementlabs.lmstudio'
-run = 'move-node-to-workspace 4'
+run = 'move-node-to-workspace 5'
+
+[[on-window-detected]]
+if.app-id = 'com.todesktop.230313mzl4w4u92'
+run = 'move-node-to-workspace 6'
 
 [[on-window-detected]]
 if.app-id = 'com.apple.mail'
-run = 'move-node-to-workspace 5'
+run = 'move-node-to-workspace 8'
 
 [[on-window-detected]]
 if.app-id = 'com.apple.iCal'
-run = 'move-node-to-workspace 5'
+run = 'move-node-to-workspace 8'
 
 [[on-window-detected]]
 if.app-id = 'com.apple.MobileSMS'
-run = 'move-node-to-workspace 5'
-
-[[on-window-detected]]
-if.app-id = 'com.valvesoftware.steam.helper'
-run = 'move-node-to-workspace 6'
+run = 'move-node-to-workspace 8'
 
 [[on-window-detected]]
 if.app-id = 'md.obsidian'
 run = 'move-node-to-workspace 7'
 
 [[on-window-detected]]
-if.app-id = 'com.tinyspeck.slackmacgap'
-run = 'move-node-to-workspace 8'
-
-[[on-window-detected]]
-if.app-id = 'dev.zed.Zed-Preview'
+if.app-id = 'com.apple.ScreenSharing'
 run = 'move-node-to-workspace 9'
 {{- end }}
 {{- if hasPrefix "work" .machine }}
