@@ -68,6 +68,12 @@ TOKEN_PRICING_USD_PER_1M: dict[str, dict[str, dict[str, float]]] = {
         },
     },
     "claude": {
+        "claude-opus-4-8": {
+            "input_tokens": 5.00,
+            "cached_input_tokens": 0.50,
+            "cache_creation_input_tokens": 6.25,
+            "output_tokens": 25.00,
+        },
         "claude-opus-4-7": {
             "input_tokens": 5.00,
             "cached_input_tokens": 0.50,
@@ -101,13 +107,14 @@ MODEL_PRICING_ALIASES: dict[str, dict[str, str]] = {
         "gpt-5.3-codex-mini": "gpt-5.2-codex-mini",
     },
     "claude": {
+        "claude-opus-4-8[1m]": "claude-opus-4-8",
         "claude-opus-4-7[1m]": "claude-opus-4-7",
         "claude-opus-4-5": "claude-opus-4-6",
         "claude-sonnet-4-5": "claude-sonnet-4-6",
         "claude-haiku-4-5-20251001": "claude-haiku-4-5",
         # Bare aliases are logged for some sessions (e.g. subagents); map each tier to
         # its current fleet member.
-        "opus": "claude-opus-4-7",
+        "opus": "claude-opus-4-8",
         "sonnet": "claude-sonnet-4-6",
         "haiku": "claude-haiku-4-5",
     },
@@ -117,6 +124,7 @@ MODEL_PRICING_ALIASES: dict[str, dict[str, str]] = {
 MODEL_PRICING_PREFIX_ALIASES: dict[str, tuple[tuple[str, str], ...]] = {
     "codex": (),
     "claude": (
+        ("claude-opus-4-8", "claude-opus-4-8"),
         ("claude-opus-4-7", "claude-opus-4-7"),
         ("claude-opus-4-5", "claude-opus-4-6"),
         ("claude-sonnet-4-5", "claude-sonnet-4-6"),
@@ -127,21 +135,32 @@ MODEL_PRICING_PREFIX_ALIASES: dict[str, tuple[tuple[str, str], ...]] = {
 
 LONG_CONTEXT_INPUT_THRESHOLD: int = 200_000
 
-# Long-context (>200K input) pricing. As of Opus 4.6/4.7 and Sonnet 4.6, Anthropic
+# Long-context (>200K input) pricing. As of Opus 4.6/4.7/4.8 and Sonnet 4.6, Anthropic
 # bills the full 1M context window at *standard* rates — there is no >200K surcharge
-# (https://platform.claude.com/docs/en/about-claude/pricing). These entries therefore
+# (https://platform.claude.com/docs/en/about-claude/pricing, which states these models
+# "include the full 1M token context window at standard pricing"). These entries therefore
 # mirror the standard table so billing is flat. The table is kept (rather than removed)
 # so the long-context code path stays exercised and a future model that reintroduces a
 # premium only needs its rates changed here.
 LONG_CONTEXT_PRICING_USD_PER_1M: dict[str, dict[str, float]] = {
+    "claude-opus-4-8": TOKEN_PRICING_USD_PER_1M["claude"]["claude-opus-4-8"],
     "claude-opus-4-7": TOKEN_PRICING_USD_PER_1M["claude"]["claude-opus-4-7"],
     "claude-opus-4-6": TOKEN_PRICING_USD_PER_1M["claude"]["claude-opus-4-6"],
     "claude-sonnet-4-6": TOKEN_PRICING_USD_PER_1M["claude"]["claude-sonnet-4-6"],
 }
 
 # Not wired into computation. JSONL model IDs do not distinguish fast from standard mode.
-# Fast mode is 6x standard rates and includes 1M context at no additional charge.
+# Fast mode includes 1M context at no additional charge. The multiplier is NOT uniform:
+# Opus 4.6/4.7 fast mode is 6x standard ($30 in / $150 out), but Opus 4.8 fast mode is far
+# cheaper at 2x standard ($10 in / $50 out) — the headline of the 4.8 release. Cache read /
+# 5-min cache write keep the standard 0.1x / 1.25x multipliers off each tier's fast input rate.
 FAST_MODE_PRICING_USD_PER_1M: dict[str, dict[str, float]] = {
+    "claude-opus-4-8": {
+        "input_tokens": 10.00,
+        "cached_input_tokens": 1.00,
+        "cache_creation_input_tokens": 12.50,
+        "output_tokens": 50.00,
+    },
     "claude-opus-4-7": {
         "input_tokens": 30.00,
         "cached_input_tokens": 3.00,

@@ -2,6 +2,7 @@
 
 import pytest
 
+from token_auditor.core.constants import FAST_MODE_PRICING_USD_PER_1M, TOKEN_PRICING_USD_PER_1M
 from token_auditor.core.pricing import calculate_costs, resolve_pricing_model, zero_costs
 from token_auditor.core.utils import safe_int
 
@@ -26,9 +27,90 @@ def test_resolve_pricing_model_handles_current_fleet_models() -> None:
     assert resolve_pricing_model("codex", "gpt-5.4-mini-2026-03-17") == "gpt-5.4-mini"
     assert resolve_pricing_model("codex", "gpt-5.5-2026-04-01") == "gpt-5.5"
     # Bare Claude aliases (logged for some sessions) map to the current fleet.
-    assert resolve_pricing_model("claude", "opus") == "claude-opus-4-7"
+    assert resolve_pricing_model("claude", "opus") == "claude-opus-4-8"
     assert resolve_pricing_model("claude", "sonnet") == "claude-sonnet-4-6"
     assert resolve_pricing_model("claude", "haiku") == "claude-haiku-4-5"
+
+
+def test_resolve_pricing_model_handles_opus_4_8() -> None:
+    # Opus 4.8 resolves directly, via its 1M-context suffix alias, and via a date-suffixed prefix.
+    assert resolve_pricing_model("claude", "claude-opus-4-8") == "claude-opus-4-8"
+    assert resolve_pricing_model("claude", "claude-opus-4-8[1m]") == "claude-opus-4-8"
+    assert resolve_pricing_model("claude", "claude-opus-4-8-20260528") == "claude-opus-4-8"
+
+
+def test_calculate_costs_for_opus_4_8_uses_verified_standard_rates() -> None:
+    # platform.claude.com: Opus 4.8 standard = $5 input / $0.50 cache read / $6.25 5m cache
+    # write / $25 output per MTok — unchanged from Opus 4.5/4.6/4.7.
+    costs = calculate_costs(
+        provider="claude",
+        pricing_model="claude-opus-4-8",
+        input_tokens=1_000_000,
+        cached_input_tokens=1_000_000,
+        cache_creation_input_tokens=1_000_000,
+        output_tokens=1_000_000,
+        reasoning_output_tokens=0,
+    )
+
+    assert costs["input_cost_usd"] == pytest.approx(5.00)
+    assert costs["cached_input_cost_usd"] == pytest.approx(0.50)
+    assert costs["cache_creation_input_cost_usd"] == pytest.approx(6.25)
+    assert costs["output_cost_usd"] == pytest.approx(25.00)
+    assert costs["session_total_cost_usd"] == pytest.approx(36.75)
+
+
+def test_calculate_costs_opus_4_8_long_context_bills_flat_standard_rates() -> None:
+    # Opus 4.8 includes the full 1M context window at standard pricing (no >200K surcharge),
+    # so long_context=True yields the same costs as standard.
+    standard = calculate_costs(
+        provider="claude",
+        pricing_model="claude-opus-4-8",
+        input_tokens=1000,
+        cached_input_tokens=500_000,
+        cache_creation_input_tokens=100_000,
+        output_tokens=5000,
+        reasoning_output_tokens=0,
+        long_context=False,
+    )
+    long_context = calculate_costs(
+        provider="claude",
+        pricing_model="claude-opus-4-8",
+        input_tokens=1000,
+        cached_input_tokens=500_000,
+        cache_creation_input_tokens=100_000,
+        output_tokens=5000,
+        reasoning_output_tokens=0,
+        long_context=True,
+    )
+
+    assert long_context == standard
+    assert long_context["session_total_cost_usd"] == pytest.approx(1.005)
+
+
+def test_fast_mode_pricing_table_values_match_documented_multipliers() -> None:
+    # FAST_MODE_PRICING_USD_PER_1M is not wired into computation, so a typo in its rates would
+    # otherwise pass CI silently: the dict is line-covered on import but its values are never
+    # exercised by calculate_costs. Pin every entry to the documented multipliers so a bad number
+    # fails loudly. Per-tier standard multiplier: Opus 4.8 fast mode is 2x standard (the headline
+    # of the 4.8 release); the 4.6/4.7 fast tier is 6x. Within each tier, cache read is 0.1x and
+    # the 5-minute cache write is 1.25x of that tier's fast input rate.
+    expected_standard_multiplier = {
+        "claude-opus-4-8": 2.0,
+        "claude-opus-4-7": 6.0,
+        "claude-opus-4-6": 6.0,
+    }
+    # A new fast-mode entry must declare its expected multiplier here, or this assertion fails —
+    # values can never be added to the table without a deliberate test update.
+    assert set(FAST_MODE_PRICING_USD_PER_1M) == set(expected_standard_multiplier)
+
+    for model, multiplier in expected_standard_multiplier.items():
+        fast = FAST_MODE_PRICING_USD_PER_1M[model]
+        standard = TOKEN_PRICING_USD_PER_1M["claude"][model]
+
+        assert fast["input_tokens"] == pytest.approx(multiplier * standard["input_tokens"])
+        assert fast["output_tokens"] == pytest.approx(multiplier * standard["output_tokens"])
+        assert fast["cached_input_tokens"] == pytest.approx(0.1 * fast["input_tokens"])
+        assert fast["cache_creation_input_tokens"] == pytest.approx(1.25 * fast["input_tokens"])
 
 
 def test_resolve_pricing_model_returns_empty_for_unknown_or_blank_models() -> None:
