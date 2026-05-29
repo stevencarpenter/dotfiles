@@ -77,7 +77,7 @@ Enter: `alt-shift-;` | Exit: `esc`
 | `r`  | Reload config                         |
 | `f`  | Flatten workspace tree (reset layout) |
 | `b`  | Balance window sizes                  |
-| `5`  | Arrange workspace 5 comms layout      |
+| `8`  | Arrange workspace 8 comms layout      |
 
 ---
 
@@ -94,14 +94,14 @@ These apps auto-float (won't tile): System Settings, 1Password, Raycast, Finder,
 | `1` | Terminal | Ghostty                   |
 | `2` | Browser  | Firefox Developer Edition |
 | `3` | IDE      | IntelliJ IDEA             |
-| `4` | AI       | Claude, LM Studio         |
-| `5` | Comms    | Mail, Calendar, Messages  |
-| `6` | Gaming   | Steam                     |
+| `4` | Slack    | Slack                     |
+| `5` | AI       | Claude, Codex, LM Studio  |
+| `6` | Editor   | Cursor                    |
 | `7` | Notes    | Obsidian                  |
-| `8` | Slack    | Slack                     |
-| `9` | Editor   | Zed                       |
+| `8` | Comms    | Mail, Calendar, Messages  |
+| `9` | Remote   | Screen Sharing            |
 
-### Workspace 5 Layout (service mode `5`)
+### Workspace 8 Layout (service mode `8`)
 
 ```
 ┌──────────┬──────────┐
@@ -149,7 +149,7 @@ Hover over the clock or calendar to see a dropdown with UTC time and date.
 | Deep focus              | `alt-f` (fullscreen), again to restore |
 | Fix broken layout       | `alt-shift-;` → `f` (flatten)          |
 | Equalize window sizes   | `alt-e`                                |
-| Arrange comms grid      | `alt-shift-;` → `5`                    |
+| Arrange comms grid      | `alt-shift-;` → `8`                    |
 | Precise resize          | `alt-r` → `hjkl` → `esc`               |
 
 ---
