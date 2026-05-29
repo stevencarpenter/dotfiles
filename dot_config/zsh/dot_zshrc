@@ -81,6 +81,7 @@ path=(
     "/Applications/IntelliJ IDEA.app/Contents/MacOS"
     $HOME/.lmstudio/bin
     $HOME/.amp/bin
+    $HOME/go/bin
     $path
 )
 
