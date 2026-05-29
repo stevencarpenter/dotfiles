@@ -2,6 +2,7 @@
 
 import pytest
 
+from token_auditor.core.constants import FAST_MODE_PRICING_USD_PER_1M, TOKEN_PRICING_USD_PER_1M
 from token_auditor.core.pricing import calculate_costs, resolve_pricing_model, zero_costs
 from token_auditor.core.utils import safe_int
 
@@ -84,6 +85,32 @@ def test_calculate_costs_opus_4_8_long_context_bills_flat_standard_rates() -> No
 
     assert long_context == standard
     assert long_context["session_total_cost_usd"] == pytest.approx(1.005)
+
+
+def test_fast_mode_pricing_table_values_match_documented_multipliers() -> None:
+    # FAST_MODE_PRICING_USD_PER_1M is not wired into computation, so a typo in its rates would
+    # otherwise pass CI silently: the dict is line-covered on import but its values are never
+    # exercised by calculate_costs. Pin every entry to the documented multipliers so a bad number
+    # fails loudly. Per-tier standard multiplier: Opus 4.8 fast mode is 2x standard (the headline
+    # of the 4.8 release); the 4.6/4.7 fast tier is 6x. Within each tier, cache read is 0.1x and
+    # the 5-minute cache write is 1.25x of that tier's fast input rate.
+    expected_standard_multiplier = {
+        "claude-opus-4-8": 2.0,
+        "claude-opus-4-7": 6.0,
+        "claude-opus-4-6": 6.0,
+    }
+    # A new fast-mode entry must declare its expected multiplier here, or this assertion fails —
+    # values can never be added to the table without a deliberate test update.
+    assert set(FAST_MODE_PRICING_USD_PER_1M) == set(expected_standard_multiplier)
+
+    for model, multiplier in expected_standard_multiplier.items():
+        fast = FAST_MODE_PRICING_USD_PER_1M[model]
+        standard = TOKEN_PRICING_USD_PER_1M["claude"][model]
+
+        assert fast["input_tokens"] == pytest.approx(multiplier * standard["input_tokens"])
+        assert fast["output_tokens"] == pytest.approx(multiplier * standard["output_tokens"])
+        assert fast["cached_input_tokens"] == pytest.approx(0.1 * fast["input_tokens"])
+        assert fast["cache_creation_input_tokens"] == pytest.approx(1.25 * fast["input_tokens"])
 
 
 def test_resolve_pricing_model_returns_empty_for_unknown_or_blank_models() -> None:
