@@ -231,6 +231,16 @@ GitHub Actions in `.github/workflows/`:
 - Chezmoi sources: keep `dot_` prefixes on managed dotfiles and `encrypted_` on age-encrypted sources
 - Prefer small, focused edits; keep scripts idempotent and safe to re-run
 
+## IntelliJ MCP in this repo
+
+The `mcp__idea__*` tools need explicit targeting — called bare they fail with "Unable to
+determine the target project for the current MCP tool call" or "No argument is passed for
+required parameter 'pathInProject'". When using them in this repo, always pass
+`projectPath=/Users/carpenter/.local/share/chezmoi`, a **repo-relative** `pathInProject`
+(e.g. `mcp_sync/src/mcp_sync/sync.py`), and the **exact** current `oldText` for replacements.
+The global `~/.claude/CLAUDE.md` covers *preferring* these tools; this note is the
+repo-specific targeting that makes them resolve.
+
 ## Commits & Pull Requests
 
 History uses Conventional Commit prefixes: `feat:`, `fix:`, `chore:`, `docs:`, `refactor:`.
