@@ -89,6 +89,36 @@ pyrightconfig.json
 !.claude/hooks
 !.claude/hooks/**
 
+# chezmoi-deployed, age-encrypted Claude skills. ~/.claude/skills/ is otherwise
+# owned by mcp_sync's sync-skills (vendored + personal skills); these specific
+# subtrees are instead decrypted in by chezmoi because their content is
+# sensitive work-process detail that must live encrypted in the repo. Re-include
+# the skills dir so chezmoi descends, re-ignore every child (so mcp_sync's stay
+# untouched), then re-include only the chezmoi-owned subtrees. NOTE: a later
+# plain pattern CANNOT re-ignore a path once `!` re-includes it (chezmoi
+# negations are sticky, not last-match-wins), so machine gating is done by
+# CONDITIONALLY EMITTING the re-includes below — never by overriding them.
+{{ if (index .machines .machine).skills }}
+!.claude/skills
+.claude/skills/*
+# Deployed on every skills-enabled machine:
+!.claude/skills/chezmoi-secret-encrypt-verify
+!.claude/skills/chezmoi-secret-encrypt-verify/**
+{{ if hasPrefix "work" .machine }}
+# Work-only skills (iac / databricks / kafka / spark / schema work domains):
+!.claude/skills/terraform-precommit-gauntlet
+!.claude/skills/terraform-precommit-gauntlet/**
+!.claude/skills/spark-job-failure-forensics
+!.claude/skills/spark-job-failure-forensics/**
+!.claude/skills/kafka-connect-sink-log-triage
+!.claude/skills/kafka-connect-sink-log-triage/**
+!.claude/skills/schema-drift-config-reconciler
+!.claude/skills/schema-drift-config-reconciler/**
+!.claude/skills/databricks-tf-v1-v2-parity-mirror
+!.claude/skills/databricks-tf-v1-v2-parity-mirror/**
+{{ end }}
+{{ end }}
+
 # Work/personal/lab conditional deployment
 # Skip work files on non-work machines
 {{ if not (hasPrefix "work" .machine) }}
