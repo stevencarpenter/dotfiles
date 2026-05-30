@@ -14,10 +14,15 @@ SET autoinstall_known_extensions = true;
 SET autoload_known_extensions = true;
 
 -- Extensions: data engineering essentials
+INSTALL httpfs;
 LOAD httpfs;
+INSTALL json;
 LOAD json;
+INSTALL parquet;
 LOAD parquet;
+INSTALL iceberg;
 LOAD iceberg;
+INSTALL delta;
 LOAD delta;
 
 -- Resource tuning (uncomment and adjust per machine)
