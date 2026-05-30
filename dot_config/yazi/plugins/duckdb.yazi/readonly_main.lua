@@ -198,7 +198,7 @@ end
 function M:setup(opts)
     opts = opts or {}
 
-    local mode = opts.mode or "summarized"
+    local mode = opts.mode or "standard"
     local operating_system = ya.target_os()
     local column_width = opts.minmax_column_width or 21
     local row_id = opts.row_id
