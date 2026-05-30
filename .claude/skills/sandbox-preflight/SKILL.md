@@ -31,7 +31,7 @@ decision mechanical.
 |---|---|---|
 | `uv` / `uvx` / `ruff` / `pytest` / `ty` (any of the 3 tools) | **DISABLE** | writes `~/.cache/uv` (not allowlisted) |
 | `gh ...` (any API call) | **DISABLE** | GitHub TLS fails — `OSStatus -26276` |
-| `git push` / `fetch` / `pull` / `clone` / `remote` / `ls-remote` | **DISABLE** | GitHub network |
+| `git push` / `fetch` / `pull` / `clone` / `ls-remote` | **DISABLE** | GitHub network |
 | `git config` / `branch -m` / `remote set-url` / `init` | **DISABLE** | writes `.git/config` |
 | `ssh` with ControlMaster, or any new control socket | **DISABLE** | binds `~/.ssh/cm-*` socket |
 | `mktemp`/`mkdtemp` targeting `/tmp` or `/var` (not `$TMPDIR`) | **DISABLE** | write outside allowlist |
@@ -48,7 +48,7 @@ bash .claude/skills/sandbox-preflight/scripts/classify_command.sh '<the command 
 
 ## Batching rule
 
-Never co-batch a sandbox-risky call (`gh`/`uv`/`git push`/`git remote`) with independent
+Never co-batch a sandbox-risky call (`gh`/`uv`/networked `git push`/`fetch`/`pull`/`clone`/`ls-remote`) with independent
 read-only commands in one parallel tool block. A single sandbox failure reports as
 `Cancelled: parallel tool call ... errored` and takes its siblings down with it. Run risky
 calls on their own, sandbox disabled.

@@ -5,10 +5,13 @@
 # is `main` or `master`.
 set -euo pipefail
 
-default="$(git symbolic-ref --quiet refs/remotes/origin/HEAD 2>/dev/null | sed 's#^refs/remotes/origin/##')"
+default_ref="$(git symbolic-ref --quiet refs/remotes/origin/HEAD 2>/dev/null || true)"
+default="${default_ref#refs/remotes/origin/}"
 if [ -z "$default" ]; then
   # Fall back: ask the remote, else guess main.
-  default="$(git remote show origin 2>/dev/null | sed -n 's/.*HEAD branch: //p' | head -1)"
+  default="$(
+    git remote show origin 2>/dev/null | sed -n 's/.*HEAD branch: //p' | head -1 || true
+  )"
   default="${default:-main}"
 fi
 head="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo UNKNOWN)"

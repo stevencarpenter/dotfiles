@@ -33,9 +33,9 @@ bash .claude/skills/uv-tool-loop/scripts/tool_ci.sh <path-under-a-tool>
 
 | Tool | Invocation | ty? | coverage gate |
 |---|---|:---:|---|
-| `token_auditor` | `cd token_auditor && uv sync --locked --group dev`, then `uv run ruff check .` / `ruff format --check .` / `ty check .` / `pytest -v` | **yes** | **100% required** |
-| `mcp_sync` | `uv run --project mcp_sync --group dev ruff check mcp_sync/src mcp_sync/tests` / `pytest mcp_sync/tests --cov=mcp_sync` | no | report only |
-| `aws_config_gen` | `uv run --project aws_config_gen --group dev ruff ...` / `pytest aws_config_gen/tests --cov=aws_config_gen` | no | report only |
+| `token_auditor` | `cd token_auditor && uv sync --locked --group dev`, then `uv run ruff check .` / `uv run ruff format --check .` / `uv run ty check .` / `uv run pytest -v` | **yes** | **100% required** |
+| `mcp_sync` | `uv run --project mcp_sync --group dev ruff check mcp_sync/src mcp_sync/tests` / `uv run --project mcp_sync --group dev ruff format --check mcp_sync/src mcp_sync/tests` / `uv run --project mcp_sync --group dev pytest mcp_sync/tests --cov=mcp_sync --cov-report=term-missing` | no | report only |
+| `aws_config_gen` | `uv run --project aws_config_gen --group dev ruff check aws_config_gen/src aws_config_gen/tests` / `uv run --project aws_config_gen --group dev ruff format --check aws_config_gen/src aws_config_gen/tests` / `uv run --project aws_config_gen --group dev pytest aws_config_gen/tests --cov=aws_config_gen --cov-report=term-missing` | no | report only |
 
 All `uv` calls write `~/.cache/uv`, which the sandbox blocks — run them with
 `dangerouslyDisableSandbox: true` (see [sandbox-preflight](../sandbox-preflight/SKILL.md)).
