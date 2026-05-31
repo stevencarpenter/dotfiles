@@ -70,6 +70,16 @@ return {
             table.insert(opts.sources, { name = "emoji" })
         end,
     },
+    {
+      "ajbucci/ipynb.nvim",
+      dependencies = {
+        "nvim-treesitter/nvim-treesitter",
+        "neovim/nvim-lspconfig",
+        "nvim-tree/nvim-web-devicons", -- optional, for language icons
+        "folke/snacks.nvim", -- optional, for inline images
+      },
+      opts = {},
+    },
 
     -- change some telescope options and a keymap to browse plugin files
     {
@@ -125,11 +135,5 @@ return {
                 "css",
             },
         },
-    },
-    {
-      "sourcegraph/amp.nvim",
-      branch = "main",
-      lazy = false,
-      opts = { auto_start = true, log_level = "info" },
     }
 }
