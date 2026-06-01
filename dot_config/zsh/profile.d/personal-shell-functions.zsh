@@ -14,6 +14,15 @@ if [[ -f "$HOME/.local/share/hippo-brain/shell/hippo.zsh" ]]; then
     source "$HOME/.local/share/hippo-brain/shell/hippo-env.zsh"
     source "$HOME/.local/share/hippo-brain/shell/hippo.zsh"
 fi
+# Hippo CLI end
+
+# pnpm
+export PNPM_HOME="/Users/carpenter/.local/share/pnpm"
+case ":$PATH:" in
+  *":$PNPM_HOME/bin:"*) ;;
+  *) export PATH="$PNPM_HOME/bin:$PATH" ;;
+esac
+# pnpm end
 
 # ghcup (Haskell toolchain manager) why am I even doing this in 2026
 #[ -f "$HOME/.ghcup/env" ] && . "$HOME/.ghcup/env" # ghcup-env
