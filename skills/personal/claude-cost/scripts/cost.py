@@ -24,7 +24,7 @@ RATES_AS_OF = "2026-06-02"
 # Anthropic: cache writes are priced as multiples of base input; reads at 0.1x.
 ANTH_CACHE = {"read": 0.10, "write_5m": 1.25, "write_1h": 2.0}
 ANTHROPIC_RATES = {  # model-id prefix -> base input / output
-    "claude-opus-4-8":   {"input": 5.0,  "output": 25.0},
+    "claude-opus-4-8":   {"input": 5.0,  "output": 25.0, "fast_mult": 2.0},
     "claude-opus-4-7":   {"input": 5.0,  "output": 25.0},
     "claude-opus-4-6":   {"input": 5.0,  "output": 25.0},
     "claude-opus-4-5":   {"input": 5.0,  "output": 25.0},
@@ -37,7 +37,7 @@ ANTHROPIC_RATES = {  # model-id prefix -> base input / output
     "claude-haiku-3-5":  {"input": 0.8,  "output": 4.0},
 }
 # Anthropic per-call billing modifiers detected from the usage object.
-ANTH_FAST_MULT = 6.0    # speed == "fast" (Opus fast mode)
+ANTH_FAST_MULT = 6.0    # speed == "fast" (default; overridable per-model via fast_mult)
 ANTH_BATCH_MULT = 0.5   # service_tier == "batch"
 ANTH_US_GEO_MULT = 1.1  # inference_geo == "us"
 
@@ -250,6 +250,7 @@ def price_claude(rec, rates):
     if rate is None:
         return None, None
     bi, bo = rate["input"], rate["output"]
+    fast_mult = rate.get("fast_mult", ANTH_FAST_MULT)
     cm = rates["cache"]
     t = rec["t"]
     c5, c1 = t["c5"], t["c1"]
@@ -267,7 +268,7 @@ def price_claude(rec, rates):
         ("output", t["out"], bo),
     ]
     nominal = [(label, tok, r, tok * r / 1e6) for label, tok, r in buckets]
-    fbi, fbo = (bi * ANTH_FAST_MULT, bo * ANTH_FAST_MULT) if rec["fast"] else (bi, bo)
+    fbi, fbo = (bi * fast_mult, bo * fast_mult) if rec["fast"] else (bi, bo)
     actual = (t["inp"] * fbi + t["out"] * fbo + t["cr"] * fbi * cm["read"]
               + c5 * fbi * cm["write_5m"] + c1 * fbi * cm["write_1h"]) / 1e6
     if rec["batch"]:
@@ -275,7 +276,7 @@ def price_claude(rec, rates):
     if rec["us"]:
         actual *= ANTH_US_GEO_MULT
     flags = [f for f, on in (("fast", rec["fast"]), ("batch", rec["batch"]), ("us-geo", rec["us"])) if on]
-    return nominal, (actual, flags)
+    return nominal, (actual, flags, fast_mult)
 
 
 def claude_display(model, rates):
@@ -358,7 +359,7 @@ def price_codex(rec, rates):
     use_lc = bool(lc and inp_total > lc["threshold"])
     eff = lc if use_lc else rate
     actual = (uncached * eff["input"] + cached * eff["cached"] + out * eff["output"]) / 1e6
-    return nominal, (actual, (["long-ctx"] if use_lc else []))
+    return nominal, (actual, (["long-ctx"] if use_lc else []), None)
 
 
 # --------------------------------------------------------------------------- #
@@ -383,13 +384,15 @@ def aggregate(records, rates):
         if nominal is None:
             unknown[rec["provider"]][rec["model"]] += 1
             continue
-        actual, flags = extra
+        actual, flags, fast_mult = extra
         key = (rec["provider"], namer[rec["provider"]](rec["model"]))
         a = agg.get(key)
         if a is None:
             a = agg[key] = {"calls": 0, "order": [lbl for lbl, *_ in nominal],
                             "tok": Counter(), "rate": {}, "nominal": Counter(),
                             "actual": 0.0, "flags": Counter()}
+        if rec["provider"] == "claude":
+            a["fast_mult"] = fast_mult
         a["calls"] += 1
         for label, tok, r, cost in nominal:
             a["tok"][label] += tok
@@ -426,7 +429,7 @@ def print_provider(provider, agg, unknown, width):
             comp[label] += a["nominal"][label]
         nominal_sum = sum(a["nominal"].values())
         if abs(a["actual"] - nominal_sum) > 0.005:
-            mults = {"fast": ANTH_FAST_MULT, "batch": ANTH_BATCH_MULT, "us-geo": ANTH_US_GEO_MULT}
+            mults = {"fast": a.get("fast_mult", ANTH_FAST_MULT), "batch": ANTH_BATCH_MULT, "us-geo": ANTH_US_GEO_MULT}
             note = "adj (" + ", ".join(f"{mults[f]:.1f}x" for f in a["flags"].keys() if f in mults) + ")"
             print(f"    {note:<28}{usd(a['actual'] - nominal_sum):>30}")
         print(f"    {'SUBTOTAL':<18}{'':>16}{'':>10}{usd(a['actual']):>14}")
