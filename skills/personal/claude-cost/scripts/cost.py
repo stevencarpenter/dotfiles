@@ -19,11 +19,12 @@ from collections import Counter, defaultdict
 
 # --- Pricing (per MTok). Update the *_AS_OF stamps + tables when prices change,
 #     or pass --rates rates.json to override without editing this file. ---------
-RATES_AS_OF = "2026-05-24"
+RATES_AS_OF = "2026-06-02"
 
 # Anthropic: cache writes are priced as multiples of base input; reads at 0.1x.
 ANTH_CACHE = {"read": 0.10, "write_5m": 1.25, "write_1h": 2.0}
 ANTHROPIC_RATES = {  # model-id prefix -> base input / output
+    "claude-opus-4-8":   {"input": 5.0,  "output": 25.0},
     "claude-opus-4-7":   {"input": 5.0,  "output": 25.0},
     "claude-opus-4-6":   {"input": 5.0,  "output": 25.0},
     "claude-opus-4-5":   {"input": 5.0,  "output": 25.0},
@@ -55,8 +56,9 @@ OPENAI_RATES = {  # model-id prefix -> input / cached / output (+ optional lc)
 }
 
 CLAUDE_NAMES = {
-    "claude-opus-4-7": "Opus 4.7", "claude-opus-4-6": "Opus 4.6",
-    "claude-opus-4-5": "Opus 4.5", "claude-opus-4-1": "Opus 4.1",
+    "claude-opus-4-8": "Opus 4.8", "claude-opus-4-7": "Opus 4.7",
+    "claude-opus-4-6": "Opus 4.6", "claude-opus-4-5": "Opus 4.5",
+    "claude-opus-4-1": "Opus 4.1",
     "claude-sonnet-4-6": "Sonnet 4.6", "claude-sonnet-4-5": "Sonnet 4.5",
     "claude-haiku-4-5": "Haiku 4.5", "claude-haiku-3-5": "Haiku 3.5",
 }
