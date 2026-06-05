@@ -430,7 +430,8 @@ def print_provider(provider, agg, unknown, width):
         nominal_sum = sum(a["nominal"].values())
         if abs(a["actual"] - nominal_sum) > 0.005:
             mults = {"fast": a.get("fast_mult", ANTH_FAST_MULT), "batch": ANTH_BATCH_MULT, "us-geo": ANTH_US_GEO_MULT}
-            note = "adj (" + ", ".join(f"{mults[f]:.1f}x" for f in a["flags"].keys() if f in mults) + ")"
+            parts = [f"{mults[f]:.1f}x" if f in mults else f for f in a["flags"].keys()]
+            note = "adj" + (f" ({', '.join(parts)})" if parts else "")
             print(f"    {note:<28}{usd(a['actual'] - nominal_sum):>30}")
         print(f"    {'SUBTOTAL':<18}{'':>16}{'':>10}{usd(a['actual']):>14}")
     print(f"\n  {PROVIDER_TITLE[provider]} subtotal: {usd(subtotal)}")
