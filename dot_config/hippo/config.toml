@@ -1,5 +1,5 @@
 [inference]
-base_url = "http://localhost:8910/v1" # oMLX local server (LM Studio: :1234)
+base_url = "http://127.0.0.1:42069/v1" # oMLX local server (LM Studio: :1234)
 timeout_secs = 300                    # HTTP timeout for chat/embed calls
 
 [models]
