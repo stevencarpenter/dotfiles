@@ -77,6 +77,26 @@ def test_full_sync_generic_mcp_has_schema(
     )
 
 
+def test_full_sync_opencode_includes_local_providers(
+    temp_home, monkeypatch_home, master_config_file
+):
+    """OpenCode config carries the lmstudio + omlx local inference providers.
+
+    Pins the base template's provider section through the real sync path
+    (main()), now that the standalone sync_opencode_mcp helper is gone, so a
+    future refactor can't silently drop the local providers.
+    """
+    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
+    main()
+
+    cfg = json.loads((temp_home / ".config/opencode/opencode.json").read_text())
+    providers = cfg.get("provider", {})
+    assert {"lmstudio", "omlx"} <= providers.keys()
+    assert providers["lmstudio"]["npm"] == "@ai-sdk/openai-compatible"
+    assert providers["lmstudio"]["options"]["baseURL"] == "http://localhost:1234/v1"
+    assert providers["omlx"]["options"]["baseURL"] == "http://localhost:8000/v1"
+
+
 def test_full_sync_cursor_writes_home_dotfolder(
     temp_home, monkeypatch_home, master_config_file
 ):

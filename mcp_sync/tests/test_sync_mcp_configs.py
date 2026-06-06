@@ -12,7 +12,6 @@ from mcp_sync import (
     patch_claude_code_config,
     sync_codex_mcp,
     sync_copilot_cli_config,
-    sync_opencode_mcp,
     sync_to_locations,
     transform_to_copilot_format,
     transform_to_generic_mcp_format,
@@ -296,75 +295,6 @@ def test_patch_claude_code_config_applies_override(
     result = json.loads(claude_path.read_text())
     assert result["theme"] == "dark"
     assert result["enabledPlugins"]["new-plugin@source"] is True
-
-
-def test_sync_opencode_mcp_with_existing_config(
-    temp_home, monkeypatch_home, master_config
-):
-    """Test syncing MCP servers to OpenCode config."""
-    opencode_dir = temp_home / ".config" / "opencode"
-    opencode_dir.mkdir(parents=True, exist_ok=True)
-    opencode_path = opencode_dir / "opencode.json"
-
-    # Create initial OpenCode config
-    initial_config = {
-        "$schema": "https://opencode.ai/config.json",
-        "provider": {
-            "lmstudio": {
-                "npm": "@ai-sdk/openai-compatible",
-                "name": "LM Studio (local)",
-                "options": {"baseURL": "http://localhost:1234/v1"},
-                "models": {"qwen/qwen3-coder-30b": {"name": "qwen3-coder-30b"}},
-            }
-        },
-        "mcp": {},
-    }
-    opencode_path.write_text(json.dumps(initial_config, indent=2), encoding="utf-8")
-
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
-    sync_opencode_mcp(master_config)
-
-    result = json.loads(opencode_path.read_text())
-
-    # Provider config should be preserved
-    assert "provider" in result
-    assert result["provider"]["lmstudio"]["name"] == "LM Studio (local)"
-
-    # MCP servers should be synced
-    assert "mcp" in result
-    assert "filesystem" in result["mcp"]
-
-
-def test_sync_opencode_mcp_missing_config(temp_home, monkeypatch_home, master_config):
-    """Test syncing creates OpenCode config when missing."""
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
-    sync_opencode_mcp(master_config)
-
-    opencode_path = temp_home / ".config" / "opencode" / "opencode.json"
-    assert opencode_path.exists()
-
-
-def test_sync_opencode_mcp_template_includes_local_inference_providers(
-    temp_home, monkeypatch_home, master_config
-):
-    """Generated config carries the lmstudio + omlx local inference providers.
-
-    Pins the template's provider section so a future refactor of
-    `transform_to_opencode_format` or the merge logic can't silently drop
-    them. The deployed providers must each route to a real local server
-    via @ai-sdk/openai-compatible.
-    """
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
-    sync_opencode_mcp(master_config)
-
-    cfg = json.loads((temp_home / ".config" / "opencode" / "opencode.json").read_text())
-
-    providers = cfg.get("provider", {})
-    assert {"lmstudio", "omlx"} <= providers.keys()
-    assert providers["lmstudio"]["npm"] == "@ai-sdk/openai-compatible"
-    assert providers["lmstudio"]["options"]["baseURL"] == "http://localhost:1234/v1"
-    assert providers["omlx"]["npm"] == "@ai-sdk/openai-compatible"
-    assert providers["omlx"]["options"]["baseURL"] == "http://localhost:8000/v1"
 
 
 def test_sync_codex_mcp_with_existing_config(

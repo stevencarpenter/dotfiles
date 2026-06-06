@@ -566,19 +566,6 @@ def transform_to_opencode_format(master: JsonDict) -> JsonDict:
     return {"mcp": mcp}
 
 
-def sync_opencode_mcp(master: JsonDict, home: Path | None = None) -> None:
-    home_path = _home_dir(home)
-    target = SyncTarget(
-        name="opencode",
-        destination=home_path / ".config" / "opencode" / "opencode.json",
-        transform=transform_to_opencode_format,
-        template_key="opencode",
-        override_key="opencode",
-    )
-    target.sync(master, home=home_path)
-    log_success(f"Synced MCP servers to: {target.destination}")
-
-
 def _build_targets(home: Path) -> list[SyncTarget]:
     return [
         SyncTarget(
