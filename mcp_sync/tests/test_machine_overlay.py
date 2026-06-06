@@ -192,7 +192,16 @@ class TestRunSyncWithMachineConfig:
         )
         assert "filesystem" not in generic["mcpServers"]
 
-        vscode = json.loads((temp_home / ".vscode" / "mcp.json").read_text())
+        vscode = json.loads(
+            (
+                temp_home
+                / "Library"
+                / "Application Support"
+                / "Code"
+                / "User"
+                / "mcp.json"
+            ).read_text()
+        )
         assert "filesystem" not in vscode["servers"]
 
     def test_machine_overlay_disabled_false_keeps_server(
@@ -251,8 +260,8 @@ class TestRunSyncWithMachineConfig:
             (".config/github-copilot/intellij/mcp.json", "servers"),
             (".config/mcp/mcp_config.json", "mcpServers"),
             (".config/opencode/opencode.json", "mcp"),
-            (".config/cursor/mcp.json", "mcpServers"),
-            (".vscode/mcp.json", "servers"),
+            (".cursor/mcp.json", "mcpServers"),
+            ("Library/Application Support/Code/User/mcp.json", "servers"),
             (".junie/mcp/mcp.json", "mcpServers"),
             (".lmstudio/mcp.json", "mcpServers"),
         ]:

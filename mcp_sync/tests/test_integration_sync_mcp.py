@@ -28,8 +28,8 @@ def test_full_sync_workflow_all_targets(
         ".config/github-copilot/mcp.json",
         ".config/mcp/mcp_config.json",
         ".config/opencode/opencode.json",
-        ".config/cursor/mcp.json",
-        ".vscode/mcp.json",
+        ".cursor/mcp.json",
+        "Library/Application Support/Code/User/mcp.json",
         ".junie/mcp/mcp.json",
         ".lmstudio/mcp.json",
     ]
@@ -77,26 +77,26 @@ def test_full_sync_generic_mcp_has_schema(
     )
 
 
-def test_full_sync_cursor_legacy_mirror(
+def test_full_sync_cursor_writes_home_dotfolder(
     temp_home, monkeypatch_home, master_config_file
 ):
-    """Integration test: Cursor config is mirrored to legacy location."""
+    """Integration test: Cursor MCP config is written to ~/.cursor/mcp.json.
+
+    The home dotfolder is Cursor's documented global path on macOS; it is
+    created unconditionally even when ~/.cursor did not already exist, and the
+    non-canonical ~/.config/cursor path is no longer produced.
+    """
 
     monkeypatch_home.setattr(Path, "home", lambda: temp_home)
 
-    # Create legacy dir to enable mirroring
-    (temp_home / ".cursor").mkdir(parents=True, exist_ok=True)
-
     main()
 
-    xdg_path = temp_home / ".config/cursor/mcp.json"
-    legacy_path = temp_home / ".cursor/mcp.json"
+    cursor_path = temp_home / ".cursor/mcp.json"
+    assert cursor_path.exists()
+    assert "mcpServers" in json.loads(cursor_path.read_text())
 
-    assert xdg_path.exists()
-    assert legacy_path.exists()
-
-    # Files should have identical content
-    assert xdg_path.read_text() == legacy_path.read_text()
+    # The non-canonical XDG path is no longer written
+    assert not (temp_home / ".config/cursor/mcp.json").exists()
 
 
 def test_full_sync_env_vars_preserved(temp_home, monkeypatch_home, master_config_file):

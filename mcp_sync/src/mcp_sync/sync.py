@@ -617,17 +617,24 @@ def _build_targets(home: Path) -> list[SyncTarget]:
             override_key="opencode",
         ),
         SyncTarget(
+            # Cursor reads ~/.cursor/mcp.json globally; ~/.config/cursor is never
+            # read on macOS (verified against cursor.com/docs).
             name="cursor",
-            destination=home / ".config" / "cursor" / "mcp.json",
+            destination=home / ".cursor" / "mcp.json",
             transform=transform_to_mcpservers_format,
-            legacy_dir=home / ".cursor",
-            legacy_destination=home / ".cursor" / "mcp.json",
             template_key="cursor",
             override_key="cursor",
         ),
         SyncTarget(
+            # VS Code user-level MCP config (macOS, default profile). The
+            # ~/.vscode/mcp.json path is workspace-only, never read globally.
             name="vscode",
-            destination=home / ".vscode" / "mcp.json",
+            destination=home
+            / "Library"
+            / "Application Support"
+            / "Code"
+            / "User"
+            / "mcp.json",
             transform=transform_to_identity_format,
             template_key="vscode",
             override_key="vscode",

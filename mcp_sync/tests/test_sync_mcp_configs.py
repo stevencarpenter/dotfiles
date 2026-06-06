@@ -752,7 +752,11 @@ def test_full_sync_does_not_propagate_master_schema_to_identity_tools(
     monkeypatch_home.setattr(Path, "home", lambda: temp_home)
     assert main() == 0
 
-    vscode = json.loads((temp_home / ".vscode" / "mcp.json").read_text())
+    vscode = json.loads(
+        (
+            temp_home / "Library" / "Application Support" / "Code" / "User" / "mcp.json"
+        ).read_text()
+    )
     assert vscode.get("$schema") != "https://modelcontextprotocol.io/schema/config.json"
 
     gh_copilot = json.loads(
