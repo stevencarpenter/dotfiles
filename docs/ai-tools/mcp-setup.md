@@ -42,11 +42,11 @@ After `chezmoi apply`, the merged config is written to:
 
 | Tool | Destination |
 |------|-------------|
-| GitHub Copilot (XDG) | `~/.config/.copilot/mcp-config.json` |
-| GitHub Copilot CLI | `~/.config/github-copilot/mcp.json` |
+| GitHub Copilot CLI | `~/.copilot/mcp-config.json` |
+| GitHub Copilot (IDE) | `~/.config/github-copilot/mcp.json` |
 | IntelliJ Copilot | `~/.config/github-copilot/intellij/mcp.json` |
-| Cursor | `~/.config/cursor/mcp.json` (+ legacy `~/.cursor/` mirror) |
-| VS Code | `~/.vscode/mcp.json` |
+| Cursor | `~/.cursor/mcp.json` |
+| VS Code | `~/Library/Application Support/Code/User/mcp.json` |
 | Junie | `~/.junie/mcp/mcp.json` |
 | LM Studio | `~/.lmstudio/mcp.json` |
 | Codex CLI | `~/.codex/config.toml` (MCP servers patched in place; Codex owns the file) |
