@@ -530,8 +530,10 @@ def transform_to_opencode_format(master: JsonDict) -> JsonDict:
 def _build_targets(home: Path) -> list[SyncTarget]:
     return [
         SyncTarget(
-            name="copilot-xdg",
-            destination=home / ".config" / ".copilot" / "mcp-config.json",
+            # GitHub Copilot CLI reads ~/.copilot/mcp-config.json (home dir; it
+            # does not honor XDG — only COPILOT_HOME overrides the location).
+            name="copilot-cli",
+            destination=home / ".copilot" / "mcp-config.json",
             transform=transform_to_copilot_format,
             template_key="copilot",
             override_key="copilot",

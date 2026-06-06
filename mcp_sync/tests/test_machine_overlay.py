@@ -255,7 +255,7 @@ class TestRunSyncWithMachineConfig:
 
         # Every JSON-based tool output should include the overlay server
         for relative_path, container in [
-            (".config/.copilot/mcp-config.json", "mcpServers"),
+            (".copilot/mcp-config.json", "mcpServers"),
             (".config/github-copilot/mcp.json", "servers"),
             (".config/github-copilot/intellij/mcp.json", "servers"),
             (".config/mcp/mcp_config.json", "mcpServers"),

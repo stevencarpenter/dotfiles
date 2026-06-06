@@ -23,7 +23,7 @@ def test_full_sync_workflow_all_targets(
 
     # Verify all expected files were created
     expected_files = [
-        ".config/.copilot/mcp-config.json",
+        ".copilot/mcp-config.json",
         ".config/github-copilot/intellij/mcp.json",
         ".config/github-copilot/mcp.json",
         ".config/mcp/mcp_config.json",
@@ -51,7 +51,7 @@ def test_full_sync_copilot_format_has_tools_array(
     main()
 
     copilot_config = json.loads(
-        (temp_home / ".config/.copilot/mcp-config.json").read_text()
+        (temp_home / ".copilot/mcp-config.json").read_text()
     )
 
     # Copilot format should have tools array
@@ -287,7 +287,7 @@ def test_full_sync_with_machine_overlay(
 
     # Check copilot config has the work-only server with tools array
     copilot = json.loads(
-        (temp_home / ".config" / ".copilot" / "mcp-config.json").read_text()
+        (temp_home / ".copilot" / "mcp-config.json").read_text()
     )
     assert "work-only" in copilot["mcpServers"]
     assert copilot["mcpServers"]["work-only"]["tools"] == ["*"]

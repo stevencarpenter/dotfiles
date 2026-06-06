@@ -54,7 +54,7 @@ private_dot_claude.json
 # not chezmoi. Keep only the instruction/settings files this repo manages.
 **/.copilot/**/*
 **/.config/**/*copilot**/**
-!**/.config/.copilot/settings.json
+!**/.copilot/settings.json
 !**/.config/github-copilot/intellij
 !**/.config/github-copilot/intellij/global-copilot-instructions.md
 
