@@ -6,6 +6,3 @@ model_reasoning_effort = "high"
 shell_snapshot = true
 multi_agent = true
 unified_exec = true
-
-# MCP Servers - Synced from master config
-# This section is populated by sync-mcp-configs
