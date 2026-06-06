@@ -4,7 +4,7 @@
 # Reads the existing target from stdin and recursively merges the chezmoi-managed
 # config on top. Keys NOT defined in $managed (e.g. editorMode, theme) are preserved
 # from the live file so Claude Code's in-tool changes survive apply. As a refinement,
-# model and effortLevel are *seeded* with a cross-machine default (opus[1m] / xhigh)
+# model and effortLevel are *seeded* with a cross-machine default (model opus[1m] = Opus 4.8 w/ 1M ctx; effort xhigh)
 # only when the live file has no value yet, so a fresh machine gets the default while
 # an in-tool override (model picker 'd', or /effort) still survives apply.
 # Output preserves the live JSON key order so Claude Code's own settings

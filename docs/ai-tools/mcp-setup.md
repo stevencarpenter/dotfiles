@@ -2,61 +2,76 @@
 
 ## Overview
 
-This dotfiles repo uses a **single master MCP config** that syncs to all AI development tools automatically. The sync is handled by the `mcp_sync/` Python tool, which runs after every `chezmoi apply`.
+This dotfiles repo fans a layered MCP config out to every AI development tool automatically. The
+fan-out is handled by the `mcp_sync/` Python tool, which runs after every `chezmoi apply` (on
+machines with the `mcp` capability).
 
 ## How It Works
 
-1. **Master config**: `dot_config/mcp/mcp-master.json` — single source of truth
-2. **Per-tool overrides**: `dot_config/mcp/overrides/` — JSON files that add/override servers for specific tools (e.g., `claude.json`, `copilot.json`)
-3. **Sync tool**: `mcp_sync/` transforms and merges configs into each tool's expected format
-4. **Auto-sync**: `.chezmoiscripts/run_after_sync-mcp.sh` runs the sync after `chezmoi apply`
+Configs are merged in this order (later layers win), then transformed into each tool's format:
+
+1. **Base templates** — `mcp_sync/src/mcp_sync/templates/<tool>.base.{json,toml}` — static per-tool
+   scaffolding (only `codex` and `opencode` have one today).
+2. **Master config** — `dot_config/mcp/mcp-master.json` — servers shared across *all* machine types.
+   Currently **empty**: nothing is deployed everywhere (see below).
+3. **Machine overlays** — `dot_config/mcp/machine/{work.json,personal.json.tmpl,lab.json.tmpl}` —
+   servers added per machine type, selected by chezmoi's `.machine` variable.
+4. **Per-tool overrides** — each target reads `~/.config/mcp/overrides/<key>.json` at sync time to
+   add/override servers for one tool. Wired in `sync.py`; no override files are managed in-repo yet
+   (the deployed `~/.config/mcp/overrides/` dir exists but is empty).
+
+The hook is `.chezmoiscripts/run_after_sync-mcp.sh.tmpl`; on machines without the `mcp` capability
+its body is a no-op.
 
 ## Current MCP Servers
 
-The master config (`dot_config/mcp/mcp-master.json`) includes:
+The master config is intentionally empty — no server is deployed to every machine. GitHub is no
+longer an MCP server here: it moved to the `github@claude-plugins-official` Claude Code plugin (a
+remote HTTP server, enabled in `dot_claude/modify_settings.json.tmpl`). Railway was removed. All
+remaining servers live in machine overlays:
 
-| Server | Package | Purpose |
-|--------|---------|---------|
-| **GitHub** | `github-mcp-server` (Homebrew, invoked via `sh -c` wrapper that sources the PAT from `gh auth token` at launch) | Repository operations, PR management, issue handling |
-| **Railway** | `@railway/mcp-server` | Deployment status, logs, environment management |
-| **AWS CCAPI** | `awslabs.ccapi-mcp-server` | AWS resource management (read-only by default) |
-
-Additional servers may be added per-tool via override files in `dot_config/mcp/overrides/`.
+| Server | Machine(s) | Package / command | Purpose |
+|--------|-----------|-------------------|---------|
+| **AWS CCAPI** | work | `uvx awslabs.ccapi-mcp-server --readonly` | AWS resource management (read-only) |
+| **hippo** | personal | `uv run --project ~/projects/hippo/brain hippo-mcp` | Local knowledge base / brain |
+| **grafana** | personal, lab | `uvx mcp-grafana --disable-write` | Home-ops dashboards (read-only) |
 
 ## Sync Targets
 
-After `chezmoi apply`, configs are synced to:
+After `chezmoi apply`, the merged config is written to:
 
 | Tool | Destination |
 |------|-------------|
-| GitHub Copilot | `~/.config/.copilot/mcp-config.json` |
+| GitHub Copilot (XDG) | `~/.config/.copilot/mcp-config.json` |
 | GitHub Copilot CLI | `~/.config/github-copilot/mcp.json` |
 | IntelliJ Copilot | `~/.config/github-copilot/intellij/mcp.json` |
 | Cursor | `~/.config/cursor/mcp.json` (+ legacy `~/.cursor/` mirror) |
 | VS Code | `~/.vscode/mcp.json` |
 | Junie | `~/.junie/mcp/mcp.json` |
 | LM Studio | `~/.lmstudio/mcp.json` |
-| Codex CLI | `~/.codex/config.toml` |
-| Claude Code | `~/.claude.json` |
+| Codex CLI | `~/.codex/config.toml` (MCP servers patched in place; Codex owns the file) |
+| Claude Code | `~/.claude.json` (servers patched in place; tool-owned file) |
 | OpenCode | `~/.config/opencode/opencode.json` |
 | Generic MCP | `~/.config/mcp/mcp_config.json` |
 
 ## Adding a New MCP Server
 
-Edit the master config:
+Add it to the layer that matches its scope:
+
+- **All machines** → `dot_config/mcp/mcp-master.json` (`servers` object).
+- **One machine type** → the matching overlay in `dot_config/mcp/machine/`
+  (`work.json`, `personal.json.tmpl`, or `lab.json.tmpl`).
+- **One tool only** → `~/.config/mcp/overrides/<tool-key>.json` (e.g. `claude.json`, `cursor.json`).
 
 ```bash
-chezmoi edit ~/.config/mcp/mcp-master.json
-chezmoi apply  # Sync runs automatically
+chezmoi edit ~/.config/mcp/machine/personal.json   # or work.json / lab.json / mcp-master.json
+chezmoi apply                                        # sync runs automatically
 ```
 
-To add a server only for a specific tool, create or edit an override file:
-
-```bash
-# Example: add a server only for Claude Code
-nvim dot_config/mcp/overrides/claude.json
-chezmoi apply
-```
+A server entry uses the standard MCP shape (`type`, `command`, `args`, `env`, …). The repo also
+honours two sync-gate fields that are stripped before output: `enabled: true|false` (the canonical
+convention) and `disabled: true|false` (foreign-schema compat) — see `_is_server_enabled` in
+`sync.py`.
 
 ## Manual Sync
 
@@ -66,21 +81,25 @@ uv run --project ~/.local/share/chezmoi/mcp_sync sync-mcp-configs
 
 ## Authentication / Credentials
 
-Different servers use different credential sources:
+- **AWS CCAPI**: reads `${AWS_PROFILE}` (expanded by the MCP client at launch); SSO config comes
+  from `aws_config_gen`. No long-lived secret in the config.
+- **hippo / grafana**: no credentials — local stdio servers talking to localhost.
+- **GitHub** (the plugin, not an MCP server here): authenticates via the Claude Code plugin /
+  `gh` keychain token, not via this sync.
 
-- **GitHub**: No env var required. The `sh -c` wrapper in `mcp-master.json` calls `gh auth token` at spawn time and exports `GITHUB_PERSONAL_ACCESS_TOKEN` only into the server process. Token lives in the OS keychain (`gh auth login`); fails fast with a useful message if `gh` isn't authenticated. No long-lived shell env var.
-- **Other servers (Railway, AWS, etc.)**: reference environment variables (e.g., `${RAILWAY_TOKEN}`) expanded by the MCP client at server-launch time. These are stored encrypted in `dot_config/zsh/encrypted_dot_env` and sourced at shell startup.
-
-To rotate the GitHub token, run `gh auth refresh` or `gh auth login` — no dotfiles change required.
+Any secret-bearing env vars referenced by a server (`${VAR}`) are stored encrypted in
+`dot_config/zsh/encrypted_dot_env` and sourced at shell startup.
 
 ## Troubleshooting
 
 **Sync not running after apply?**
 - Verify `uv` is installed: `which uv`
-- Check the sync script: `cat ~/.local/share/chezmoi/.chezmoiscripts/run_after_sync-mcp.sh`
+- Confirm the machine has the `mcp` capability in `.chezmoidata/machines.toml` (the hook is a no-op otherwise)
+- Check the sync hook: `.chezmoiscripts/run_after_sync-mcp.sh.tmpl`
 
 **Server not appearing in a tool?**
-- Check if the tool has an override that excludes it: `ls dot_config/mcp/overrides/`
+- Check for a per-tool override that excludes it: `ls ~/.config/mcp/overrides/`
+- Confirm the server is `enabled` (or not `disabled`) in its layer
 - Verify the tool's config was written: check the destination path from the table above
 
 **Testing sync changes:**
