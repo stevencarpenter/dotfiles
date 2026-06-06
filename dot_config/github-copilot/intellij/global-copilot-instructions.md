@@ -9,15 +9,15 @@
 
 #### 1. Long-Running Commands (builds, tests, compilation)
 ```
-✅ DO: Use isBackground=true and verify with get_terminal_output
+✅ DO: Run long tasks in a background terminal and poll its output until done
 ❌ DON'T: Use pipes that truncate output (tail, head) on error checking
 ```
 
 **Required pattern:**
 ```
-1. run_in_terminal with isBackground=true
-2. get_terminal_output to check progress
-3. Repeat get_terminal_output until complete
+1. Start the command in a background terminal
+2. Read the terminal output to check progress
+3. Re-read the output until the command completes
 4. Show user the ACTUAL output
 5. Reason about what you see
 ```
@@ -25,10 +25,10 @@
 #### 2. Build/Compile Commands
 ```bash
 # Correct approach (examples for various languages)
-npm run build 2>&1                  # isBackground=true (JavaScript/TypeScript)
-python -m pytest 2>&1               # isBackground=true (Python)
-mvn clean verify 2>&1               # isBackground=true (Java/Maven)
-go test ./... 2>&1                  # isBackground=true (Go)
+npm run build 2>&1                  # background terminal (JavaScript/TypeScript)
+python -m pytest 2>&1               # background terminal (Python)
+mvn clean verify 2>&1               # background terminal (Java/Maven)
+go test ./... 2>&1                  # background terminal (Go)
 ```
 
 **Never claim:**
@@ -52,7 +52,7 @@ When you see compilation/test errors:
 2. **Count the errors** - "5 errors" means fix all 5
 3. **Read the actual error messages** - don't guess
 4. **Fix systematically** - one file at a time
-5. **Re-verify after each fix** - background + get_terminal_output
+5. **Re-verify after each fix** - re-run in a background terminal and read the output
 6. **Show your reasoning** - explain what you saw and how you fixed it
 
 ### Anti-Patterns to Avoid
@@ -71,15 +71,8 @@ python -m pytest 2>&1 | head -20    # Truncates output
 
 ✅ **Always do this:**
 ```bash
-# Background execution
-run_in_terminal(isBackground=true)
-
-# Then verify
-get_terminal_output(id)
-
-# Show user what you found
-# Reason about the output
-# Take action based on evidence
+# Run the command in a background terminal, then read its output to verify.
+# Show user what you found, reason about the output, and act on the evidence.
 ```
 
 ## Language-Agnostic Pre-commit Checklist
