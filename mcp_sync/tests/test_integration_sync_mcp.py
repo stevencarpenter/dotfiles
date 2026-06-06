@@ -211,7 +211,10 @@ def test_sync_with_codex_config(temp_home, monkeypatch_home, master_config_file)
     assert exit_code == 0
 
     result = codex_config.read_text()
-    assert 'model = "gpt-5.5"' in result
+    # Existing Codex-owned content is preserved; managed MCP servers are added.
+    assert "[tool]" in result
+    assert 'name = "codex"' in result
+    assert "[mcp_servers.filesystem]" in result
 
 
 def test_sync_idempotency(temp_home, monkeypatch_home, master_config_file):

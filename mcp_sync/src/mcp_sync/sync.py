@@ -262,25 +262,83 @@ def deep_merge(base: JsonDict, override: JsonDict) -> JsonDict:
 
 
 def sync_codex_mcp(master: JsonDict, home: Path | None = None) -> None:
+    """Patch managed MCP servers into Codex's ``config.toml`` non-destructively.
+
+    Codex owns ``~/.codex/config.toml`` and continuously writes its own state
+    there (built-in ``mcp_servers`` such as ``node_repl``, ``plugins``,
+    ``hooks`` trust hashes, ``marketplaces`` timestamps, desktop settings). We
+    therefore preserve the existing file verbatim and only replace the
+    ``[mcp_servers.NAME]`` tables we manage, mirroring
+    ``patch_claude_code_config`` for ``~/.claude.json``. The base template only
+    seeds a brand-new file on a fresh machine.
+
+    Args:
+        master: Merged master + machine-overlay MCP config.
+        home: Override home directory (for tests). Defaults to ``Path.home()``.
+    """
     home_path = _home_dir(home)
     codex_config_path = home_path / ".codex" / "config.toml"
-    base_text = _load_text_template("codex", home_path)
-    if not base_text:
-        log_info("Skipping codex config (base template not found)")
-        return
 
     overrides = _load_override("codex", home_path)
     merged_servers = _merge_override_servers(master, overrides)
-    servers = _strip_server_fields(
+    managed = _strip_server_fields(
         _filter_enabled_servers(merged_servers), *_ENABLEMENT_FIELDS
     )
+    disabled = {
+        name
+        for name, config in merged_servers.items()
+        if isinstance(config, dict) and not _is_server_enabled(config)
+    }
 
-    mcp_section = _render_codex_mcp_section(servers)
-    text = base_text.rstrip() + "\n" + mcp_section
+    if codex_config_path.is_file():
+        base_text = codex_config_path.read_text(encoding="utf-8")
+    else:
+        base_text = _load_text_template("codex", home_path)
+        if not base_text:
+            log_info("Skipping codex config (base template not found)")
+            return
+
+    preserved = _strip_codex_managed_blocks(base_text, set(managed) | disabled)
+    text = preserved.rstrip() + "\n" + _render_codex_mcp_section(managed)
 
     codex_config_path.parent.mkdir(parents=True, exist_ok=True)
     codex_config_path.write_text(text, encoding="utf-8")
     log_success(f"Synced MCP servers to: {codex_config_path}")
+
+
+def _strip_codex_managed_blocks(text: str, names: set[str]) -> str:
+    """Remove the ``[mcp_servers.NAME]`` tables we own, preserving all else.
+
+    Drops each ``[mcp_servers.NAME]`` table (and any nested subtable like
+    ``[mcp_servers.NAME.env]``) whose NAME is in ``names``, plus the legacy
+    ``# MCP Servers`` marker comment so it cannot accumulate across runs. Every
+    other line — including Codex-owned ``mcp_servers`` such as ``node_repl`` and
+    unrelated tables (``plugins``, ``hooks``, ``desktop``) — is kept verbatim,
+    which keeps the rewrite idempotent.
+
+    Args:
+        text: Existing ``config.toml`` contents.
+        names: MCP server names this tool manages (or is explicitly disabling).
+
+    Returns:
+        The config text with the owned MCP server tables removed.
+    """
+    roots = {f"mcp_servers.{name}" for name in names}
+    kept: list[str] = []
+    dropping = False
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            header = stripped[1:-1].strip()
+            dropping = any(
+                header == root or header.startswith(f"{root}.") for root in roots
+            )
+        if dropping:
+            continue
+        if stripped == "# MCP Servers":
+            continue
+        kept.append(line)
+    return "\n".join(kept)
 
 
 def _toml_string(value: str) -> str:

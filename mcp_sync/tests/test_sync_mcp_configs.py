@@ -392,28 +392,37 @@ hide_gpt5_1_migration_prompt = true
 
     result = codex_path.read_text(encoding="utf-8")
 
-    # Base template settings should be present (template model overwrites existing)
-    assert 'model = "gpt-5.5"' in result
+    # Existing Codex-owned settings are preserved verbatim (NOT overwritten by the
+    # base template) because the file already exists.
+    assert 'model = "gpt-5.4"' in result
+    assert 'model_reasoning_effort = "medium"' in result
+    assert '[projects."/home/user/projects/test"]' in result
+    assert "[notice]" in result
 
-    # MCP servers should be added
+    # Managed MCP servers are added
     assert "[mcp_servers.filesystem]" in result
 
 
-def test_sync_codex_mcp_removes_old_servers(temp_home, monkeypatch_home, master_config):
-    """Test that old MCP server sections are removed."""
+def test_sync_codex_mcp_preserves_codex_owned_state(
+    temp_home, monkeypatch_home, master_config
+):
+    """Codex-owned tables (its own mcp_servers, desktop settings) survive a sync."""
     codex_dir = temp_home / ".codex"
     codex_dir.mkdir(parents=True, exist_ok=True)
     codex_path = codex_dir / "config.toml"
 
-    # Create Codex config with old server
+    # node_repl is a server Codex injects itself; it must not be clobbered.
     initial_config = """model = "gpt-5.4"
 
-[mcp_servers.old-server]
-command = "node"
-args = ["--version"]
+[mcp_servers.node_repl]
+command = "/Applications/Codex.app/Contents/Resources/node_repl"
+args = []
 
-[notice]
-hide_prompt = true
+[mcp_servers.node_repl.env]
+CODEX_HOME = "/Users/carpenter/.codex"
+
+[desktop]
+appearanceTheme = "dark"
 """
     codex_path.write_text(initial_config, encoding="utf-8")
 
@@ -422,9 +431,42 @@ hide_prompt = true
 
     result = codex_path.read_text(encoding="utf-8")
 
-    # Old server should be gone
-    assert "[mcp_servers.old-server]" not in result
-    # New servers should be present
+    # Codex's own server (and its subtable) and settings are untouched
+    assert "[mcp_servers.node_repl]" in result
+    assert "[mcp_servers.node_repl.env]" in result
+    assert 'CODEX_HOME = "/Users/carpenter/.codex"' in result
+    assert "[desktop]" in result
+    # Managed servers are still added
+    assert "[mcp_servers.filesystem]" in result
+
+
+def test_sync_codex_mcp_removes_disabled_servers(temp_home, monkeypatch_home):
+    """A server explicitly disabled in master is removed from the codex config."""
+    codex_dir = temp_home / ".codex"
+    codex_dir.mkdir(parents=True, exist_ok=True)
+    codex_path = codex_dir / "config.toml"
+
+    initial_config = """model = "gpt-5.4"
+
+[mcp_servers.legacy]
+command = "node"
+args = ["old.js"]
+"""
+    codex_path.write_text(initial_config, encoding="utf-8")
+
+    master = {
+        "servers": {
+            "filesystem": {"command": "node", "args": ["fs.js"], "type": "local"},
+            "legacy": {"command": "node", "args": ["old.js"], "enabled": False},
+        }
+    }
+    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
+    sync_codex_mcp(master)
+
+    result = codex_path.read_text(encoding="utf-8")
+
+    # Explicitly-disabled server is removed; enabled managed server remains
+    assert "[mcp_servers.legacy]" not in result
     assert "[mcp_servers.filesystem]" in result
 
 
