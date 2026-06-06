@@ -29,6 +29,30 @@
       }
     }
   },
+  "permission": {
+    "bash": {
+      "*": "allow",
+      "git push*": "ask",
+      "git reset --hard*": "ask",
+      "git clean -fd*": "ask",
+      "git rebase*": "ask",
+      "npm publish*": "ask",
+      "cargo publish*": "ask",
+      "sudo *": "deny",
+      "rm -rf /": "deny",
+      "rm -rf /*": "deny",
+      "rm -rf ~": "deny",
+      "rm -rf ~/*": "deny",
+      "chmod 777 *": "deny",
+      "dd if=*": "deny",
+      "mkfs.*": "deny",
+      "curl * | bash": "deny",
+      "curl * | sh": "deny",
+      "wget * | bash": "deny",
+      "wget * | sh": "deny",
+      "> /dev/*": "deny"
+    }
+  },
   "mcp": {
     "excalidraw": {
       "type": "local",
