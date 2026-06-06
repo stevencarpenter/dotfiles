@@ -275,6 +275,9 @@ def sync_codex_mcp(master: JsonDict, home: Path | None = None) -> None:
     Args:
         master: Merged master + machine-overlay MCP config.
         home: Override home directory (for tests). Defaults to ``Path.home()``.
+
+    Returns:
+        None: The target ``config.toml`` is updated in place.
     """
     home_path = _home_dir(home)
     codex_config_path = home_path / ".codex" / "config.toml"
@@ -310,11 +313,12 @@ def _strip_codex_managed_blocks(text: str, names: set[str]) -> str:
     """Remove the ``[mcp_servers.NAME]`` tables we own, preserving all else.
 
     Drops each ``[mcp_servers.NAME]`` table (and any nested subtable like
-    ``[mcp_servers.NAME.env]``) whose NAME is in ``names``, plus the legacy
-    ``# MCP Servers`` marker comment so it cannot accumulate across runs. Every
-    other line — including Codex-owned ``mcp_servers`` such as ``node_repl`` and
-    unrelated tables (``plugins``, ``hooks``, ``desktop``) — is kept verbatim,
-    which keeps the rewrite idempotent.
+    ``[mcp_servers.NAME.env]``) whose NAME is in ``names``. It also drops the
+    previous ``# MCP Servers`` managed tail emitted by this tool so servers
+    deleted from the current master do not linger. Every other line — including
+    Codex-owned ``mcp_servers`` such as ``node_repl`` and unrelated tables
+    (``plugins``, ``hooks``, ``desktop``) — is kept verbatim, which keeps the
+    rewrite idempotent.
 
     Args:
         text: Existing ``config.toml`` contents.
@@ -326,16 +330,30 @@ def _strip_codex_managed_blocks(text: str, names: set[str]) -> str:
     roots = {f"mcp_servers.{name}" for name in names}
     kept: list[str] = []
     dropping = False
+    in_managed_tail = False
     for line in text.splitlines():
         stripped = line.strip()
+        if stripped == "# MCP Servers":
+            in_managed_tail = True
+            dropping = False
+            continue
+
+        if in_managed_tail and not dropping and not stripped:
+            continue
+
         if stripped.startswith("[") and stripped.endswith("]"):
             header = stripped[1:-1].strip()
-            dropping = any(
-                header == root or header.startswith(f"{root}.") for root in roots
-            )
+            if in_managed_tail:
+                if header.startswith("mcp_servers."):
+                    dropping = True
+                else:
+                    in_managed_tail = False
+                    dropping = False
+            if not in_managed_tail:
+                dropping = any(
+                    header == root or header.startswith(f"{root}.") for root in roots
+                )
         if dropping:
-            continue
-        if stripped == "# MCP Servers":
             continue
         kept.append(line)
     return "\n".join(kept)

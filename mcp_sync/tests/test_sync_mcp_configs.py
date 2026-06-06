@@ -299,7 +299,16 @@ def test_patch_claude_code_config_applies_override(
 def test_sync_codex_mcp_with_existing_config(
     temp_home, monkeypatch_home, master_config
 ):
-    """Test syncing MCP servers to Codex config."""
+    """Preserve existing Codex config while adding managed MCP servers.
+
+    Args:
+        temp_home: Path fixture for the isolated home directory.
+        monkeypatch_home: MonkeyPatch fixture used to patch ``Path.home``.
+        master_config: MCP master config fixture.
+
+    Returns:
+        None.
+    """
     codex_dir = temp_home / ".codex"
     codex_dir.mkdir(parents=True, exist_ok=True)
     codex_path = codex_dir / "config.toml"
@@ -335,7 +344,16 @@ hide_gpt5_1_migration_prompt = true
 def test_sync_codex_mcp_preserves_codex_owned_state(
     temp_home, monkeypatch_home, master_config
 ):
-    """Codex-owned tables (its own mcp_servers, desktop settings) survive a sync."""
+    """Preserve Codex-owned tables while adding managed MCP servers.
+
+    Args:
+        temp_home: Path fixture for the isolated home directory.
+        monkeypatch_home: MonkeyPatch fixture used to patch ``Path.home``.
+        master_config: MCP master config fixture.
+
+    Returns:
+        None.
+    """
     codex_dir = temp_home / ".codex"
     codex_dir.mkdir(parents=True, exist_ok=True)
     codex_path = codex_dir / "config.toml"
@@ -370,7 +388,15 @@ appearanceTheme = "dark"
 
 
 def test_sync_codex_mcp_removes_disabled_servers(temp_home, monkeypatch_home):
-    """A server explicitly disabled in master is removed from the codex config."""
+    """Remove a server that is explicitly disabled in master.
+
+    Args:
+        temp_home: Path fixture for the isolated home directory.
+        monkeypatch_home: MonkeyPatch fixture used to patch ``Path.home``.
+
+    Returns:
+        None.
+    """
     codex_dir = temp_home / ".codex"
     codex_dir.mkdir(parents=True, exist_ok=True)
     codex_path = codex_dir / "config.toml"
@@ -396,6 +422,49 @@ args = ["old.js"]
 
     # Explicitly-disabled server is removed; enabled managed server remains
     assert "[mcp_servers.legacy]" not in result
+    assert "[mcp_servers.filesystem]" in result
+
+
+def test_sync_codex_mcp_removes_deleted_managed_servers(temp_home, monkeypatch_home):
+    """Remove a generated server that no longer exists in master.
+
+    Args:
+        temp_home: Path fixture for the isolated home directory.
+        monkeypatch_home: MonkeyPatch fixture used to patch ``Path.home``.
+
+    Returns:
+        None.
+    """
+    codex_dir = temp_home / ".codex"
+    codex_dir.mkdir(parents=True, exist_ok=True)
+    codex_path = codex_dir / "config.toml"
+
+    initial_config = """model = "gpt-5.4"
+
+# MCP Servers
+
+[mcp_servers.legacy]
+command = "node"
+args = ["old.js"]
+
+[mcp_servers.legacy.env]
+TOKEN = "old"
+"""
+    codex_path.write_text(initial_config, encoding="utf-8")
+
+    master = {
+        "servers": {
+            "filesystem": {"command": "node", "args": ["fs.js"], "type": "local"},
+        }
+    }
+    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
+    sync_codex_mcp(master)
+
+    result = codex_path.read_text(encoding="utf-8")
+
+    assert "[mcp_servers.legacy]" not in result
+    assert "[mcp_servers.legacy.env]" not in result
+    assert 'TOKEN = "old"' not in result
     assert "[mcp_servers.filesystem]" in result
 
 

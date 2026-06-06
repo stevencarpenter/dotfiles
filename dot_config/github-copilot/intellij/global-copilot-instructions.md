@@ -3,18 +3,27 @@
 ## Terminal Command Execution Policy
 
 ### Ground Truth Verification
+
 **ALWAYS verify command outputs using actual terminal results. Never assume success.**
 
 ### Command Execution Strategy
 
+#### Background terminal definition
+
+"Background terminal" means a dedicated IDE terminal tab or pane whose output
+remains available for later inspection. It does not mean a shell job backgrounded
+with `&`; `2>&1` only redirects stderr into stdout.
+
 #### 1. Long-Running Commands (builds, tests, compilation)
-```
+
+```text
 ✅ DO: Run long tasks in a background terminal and poll its output until done
 ❌ DON'T: Use pipes that truncate output (tail, head) on error checking
 ```
 
 **Required pattern:**
-```
+
+```text
 1. Start the command in a background terminal
 2. Read the terminal output to check progress
 3. Re-read the output until the command completes
@@ -23,15 +32,17 @@
 ```
 
 #### 2. Build/Compile Commands
+
 ```bash
 # Correct approach (examples for various languages)
-npm run build 2>&1                  # background terminal (JavaScript/TypeScript)
-python -m pytest 2>&1               # background terminal (Python)
-mvn clean verify 2>&1               # background terminal (Java/Maven)
-go test ./... 2>&1                  # background terminal (Go)
+npm run build 2>&1                  # capture stderr + stdout (JavaScript/TypeScript)
+python -m pytest 2>&1               # capture stderr + stdout (Python)
+mvn clean verify 2>&1               # capture stderr + stdout (Java/Maven)
+go test ./... 2>&1                  # capture stderr + stdout (Go)
 ```
 
 **Never claim:**
+
 - "Build passed" without showing output
 - "Tests green" without showing test summary
 - "No errors" without showing full error list
@@ -39,6 +50,7 @@ go test ./... 2>&1                  # background terminal (Go)
 #### 3. Verification Requirements
 
 After ANY code change:
+
 1. ✅ Run build/compile command (background) → verify output
 2. ✅ Run linter/formatter checks (if applicable) → verify output
 3. ✅ Run test suite (background) → verify output
@@ -48,6 +60,7 @@ After ANY code change:
 ### Error Handling
 
 When you see compilation/test errors:
+
 1. **Capture full error output** - don't truncate
 2. **Count the errors** - "5 errors" means fix all 5
 3. **Read the actual error messages** - don't guess
@@ -58,6 +71,7 @@ When you see compilation/test errors:
 ### Anti-Patterns to Avoid
 
 ❌ **Never do this:**
+
 ```bash
 npm test 2>&1 | tail -5             # Can't see all errors
 go test ./... 2>&1 | grep -E "PASS" # Might miss failures
@@ -65,11 +79,13 @@ python -m pytest 2>&1 | head -20    # Truncates output
 ```
 
 ❌ **Never claim:**
+
 - "Linter is passing" before running it
 - "Tests are passing" without showing test count
 - "Build succeeded" based on exit code alone
 
 ✅ **Always do this:**
+
 ```bash
 # Run the command in a background terminal, then read its output to verify.
 # Show user what you found, reason about the output, and act on the evidence.
@@ -78,6 +94,7 @@ python -m pytest 2>&1 | head -20    # Truncates output
 ## Language-Agnostic Pre-commit Checklist
 
 Before claiming "done":
+
 - [ ] Build/compile command completes without errors
 - [ ] Linter/formatter checks pass (if applicable)
 - [ ] Test suite runs and passes completely
@@ -85,6 +102,7 @@ Before claiming "done":
 - [ ] Explained what was fixed with evidence
 
 ### Common Pitfalls (All Languages)
+
 1. **Syntax/Type errors**: Show the actual error, don't guess the fix
 2. **Import/dependency errors**: Check existing imports before adding
 3. **Test failures**: Run tests, see actual failure, fix the cause
@@ -93,6 +111,7 @@ Before claiming "done":
 ## Git Operations
 
 Always disable pagers:
+
 ```bash
 git --no-pager diff
 git --no-pager log
@@ -101,16 +120,20 @@ git --no-pager show
 
 ## Evidence-Based Development
 
-**Core principle: Show, don't tell**
+### Core Principle
+
+Show, don't tell.
 
 When you say something works:
+
 1. Show the command you ran
 2. Show the output you got
 3. Explain what it means
 4. Conclude based on evidence
 
 Example:
-```
+
+```text
 ❌ "Tests are passing"
 ✅ "Tests are passing - here's the output:
     test result: ok. 206 passed; 0 failed
@@ -120,6 +143,7 @@ Example:
 ## User Communication
 
 When reporting status:
+
 - ✅ "I ran X and got Y output (showed above)"
 - ✅ "I see 5 errors in the build output"
 - ✅ "Here's the full error list..."
@@ -129,6 +153,7 @@ When reporting status:
 ## Session Startup
 
 At the start of any development task:
+
 1. Understand what's being asked
 2. Identify verification strategy
 3. Plan to use background execution
@@ -137,4 +162,5 @@ At the start of any development task:
 
 ---
 
-**Remember: The terminal output is ground truth. Always verify. Always show your work.**
+Remember: The terminal output is ground truth. Always verify. Always show your
+work.

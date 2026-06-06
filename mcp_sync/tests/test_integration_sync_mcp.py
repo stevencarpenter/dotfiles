@@ -50,9 +50,7 @@ def test_full_sync_copilot_format_has_tools_array(
     monkeypatch_home.setattr(Path, "home", lambda: temp_home)
     main()
 
-    copilot_config = json.loads(
-        (temp_home / ".copilot/mcp-config.json").read_text()
-    )
+    copilot_config = json.loads((temp_home / ".copilot/mcp-config.json").read_text())
 
     # Copilot format should have tools array
     for server_name, server_config in copilot_config.get("mcpServers", {}).items():
@@ -85,6 +83,14 @@ def test_full_sync_opencode_includes_local_providers(
     Pins the base template's provider section through the real sync path
     (main()), now that the standalone sync_opencode_mcp helper is gone, so a
     future refactor can't silently drop the local providers.
+
+    Args:
+        temp_home: Path fixture for the isolated home directory.
+        monkeypatch_home: MonkeyPatch fixture used to patch ``Path.home``.
+        master_config_file: Path fixture containing the test master config.
+
+    Returns:
+        None.
     """
     monkeypatch_home.setattr(Path, "home", lambda: temp_home)
     main()
@@ -105,6 +111,14 @@ def test_full_sync_cursor_writes_home_dotfolder(
     The home dotfolder is Cursor's documented global path on macOS; it is
     created unconditionally even when ~/.cursor did not already exist, and the
     non-canonical ~/.config/cursor path is no longer produced.
+
+    Args:
+        temp_home: Path fixture for the isolated home directory.
+        monkeypatch_home: MonkeyPatch fixture used to patch ``Path.home``.
+        master_config_file: Path fixture containing the test master config.
+
+    Returns:
+        None.
     """
 
     monkeypatch_home.setattr(Path, "home", lambda: temp_home)
@@ -286,9 +300,7 @@ def test_full_sync_with_machine_overlay(
     assert "filesystem" in generic["mcpServers"]
 
     # Check copilot config has the work-only server with tools array
-    copilot = json.loads(
-        (temp_home / ".copilot" / "mcp-config.json").read_text()
-    )
+    copilot = json.loads((temp_home / ".copilot" / "mcp-config.json").read_text())
     assert "work-only" in copilot["mcpServers"]
     assert copilot["mcpServers"]["work-only"]["tools"] == ["*"]
 
