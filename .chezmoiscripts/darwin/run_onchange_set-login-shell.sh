@@ -31,7 +31,19 @@ current="$(dscl . -read "/Users/$user" UserShell 2>/dev/null | awk '{print $2}' 
 
 if [[ "$current" != "$target" ]]; then
     printf 'login shell is %s; changing to %s (sudo may prompt once)\n' "${current:-unset}" "$target"
-    sudo chsh -s "$target" "$user"
+    # This is a guardrail, not a hard dependency: `sudo`/`chsh` can fail when
+    # sudo is unavailable or `chezmoi apply` runs non-interactively. Letting
+    # `set -e` abort the whole apply would turn this safety net into a bootstrap
+    # blocker, so warn and continue instead. Set SHELL_PIN_STRICT=1 to make a
+    # failed change fatal (e.g. in a verification run that must assert the shell).
+    if ! sudo chsh -s "$target" "$user"; then
+        msg="could not set login shell to $target (sudo/chsh failed)"
+        if [[ "${SHELL_PIN_STRICT:-0}" == "1" ]]; then
+            printf 'error: %s\n' "$msg" >&2
+            exit 1
+        fi
+        printf 'warning: %s; continuing\n' "$msg" >&2
+    fi
 else
     printf 'login shell already %s\n' "$target"
 fi
