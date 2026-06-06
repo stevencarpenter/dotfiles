@@ -373,45 +373,6 @@ def _render_codex_mcp_section(servers: JsonDict) -> str:
     return "\n".join(lines) + "\n"
 
 
-def sync_copilot_cli_config(home: Path | None = None) -> None:
-    home_path = _home_dir(home)
-    copilot_config_path = home_path / ".config" / ".copilot" / "config.json"
-    copilot_backup_path = home_path / ".config" / ".copilot" / "config.backup.json"
-
-    if not copilot_config_path.is_file():
-        log_info(f"Skipping: {copilot_config_path} (file not found)")
-        return
-
-    try:
-        deployed_config = _load_json(copilot_config_path)
-        auth_tokens: dict[str, Any] | None = None
-
-        if copilot_backup_path.is_file():
-            try:
-                backup_config = _load_json(copilot_backup_path)
-                auth_tokens = {
-                    "logged_in_users": backup_config.get("logged_in_users", []),
-                    "last_logged_in_user": backup_config.get("last_logged_in_user"),
-                }
-            except (json.JSONDecodeError, OSError):
-                log_info(
-                    f"Skipping auth restore: {copilot_backup_path} (invalid or missing)"
-                )
-
-        if auth_tokens:
-            deployed_config["logged_in_users"] = auth_tokens.get("logged_in_users", [])
-            if auth_tokens.get("last_logged_in_user"):
-                deployed_config["last_logged_in_user"] = auth_tokens[
-                    "last_logged_in_user"
-                ]
-
-        _write_json(copilot_config_path, deployed_config)
-        _write_json(copilot_backup_path, deployed_config)
-        log_success(f"Preserved auth tokens in: {copilot_config_path}")
-    except Exception as exc:
-        log_info(f"Warning: Could not preserve Copilot auth tokens: {exc}")
-
-
 def _load_json(path: Path) -> JsonDict:
     with open(path, encoding="utf-8") as handle:
         return json.load(handle)
@@ -671,7 +632,6 @@ def run_sync(
 
     sync_codex_mcp(master, home=home_path)
     patch_claude_code_config(master, home=home_path)
-    sync_copilot_cli_config(home=home_path)
 
     print()
     log_success("MCP configuration sync complete!")

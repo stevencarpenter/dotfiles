@@ -11,7 +11,6 @@ from mcp_sync import (
     load_master_config,
     patch_claude_code_config,
     sync_codex_mcp,
-    sync_copilot_cli_config,
     sync_to_locations,
     transform_to_copilot_format,
     transform_to_generic_mcp_format,
@@ -458,109 +457,6 @@ def test_sync_codex_mcp_mixed_stdio_and_url(temp_home, monkeypatch_home, master_
     xcode_block = result.split("[mcp_servers.xcode]", 1)[1].split("[mcp_servers.", 1)[0]
     assert 'url = "http://localhost:9876/mcp"' in xcode_block
     assert "command =" not in xcode_block
-
-
-def test_sync_copilot_cli_preserves_auth_tokens(temp_home, monkeypatch_home):
-    """Test that sync_copilot_cli_config preserves auth tokens from backup."""
-    copilot_dir = temp_home / ".config" / ".copilot"
-    copilot_dir.mkdir(parents=True, exist_ok=True)
-
-    # Create deployed config (from chezmoi, no auth tokens)
-    deployed_config = {
-        "banner": "never",
-        "model": "claude-opus-4.5",
-        "render_markdown": True,
-        "theme": "auto",
-        "trusted_folders": ["/home/user/projects"],
-        "logged_in_users": [],
-        "last_logged_in_user": {"host": "https://github.com", "login": ""},
-    }
-    deployed_path = copilot_dir / "config.json"
-    deployed_path.write_text(json.dumps(deployed_config, indent=2), encoding="utf-8")
-
-    # Create backup with auth tokens
-    backup_config = {
-        **deployed_config,
-        "logged_in_users": [
-            {"host": "https://github.com", "login": "user1"},
-            {"host": "https://github.com", "login": "user2"},
-        ],
-        "last_logged_in_user": {"host": "https://github.com", "login": "user1"},
-    }
-    backup_path = copilot_dir / "config.backup.json"
-    backup_path.write_text(json.dumps(backup_config, indent=2), encoding="utf-8")
-
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
-    sync_copilot_cli_config()
-
-    # Check that auth tokens were restored
-    result = json.loads(deployed_path.read_text())
-    assert len(result["logged_in_users"]) == 2
-    assert result["logged_in_users"][0]["login"] == "user1"
-    assert result["last_logged_in_user"]["login"] == "user1"
-
-
-def test_sync_copilot_cli_creates_backup(temp_home, monkeypatch_home):
-    """Test that sync_copilot_cli_config creates backup for next run."""
-    copilot_dir = temp_home / ".config" / ".copilot"
-    copilot_dir.mkdir(parents=True, exist_ok=True)
-
-    deployed_config = {
-        "banner": "never",
-        "model": "claude-opus-4.5",
-        "render_markdown": True,
-        "theme": "auto",
-        "trusted_folders": [],
-        "logged_in_users": [],
-    }
-    deployed_path = copilot_dir / "config.json"
-    deployed_path.write_text(json.dumps(deployed_config, indent=2), encoding="utf-8")
-
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
-    sync_copilot_cli_config()
-
-    # Check that backup was created
-    backup_path = copilot_dir / "config.backup.json"
-    assert backup_path.exists()
-    backup = json.loads(backup_path.read_text())
-    assert backup["model"] == "claude-opus-4.5"
-
-
-def test_sync_copilot_cli_missing_config(temp_home, monkeypatch_home):
-    """Test handling when Copilot config doesn't exist."""
-    # Should not raise, just skip
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
-    sync_copilot_cli_config()
-
-    # Verify no files were created
-    copilot_path = temp_home / ".config" / ".copilot" / "config.json"
-    assert not copilot_path.exists()
-
-
-def test_sync_copilot_cli_missing_backup(temp_home, monkeypatch_home):
-    """Test handling when backup doesn't exist (first run)."""
-    copilot_dir = temp_home / ".config" / ".copilot"
-    copilot_dir.mkdir(parents=True, exist_ok=True)
-
-    deployed_config = {
-        "banner": "never",
-        "model": "claude-opus-4.5",
-        "trusted_folders": [],
-        "logged_in_users": [],
-    }
-    deployed_path = copilot_dir / "config.json"
-    deployed_path.write_text(json.dumps(deployed_config, indent=2), encoding="utf-8")
-
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
-    sync_copilot_cli_config()
-
-    # Should still work, just won't restore auth
-    result = json.loads(deployed_path.read_text())
-    assert result["model"] == "claude-opus-4.5"
-
-    # Backup should be created for next run
-    backup_path = copilot_dir / "config.backup.json"
-    assert backup_path.exists()
 
 
 def test_identity_format_does_not_propagate_master_schema():
