@@ -22,6 +22,8 @@
     "to-prd": { "source": "mattpocock", "path": "skills/engineering/to-prd" },
     "triage": { "source": "mattpocock", "path": "skills/engineering/triage" },
     "zoom-out": { "source": "mattpocock", "path": "skills/engineering/zoom-out" },
+    "diagnose": { "source": "mattpocock", "path": "skills/engineering/diagnose" },
+    "prototype": { "source": "mattpocock", "path": "skills/engineering/prototype" },
     "git-guardrails-claude-code": { "source": "mattpocock", "path": "skills/misc/git-guardrails-claude-code" },
     "migrate-to-shoehorn": { "source": "mattpocock", "path": "skills/misc/migrate-to-shoehorn" },
     "scaffold-exercises": { "source": "mattpocock", "path": "skills/misc/scaffold-exercises" },

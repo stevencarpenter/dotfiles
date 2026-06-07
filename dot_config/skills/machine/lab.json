@@ -1,6 +1,7 @@
 {
   "skills": {
     "caveman": false,
+    "diagnose": false,
     "edit-article": false,
     "git-guardrails-claude-code": false,
     "grill-me": false,
@@ -8,6 +9,7 @@
     "improve-codebase-architecture": false,
     "migrate-to-shoehorn": false,
     "obsidian-vault": false,
+    "prototype": false,
     "scaffold-exercises": false,
     "setup-pre-commit": false,
     "tdd": false,
