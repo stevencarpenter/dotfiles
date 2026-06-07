@@ -14,6 +14,8 @@ type JsonDict = dict[str, Any]
 type Transform = Callable[[JsonDict], JsonDict]
 
 TEMPLATES_DIR = Path(__file__).with_name("templates")
+CODEX_MCP_BEGIN_MARKER = "# MCP Servers - BEGIN Codex"
+CODEX_MCP_END_MARKER = "# MCP Servers - END Codex"
 
 
 @dataclass(frozen=True, slots=True)
@@ -262,25 +264,97 @@ def deep_merge(base: JsonDict, override: JsonDict) -> JsonDict:
 
 
 def sync_codex_mcp(master: JsonDict, home: Path | None = None) -> None:
+    """Patch managed MCP servers into Codex's ``config.toml`` non-destructively.
+
+    Codex owns ``~/.codex/config.toml`` and continuously writes its own state
+    there (built-in ``mcp_servers`` such as ``node_repl``, ``plugins``,
+    ``hooks`` trust hashes, ``marketplaces`` timestamps, desktop settings). We
+    therefore preserve the existing file verbatim and only replace the
+    ``[mcp_servers.NAME]`` tables we manage, mirroring
+    ``patch_claude_code_config`` for ``~/.claude.json``. The base template only
+    seeds a brand-new file on a fresh machine.
+
+    Args:
+        master: Merged master + machine-overlay MCP config.
+        home: Override home directory (for tests). Defaults to ``Path.home()``.
+
+    Returns:
+        None: The target ``config.toml`` is updated in place.
+    """
     home_path = _home_dir(home)
     codex_config_path = home_path / ".codex" / "config.toml"
-    base_text = _load_text_template("codex", home_path)
-    if not base_text:
-        log_info("Skipping codex config (base template not found)")
-        return
 
     overrides = _load_override("codex", home_path)
     merged_servers = _merge_override_servers(master, overrides)
-    servers = _strip_server_fields(
+    managed = _strip_server_fields(
         _filter_enabled_servers(merged_servers), *_ENABLEMENT_FIELDS
     )
+    disabled = {
+        name
+        for name, config in merged_servers.items()
+        if isinstance(config, dict) and not _is_server_enabled(config)
+    }
 
-    mcp_section = _render_codex_mcp_section(servers)
-    text = base_text.rstrip() + "\n" + mcp_section
+    if codex_config_path.is_file():
+        base_text = codex_config_path.read_text(encoding="utf-8")
+    else:
+        base_text = _load_text_template("codex", home_path)
+        if not base_text:
+            log_info("Skipping codex config (base template not found)")
+            return
+
+    preserved = _strip_codex_managed_blocks(base_text, set(managed) | disabled)
+    text = preserved.rstrip() + "\n" + _render_codex_mcp_section(managed)
 
     codex_config_path.parent.mkdir(parents=True, exist_ok=True)
     codex_config_path.write_text(text, encoding="utf-8")
     log_success(f"Synced MCP servers to: {codex_config_path}")
+
+
+def _strip_codex_managed_blocks(text: str, names: set[str]) -> str:
+    """Remove the ``[mcp_servers.NAME]`` tables we own, preserving all else.
+
+    Drops each ``[mcp_servers.NAME]`` table (and any nested subtable like
+    ``[mcp_servers.NAME.env]``) whose NAME is in ``names``. It also drops the
+    previous managed block emitted by this tool so servers
+    deleted from the current master do not linger. Every other line — including
+    Codex-owned ``mcp_servers`` such as ``node_repl`` and unrelated tables
+    (``plugins``, ``hooks``, ``desktop``) — is kept verbatim, which keeps the
+    rewrite idempotent.
+
+    Args:
+        text: Existing ``config.toml`` contents.
+        names: MCP server names this tool manages (or is explicitly disabling).
+
+    Returns:
+        The config text with the owned MCP server tables removed.
+    """
+    roots = {f"mcp_servers.{name}" for name in names}
+    kept: list[str] = []
+    dropping = False
+    in_managed_block = False
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped == CODEX_MCP_BEGIN_MARKER:
+            in_managed_block = True
+            dropping = True
+            continue
+
+        if in_managed_block and stripped == CODEX_MCP_END_MARKER:
+            in_managed_block = False
+            dropping = False
+            continue
+
+        if stripped.startswith("[") and stripped.endswith("]"):
+            header = stripped[1:-1].strip()
+            if not in_managed_block:
+                dropping = any(
+                    header == root or header.startswith(f"{root}.") for root in roots
+                )
+        if dropping:
+            continue
+        kept.append(line)
+    return "\n".join(kept)
 
 
 def _toml_string(value: str) -> str:
@@ -288,7 +362,7 @@ def _toml_string(value: str) -> str:
 
 
 def _render_codex_mcp_section(servers: JsonDict) -> str:
-    lines: list[str] = ["", "# MCP Servers"]
+    lines: list[str] = ["", CODEX_MCP_BEGIN_MARKER]
 
     for name, server in servers.items():
         lines.append("")
@@ -312,46 +386,9 @@ def _render_codex_mcp_section(servers: JsonDict) -> str:
             ]
             lines.append(f"environment = {{ {', '.join(env_parts)} }}")
 
+    lines.append("")
+    lines.append(CODEX_MCP_END_MARKER)
     return "\n".join(lines) + "\n"
-
-
-def sync_copilot_cli_config(home: Path | None = None) -> None:
-    home_path = _home_dir(home)
-    copilot_config_path = home_path / ".config" / ".copilot" / "config.json"
-    copilot_backup_path = home_path / ".config" / ".copilot" / "config.backup.json"
-
-    if not copilot_config_path.is_file():
-        log_info(f"Skipping: {copilot_config_path} (file not found)")
-        return
-
-    try:
-        deployed_config = _load_json(copilot_config_path)
-        auth_tokens: dict[str, Any] | None = None
-
-        if copilot_backup_path.is_file():
-            try:
-                backup_config = _load_json(copilot_backup_path)
-                auth_tokens = {
-                    "logged_in_users": backup_config.get("logged_in_users", []),
-                    "last_logged_in_user": backup_config.get("last_logged_in_user"),
-                }
-            except (json.JSONDecodeError, OSError):
-                log_info(
-                    f"Skipping auth restore: {copilot_backup_path} (invalid or missing)"
-                )
-
-        if auth_tokens:
-            deployed_config["logged_in_users"] = auth_tokens.get("logged_in_users", [])
-            if auth_tokens.get("last_logged_in_user"):
-                deployed_config["last_logged_in_user"] = auth_tokens[
-                    "last_logged_in_user"
-                ]
-
-        _write_json(copilot_config_path, deployed_config)
-        _write_json(copilot_backup_path, deployed_config)
-        log_success(f"Preserved auth tokens in: {copilot_config_path}")
-    except Exception as exc:
-        log_info(f"Warning: Could not preserve Copilot auth tokens: {exc}")
 
 
 def _load_json(path: Path) -> JsonDict:
@@ -508,24 +545,13 @@ def transform_to_opencode_format(master: JsonDict) -> JsonDict:
     return {"mcp": mcp}
 
 
-def sync_opencode_mcp(master: JsonDict, home: Path | None = None) -> None:
-    home_path = _home_dir(home)
-    target = SyncTarget(
-        name="opencode",
-        destination=home_path / ".config" / "opencode" / "opencode.json",
-        transform=transform_to_opencode_format,
-        template_key="opencode",
-        override_key="opencode",
-    )
-    target.sync(master, home=home_path)
-    log_success(f"Synced MCP servers to: {target.destination}")
-
-
 def _build_targets(home: Path) -> list[SyncTarget]:
     return [
         SyncTarget(
-            name="copilot-xdg",
-            destination=home / ".config" / ".copilot" / "mcp-config.json",
+            # GitHub Copilot CLI reads ~/.copilot/mcp-config.json (home dir; it
+            # does not honor XDG — only COPILOT_HOME overrides the location).
+            name="copilot-cli",
+            destination=home / ".copilot" / "mcp-config.json",
             transform=transform_to_copilot_format,
             template_key="copilot",
             override_key="copilot",
@@ -545,13 +571,6 @@ def _build_targets(home: Path) -> list[SyncTarget]:
             override_key="github-copilot",
         ),
         SyncTarget(
-            name="generic-mcp",
-            destination=home / ".config" / "mcp" / "mcp_config.json",
-            transform=transform_to_generic_mcp_format,
-            template_key="generic-mcp",
-            override_key="generic-mcp",
-        ),
-        SyncTarget(
             name="opencode",
             destination=home / ".config" / "opencode" / "opencode.json",
             transform=transform_to_opencode_format,
@@ -559,17 +578,24 @@ def _build_targets(home: Path) -> list[SyncTarget]:
             override_key="opencode",
         ),
         SyncTarget(
+            # Cursor reads ~/.cursor/mcp.json globally; ~/.config/cursor is never
+            # read on macOS (verified against cursor.com/docs).
             name="cursor",
-            destination=home / ".config" / "cursor" / "mcp.json",
+            destination=home / ".cursor" / "mcp.json",
             transform=transform_to_mcpservers_format,
-            legacy_dir=home / ".cursor",
-            legacy_destination=home / ".cursor" / "mcp.json",
             template_key="cursor",
             override_key="cursor",
         ),
         SyncTarget(
+            # VS Code user-level MCP config (macOS, default profile). The
+            # ~/.vscode/mcp.json path is workspace-only, never read globally.
             name="vscode",
-            destination=home / ".vscode" / "mcp.json",
+            destination=home
+            / "Library"
+            / "Application Support"
+            / "Code"
+            / "User"
+            / "mcp.json",
             transform=transform_to_identity_format,
             template_key="vscode",
             override_key="vscode",
@@ -619,7 +645,6 @@ def run_sync(
 
     sync_codex_mcp(master, home=home_path)
     patch_claude_code_config(master, home=home_path)
-    sync_copilot_cli_config(home=home_path)
 
     print()
     log_success("MCP configuration sync complete!")

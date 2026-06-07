@@ -71,3 +71,4 @@ private_dot_claude.json
 # transient per-run scratch dirs (recreated and deleted on each /understand run)
 .understand-anything/intermediate/
 .understand-anything/tmp/
+.codegraph/

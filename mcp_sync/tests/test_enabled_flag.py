@@ -7,10 +7,10 @@ import json
 from mcp_sync import (
     deep_merge,
     transform_to_copilot_format,
-    transform_to_generic_mcp_format,
     transform_to_mcpservers_format,
     transform_to_opencode_format,
 )
+from mcp_sync.sync import transform_to_generic_mcp_format
 from mcp_sync.sync import (
     _filter_enabled_servers,
     patch_claude_code_config,
@@ -311,11 +311,6 @@ class TestEnabledFlagIntegration:
         opencode_config = json.loads(opencode_path.read_text())
         assert "enabled_server" in opencode_config["mcp"]
         assert "disabled_server" not in opencode_config["mcp"]
-
-        generic_path = temp_home / ".config" / "mcp" / "mcp_config.json"
-        generic_config = json.loads(generic_path.read_text())
-        assert "enabled_server" in generic_config["mcpServers"]
-        assert "disabled_server" not in generic_config["mcpServers"]
 
         github_copilot_path = temp_home / ".config" / "github-copilot" / "mcp.json"
         github_copilot_config = json.loads(github_copilot_path.read_text())

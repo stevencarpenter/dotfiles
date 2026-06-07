@@ -2,9 +2,10 @@
   "$schema": "https://modelcontextprotocol.io/schema/config.json",
   "servers": {
     "awslabs-ccapi-mcp-server": {
+      "type": "stdio",
       "command": "uvx",
       "args": [
-        "awslabs.ccapi-mcp-server@latest",
+        "awslabs.ccapi-mcp-server@1.0.18",
         "--readonly"
       ],
       "env": {

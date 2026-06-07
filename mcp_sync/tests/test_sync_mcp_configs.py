@@ -11,14 +11,12 @@ from mcp_sync import (
     load_master_config,
     patch_claude_code_config,
     sync_codex_mcp,
-    sync_copilot_cli_config,
-    sync_opencode_mcp,
     sync_to_locations,
     transform_to_copilot_format,
-    transform_to_generic_mcp_format,
     transform_to_mcpservers_format,
     transform_to_opencode_format,
 )
+from mcp_sync.sync import transform_to_generic_mcp_format
 from mcp_sync.sync import transform_to_identity_format
 
 
@@ -298,79 +296,19 @@ def test_patch_claude_code_config_applies_override(
     assert result["enabledPlugins"]["new-plugin@source"] is True
 
 
-def test_sync_opencode_mcp_with_existing_config(
-    temp_home, monkeypatch_home, master_config
-):
-    """Test syncing MCP servers to OpenCode config."""
-    opencode_dir = temp_home / ".config" / "opencode"
-    opencode_dir.mkdir(parents=True, exist_ok=True)
-    opencode_path = opencode_dir / "opencode.json"
-
-    # Create initial OpenCode config
-    initial_config = {
-        "$schema": "https://opencode.ai/config.json",
-        "provider": {
-            "lmstudio": {
-                "npm": "@ai-sdk/openai-compatible",
-                "name": "LM Studio (local)",
-                "options": {"baseURL": "http://localhost:1234/v1"},
-                "models": {"qwen/qwen3-coder-30b": {"name": "qwen3-coder-30b"}},
-            }
-        },
-        "mcp": {},
-    }
-    opencode_path.write_text(json.dumps(initial_config, indent=2), encoding="utf-8")
-
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
-    sync_opencode_mcp(master_config)
-
-    result = json.loads(opencode_path.read_text())
-
-    # Provider config should be preserved
-    assert "provider" in result
-    assert result["provider"]["lmstudio"]["name"] == "LM Studio (local)"
-
-    # MCP servers should be synced
-    assert "mcp" in result
-    assert "filesystem" in result["mcp"]
-
-
-def test_sync_opencode_mcp_missing_config(temp_home, monkeypatch_home, master_config):
-    """Test syncing creates OpenCode config when missing."""
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
-    sync_opencode_mcp(master_config)
-
-    opencode_path = temp_home / ".config" / "opencode" / "opencode.json"
-    assert opencode_path.exists()
-
-
-def test_sync_opencode_mcp_template_includes_local_inference_providers(
-    temp_home, monkeypatch_home, master_config
-):
-    """Generated config carries the lmstudio + omlx local inference providers.
-
-    Pins the template's provider section so a future refactor of
-    `transform_to_opencode_format` or the merge logic can't silently drop
-    them. The deployed providers must each route to a real local server
-    via @ai-sdk/openai-compatible.
-    """
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
-    sync_opencode_mcp(master_config)
-
-    cfg = json.loads((temp_home / ".config" / "opencode" / "opencode.json").read_text())
-
-    providers = cfg.get("provider", {})
-    assert {"lmstudio", "omlx"} <= providers.keys()
-    assert providers["lmstudio"]["npm"] == "@ai-sdk/openai-compatible"
-    assert providers["lmstudio"]["options"]["baseURL"] == "http://localhost:1234/v1"
-    assert providers["omlx"]["npm"] == "@ai-sdk/openai-compatible"
-    assert providers["omlx"]["options"]["baseURL"] == "http://localhost:8000/v1"
-
-
 def test_sync_codex_mcp_with_existing_config(
     temp_home, monkeypatch_home, master_config
 ):
-    """Test syncing MCP servers to Codex config."""
+    """Preserve existing Codex config while adding managed MCP servers.
+
+    Args:
+        temp_home: Path fixture for the isolated home directory.
+        monkeypatch_home: MonkeyPatch fixture used to patch ``Path.home``.
+        master_config: MCP master config fixture.
+
+    Returns:
+        None.
+    """
     codex_dir = temp_home / ".codex"
     codex_dir.mkdir(parents=True, exist_ok=True)
     codex_path = codex_dir / "config.toml"
@@ -392,28 +330,46 @@ hide_gpt5_1_migration_prompt = true
 
     result = codex_path.read_text(encoding="utf-8")
 
-    # Base template settings should be present (template model overwrites existing)
-    assert 'model = "gpt-5.5"' in result
+    # Existing Codex-owned settings are preserved verbatim (NOT overwritten by the
+    # base template) because the file already exists.
+    assert 'model = "gpt-5.4"' in result
+    assert 'model_reasoning_effort = "medium"' in result
+    assert '[projects."/home/user/projects/test"]' in result
+    assert "[notice]" in result
 
-    # MCP servers should be added
+    # Managed MCP servers are added
     assert "[mcp_servers.filesystem]" in result
 
 
-def test_sync_codex_mcp_removes_old_servers(temp_home, monkeypatch_home, master_config):
-    """Test that old MCP server sections are removed."""
+def test_sync_codex_mcp_preserves_codex_owned_state(
+    temp_home, monkeypatch_home, master_config
+):
+    """Preserve Codex-owned tables while adding managed MCP servers.
+
+    Args:
+        temp_home: Path fixture for the isolated home directory.
+        monkeypatch_home: MonkeyPatch fixture used to patch ``Path.home``.
+        master_config: MCP master config fixture.
+
+    Returns:
+        None.
+    """
     codex_dir = temp_home / ".codex"
     codex_dir.mkdir(parents=True, exist_ok=True)
     codex_path = codex_dir / "config.toml"
 
-    # Create Codex config with old server
+    # node_repl is a server Codex injects itself; it must not be clobbered.
     initial_config = """model = "gpt-5.4"
 
-[mcp_servers.old-server]
-command = "node"
-args = ["--version"]
+[mcp_servers.node_repl]
+command = "/Applications/Codex.app/Contents/Resources/node_repl"
+args = []
 
-[notice]
-hide_prompt = true
+[mcp_servers.node_repl.env]
+CODEX_HOME = "/Users/carpenter/.codex"
+
+[desktop]
+appearanceTheme = "dark"
 """
     codex_path.write_text(initial_config, encoding="utf-8")
 
@@ -422,19 +378,192 @@ hide_prompt = true
 
     result = codex_path.read_text(encoding="utf-8")
 
-    # Old server should be gone
-    assert "[mcp_servers.old-server]" not in result
-    # New servers should be present
+    # Codex's own server (and its subtable) and settings are untouched
+    assert "[mcp_servers.node_repl]" in result
+    assert "[mcp_servers.node_repl.env]" in result
+    assert 'CODEX_HOME = "/Users/carpenter/.codex"' in result
+    assert "[desktop]" in result
+    # Managed servers are still added
     assert "[mcp_servers.filesystem]" in result
 
 
+def test_sync_codex_mcp_removes_disabled_servers(temp_home, monkeypatch_home):
+    """Remove a server that is explicitly disabled in master.
+
+    Args:
+        temp_home: Path fixture for the isolated home directory.
+        monkeypatch_home: MonkeyPatch fixture used to patch ``Path.home``.
+
+    Returns:
+        None.
+    """
+    codex_dir = temp_home / ".codex"
+    codex_dir.mkdir(parents=True, exist_ok=True)
+    codex_path = codex_dir / "config.toml"
+
+    initial_config = """model = "gpt-5.4"
+
+[mcp_servers.legacy]
+command = "node"
+args = ["old.js"]
+"""
+    codex_path.write_text(initial_config, encoding="utf-8")
+
+    master = {
+        "servers": {
+            "filesystem": {"command": "node", "args": ["fs.js"], "type": "local"},
+            "legacy": {"command": "node", "args": ["old.js"], "enabled": False},
+        }
+    }
+    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
+    sync_codex_mcp(master)
+
+    result = codex_path.read_text(encoding="utf-8")
+
+    # Explicitly-disabled server is removed; enabled managed server remains
+    assert "[mcp_servers.legacy]" not in result
+    assert "[mcp_servers.filesystem]" in result
+
+
+def test_sync_codex_mcp_removes_deleted_managed_servers(temp_home, monkeypatch_home):
+    """Remove a generated server that no longer exists in master.
+
+    Args:
+        temp_home: Path fixture for the isolated home directory.
+        monkeypatch_home: MonkeyPatch fixture used to patch ``Path.home``.
+
+    Returns:
+        None.
+    """
+    codex_dir = temp_home / ".codex"
+    codex_dir.mkdir(parents=True, exist_ok=True)
+    codex_path = codex_dir / "config.toml"
+
+    initial_config = """model = "gpt-5.4"
+
+# MCP Servers - BEGIN Codex
+
+[mcp_servers.legacy]
+command = "node"
+args = ["old.js"]
+
+[mcp_servers.legacy.env]
+TOKEN = "old"
+
+# MCP Servers - END Codex
+"""
+    codex_path.write_text(initial_config, encoding="utf-8")
+
+    master = {
+        "servers": {
+            "filesystem": {"command": "node", "args": ["fs.js"], "type": "local"},
+        }
+    }
+    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
+    sync_codex_mcp(master)
+
+    result = codex_path.read_text(encoding="utf-8")
+
+    assert "[mcp_servers.legacy]" not in result
+    assert "[mcp_servers.legacy.env]" not in result
+    assert 'TOKEN = "old"' not in result
+    assert "# MCP Servers - BEGIN Codex" in result
+    assert "# MCP Servers - END Codex" in result
+    assert "[mcp_servers.filesystem]" in result
+
+
+def test_sync_codex_mcp_preserves_third_party_servers_after_plain_header(
+    temp_home, monkeypatch_home
+):
+    """Preserve third-party MCP tables after a non-managed ``# MCP Servers`` header.
+
+    Args:
+        temp_home: Path fixture for the isolated home directory.
+        monkeypatch_home: MonkeyPatch fixture used to patch ``Path.home``.
+
+    Returns:
+        None.
+    """
+    codex_dir = temp_home / ".codex"
+    codex_dir.mkdir(parents=True, exist_ok=True)
+    codex_path = codex_dir / "config.toml"
+
+    initial_config = """model = "gpt-5.4"
+
+# MCP Servers
+
+[mcp_servers.third_party]
+command = "third-party"
+args = ["serve"]
+
+[mcp_servers.third_party.env]
+TOKEN = "keep"
+"""
+    codex_path.write_text(initial_config, encoding="utf-8")
+
+    master = {
+        "servers": {
+            "filesystem": {"command": "node", "args": ["fs.js"], "type": "local"},
+        }
+    }
+    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
+    sync_codex_mcp(master)
+
+    result = codex_path.read_text(encoding="utf-8")
+
+    assert "[mcp_servers.third_party]" in result
+    assert "[mcp_servers.third_party.env]" in result
+    assert 'TOKEN = "keep"' in result
+    assert "[mcp_servers.filesystem]" in result
+
+
+def test_sync_codex_mcp_idempotent(temp_home, monkeypatch_home, master_config):
+    """Running the codex sync twice produces byte-identical output.
+
+    Guards the marker-block management: the managed [mcp_servers.*] section is
+    replaced in place while Codex-owned tables (node_repl, [desktop]) survive
+    unchanged across runs.
+    """
+    codex_dir = temp_home / ".codex"
+    codex_dir.mkdir(parents=True, exist_ok=True)
+    codex_path = codex_dir / "config.toml"
+    codex_path.write_text(
+        'model = "gpt-5.4"\n\n'
+        "[mcp_servers.node_repl]\n"
+        'command = "/Applications/Codex.app/Contents/Resources/node_repl"\n'
+        "args = []\n\n"
+        "[desktop]\n"
+        'appearanceTheme = "dark"\n',
+        encoding="utf-8",
+    )
+    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
+
+    sync_codex_mcp(master_config)
+    first = codex_path.read_text()
+    sync_codex_mcp(master_config)
+    second = codex_path.read_text()
+
+    assert first == second, "codex sync is not idempotent"
+    assert "[mcp_servers.node_repl]" in second
+    assert "[desktop]" in second
+    assert "[mcp_servers.filesystem]" in second
+
+
 def test_sync_codex_mcp_missing_config(temp_home, monkeypatch_home, master_config):
-    """Test syncing creates Codex config when missing."""
+    """Syncing seeds the Codex config from the base template when missing."""
     monkeypatch_home.setattr(Path, "home", lambda: temp_home)
     sync_codex_mcp(master_config)
 
     codex_path = temp_home / ".codex" / "config.toml"
     assert codex_path.exists()
+    result = codex_path.read_text()
+    # Fresh machine: base template is seeded...
+    assert 'model = "gpt-5.5"' in result
+    # ...and the managed MCP servers are delimited by the begin marker.
+    assert "# MCP Servers - BEGIN Codex" in result
+    assert "[mcp_servers.filesystem]" in result
+    # The [features] block must not be seeded — it is inert on macOS.
+    assert "[features]" not in result
 
 
 def test_sync_codex_mcp_url_server(temp_home, monkeypatch_home):
@@ -486,109 +615,6 @@ def test_sync_codex_mcp_mixed_stdio_and_url(temp_home, monkeypatch_home, master_
     xcode_block = result.split("[mcp_servers.xcode]", 1)[1].split("[mcp_servers.", 1)[0]
     assert 'url = "http://localhost:9876/mcp"' in xcode_block
     assert "command =" not in xcode_block
-
-
-def test_sync_copilot_cli_preserves_auth_tokens(temp_home, monkeypatch_home):
-    """Test that sync_copilot_cli_config preserves auth tokens from backup."""
-    copilot_dir = temp_home / ".config" / ".copilot"
-    copilot_dir.mkdir(parents=True, exist_ok=True)
-
-    # Create deployed config (from chezmoi, no auth tokens)
-    deployed_config = {
-        "banner": "never",
-        "model": "claude-opus-4.5",
-        "render_markdown": True,
-        "theme": "auto",
-        "trusted_folders": ["/home/user/projects"],
-        "logged_in_users": [],
-        "last_logged_in_user": {"host": "https://github.com", "login": ""},
-    }
-    deployed_path = copilot_dir / "config.json"
-    deployed_path.write_text(json.dumps(deployed_config, indent=2), encoding="utf-8")
-
-    # Create backup with auth tokens
-    backup_config = {
-        **deployed_config,
-        "logged_in_users": [
-            {"host": "https://github.com", "login": "user1"},
-            {"host": "https://github.com", "login": "user2"},
-        ],
-        "last_logged_in_user": {"host": "https://github.com", "login": "user1"},
-    }
-    backup_path = copilot_dir / "config.backup.json"
-    backup_path.write_text(json.dumps(backup_config, indent=2), encoding="utf-8")
-
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
-    sync_copilot_cli_config()
-
-    # Check that auth tokens were restored
-    result = json.loads(deployed_path.read_text())
-    assert len(result["logged_in_users"]) == 2
-    assert result["logged_in_users"][0]["login"] == "user1"
-    assert result["last_logged_in_user"]["login"] == "user1"
-
-
-def test_sync_copilot_cli_creates_backup(temp_home, monkeypatch_home):
-    """Test that sync_copilot_cli_config creates backup for next run."""
-    copilot_dir = temp_home / ".config" / ".copilot"
-    copilot_dir.mkdir(parents=True, exist_ok=True)
-
-    deployed_config = {
-        "banner": "never",
-        "model": "claude-opus-4.5",
-        "render_markdown": True,
-        "theme": "auto",
-        "trusted_folders": [],
-        "logged_in_users": [],
-    }
-    deployed_path = copilot_dir / "config.json"
-    deployed_path.write_text(json.dumps(deployed_config, indent=2), encoding="utf-8")
-
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
-    sync_copilot_cli_config()
-
-    # Check that backup was created
-    backup_path = copilot_dir / "config.backup.json"
-    assert backup_path.exists()
-    backup = json.loads(backup_path.read_text())
-    assert backup["model"] == "claude-opus-4.5"
-
-
-def test_sync_copilot_cli_missing_config(temp_home, monkeypatch_home):
-    """Test handling when Copilot config doesn't exist."""
-    # Should not raise, just skip
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
-    sync_copilot_cli_config()
-
-    # Verify no files were created
-    copilot_path = temp_home / ".config" / ".copilot" / "config.json"
-    assert not copilot_path.exists()
-
-
-def test_sync_copilot_cli_missing_backup(temp_home, monkeypatch_home):
-    """Test handling when backup doesn't exist (first run)."""
-    copilot_dir = temp_home / ".config" / ".copilot"
-    copilot_dir.mkdir(parents=True, exist_ok=True)
-
-    deployed_config = {
-        "banner": "never",
-        "model": "claude-opus-4.5",
-        "trusted_folders": [],
-        "logged_in_users": [],
-    }
-    deployed_path = copilot_dir / "config.json"
-    deployed_path.write_text(json.dumps(deployed_config, indent=2), encoding="utf-8")
-
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
-    sync_copilot_cli_config()
-
-    # Should still work, just won't restore auth
-    result = json.loads(deployed_path.read_text())
-    assert result["model"] == "claude-opus-4.5"
-
-    # Backup should be created for next run
-    backup_path = copilot_dir / "config.backup.json"
-    assert backup_path.exists()
 
 
 def test_identity_format_does_not_propagate_master_schema():
@@ -710,7 +736,11 @@ def test_full_sync_does_not_propagate_master_schema_to_identity_tools(
     monkeypatch_home.setattr(Path, "home", lambda: temp_home)
     assert main() == 0
 
-    vscode = json.loads((temp_home / ".vscode" / "mcp.json").read_text())
+    vscode = json.loads(
+        (
+            temp_home / "Library" / "Application Support" / "Code" / "User" / "mcp.json"
+        ).read_text()
+    )
     assert vscode.get("$schema") != "https://modelcontextprotocol.io/schema/config.json"
 
     gh_copilot = json.loads(

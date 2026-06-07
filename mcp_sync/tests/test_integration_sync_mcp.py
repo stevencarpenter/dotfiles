@@ -23,13 +23,12 @@ def test_full_sync_workflow_all_targets(
 
     # Verify all expected files were created
     expected_files = [
-        ".config/.copilot/mcp-config.json",
+        ".copilot/mcp-config.json",
         ".config/github-copilot/intellij/mcp.json",
         ".config/github-copilot/mcp.json",
-        ".config/mcp/mcp_config.json",
         ".config/opencode/opencode.json",
-        ".config/cursor/mcp.json",
-        ".vscode/mcp.json",
+        ".cursor/mcp.json",
+        "Library/Application Support/Code/User/mcp.json",
         ".junie/mcp/mcp.json",
         ".lmstudio/mcp.json",
     ]
@@ -50,9 +49,7 @@ def test_full_sync_copilot_format_has_tools_array(
     monkeypatch_home.setattr(Path, "home", lambda: temp_home)
     main()
 
-    copilot_config = json.loads(
-        (temp_home / ".config/.copilot/mcp-config.json").read_text()
-    )
+    copilot_config = json.loads((temp_home / ".copilot/mcp-config.json").read_text())
 
     # Copilot format should have tools array
     for server_name, server_config in copilot_config.get("mcpServers", {}).items():
@@ -60,43 +57,62 @@ def test_full_sync_copilot_format_has_tools_array(
         assert server_config["tools"] == ["*"]
 
 
-def test_full_sync_generic_mcp_has_schema(
+def test_full_sync_opencode_includes_local_providers(
     temp_home, monkeypatch_home, master_config_file
 ):
-    """Integration test: verify generic MCP format has schema."""
+    """OpenCode config carries the lmstudio + omlx local inference providers.
 
+    Pins the base template's provider section through the real sync path
+    (main()), now that the standalone sync_opencode_mcp helper is gone, so a
+    future refactor can't silently drop the local providers.
+
+    Args:
+        temp_home: Path fixture for the isolated home directory.
+        monkeypatch_home: MonkeyPatch fixture used to patch ``Path.home``.
+        master_config_file: Path fixture containing the test master config.
+
+    Returns:
+        None.
+    """
     monkeypatch_home.setattr(Path, "home", lambda: temp_home)
     main()
 
-    generic_config = json.loads((temp_home / ".config/mcp/mcp_config.json").read_text())
+    cfg = json.loads((temp_home / ".config/opencode/opencode.json").read_text())
+    providers = cfg.get("provider", {})
+    assert {"lmstudio", "omlx"} <= providers.keys()
+    assert providers["lmstudio"]["npm"] == "@ai-sdk/openai-compatible"
+    assert providers["lmstudio"]["options"]["baseURL"] == "http://localhost:1234/v1"
+    assert providers["omlx"]["options"]["baseURL"] == "http://localhost:8000/v1"
 
-    assert "$schema" in generic_config
-    assert (
-        generic_config["$schema"]
-        == "https://modelcontextprotocol.io/schema/config.json"
-    )
 
-
-def test_full_sync_cursor_legacy_mirror(
+def test_full_sync_cursor_writes_home_dotfolder(
     temp_home, monkeypatch_home, master_config_file
 ):
-    """Integration test: Cursor config is mirrored to legacy location."""
+    """Integration test: Cursor MCP config is written to ~/.cursor/mcp.json.
+
+    The home dotfolder is Cursor's documented global path on macOS; it is
+    created unconditionally even when ~/.cursor did not already exist, and the
+    non-canonical ~/.config/cursor path is no longer produced.
+
+    Args:
+        temp_home: Path fixture for the isolated home directory.
+        monkeypatch_home: MonkeyPatch fixture used to patch ``Path.home``.
+        master_config_file: Path fixture containing the test master config.
+
+    Returns:
+        None.
+    """
 
     monkeypatch_home.setattr(Path, "home", lambda: temp_home)
 
-    # Create legacy dir to enable mirroring
-    (temp_home / ".cursor").mkdir(parents=True, exist_ok=True)
-
     main()
 
-    xdg_path = temp_home / ".config/cursor/mcp.json"
-    legacy_path = temp_home / ".cursor/mcp.json"
+    cursor_path = temp_home / ".cursor/mcp.json"
+    assert cursor_path.exists()
+    assert "mcpServers" in json.loads(cursor_path.read_text())
 
-    assert xdg_path.exists()
-    assert legacy_path.exists()
-
-    # Files should have identical content
-    assert xdg_path.read_text() == legacy_path.read_text()
+    # The non-canonical XDG path is no longer written
+    assert not (temp_home / ".config/cursor/mcp.json").exists()
 
 
 def test_full_sync_env_vars_preserved(temp_home, monkeypatch_home, master_config_file):
@@ -211,7 +227,10 @@ def test_sync_with_codex_config(temp_home, monkeypatch_home, master_config_file)
     assert exit_code == 0
 
     result = codex_config.read_text()
-    assert 'model = "gpt-5.5"' in result
+    # Existing Codex-owned content is preserved; managed MCP servers are added.
+    assert "[tool]" in result
+    assert 'name = "codex"' in result
+    assert "[mcp_servers.filesystem]" in result
 
 
 def test_sync_idempotency(temp_home, monkeypatch_home, master_config_file):
@@ -254,18 +273,8 @@ def test_full_sync_with_machine_overlay(
     rc = run_sync(home=temp_home, machine_config_path=machine_dir / "work.json")
     assert rc == 0
 
-    # Check generic MCP config
-    generic = json.loads(
-        (temp_home / ".config" / "mcp" / "mcp_config.json").read_text()
-    )
-    assert "work-only" in generic["mcpServers"]
-    # Master servers still present
-    assert "filesystem" in generic["mcpServers"]
-
     # Check copilot config has the work-only server with tools array
-    copilot = json.loads(
-        (temp_home / ".config" / ".copilot" / "mcp-config.json").read_text()
-    )
+    copilot = json.loads((temp_home / ".copilot" / "mcp-config.json").read_text())
     assert "work-only" in copilot["mcpServers"]
     assert copilot["mcpServers"]["work-only"]["tools"] == ["*"]
 

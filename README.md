@@ -1,229 +1,156 @@
 # Dotfiles
 
-This directory contains the dotfiles for my systems (macOS), managed with **Chezmoi** and **age encryption**.
+Personal macOS dotfiles managed with [chezmoi](https://www.chezmoi.io/). Secrets are age-encrypted,
+with the key sourced from 1Password. The repo also vendors three small Python tools that regenerate
+machine-specific configuration after every apply.
 
-## Requirements
+One source tree drives three machine types — `personal-mac`, `work-mac`, and `lab-mac` — gated by a
+capability table, so the same checkout produces a different environment on each.
 
-Ensure you have the following installed on your system:
+## What's configured
 
-- Python 3.14+ (required by `mcp_sync/` and `token_auditor/`)
-- `uv` (used by sync hooks and Python tooling)
+| Area | Tools |
+|------|-------|
+| Shell | zsh, nushell, atuin (shell history), mise (runtime/tool versions) |
+| Editor | Neovim (LazyVim), IdeaVim |
+| Terminal | Ghostty, tmux |
+| Window management | AeroSpace, SketchyBar, borders (tiling stack) |
+| Files & git | yazi, git, worktrunk (git worktrees) |
+| Packages | Homebrew (Brewfile) |
+| AI tooling | Claude Code, GitHub Copilot, MCP, Claude skills |
+| Other | DuckDB, SSH config, dev-container profiles, hippo (local knowledge-base client) |
 
-### Run Manually On Fresh OS Install for any Unix System
+Most areas deploy only where the relevant capability is enabled (see
+[Machine types and capabilities](#machine-types-and-capabilities)).
+
+## Installation
+
+Requirements: Homebrew, plus Python 3.14+ and `uv` (used by the post-apply hooks and vendored tools).
+
+### 1. Prerequisites (fresh machine)
 
 ```shell
-# Setup ssh key
 ssh-keygen -t ed25519 -C "$USER macbook @ $EPOCHSECONDS"
-
-# Create directories
 mkdir -p ~/projects ~/programs
-```
 
-### Install Chezmoi and Age
-
-#### macOS
-
-```shell
-# Install Homebrew (if not present)
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-brew update && brew upgrade
-
-# Install chezmoi and age
 brew install chezmoi age
 ```
 
-### Setup Age Encryption Key
+### 2. Age encryption key
 
-Before initializing chezmoi, you need to set up your age encryption key from 1Password:
+Restore the key from the `dotfiles-age-key` 1Password note before initializing:
 
 ```shell
-# Create chezmoi config directory
 mkdir -p ~/.config/chezmoi
-
-# Create the age key file from your 1Password backup
-# (copy the contents of your "dotfiles-age-key" secure note)
 cat > ~/.config/chezmoi/key.txt << 'EOF'
-# created: <timestamp>
 # public key: age1462h0ed4ufkjrq0wu326l30c8hay9uewlsaudk89mgqjc5540vrqacejsz
 AGE-SECRET-KEY-<your-secret-key>
 EOF
-
-# Secure the key file
 chmod 600 ~/.config/chezmoi/key.txt
 ```
 
-### Clone and Initialize
+### 3. Initialize and apply
 
 ```shell
-# Initialize chezmoi with this repo
 chezmoi init git@github.com:stevencarpenter/dotfiles.git
-
-# Preview what will be applied
-chezmoi diff
-
-# Apply dotfiles
-chezmoi apply
+chezmoi diff      # preview
+chezmoi apply     # apply, then run the sync hooks
+exec zsh
 ```
 
-On a work machine, configure git to use the correct SSH key:
+`chezmoi init` prompts once for the machine type (`personal-mac`, `work-mac`, `lab-mac`) and an
+email, caching both in `~/.config/chezmoi/chezmoi.toml`. On a work machine, point git at the right
+SSH key:
 
 ```shell
-cd ~/.local/share/chezmoi
-git config --local core.sshCommand 'ssh -i ~/.ssh/id_ed25519_personal -o IdentitiesOnly=yes'
+git -C ~/.local/share/chezmoi config --local \
+  core.sshCommand 'ssh -i ~/.ssh/id_ed25519_personal -o IdentitiesOnly=yes'
 ```
 
-## Common Chezmoi Commands
+## Machine types and capabilities
 
-```shell
-# Preview changes before applying
-chezmoi diff
+Every gate keys off a capability boolean in
+[`.chezmoidata/machines.toml`](.chezmoidata/machines.toml) rather than a hostname, so adding a
+machine is a one-row change. Templates and `.chezmoiignore` read
+`(index .machines .machine).<capability>`.
 
-# Apply all dotfiles
-chezmoi apply
+| Capability | personal | work | lab | Gates |
+|------------|:--:|:--:|:--:|-------|
+| `tiling`  | yes | yes | no  | AeroSpace + SketchyBar + borders |
+| `atuin`   | yes | no  | yes | atuin client pointed at the self-hosted sync server |
+| `mcp`     | yes | yes | yes | MCP master config + per-tool sync hook |
+| `skills`  | yes | yes | yes | Claude skills manifest + sync hook |
+| `gui`     | yes | yes | yes | GUI apps + display fonts |
+| `dev`     | yes | no  | no  | language LSP plugins + dev Brewfile block |
+| `aws_sso` | no  | yes | no  | AWS SSO profile generator |
+| `infra`   | no  | yes | no  | Kubernetes / cluster-ops tooling via mise |
 
-# Apply with verbose output
-chezmoi apply -v
+`work` is corporate-curated (`dev` and `atuin` off); `lab` is a 2019 i9 home server reached over
+macOS Screen Share.
 
-# Add a new file to be managed
-chezmoi add ~/.config/some-tool/config
+## Dynamic configuration for AI agents
 
-# Add a file with encryption
-chezmoi add --encrypt ~/.config/secrets/token
+Three post-apply hooks regenerate machine-specific config so a single source tree fans out to
+whatever tools a given machine runs. Each hook is a no-op where its capability is off, warns rather
+than fails on missing `uv` so first boot can continue, and fails fast when `MCP_SYNC_STRICT=1`.
 
-# Edit a managed file (opens source, applies on save)
-chezmoi edit ~/.config/zsh/.zshrc
+- **MCP sync** (`mcp_sync/`, `mcp` capability) — merges a master config, a per-machine overlay, and
+  per-tool overrides, then writes native configs for Copilot, Cursor, VS Code, Junie, LM Studio,
+  Codex, Claude Code, and OpenCode. See [docs/ai-tools/mcp-setup.md](docs/ai-tools/mcp-setup.md).
+  GitHub is a Claude Code plugin (`github@claude-plugins-official`), not an MCP server.
+- **Skills sync** (`sync-skills`, `skills` capability) — populates `~/.claude/skills/` from vendored
+  upstream skills and personal skills, with per-machine overlays.
+- **AWS SSO config** (`aws_config_gen/`, `aws_sso` capability) — generates `~/.aws/config` from SSO
+  profiles (work only).
 
-# Update from remote repository
-chezmoi update
-
-# View managed files
-chezmoi managed
-```
-
-## MCP Configuration Sync
-
-This repo uses **one master MCP config** that syncs to all AI tools automatically.
-
-### Automatic Sync
-
-MCP configs are synced automatically after `chezmoi apply` via the `run_after_sync-mcp.sh` script.
-
-- By default, missing `uv` or sync failures emit warnings so first-time machine bootstrap can continue.
-- Set `MCP_SYNC_STRICT=1` before running `chezmoi apply` to make sync failures fail fast.
-
-### Manual Sync (if needed)
+Run any of them by hand:
 
 ```shell
 uv run --project ~/.local/share/chezmoi/mcp_sync sync-mcp-configs
+uv run --project ~/.local/share/chezmoi/mcp_sync sync-skills
+uv run --project ~/.local/share/chezmoi/aws_config_gen aws-config-gen
 ```
 
-If you're already in `mcp_sync/`, you can also run `uv run sync-mcp-configs`.
+## Secrets
 
-### Editing MCP Config
+Secrets are age-encrypted in the source tree and decrypted on apply. The `encrypted_` filename
+prefix marks a file for decryption; `private_` forces 0600 on the target.
+
+Environment variables live in `dot_config/zsh/encrypted_dot_env.age` and decrypt to `~/.config/zsh/.env`.
+To update them:
 
 ```shell
-chezmoi edit ~/.config/mcp/mcp-master.json
-chezmoi apply  # Sync runs automatically
+nvim ~/.config/zsh/.env
+chezmoi add --encrypt ~/.config/zsh/.env
+head -3 ~/.local/share/chezmoi/dot_config/zsh/encrypted_dot_env.age   # expect: -----BEGIN AGE ENCRYPTED FILE-----
 ```
 
-This syncs to:
+GitHub access uses the `gh` keychain token from `gh auth login`, not an encrypted variable.
 
-- `~/.config/.copilot/mcp-config.json` (GitHub Copilot)
-- `~/.config/github-copilot/mcp.json` (GitHub Copilot CLI)
-- `~/.config/github-copilot/intellij/mcp.json` (IntelliJ)
-- `~/.config/cursor/mcp.json` (Cursor + legacy mirror)
-- `~/.vscode/mcp.json` (VS Code)
-- `~/.junie/mcp/mcp.json` (Junie)
-- `~/.lmstudio/mcp.json` (LM Studio)
-- `~/.codex/config.toml` (Codex CLI)
-- `~/.claude.json` (Claude Code)
-- `~/.config/opencode/opencode.json` (OpenCode)
-- `~/.config/mcp/mcp_config.json` (Generic MCP)
-
-### Linting and Testing
-
-Use the uv-first tooling that ships with this project:
+## Common commands
 
 ```shell
-cd mcp_sync && uv run ruff check src tests && uv run pytest -v
-cd token_auditor && uv run ruff check . && uv run ruff format --check . && uv run ty check . && uv run pytest -v
-./scripts/test-mcp-sync-ci.sh
-./scripts/test-token-auditor-ci.sh
+chezmoi diff                       # preview pending changes
+chezmoi apply -v                   # apply (runs the sync hooks)
+chezmoi edit ~/.config/zsh/.zshrc  # edit source, apply on save
+chezmoi add ~/.config/tool/config  # track a new file
+chezmoi add --encrypt <file>       # track an encrypted file
+chezmoi update                     # pull + apply
+chezmoi managed                    # list managed targets
 ```
 
-## Tool Version Policy
+## Vendored Python tools
 
-`dot_config/mise/config.toml` uses a mixed strategy:
+Each is an isolated `uv` project (Python 3.14+, no runtime dependencies). See
+[CLAUDE.md](CLAUDE.md) for the full lint/type-check/test matrix.
 
-- Pin critical tools (for example `gh`, `kubectl`, `terraform`) to explicit versions for reproducibility.
-- Use `latest` only for lower-risk utilities where fast updates are preferred.
-
-Suggested monthly routine:
-
-1. Review and bump pinned versions in `dot_config/mise/config.toml`.
-2. Run `chezmoi diff` and your relevant test scripts.
-3. Apply with `chezmoi apply -v` after validation.
-
-## Environment Variables Setup
-
-This repository uses age-encrypted environment variables. The encrypted file is stored in the repo as `dot_config/zsh/encrypted_dot_env` and automatically decrypted to `~/.config/zsh/.env` when you run `chezmoi apply`.
-
-### How Chezmoi Encryption Works
-
-Chezmoi uses the `encrypted_` filename prefix to identify files that need decryption on apply:
-- **Source**: `dot_config/zsh/encrypted_dot_env` (encrypted, safe to commit)
-- **Target**: `~/.config/zsh/.env` (decrypted, never committed)
-
-The `suffix = ""` setting in `~/.config/chezmoi/chezmoi.toml` prevents chezmoi from adding a redundant `.age` extension.
-
-### Updating Environment Variables
-
-1. **Edit the decrypted target file:**
-   ```shell
-   nvim ~/.config/zsh/.env
-   ```
-
-2. **Re-encrypt and update the source:**
-   ```shell
-   chezmoi add --encrypt ~/.config/zsh/.env
-   ```
-
-3. **Verify the source is encrypted before committing:**
-   ```shell
-   head -3 ~/.local/share/chezmoi/dot_config/zsh/encrypted_dot_env
-   # Should show: -----BEGIN AGE ENCRYPTED FILE-----
-   ```
-
-### Required Variables
-
-- `OPENAI_API_KEY` - OpenAI API key
-- `SUPABASE_PROJECT_REF` - Supabase project reference (for MCP)
-- `BRAVE_API_KEY` - Brave Search API key
-- `CONTEXT7_API_KEY` - Context7 API key
-- `NPM_TOKEN` - NPM authentication token
-- `OPENROUTER_TOKEN` - OpenRouter API key
-- `ATLASSIAN_API_TOKEN` - Atlassian/Jira API token (work)
-
-GitHub auth is **not** in this list — the GitHub MCP server and `gh` CLI both use the token stored in the macOS keychain by `gh auth login`. No long-lived env var, no manual copy-paste into encrypted files.
-
-## AI Tools Configuration
-
-Setup and configuration for AI-powered development tools:
-
-- **[MCP (Model Context Protocol)](docs/ai-tools/mcp-setup.md)** - Master MCP config and sync system
-
-## New Machine Quick Start
+- `mcp_sync/` — MCP and skills fan-out
+- `aws_config_gen/` — AWS SSO profile generator
+- `token_auditor/` — AI-agent token/cost auditor (`codax` CLI), 100% coverage gate
 
 ```shell
-# 1. Install chezmoi and age
-brew install chezmoi age
-
-# 2. Set up age key from 1Password (see instructions above)
-
-# 3. Initialize and apply
-chezmoi init git@github.com:stevencarpenter/dotfiles.git
-chezmoi apply
-
-# 4. Restart your shell
-exec zsh
+uv run --project mcp_sync --group dev pytest mcp_sync/tests
+uv run --project aws_config_gen --group dev pytest aws_config_gen/tests
+cd token_auditor && uv sync --locked --group dev && uv run pytest
 ```

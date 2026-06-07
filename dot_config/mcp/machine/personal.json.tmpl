@@ -7,7 +7,7 @@
       "args": [
         "run",
         "--project",
-        "/Users/carpenter/projects/hippo/brain",
+        "{{ .chezmoi.homeDir }}/projects/hippo/brain",
         "hippo-mcp"
       ],
       "autoApprove": ["ask", "search_knowledge", "search_events", "get_entities"]
@@ -15,10 +15,15 @@
     "grafana": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["mcp-grafana", "--disable-write"],
+      "args": ["mcp-grafana@0.15.2", "--disable-write"],
       "env": {
         "GRAFANA_URL": "http://localhost:3000"
       }
+    },
+    "codegraph": {
+      "type": "stdio",
+      "command": "codegraph",
+      "args": ["serve", "--mcp"]
     }
   }
 }

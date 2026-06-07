@@ -21,15 +21,15 @@ This user has spent significant effort configuring MCP servers, plugins, skills,
 ### Tool Priority Order (highest to lowest)
 
 1. **Skills** — Check available skills before starting ANY task. Invoke via the `Skill` tool before acting. A 1% chance a skill applies means you must check.
-2. **MCP servers** — Use `mcp__idea__*` (IntelliJ — always running), `mcp__github__*`, `mcp__grafana__*`, `mcp__slack__*`, etc. when the operation maps to one of these.
+2. **MCP servers** — Use `mcp__idea__*` (IntelliJ — always running), `mcp__grafana__*`, etc. when the operation maps to one of these.
 3. **Specialized agents** — Use Explore, Plan, code-reviewer, and other Agent subtypes for tasks matching their descriptions.
 4. **Built-in tools** (Read, Grep, Glob, Edit, Write, Bash) — **Last resort only**, when no MCP tool, skill, or agent covers the need.
 
 ### Git Operations
 
-- When working with git, always use the `mcp__github__*` tools instead of running git commands directly.
-- Never sign commits with created by claude.
-- Never add anything to the commit message that is related to claude or any of it's models or tools.
+- Note: any `gh` / `git push` / `git fetch` that reaches GitHub or writes `.git/config` fails under the default command sandbox (`Operation not permitted` / `OSStatus -26276`). Retry these with the sandbox disabled.
+- Never sign commits as being created by an AI agent, assistant, or coding harness.
+- Never add anything to a commit message that references an AI agent, assistant, or harness — or any of their underlying models or tools (Claude, Codex, Copilot, Gemini, etc.).
 
 ### IntelliJ MCP substitutions (IntelliJ is always running)
 
@@ -41,9 +41,12 @@ This user has spent significant effort configuring MCP servers, plugins, skills,
 | Manual lint/error checking | `mcp__idea__get_file_problems` |
 | Symbol/type resolution | `mcp__idea__get_symbol_info` |
 | Running tests/builds | `mcp__idea__execute_run_configuration` or `mcp__idea__build_project` |
-| GitHub operations | `mcp__github__*` tools |
 
-Also use the `LSP` tool for language-server-level diagnostics, hover info, go-to-definition, and references — this gives semantic understanding beyond text search. Language-specific LSP plugins are installed: **Swift, TypeScript, Python (pyright), Go (gopls), Rust (rust-analyzer), Lua**. Use LSP before falling back to `rg` for symbol resolution, type checking, or finding references.
+Also use the `LSP` tool for language-server-level diagnostics, hover info, go-to-definition, and references — this gives semantic understanding beyond text search. Language-specific LSP plugins: **Python (pyright), Go (gopls), Rust (rust-analyzer)** are enabled on every machine; **Swift, TypeScript, Lua** only on dev machines (the `dev` capability). Use LSP before falling back to `rg` for symbol resolution, type checking, or finding references.
+
+### Codegraph for code exploration (when `mcp__codegraph__*` is available)
+
+**Hybrid strategy:** Start with `codegraph_explore` for "how does X work / trace X / where is X" questions over indexed source (Rust, TS, etc.) — typically 2–5 calls vs. 30+ for grep+read. Fall back to `rg`/`Read` only for non-indexed artifacts: `.plist`, YAML, Python, shell scripts. Codegraph is blind to config/data files.
 
 ### Shell tooling
 

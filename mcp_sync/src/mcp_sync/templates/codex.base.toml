@@ -1,15 +1,3 @@
 # Global Codex CLI Settings
 model = "gpt-5.5"
 model_reasoning_effort = "high"
-
-[features]
-shell_snapshot = true
-multi_agent = true
-runtime_metrics = true
-search_tool = true
-apps_mcp_gateway = true
-unified_exec = true
-use_linux_sandbox_bwrap = true
-
-# MCP Servers - Synced from master config
-# This section is populated by sync-mcp-configs

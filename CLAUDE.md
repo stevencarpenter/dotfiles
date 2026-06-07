@@ -90,13 +90,15 @@ Source files use Chezmoi prefixes that transform on apply:
 The sync tool reads `dot_config/mcp/mcp-master.json` and generates tool-specific configs:
 
 - **Master config**: `dot_config/mcp/mcp-master.json` — shared servers deployed to all machines
-- **Machine overlays**: `dot_config/mcp/machine/{personal.json.tmpl,work.json}` — machine-type-specific
+- **Machine overlays**: `dot_config/mcp/machine/{work.json,personal.json.tmpl,lab.json.tmpl}` — machine-type-specific
   servers (e.g., AWS MCP on work only), deployed conditionally by chezmoi
 - **Templates**: `mcp_sync/src/mcp_sync/templates/` — base config templates per tool
 - **Transform functions** in `sync.py`: `transform_to_copilot_format()`, `transform_to_generic_mcp_format()`,
   `transform_to_mcpservers_format()`, `transform_to_opencode_format()`
-- **Merge order**: base template + master + machine overlay (later values win). A
-  `dot_config/mcp/overrides/` per-tool override layer is planned but not yet on disk.
+- **Merge order**: base template + master + machine overlay + per-tool overrides (later values win).
+  The overrides layer is wired in `sync.py` — each target reads `~/.config/mcp/overrides/<key>.json`
+  at sync time — but no override files are managed in-repo yet (`dot_config/mcp/overrides/` does not
+  exist; the deployed `~/.config/mcp/overrides/` dir is present but empty).
 
 The sync runs automatically after `chezmoi apply` via `.chezmoiscripts/run_after_sync-mcp.sh.tmpl`.
 The hook selects the overlay for the deployed machine type (rendered from `.machine`, mirroring the
@@ -155,10 +157,11 @@ Current capabilities (one row per machine in `machines.toml`):
   being stood up via macOS Screen Share. Flip false once a machine is genuinely headless with no
   Screen Share path. CLI tools that ship as `cask` (e.g. `1password-cli`) stay outside this gate.
   Gated in `dot_config/homebrew/Brewfile.tmpl`.
-- **`dev`** — machine does language / web / mobile development. Gates language-LSP plugins,
-  Brewfile dev-flavored block (railway CLI, dev fonts), and `dot_claude/modify_settings.json.tmpl`
-  plugin enablement (cloudflare, frontend-design, lsps, playwright, railway). Off on work
-  (work has its own dev curation) and off on `lab-mac` (home server, not a dev box).
+- **`dev`** — machine does language / web / mobile development. Gates the dev-only language-LSP
+  plugins (`swift-lsp`, `typescript-lsp`, `lua-lsp` — `pyright-lsp`/`gopls-lsp`/`rust-analyzer-lsp`
+  stay enabled on every machine), the Brewfile dev-flavored block (railway CLI, dev fonts), and the
+  `dot_claude/modify_settings.json.tmpl` plugin enablement (cloudflare, frontend-design, playwright,
+  railway). Off on work (work has its own dev curation) and off on `lab-mac` (home server, not a dev box).
 - **`aws_sso`** — deploy AWS SSO profile generator output (`~/.aws/config` from `aws_config_gen`)
   and related shell helpers. Off on machines without AWS access. Work-only today. Gated in
   `.chezmoiignore` (skips `aws-config-gen/` overrides + `.aws/`) and in any shell profile that
@@ -180,13 +183,13 @@ capability: add the key to every row in `machines.toml` and gate the relevant te
 
 ### Key Directories
 
-- `dot_config/mcp/` — Master MCP config + per-machine overlays (per-tool overrides directory is planned)
+- `dot_config/mcp/` — Master MCP config + per-machine overlays (per-tool override layer wired in `sync.py`; no override files managed in-repo yet)
 - `mcp_sync/` — MCP fan-out tool (uv project, Python 3.14+, no runtime deps)
 - `aws_config_gen/` — AWS SSO profile generator (uv project, Python 3.14+)
 - `token_auditor/` — Token usage auditor / `codax` CLI (uv project, Python 3.14+, 100% coverage gate)
 - `.chezmoiscripts/` — Post-apply hooks (MCP sync, macOS setup)
 - `.chezmoidata/machines.toml` — Per-machine capability table (single source of truth for gating)
-- `dot_config/zsh/` — Zsh config; `encrypted_dot_env` holds API keys
+- `dot_config/zsh/` — Zsh config; `encrypted_dot_env.age` holds API keys
 - `private_dot_ssh/` — chezmoi-managed `~/.ssh/config`, age-encrypted (homelab / i9 access over Tailscale; personal + lab)
 - `dot_config/nvim/` — Neovim config (LazyVim)
 - `scripts/` — Utility scripts
@@ -207,10 +210,10 @@ names and state spinners instead of version numbers.
 
 ### Encrypted Secrets
 
-Environment variables live in `dot_config/zsh/encrypted_dot_env`. To update:
+Environment variables live in `dot_config/zsh/encrypted_dot_env.age`. To update:
 1. Edit `~/.config/zsh/.env`
 2. Run `chezmoi add --encrypt ~/.config/zsh/.env`
-3. Verify encryption: `head -3 ~/.local/share/chezmoi/dot_config/zsh/encrypted_dot_env` should show
+3. Verify encryption: `head -3 ~/.local/share/chezmoi/dot_config/zsh/encrypted_dot_env.age` should show
    `-----BEGIN AGE ENCRYPTED FILE-----`
 
 ## CI
@@ -250,6 +253,7 @@ History uses Conventional Commit prefixes: `feat:`, `fix:`, `chore:`, `docs:`, `
 - PRs should include: purpose, key changed paths, test/lint evidence, and any config/security
   impact (especially secrets, MCP, or shell-startup behavior)
 - Include screenshots only when UI/docs rendering changes need visual confirmation
-- **Do not add `Co-Authored-By: Claude` (or any "generated by Claude" / "created by Claude")
-  trailer to commits in this repo.** This overrides the harness default. Slash commands that
-  template a Co-Authored-By trailer must strip it before committing here.
+- **Do not add a `Co-Authored-By` trailer, or any "generated by" / "created by" attribution
+  naming an AI agent, assistant, or harness (Claude, Codex, Copilot, Gemini, etc.), to commits
+  in this repo.** This overrides the harness default. Slash commands that template such a
+  trailer must strip it before committing here.
