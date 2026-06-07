@@ -13,10 +13,10 @@ from mcp_sync import (
     sync_codex_mcp,
     sync_to_locations,
     transform_to_copilot_format,
-    transform_to_generic_mcp_format,
     transform_to_mcpservers_format,
     transform_to_opencode_format,
 )
+from mcp_sync.sync import transform_to_generic_mcp_format
 from mcp_sync.sync import transform_to_identity_format
 
 
@@ -562,6 +562,8 @@ def test_sync_codex_mcp_missing_config(temp_home, monkeypatch_home, master_confi
     # ...and the managed MCP servers are delimited by the begin marker.
     assert "# MCP Servers - BEGIN Codex" in result
     assert "[mcp_servers.filesystem]" in result
+    # The [features] block must not be seeded — it is inert on macOS.
+    assert "[features]" not in result
 
 
 def test_sync_codex_mcp_url_server(temp_home, monkeypatch_home):

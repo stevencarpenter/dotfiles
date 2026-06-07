@@ -90,6 +90,17 @@ Tests individual functions in isolation:
   - `test_patch_claude_code_config_missing` - Missing config handling
   - `test_patch_claude_code_config_merges_servers` - MCP server merging
 
+- **Codex Sync**
+  - `test_sync_codex_mcp_with_existing_config` - Preserve existing Codex config
+  - `test_sync_codex_mcp_preserves_codex_owned_state` - node_repl and desktop tables survive
+  - `test_sync_codex_mcp_removes_disabled_servers` - Disabled servers are removed
+  - `test_sync_codex_mcp_removes_deleted_managed_servers` - Deleted managed servers are removed
+  - `test_sync_codex_mcp_preserves_third_party_servers_after_plain_header` - Third-party servers survive plain header
+  - `test_sync_codex_mcp_idempotent` - Two runs produce byte-identical output
+  - `test_sync_codex_mcp_missing_config` - Fresh machine: seeds from base template, no [features] block
+  - `test_sync_codex_mcp_url_server` - URL servers render as url= entries
+  - `test_sync_codex_mcp_mixed_stdio_and_url` - Stdio servers unchanged with URL servers present
+
 - **Edge Cases**
   - `test_empty_master_config_handling` - Empty servers handling
   - `test_none_servers_handling` - Null servers handling
@@ -101,19 +112,12 @@ Tests the complete workflow and interactions:
 
 - **Full Workflow**
   - `test_full_sync_workflow_all_targets` - All targets created and valid
-  - `test_full_sync_missing_master_config` - Graceful failure handling
+  - `test_sync_missing_master_config` - Graceful failure handling
 
 - **Format Validation**
   - `test_full_sync_copilot_format_has_tools_array` - Copilot has tools array
-  - `test_full_sync_generic_mcp_has_schema` - Generic MCP has schema field
-
-- **Context Assignment**
-  - `test_full_sync_ide_context_applied` - IDE tools get IDE context
-  - `test_junie_gets_agent_context` - Junie gets agent context
-  - `test_lmstudio_gets_desktop_context` - LM Studio gets desktop context
-
-- **Legacy Support**
-  - `test_full_sync_cursor_legacy_mirror` - Cursor legacy mirroring
+  - `test_full_sync_opencode_includes_local_providers` - OpenCode local provider entries
+  - `test_full_sync_cursor_writes_home_dotfolder` - Cursor writes to ~/.cursor
 
 - **Environment Variables**
   - `test_full_sync_env_vars_preserved` - Env vars preserved in all formats
@@ -122,6 +126,7 @@ Tests the complete workflow and interactions:
   - `test_sync_with_existing_claude_config` - Claude config merging
   - `test_sync_with_existing_opencode_config` - OpenCode config updates
   - `test_sync_with_codex_config` - Codex config creation
+  - `test_full_sync_with_machine_overlay` - Machine overlay merges into output
 
 - **Idempotency**
   - `test_sync_idempotency` - Multiple runs produce identical results

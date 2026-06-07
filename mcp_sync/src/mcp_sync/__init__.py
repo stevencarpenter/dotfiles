@@ -12,7 +12,6 @@ from .sync import (
     sync_codex_mcp,
     sync_to_locations,
     transform_to_copilot_format,
-    transform_to_generic_mcp_format,
     transform_to_mcpservers_format,
     transform_to_opencode_format,
 )
@@ -27,7 +26,6 @@ __all__ = [
     "sync_codex_mcp",
     "sync_to_locations",
     "transform_to_copilot_format",
-    "transform_to_generic_mcp_format",
     "transform_to_mcpservers_format",
     "transform_to_opencode_format",
 ]

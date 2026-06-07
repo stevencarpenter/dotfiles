@@ -7,10 +7,10 @@ import json
 from mcp_sync import (
     deep_merge,
     transform_to_copilot_format,
-    transform_to_generic_mcp_format,
     transform_to_mcpservers_format,
     transform_to_opencode_format,
 )
+from mcp_sync.sync import transform_to_generic_mcp_format
 from mcp_sync.sync import (
     _filter_enabled_servers,
     patch_claude_code_config,
