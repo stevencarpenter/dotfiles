@@ -441,7 +441,7 @@ def test_sync_codex_mcp_removes_deleted_managed_servers(temp_home, monkeypatch_h
 
     initial_config = """model = "gpt-5.4"
 
-# MCP Servers
+# MCP Servers - BEGIN Codex
 
 [mcp_servers.legacy]
 command = "node"
@@ -449,6 +449,8 @@ args = ["old.js"]
 
 [mcp_servers.legacy.env]
 TOKEN = "old"
+
+# MCP Servers - END Codex
 """
     codex_path.write_text(initial_config, encoding="utf-8")
 
@@ -465,6 +467,53 @@ TOKEN = "old"
     assert "[mcp_servers.legacy]" not in result
     assert "[mcp_servers.legacy.env]" not in result
     assert 'TOKEN = "old"' not in result
+    assert "# MCP Servers - BEGIN Codex" in result
+    assert "# MCP Servers - END Codex" in result
+    assert "[mcp_servers.filesystem]" in result
+
+
+def test_sync_codex_mcp_preserves_third_party_servers_after_plain_header(
+    temp_home, monkeypatch_home
+):
+    """Preserve third-party MCP tables after a non-managed ``# MCP Servers`` header.
+
+    Args:
+        temp_home: Path fixture for the isolated home directory.
+        monkeypatch_home: MonkeyPatch fixture used to patch ``Path.home``.
+
+    Returns:
+        None.
+    """
+    codex_dir = temp_home / ".codex"
+    codex_dir.mkdir(parents=True, exist_ok=True)
+    codex_path = codex_dir / "config.toml"
+
+    initial_config = """model = "gpt-5.4"
+
+# MCP Servers
+
+[mcp_servers.third_party]
+command = "third-party"
+args = ["serve"]
+
+[mcp_servers.third_party.env]
+TOKEN = "keep"
+"""
+    codex_path.write_text(initial_config, encoding="utf-8")
+
+    master = {
+        "servers": {
+            "filesystem": {"command": "node", "args": ["fs.js"], "type": "local"},
+        }
+    }
+    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
+    sync_codex_mcp(master)
+
+    result = codex_path.read_text(encoding="utf-8")
+
+    assert "[mcp_servers.third_party]" in result
+    assert "[mcp_servers.third_party.env]" in result
+    assert 'TOKEN = "keep"' in result
     assert "[mcp_servers.filesystem]" in result
 
 

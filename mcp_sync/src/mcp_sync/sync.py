@@ -14,6 +14,8 @@ type JsonDict = dict[str, Any]
 type Transform = Callable[[JsonDict], JsonDict]
 
 TEMPLATES_DIR = Path(__file__).with_name("templates")
+CODEX_MCP_BEGIN_MARKER = "# MCP Servers - BEGIN Codex"
+CODEX_MCP_END_MARKER = "# MCP Servers - END Codex"
 
 
 @dataclass(frozen=True, slots=True)
@@ -314,7 +316,7 @@ def _strip_codex_managed_blocks(text: str, names: set[str]) -> str:
 
     Drops each ``[mcp_servers.NAME]`` table (and any nested subtable like
     ``[mcp_servers.NAME.env]``) whose NAME is in ``names``. It also drops the
-    previous ``# MCP Servers`` managed tail emitted by this tool so servers
+    previous managed block emitted by this tool so servers
     deleted from the current master do not linger. Every other line — including
     Codex-owned ``mcp_servers`` such as ``node_repl`` and unrelated tables
     (``plugins``, ``hooks``, ``desktop``) — is kept verbatim, which keeps the
@@ -330,26 +332,22 @@ def _strip_codex_managed_blocks(text: str, names: set[str]) -> str:
     roots = {f"mcp_servers.{name}" for name in names}
     kept: list[str] = []
     dropping = False
-    in_managed_tail = False
+    in_managed_block = False
     for line in text.splitlines():
         stripped = line.strip()
-        if stripped == "# MCP Servers":
-            in_managed_tail = True
-            dropping = False
+        if stripped == CODEX_MCP_BEGIN_MARKER:
+            in_managed_block = True
+            dropping = True
             continue
 
-        if in_managed_tail and not dropping and not stripped:
+        if in_managed_block and stripped == CODEX_MCP_END_MARKER:
+            in_managed_block = False
+            dropping = False
             continue
 
         if stripped.startswith("[") and stripped.endswith("]"):
             header = stripped[1:-1].strip()
-            if in_managed_tail:
-                if header.startswith("mcp_servers."):
-                    dropping = True
-                else:
-                    in_managed_tail = False
-                    dropping = False
-            if not in_managed_tail:
+            if not in_managed_block:
                 dropping = any(
                     header == root or header.startswith(f"{root}.") for root in roots
                 )
@@ -364,7 +362,7 @@ def _toml_string(value: str) -> str:
 
 
 def _render_codex_mcp_section(servers: JsonDict) -> str:
-    lines: list[str] = ["", "# MCP Servers"]
+    lines: list[str] = ["", CODEX_MCP_BEGIN_MARKER]
 
     for name, server in servers.items():
         lines.append("")
@@ -388,6 +386,8 @@ def _render_codex_mcp_section(servers: JsonDict) -> str:
             ]
             lines.append(f"environment = {{ {', '.join(env_parts)} }}")
 
+    lines.append("")
+    lines.append(CODEX_MCP_END_MARKER)
     return "\n".join(lines) + "\n"
 
 
