@@ -517,13 +517,51 @@ TOKEN = "keep"
     assert "[mcp_servers.filesystem]" in result
 
 
+def test_sync_codex_mcp_idempotent(temp_home, monkeypatch_home, master_config):
+    """Running the codex sync twice produces byte-identical output.
+
+    Guards the marker-block management: the managed [mcp_servers.*] section is
+    replaced in place while Codex-owned tables (node_repl, [desktop]) survive
+    unchanged across runs.
+    """
+    codex_dir = temp_home / ".codex"
+    codex_dir.mkdir(parents=True, exist_ok=True)
+    codex_path = codex_dir / "config.toml"
+    codex_path.write_text(
+        'model = "gpt-5.4"\n\n'
+        "[mcp_servers.node_repl]\n"
+        'command = "/Applications/Codex.app/Contents/Resources/node_repl"\n'
+        "args = []\n\n"
+        "[desktop]\n"
+        'appearanceTheme = "dark"\n',
+        encoding="utf-8",
+    )
+    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
+
+    sync_codex_mcp(master_config)
+    first = codex_path.read_text()
+    sync_codex_mcp(master_config)
+    second = codex_path.read_text()
+
+    assert first == second, "codex sync is not idempotent"
+    assert "[mcp_servers.node_repl]" in second
+    assert "[desktop]" in second
+    assert "[mcp_servers.filesystem]" in second
+
+
 def test_sync_codex_mcp_missing_config(temp_home, monkeypatch_home, master_config):
-    """Test syncing creates Codex config when missing."""
+    """Syncing seeds the Codex config from the base template when missing."""
     monkeypatch_home.setattr(Path, "home", lambda: temp_home)
     sync_codex_mcp(master_config)
 
     codex_path = temp_home / ".codex" / "config.toml"
     assert codex_path.exists()
+    result = codex_path.read_text()
+    # Fresh machine: base template is seeded...
+    assert 'model = "gpt-5.5"' in result
+    # ...and the managed MCP servers are delimited by the begin marker.
+    assert "# MCP Servers - BEGIN Codex" in result
+    assert "[mcp_servers.filesystem]" in result
 
 
 def test_sync_codex_mcp_url_server(temp_home, monkeypatch_home):
