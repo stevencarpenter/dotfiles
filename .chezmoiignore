@@ -51,11 +51,9 @@ private_dot_claude.json
 
 # Ignore Copilot-generated runtime state (auth DBs, oauth, version/app caches,
 # logs). MCP server configs under these dirs are written directly by mcp_sync,
-# not chezmoi. Keep only the instruction/settings files this repo manages.
+# not chezmoi. Keep only the IntelliJ instruction file this repo manages.
 **/.copilot/**/*
 **/.config/**/*copilot**/**
-!**/.copilot/
-!**/.copilot/settings.json
 !**/.config/github-copilot/
 !**/.config/github-copilot/intellij/
 !**/.config/github-copilot/intellij/global-copilot-instructions.md
