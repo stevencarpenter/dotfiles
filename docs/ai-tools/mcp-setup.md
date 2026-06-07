@@ -88,7 +88,7 @@ uv run --project ~/.local/share/chezmoi/mcp_sync sync-mcp-configs
   `gh` keychain token, not via this sync.
 
 Any secret-bearing env vars referenced by a server (`${VAR}`) are stored encrypted in
-`dot_config/zsh/encrypted_dot_env` and sourced at shell startup.
+`dot_config/zsh/encrypted_dot_env.age` and sourced at shell startup.
 
 ## Troubleshooting
 

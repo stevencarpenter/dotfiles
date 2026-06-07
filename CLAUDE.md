@@ -189,7 +189,7 @@ capability: add the key to every row in `machines.toml` and gate the relevant te
 - `token_auditor/` — Token usage auditor / `codax` CLI (uv project, Python 3.14+, 100% coverage gate)
 - `.chezmoiscripts/` — Post-apply hooks (MCP sync, macOS setup)
 - `.chezmoidata/machines.toml` — Per-machine capability table (single source of truth for gating)
-- `dot_config/zsh/` — Zsh config; `encrypted_dot_env` holds API keys
+- `dot_config/zsh/` — Zsh config; `encrypted_dot_env.age` holds API keys
 - `private_dot_ssh/` — chezmoi-managed `~/.ssh/config`, age-encrypted (homelab / i9 access over Tailscale; personal + lab)
 - `dot_config/nvim/` — Neovim config (LazyVim)
 - `scripts/` — Utility scripts
@@ -210,10 +210,10 @@ names and state spinners instead of version numbers.
 
 ### Encrypted Secrets
 
-Environment variables live in `dot_config/zsh/encrypted_dot_env`. To update:
+Environment variables live in `dot_config/zsh/encrypted_dot_env.age`. To update:
 1. Edit `~/.config/zsh/.env`
 2. Run `chezmoi add --encrypt ~/.config/zsh/.env`
-3. Verify encryption: `head -3 ~/.local/share/chezmoi/dot_config/zsh/encrypted_dot_env` should show
+3. Verify encryption: `head -3 ~/.local/share/chezmoi/dot_config/zsh/encrypted_dot_env.age` should show
    `-----BEGIN AGE ENCRYPTED FILE-----`
 
 ## CI
