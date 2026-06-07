@@ -53,7 +53,6 @@ After `chezmoi apply`, the merged config is written to:
 | Codex CLI | `~/.codex/config.toml` (MCP servers patched in place; Codex owns the file) |
 | Claude Code | `~/.claude.json` (servers patched in place; tool-owned file) |
 | OpenCode | `~/.config/opencode/opencode.json` |
-| Generic MCP | `~/.config/mcp/mcp_config.json` |
 
 ## Adding a New MCP Server
 

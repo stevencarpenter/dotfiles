@@ -312,11 +312,6 @@ class TestEnabledFlagIntegration:
         assert "enabled_server" in opencode_config["mcp"]
         assert "disabled_server" not in opencode_config["mcp"]
 
-        generic_path = temp_home / ".config" / "mcp" / "mcp_config.json"
-        generic_config = json.loads(generic_path.read_text())
-        assert "enabled_server" in generic_config["mcpServers"]
-        assert "disabled_server" not in generic_config["mcpServers"]
-
         github_copilot_path = temp_home / ".config" / "github-copilot" / "mcp.json"
         github_copilot_config = json.loads(github_copilot_path.read_text())
         assert "enabled_server" in github_copilot_config["servers"]

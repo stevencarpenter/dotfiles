@@ -128,17 +128,16 @@ chezmoi apply  # Sync runs automatically
 
 This syncs to:
 
-- `~/.config/.copilot/mcp-config.json` (GitHub Copilot)
-- `~/.config/github-copilot/mcp.json` (GitHub Copilot CLI)
-- `~/.config/github-copilot/intellij/mcp.json` (IntelliJ)
-- `~/.config/cursor/mcp.json` (Cursor + legacy mirror)
-- `~/.vscode/mcp.json` (VS Code)
+- `~/.copilot/mcp-config.json` (GitHub Copilot CLI)
+- `~/.config/github-copilot/mcp.json` (GitHub Copilot IDE)
+- `~/.config/github-copilot/intellij/mcp.json` (IntelliJ Copilot)
+- `~/.cursor/mcp.json` (Cursor)
+- `~/Library/Application Support/Code/User/mcp.json` (VS Code)
 - `~/.junie/mcp/mcp.json` (Junie)
 - `~/.lmstudio/mcp.json` (LM Studio)
 - `~/.codex/config.toml` (Codex CLI)
 - `~/.claude.json` (Claude Code)
 - `~/.config/opencode/opencode.json` (OpenCode)
-- `~/.config/mcp/mcp_config.json` (Generic MCP)
 
 ### Linting and Testing
 

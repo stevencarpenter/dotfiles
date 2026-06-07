@@ -26,7 +26,6 @@ def test_full_sync_workflow_all_targets(
         ".copilot/mcp-config.json",
         ".config/github-copilot/intellij/mcp.json",
         ".config/github-copilot/mcp.json",
-        ".config/mcp/mcp_config.json",
         ".config/opencode/opencode.json",
         ".cursor/mcp.json",
         "Library/Application Support/Code/User/mcp.json",
@@ -56,23 +55,6 @@ def test_full_sync_copilot_format_has_tools_array(
     for server_name, server_config in copilot_config.get("mcpServers", {}).items():
         assert "tools" in server_config, f"Server {server_name} missing tools array"
         assert server_config["tools"] == ["*"]
-
-
-def test_full_sync_generic_mcp_has_schema(
-    temp_home, monkeypatch_home, master_config_file
-):
-    """Integration test: verify generic MCP format has schema."""
-
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
-    main()
-
-    generic_config = json.loads((temp_home / ".config/mcp/mcp_config.json").read_text())
-
-    assert "$schema" in generic_config
-    assert (
-        generic_config["$schema"]
-        == "https://modelcontextprotocol.io/schema/config.json"
-    )
 
 
 def test_full_sync_opencode_includes_local_providers(
@@ -290,14 +272,6 @@ def test_full_sync_with_machine_overlay(
 
     rc = run_sync(home=temp_home, machine_config_path=machine_dir / "work.json")
     assert rc == 0
-
-    # Check generic MCP config
-    generic = json.loads(
-        (temp_home / ".config" / "mcp" / "mcp_config.json").read_text()
-    )
-    assert "work-only" in generic["mcpServers"]
-    # Master servers still present
-    assert "filesystem" in generic["mcpServers"]
 
     # Check copilot config has the work-only server with tools array
     copilot = json.loads((temp_home / ".copilot" / "mcp-config.json").read_text())

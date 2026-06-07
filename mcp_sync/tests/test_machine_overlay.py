@@ -116,14 +116,8 @@ class TestRunSyncWithMachineConfig:
         opencode_config = json.loads(opencode_path.read_text())
         assert "work-only" in opencode_config["mcp"]
 
-        # Also appears in generic MCP config
-        generic_path = temp_home / ".config" / "mcp" / "mcp_config.json"
-        generic_config = json.loads(generic_path.read_text())
-        assert "work-only" in generic_config["mcpServers"]
-
         # Master servers still present
         assert "filesystem" in opencode_config["mcp"]
-        assert "filesystem" in generic_config["mcpServers"]
 
     def test_no_machine_config_still_works(
         self, temp_home, master_config_file, monkeypatch_home
@@ -186,11 +180,6 @@ class TestRunSyncWithMachineConfig:
         )
         assert "filesystem" not in opencode["mcp"]
         assert "memory" in opencode["mcp"]
-
-        generic = json.loads(
-            (temp_home / ".config" / "mcp" / "mcp_config.json").read_text()
-        )
-        assert "filesystem" not in generic["mcpServers"]
 
         vscode = json.loads(
             (
@@ -258,7 +247,6 @@ class TestRunSyncWithMachineConfig:
             (".copilot/mcp-config.json", "mcpServers"),
             (".config/github-copilot/mcp.json", "servers"),
             (".config/github-copilot/intellij/mcp.json", "servers"),
-            (".config/mcp/mcp_config.json", "mcpServers"),
             (".config/opencode/opencode.json", "mcp"),
             (".cursor/mcp.json", "mcpServers"),
             ("Library/Application Support/Code/User/mcp.json", "servers"),

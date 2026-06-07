@@ -571,13 +571,6 @@ def _build_targets(home: Path) -> list[SyncTarget]:
             override_key="github-copilot",
         ),
         SyncTarget(
-            name="generic-mcp",
-            destination=home / ".config" / "mcp" / "mcp_config.json",
-            transform=transform_to_generic_mcp_format,
-            template_key="generic-mcp",
-            override_key="generic-mcp",
-        ),
-        SyncTarget(
             name="opencode",
             destination=home / ".config" / "opencode" / "opencode.json",
             transform=transform_to_opencode_format,
