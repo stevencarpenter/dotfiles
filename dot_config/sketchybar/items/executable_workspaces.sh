@@ -36,9 +36,13 @@ for sid in "${WORKSPACES[@]}"; do
       --set "workspace.$sid.app.$i" \
         icon.font="sketchybar-app-font:Regular:14.0" \
         icon.padding_left=2 \
-        icon.padding_right=2 \
+        icon.padding_right=0 \
+        label.font="JetBrainsMono Nerd Font:Bold:16.0" \
+        label.color=$RED \
+        label.padding_left=0 \
+        label.padding_right=4 \
+        label.y_offset=4 \
         label.drawing=off \
-        background.drawing=off \
         padding_left=0 \
         padding_right=0 \
         click_script="aerospace workspace $sid" \

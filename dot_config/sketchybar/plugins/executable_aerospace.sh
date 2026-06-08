@@ -4,7 +4,7 @@
 # `front_app_switched` by `workspaces.controller` (see items/workspaces.sh).
 # Fires ONCE per event, queries aerospace once, and emits a single batched
 # `sketchybar --set ...` invocation that updates every workspace's highlight,
-# bracket color, and app-icon slots.
+# bracket color, and app-icon slots with notification badges.
 #
 # Requires bash >= 4 for associative arrays. Resolves to brew bash (5.x) via
 # /opt/homebrew/bin on sketchybar's inherited PATH; the system /bin/bash (3.2)
@@ -20,6 +20,7 @@ fi
 BG=0xff272e33
 BG2=0xff374145
 GRAY=0xff7a8478
+RED=0xffe67e80
 MAX_APPS=5
 WORKSPACES=(1 2 3 4 5 6 7 8 9)
 
@@ -71,6 +72,29 @@ color_for_app() {
   esac
 }
 
+# ─── Get dock badge label for an app via lsappinfo ───────────────────────────
+
+get_badge_label() {
+  local app="$1"
+  local badge_label
+  badge_label=$(lsappinfo info -only StatusLabel "$app" 2>/dev/null | sed -E 's/.*"label"="([^"]*)".*/\1/')
+  case "$badge_label" in
+    "" ) echo "" ;;
+    "•" ) echo "•" ;;
+    * )
+      if [[ "$badge_label" =~ ^[0-9]+$ ]] && [ "$badge_label" -gt 0 ]; then
+        if [ "$badge_label" -gt 99 ]; then
+          echo "99+"
+        else
+          echo "$badge_label"
+        fi
+      else
+        echo ""
+      fi
+      ;;
+  esac
+}
+
 # ─── Determine focused workspace ─────────────────────────────────────────────
 
 # aerospace_workspace_change sets FOCUSED_WORKSPACE; other events don't.
@@ -115,12 +139,28 @@ for sid in "${WORKSPACES[@]}"; do
       else
         color=$GRAY
       fi
-      SETS+=(--set "workspace.$sid.app.$i"
-             "icon=$icon_result" "icon.color=$color" drawing=on)
-      # NOTE: `((i++))` under `set -euo pipefail` exits with status 1 when
-      # the pre-increment value is 0 (post-increment returns old value →
-      # arithmetic context reads 0 as false → exit 1). Use arithmetic
-      # assignment instead, which is always status 0.
+
+      # Get notification badge for this app (only care if badge exists)
+      badge=$(get_badge_label "$app")
+
+      if [[ -n "$badge" ]]; then
+        SETS+=(--set "workspace.$sid.app.$i"
+               "icon=$icon_result" "icon.color=$color"
+               "label=•"
+               "label.font=JetBrainsMono Nerd Font:Bold:16.0"
+               "label.color=$RED"
+               "label.padding_left=0"
+               "label.padding_right=4"
+               "label.y_offset=4"
+               "label.drawing=on"
+               background.drawing=off
+               drawing=on)
+      else
+        SETS+=(--set "workspace.$sid.app.$i"
+               "icon=$icon_result" "icon.color=$color"
+               label="" label.drawing=off background.drawing=off
+               drawing=on)
+      fi
       i=$((i+1))
     done
   fi
