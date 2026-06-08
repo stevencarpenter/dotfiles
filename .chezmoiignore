@@ -84,6 +84,7 @@ pyrightconfig.json
 .claude/*
 !.claude/CLAUDE.md
 !.claude/settings.json
+!.claude/statusline-command.sh
 
 # ~/.claude/skills/ is managed by mcp_sync's sync-skills command, not chezmoi.
 # sync-skills copies vendored skills from a git cache and symlinks personal

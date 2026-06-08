@@ -559,6 +559,15 @@ def test_sync_codex_mcp_missing_config(temp_home, monkeypatch_home, master_confi
     result = codex_path.read_text()
     # Fresh machine: base template is seeded...
     assert 'model = "gpt-5.5"' in result
+    assert "[tui]" in result
+    assert (
+        'status_line = ["model-with-reasoning", "current-dir", "git-branch", '
+        '"pull-request-number", "branch-changes", "permissions", '
+        '"context-remaining", "five-hour-limit", "weekly-limit", '
+        '"codex-version", "used-tokens", "total-input-tokens", '
+        '"total-output-tokens", "fast-mode", "task-progress"]' in result
+    )
+    assert "status_line_use_colors = true" in result
     # ...and the managed MCP servers are delimited by the begin marker.
     assert "# MCP Servers - BEGIN Codex" in result
     assert "[mcp_servers.filesystem]" in result
