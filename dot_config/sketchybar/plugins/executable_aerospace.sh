@@ -146,11 +146,12 @@ for sid in "${WORKSPACES[@]}"; do
       if [[ -n "$badge" ]]; then
         SETS+=(--set "workspace.$sid.app.$i"
                "icon=$icon_result" "icon.color=$color"
+               icon.padding_right=2
                "label=•"
                "label.font=JetBrainsMono Nerd Font:Bold:16.0"
                "label.color=$RED"
-               "label.padding_left=0"
-               "label.padding_right=4"
+               "label.padding_left=-2"
+               "label.padding_right=2"
                "label.y_offset=4"
                "label.drawing=on"
                background.drawing=off
@@ -158,7 +159,9 @@ for sid in "${WORKSPACES[@]}"; do
       else
         SETS+=(--set "workspace.$sid.app.$i"
                "icon=$icon_result" "icon.color=$color"
-               label="" label.drawing=off background.drawing=off
+               icon.padding_right=0
+               label="" label.drawing=off label.padding_left=0
+               background.drawing=off
                drawing=on)
       fi
       i=$((i+1))
