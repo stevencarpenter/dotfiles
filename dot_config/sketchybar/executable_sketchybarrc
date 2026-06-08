@@ -65,6 +65,7 @@ source "$ITEM_DIR/workspaces.sh"
 
 # Center
 source "$ITEM_DIR/front_app.sh"
+source "$ITEM_DIR/slack.sh"
 
 # Right (first sourced = rightmost)
 source "$ITEM_DIR/clock.sh"
