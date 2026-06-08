@@ -12,7 +12,6 @@ total_input=$(echo "$input" | jq -r '.context_window.total_input_tokens // empty
 total_output=$(echo "$input" | jq -r '.context_window.total_output_tokens // empty')
 five_h=$(echo "$input" | jq -r '.rate_limits.five_hour.used_percentage // empty')
 seven_d=$(echo "$input" | jq -r '.rate_limits.seven_day.used_percentage // empty')
-vim_mode=$(echo "$input" | jq -r '.vim.mode // empty')
 worktree=$(echo "$input" | jq -r '.worktree.branch // empty')
 effort=$(echo "$input" | jq -r '.effort.level // empty')
 version=$(echo "$input" | jq -r '.version // empty')
@@ -21,14 +20,6 @@ pr_state=$(echo "$input" | jq -r '.pr.review_state // empty')
 agent=$(echo "$input" | jq -r '.agent.name // empty')
 lines_added=$(echo "$input" | jq -r '.cost.total_lines_added // empty')
 lines_removed=$(echo "$input" | jq -r '.cost.total_lines_removed // empty')
-permission=$(echo "$input" | jq -r '.permission_mode // .permissionMode // .permissions.mode // .permissions.defaultMode // empty')
-
-if [ -z "$permission" ] && [ -r "$HOME/.claude/settings.json" ]; then
-	permission=$(jq -r '.permissions.defaultMode // empty' "$HOME/.claude/settings.json" 2>/dev/null || true)
-fi
-
-# user=$(whoami)
-# host=$(hostname -s)
 
 # Shorten home directory to ~
 cwd="${cwd/#$HOME/~}"
@@ -208,16 +199,6 @@ if [ -n "$limit_bits" ]; then
 	limits_part="${FG_GRAY} ${limit_bits}"
 fi
 
-# ── Vim Mode ─────────────────────────────────────────────────
-vim_part=""
-if [ -n "$vim_mode" ]; then
-	if [ "$vim_mode" = "NORMAL" ]; then
-		vim_part="${FG_CYAN}${BOLD} NORMAL${RESET}"
-	else
-		vim_part="${FG_GREEN}${BOLD} INSERT${RESET}"
-	fi
-fi
-
 # ── Agent ────────────────────────────────────────────────────
 agent_part=""
 if [ -n "$agent" ]; then
@@ -266,7 +247,6 @@ if [ -n "$ctx_part" ]; then line="${line}${SEP}${ctx_part}"; fi
 if [ -n "$limits_part" ]; then line="${line}${SEP}${limits_part}"; fi
 if [ -n "$version_part" ]; then line="${line}${SEP}${version_part}"; fi
 if [ -n "$tokens_part" ]; then line="${line}${SEP}${tokens_part}"; fi
-if [ -n "$vim_part" ]; then line="${line}${SEP}${vim_part}"; fi
 if [ -n "$agent_part" ]; then line="${line}${SEP}${agent_part}"; fi
 
 printf '%b' "${line}"
