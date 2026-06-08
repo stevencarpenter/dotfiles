@@ -71,3 +71,6 @@ jobs:
           while IFS= read -r -d '' file; do
             bash -n "${file}"
           done < <(find .chezmoiscripts scripts -type f -name "*.sh" -print0)
+
+      - name: Validate SketchyBar clock popup behavior
+        run: scripts/test-sketchybar-clock-popup.sh

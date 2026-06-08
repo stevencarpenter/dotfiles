@@ -15,7 +15,7 @@ sketchybar --set calendar label="${DATE}"
 
 # Hover events — both clock and calendar trigger calendar's popup.
 # UTC labels are computed lazily on enter to avoid per-tick subshells.
-# SENDER defaults to empty on update_freq ticks without a named event.
+# The global exit path catches popup-window hovers that can miss per-item exits.
 case "${SENDER:-}" in
   mouse.entered)
     UTC_TIME="$(TZ=UTC date '+%H:%M:%S UTC')"
@@ -24,7 +24,7 @@ case "${SENDER:-}" in
     sketchybar --set calendar.utc_time label="${UTC_TIME}"
     sketchybar --set calendar popup.drawing=on
     ;;
-  mouse.exited)
+  mouse.exited|mouse.exited.global)
     sketchybar --set calendar popup.drawing=off
     ;;
 esac

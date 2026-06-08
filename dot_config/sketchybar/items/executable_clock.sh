@@ -17,7 +17,7 @@ sketchybar --add item clock right \
     background.drawing=off \
     update_freq=1 \
     script="$PLUGIN_DIR/clock.sh" \
-  --subscribe clock mouse.entered mouse.exited
+  --subscribe clock mouse.entered mouse.exited mouse.exited.global
 
 # Calendar — US date, hover shows UTC popup
 sketchybar --add item calendar right \
@@ -37,7 +37,7 @@ sketchybar --add item calendar right \
     popup.horizontal=on \
     update_freq=30 \
     script="$PLUGIN_DIR/clock.sh" \
-  --subscribe calendar mouse.entered mouse.exited
+  --subscribe calendar mouse.entered mouse.exited mouse.exited.global
 
 # UTC date inside popup
 sketchybar --add item calendar.utc_date popup.calendar \
@@ -48,7 +48,9 @@ sketchybar --add item calendar.utc_date popup.calendar \
     icon.padding_left=8 \
     icon.padding_right=6 \
     label.font="JetBrainsMono Nerd Font:Regular:12.0" \
-    label.color=$FG
+    label.color=$FG \
+    script="$PLUGIN_DIR/clock.sh" \
+  --subscribe calendar.utc_date mouse.exited
 
 # UTC time inside popup
 sketchybar --add item calendar.utc_time popup.calendar \
@@ -59,4 +61,6 @@ sketchybar --add item calendar.utc_time popup.calendar \
     icon.padding_right=6 \
     label.font="JetBrainsMono Nerd Font:Regular:12.0" \
     label.color=$FG \
-    label.padding_right=8
+    label.padding_right=8 \
+    script="$PLUGIN_DIR/clock.sh" \
+  --subscribe calendar.utc_time mouse.exited
