@@ -16,12 +16,20 @@ function _ca_has_target_drift() {
 # - Warns when destination files have manual drift
 # - Shows what would be applied before doing so
 function ca() {
+  local diff_output
+
   echo "Checking for conflicts between source and target..."
 
-  echo "Changes to be applied:"
-  chezmoi diff --exclude=scripts "$@"
+  diff_output="$(chezmoi diff --exclude=scripts --no-pager "$@" 2>&1)" || return $?
 
-  if chezmoi status --exclude=scripts "$@" | _ca_has_target_drift; then
+  if [[ -n "${diff_output}" ]]; then
+    echo "Changes to be applied:"
+    print -r -- "${diff_output}"
+  else
+    echo "Changes to be applied: (none — post-apply hooks will still run)"
+  fi
+
+  if chezmoi status --exclude=scripts --no-pager "$@" | _ca_has_target_drift; then
     echo ""
     echo "   Target files have changes that differ from source."
     echo "   Running chezmoi apply may overwrite those target-side changes."
@@ -34,6 +42,8 @@ function ca() {
   echo "Applying changes..."
   # --exclude=scripts is intentionally omitted here: scripts run on apply.
   # diff/status above exclude scripts only to reduce visual noise.
-  chezmoi apply "$@"
+  # --no-pager: never pipe apply/diff output through less (silent hang).
+  # --force: skip chezmoi's per-file overwrite prompts after ca already showed the diff.
+  chezmoi apply --force --no-pager "$@"
   echo "Done!"
 }

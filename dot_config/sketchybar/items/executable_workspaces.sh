@@ -39,8 +39,8 @@ for sid in "${WORKSPACES[@]}"; do
         icon.padding_right=0 \
         label.font="JetBrainsMono Nerd Font:Bold:16.0" \
         label.color=$RED \
-        label.padding_left=-2 \
-        label.padding_right=2 \
+        label.padding_left=-4 \
+        label.padding_right=3 \
         label.y_offset=4 \
         label.drawing=off \
         padding_left=0 \

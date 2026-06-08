@@ -21,3 +21,12 @@ command = "nvim"
 [data]
 machine = {{ $machine | quote }}
 email = {{ $email | quote }}
+
+# Scripts in .chezmoiscripts/ execute on apply but never persist in ~ — without
+# these excludes, every diff/status shows three phantom "new file" script diffs.
+[diff]
+exclude = ["scripts"]
+pager = ""
+
+[status]
+exclude = ["scripts"]

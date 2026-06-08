@@ -1,0 +1,27 @@
+{{- /* Managed chezmoi config — keeps machine/email from [data] and applies
+     repo-wide diff/status defaults. Init-time bootstrap uses .chezmoi.toml.tmpl
+     at the source root; this file takes over on subsequent applies. */ -}}
+
+sourceDir = "~/.local/share/chezmoi"
+
+encryption = "age"
+
+[age]
+identity = "~/.config/chezmoi/key.txt"
+recipient = "age1462h0ed4ufkjrq0wu326l30c8hay9uewlsaudk89mgqjc5540vrqacejsz"
+
+[edit]
+command = "nvim"
+
+[data]
+machine = {{ .machine | quote }}
+email = {{ .email | quote }}
+
+# Scripts in .chezmoiscripts/ execute on apply but never persist in ~ — without
+# these excludes, every diff/status shows three phantom "new file" script diffs.
+[diff]
+exclude = ["scripts"]
+pager = ""
+
+[status]
+exclude = ["scripts"]
