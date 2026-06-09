@@ -27,6 +27,7 @@ def test_resolve_pricing_model_handles_current_fleet_models() -> None:
     assert resolve_pricing_model("codex", "gpt-5.4-mini-2026-03-17") == "gpt-5.4-mini"
     assert resolve_pricing_model("codex", "gpt-5.5-2026-04-01") == "gpt-5.5"
     # Bare Claude aliases (logged for some sessions) map to the current fleet.
+    assert resolve_pricing_model("claude", "fable") == "claude-fable-5"
     assert resolve_pricing_model("claude", "opus") == "claude-opus-4-8"
     assert resolve_pricing_model("claude", "sonnet") == "claude-sonnet-4-6"
     assert resolve_pricing_model("claude", "haiku") == "claude-haiku-4-5"
@@ -85,6 +86,62 @@ def test_calculate_costs_opus_4_8_long_context_bills_flat_standard_rates() -> No
 
     assert long_context == standard
     assert long_context["session_total_cost_usd"] == pytest.approx(1.005)
+
+
+def test_resolve_pricing_model_handles_fable_5() -> None:
+    # Fable 5 resolves directly, via its 1M-context suffix alias, and via a date-suffixed prefix.
+    assert resolve_pricing_model("claude", "claude-fable-5") == "claude-fable-5"
+    assert resolve_pricing_model("claude", "claude-fable-5[1m]") == "claude-fable-5"
+    assert resolve_pricing_model("claude", "claude-fable-5-20260609") == "claude-fable-5"
+
+
+def test_calculate_costs_for_fable_5_uses_verified_standard_rates() -> None:
+    # platform.claude.com: Fable 5 standard = $10 input / $1 cache read / $12.50 5m cache
+    # write / $50 output per MTok.
+    costs = calculate_costs(
+        provider="claude",
+        pricing_model="claude-fable-5",
+        input_tokens=1_000_000,
+        cached_input_tokens=1_000_000,
+        cache_creation_input_tokens=1_000_000,
+        output_tokens=1_000_000,
+        reasoning_output_tokens=0,
+    )
+
+    assert costs["input_cost_usd"] == pytest.approx(10.00)
+    assert costs["cached_input_cost_usd"] == pytest.approx(1.00)
+    assert costs["cache_creation_input_cost_usd"] == pytest.approx(12.50)
+    assert costs["output_cost_usd"] == pytest.approx(50.00)
+    assert costs["session_total_cost_usd"] == pytest.approx(73.50)
+
+
+def test_calculate_costs_fable_5_long_context_bills_flat_standard_rates() -> None:
+    # Fable 5 includes the full 1M context window at standard pricing (no >200K surcharge),
+    # so long_context=True yields the same costs as standard.
+    standard = calculate_costs(
+        provider="claude",
+        pricing_model="claude-fable-5",
+        input_tokens=1000,
+        cached_input_tokens=500_000,
+        cache_creation_input_tokens=100_000,
+        output_tokens=5000,
+        reasoning_output_tokens=0,
+        long_context=False,
+    )
+    long_context = calculate_costs(
+        provider="claude",
+        pricing_model="claude-fable-5",
+        input_tokens=1000,
+        cached_input_tokens=500_000,
+        cache_creation_input_tokens=100_000,
+        output_tokens=5000,
+        reasoning_output_tokens=0,
+        long_context=True,
+    )
+
+    assert long_context == standard
+    # input=$0.01, cached=$0.50, cache_creation=$1.25, output=$0.25 → total=$2.01
+    assert long_context["session_total_cost_usd"] == pytest.approx(2.01)
 
 
 def test_fast_mode_pricing_table_values_match_documented_multipliers() -> None:

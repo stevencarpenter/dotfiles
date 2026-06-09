@@ -68,6 +68,12 @@ TOKEN_PRICING_USD_PER_1M: dict[str, dict[str, dict[str, float]]] = {
         },
     },
     "claude": {
+        "claude-fable-5": {
+            "input_tokens": 10.00,
+            "cached_input_tokens": 1.00,
+            "cache_creation_input_tokens": 12.50,
+            "output_tokens": 50.00,
+        },
         "claude-opus-4-8": {
             "input_tokens": 5.00,
             "cached_input_tokens": 0.50,
@@ -107,6 +113,7 @@ MODEL_PRICING_ALIASES: dict[str, dict[str, str]] = {
         "gpt-5.3-codex-mini": "gpt-5.2-codex-mini",
     },
     "claude": {
+        "claude-fable-5[1m]": "claude-fable-5",
         "claude-opus-4-8[1m]": "claude-opus-4-8",
         "claude-opus-4-7[1m]": "claude-opus-4-7",
         "claude-opus-4-5": "claude-opus-4-6",
@@ -114,6 +121,7 @@ MODEL_PRICING_ALIASES: dict[str, dict[str, str]] = {
         "claude-haiku-4-5-20251001": "claude-haiku-4-5",
         # Bare aliases are logged for some sessions (e.g. subagents); map each tier to
         # its current fleet member.
+        "fable": "claude-fable-5",
         "opus": "claude-opus-4-8",
         "sonnet": "claude-sonnet-4-6",
         "haiku": "claude-haiku-4-5",
@@ -124,6 +132,7 @@ MODEL_PRICING_ALIASES: dict[str, dict[str, str]] = {
 MODEL_PRICING_PREFIX_ALIASES: dict[str, tuple[tuple[str, str], ...]] = {
     "codex": (),
     "claude": (
+        ("claude-fable-5", "claude-fable-5"),
         ("claude-opus-4-8", "claude-opus-4-8"),
         ("claude-opus-4-7", "claude-opus-4-7"),
         ("claude-opus-4-5", "claude-opus-4-6"),
@@ -143,6 +152,7 @@ LONG_CONTEXT_INPUT_THRESHOLD: int = 200_000
 # so the long-context code path stays exercised and a future model that reintroduces a
 # premium only needs its rates changed here.
 LONG_CONTEXT_PRICING_USD_PER_1M: dict[str, dict[str, float]] = {
+    "claude-fable-5": TOKEN_PRICING_USD_PER_1M["claude"]["claude-fable-5"],
     "claude-opus-4-8": TOKEN_PRICING_USD_PER_1M["claude"]["claude-opus-4-8"],
     "claude-opus-4-7": TOKEN_PRICING_USD_PER_1M["claude"]["claude-opus-4-7"],
     "claude-opus-4-6": TOKEN_PRICING_USD_PER_1M["claude"]["claude-opus-4-6"],
