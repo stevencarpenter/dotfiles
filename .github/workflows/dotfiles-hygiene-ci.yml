@@ -75,6 +75,9 @@ jobs:
       - name: Validate SketchyBar clock popup behavior
         run: scripts/test-sketchybar-clock-popup.sh
 
+      - name: Validate SketchyBar badge wiring
+        run: scripts/test-sketchybar-badge-wiring.sh
+
       - name: Install chezmoi
         run: |
           set -euo pipefail

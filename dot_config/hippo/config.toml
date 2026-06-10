@@ -3,9 +3,9 @@ base_url = "http://127.0.0.1:42069/v1" # oMLX local server (LM Studio: :1234)
 timeout_secs = 300                    # HTTP timeout for chat/embed calls
 
 [models]
-enrichment = "Qwen3.6-35B-A3B-MLX-8bit"       # Daily: MoE, 35B total, 3B active — fast (omlx model ID)
-enrichment_bulk = "Qwen3.6-35B-A3B-MLX-8bit"  # Bulk: strongest available — slow but reliable
-query = "Qwen3.6-35B-A3B-MLX-8bit"            # Same model for query reformulation
+enrichment = "Qwen3.6-35B-A3B-MLX-8bit"       # Unified local MoE, 35B total, 3B active; 8-bit MLX build
+enrichment_bulk = "Qwen3.6-35B-A3B-MLX-8bit"  # Same local model for bulk enrichment
+query = "Qwen3.6-35B-A3B-MLX-8bit"            # Same local model for query reformulation
 embedding = "nomicai-modernbert-embed-base-8bit" # 768d MLX embedding (ModernBERT, nomic lineage)
 
 [daemon]

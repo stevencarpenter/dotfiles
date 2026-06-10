@@ -59,6 +59,8 @@ Agent teams are enabled with **tmux mode** (`teammateMode: tmux`) — each agent
 Note: `mcp__idea__*`, `LSP`, `TeamCreate`, and other deferred tools require a `ToolSearch` call first to get their schema before invoking.
 
 This is a non-negotiable standing instruction.
+
 # graphify
+
 - **graphify** (`~/.claude/skills/graphify/SKILL.md`) - any input to knowledge graph. Trigger: `/graphify`
 When the user types `/graphify`, invoke the Skill tool with `skill: "graphify"` before doing anything else.

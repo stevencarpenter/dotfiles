@@ -19,4 +19,4 @@ sketchybar --add item slack center \
     background.drawing=off \
     script="$PLUGIN_DIR/slack.sh" \
     update_freq=30 \
-  --subscribe slack system_woke
+  --subscribe slack slack system_woke

@@ -26,6 +26,7 @@ WORKSPACES=(1 2 3 4 5 6 7 8 9)
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/icon_map.sh"
+source "$SCRIPT_DIR/app_badge.sh"
 
 # ─── App → Brand color map ───────────────────────────────────────────────────
 
@@ -102,25 +103,11 @@ prefetch_badges() {
   done
 }
 
-# Normalizes the prefetched raw label into $badge_result. Sets a variable
-# instead of echoing (same idiom as __icon_map): a $(...) call site would fork
-# a subshell per slot.
+# Normalizes the prefetched raw label into $badge_result using the shared
+# app_badge.sh rules while keeping badge collection batched above.
 get_badge_label() {
   local raw="${BADGE_CACHE[$1]-}"
-  badge_result=""
-  case "$raw" in
-    "" ) ;;
-    "•" ) badge_result="•" ;;
-    * )
-      if [[ "$raw" =~ ^[0-9]+$ ]] && [ "$raw" -gt 0 ]; then
-        if [ "$raw" -gt 99 ]; then
-          badge_result="99+"
-        else
-          badge_result="$raw"
-        fi
-      fi
-      ;;
-  esac
+  badge_result="$(normalize_app_badge_label "$raw")"
 }
 
 # ─── Determine focused workspace ─────────────────────────────────────────────
