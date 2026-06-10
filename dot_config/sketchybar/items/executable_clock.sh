@@ -39,6 +39,12 @@ sketchybar --add item calendar right \
     script="$PLUGIN_DIR/clock.sh" \
   --subscribe calendar mouse.entered mouse.exited mouse.exited.global
 
+# Popup rows are passive displays: no mouse.exited subscription. The popup is
+# horizontal, so crossing from one row to the other fires the exited event of
+# the row being left and would close the popup mid-hover. Leaving the popup
+# entirely is handled by mouse.exited.global on clock/calendar above; the row
+# labels are set by the mouse.entered handler in clock.sh.
+
 # UTC date inside popup
 sketchybar --add item calendar.utc_date popup.calendar \
   --set calendar.utc_date \
@@ -48,9 +54,7 @@ sketchybar --add item calendar.utc_date popup.calendar \
     icon.padding_left=8 \
     icon.padding_right=6 \
     label.font="JetBrainsMono Nerd Font:Regular:12.0" \
-    label.color=$FG \
-    script="$PLUGIN_DIR/clock.sh" \
-  --subscribe calendar.utc_date mouse.exited
+    label.color=$FG
 
 # UTC time inside popup
 sketchybar --add item calendar.utc_time popup.calendar \
@@ -61,6 +65,4 @@ sketchybar --add item calendar.utc_time popup.calendar \
     icon.padding_right=6 \
     label.font="JetBrainsMono Nerd Font:Regular:12.0" \
     label.color=$FG \
-    label.padding_right=8 \
-    script="$PLUGIN_DIR/clock.sh" \
-  --subscribe calendar.utc_time mouse.exited
+    label.padding_right=8

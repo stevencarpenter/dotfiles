@@ -72,24 +72,52 @@ color_for_app() {
   esac
 }
 
-# ─── Get dock badge label for an app via lsappinfo ───────────────────────────
+# ─── Get dock badge labels via one batched lsappinfo call ────────────────────
 
+# Each lsappinfo invocation costs ~270ms of spawn+IPC on this box, so per-app
+# calls would add seconds per event. lsappinfo accepts repeated verbs in one
+# invocation and prints exactly one "StatusLabel"=... line per verb, in
+# argument order (non-running apps still emit a line), so one call fetches
+# every app and the lines map back by index. If the one-line-per-app invariant
+# ever breaks, badges go blank for this tick instead of misattributing.
+declare -A BADGE_CACHE
+
+prefetch_badges() {
+  local apps=("$@")
+  (( ${#apps[@]} == 0 )) && return
+  local args=() app
+  for app in "${apps[@]}"; do
+    args+=(info -only StatusLabel "$app")
+  done
+  local lines=()
+  mapfile -t lines < <(lsappinfo "${args[@]}" 2>/dev/null || true)
+  (( ${#lines[@]} != ${#apps[@]} )) && return
+  local i label
+  for i in "${!apps[@]}"; do
+    label=""
+    if [[ "${lines[$i]}" =~ \"label\"=\"([^\"]*)\" ]]; then
+      label="${BASH_REMATCH[1]}"
+    fi
+    BADGE_CACHE[${apps[$i]}]="$label"
+  done
+}
+
+# Normalizes the prefetched raw label into $badge_result. Sets a variable
+# instead of echoing (same idiom as __icon_map): a $(...) call site would fork
+# a subshell per slot.
 get_badge_label() {
-  local app="$1"
-  local badge_label
-  badge_label=$(lsappinfo info -only StatusLabel "$app" 2>/dev/null | sed -E 's/.*"label"="([^"]*)".*/\1/')
-  case "$badge_label" in
-    "" ) echo "" ;;
-    "•" ) echo "•" ;;
+  local raw="${BADGE_CACHE[$1]-}"
+  badge_result=""
+  case "$raw" in
+    "" ) ;;
+    "•" ) badge_result="•" ;;
     * )
-      if [[ "$badge_label" =~ ^[0-9]+$ ]] && [ "$badge_label" -gt 0 ]; then
-        if [ "$badge_label" -gt 99 ]; then
-          echo "99+"
+      if [[ "$raw" =~ ^[0-9]+$ ]] && [ "$raw" -gt 0 ]; then
+        if [ "$raw" -gt 99 ]; then
+          badge_result="99+"
         else
-          echo "$badge_label"
+          badge_result="$raw"
         fi
-      else
-        echo ""
       fi
       ;;
   esac
@@ -112,6 +140,18 @@ while IFS='|' read -r ws app; do
     APPS_BY_WS[$ws]="${existing:+$existing$'\n'}$app"
   fi
 done < <(aerospace list-windows --all --format '%{workspace}|%{app-name}' 2>/dev/null || true)
+
+# Unique apps across all workspaces → one badge prefetch for the whole run.
+declare -A SEEN_APPS
+ALL_APPS=()
+for ws in "${!APPS_BY_WS[@]}"; do
+  while IFS= read -r app; do
+    [[ -z "$app" || -n "${SEEN_APPS[$app]+x}" ]] && continue
+    SEEN_APPS[$app]=1
+    ALL_APPS+=("$app")
+  done <<<"${APPS_BY_WS[$ws]}"
+done
+prefetch_badges "${ALL_APPS[@]}"
 
 # ─── Build a single batched sketchybar invocation ────────────────────────────
 
@@ -141,7 +181,8 @@ for sid in "${WORKSPACES[@]}"; do
       fi
 
       # Get notification badge for this app (only care if badge exists)
-      badge=$(get_badge_label "$app")
+      get_badge_label "$app"
+      badge="$badge_result"
 
       if [[ -n "$badge" ]]; then
         SETS+=(--set "workspace.$sid.app.$i"
@@ -164,6 +205,10 @@ for sid in "${WORKSPACES[@]}"; do
                background.drawing=off
                drawing=on)
       fi
+      # NOTE: `((i++))` under `set -euo pipefail` exits with status 1 when
+      # the pre-increment value is 0 (post-increment returns old value →
+      # arithmetic context reads 0 as false → exit 1). Use arithmetic
+      # assignment instead, which is always status 0.
       i=$((i+1))
     done
   fi

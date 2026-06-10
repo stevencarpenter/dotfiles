@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -624,6 +625,189 @@ def test_sync_codex_mcp_mixed_stdio_and_url(temp_home, monkeypatch_home, master_
     xcode_block = result.split("[mcp_servers.xcode]", 1)[1].split("[mcp_servers.", 1)[0]
     assert 'url = "http://localhost:9876/mcp"' in xcode_block
     assert "command =" not in xcode_block
+
+
+def _write_codex_config(temp_home: Path, text: str) -> Path:
+    """Write an existing codex config into the isolated home.
+
+    Args:
+        temp_home: Path fixture for the isolated home directory.
+        text: The ``config.toml`` contents to seed.
+
+    Returns:
+        The path to the written config file.
+    """
+    codex_dir = temp_home / ".codex"
+    codex_dir.mkdir(parents=True, exist_ok=True)
+    codex_path = codex_dir / "config.toml"
+    codex_path.write_text(text, encoding="utf-8")
+    return codex_path
+
+
+def test_sync_codex_mcp_applies_template_tui_to_existing_config(
+    temp_home, monkeypatch_home, master_config
+):
+    """Template ``[tui]`` settings reach a config that predates them.
+
+    Args:
+        temp_home: Path fixture for the isolated home directory.
+        monkeypatch_home: MonkeyPatch fixture used to patch ``Path.home``.
+        master_config: MCP master config fixture.
+
+    Returns:
+        None.
+    """
+    codex_path = _write_codex_config(
+        temp_home,
+        """model = "gpt-5.4"
+
+[desktop]
+appearanceTheme = "dark"
+""",
+    )
+
+    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
+    sync_codex_mcp(master_config)
+
+    result = codex_path.read_text(encoding="utf-8")
+    parsed = tomllib.loads(result)
+
+    # Template [tui] keys land on the existing config
+    assert parsed["tui"]["status_line"][0] == "model-with-reasoning"
+    assert parsed["tui"]["status_line_use_colors"] is True
+    # Codex-owned content is untouched
+    assert parsed["model"] == "gpt-5.4"
+    assert parsed["desktop"]["appearanceTheme"] == "dark"
+    # Managed servers still patched
+    assert "[mcp_servers.filesystem]" in result
+
+
+def test_sync_codex_mcp_tui_template_wins_and_preserves_unmanaged_keys(
+    temp_home, monkeypatch_home, master_config
+):
+    """Stale template-managed keys are replaced; unmanaged keys survive.
+
+    Args:
+        temp_home: Path fixture for the isolated home directory.
+        monkeypatch_home: MonkeyPatch fixture used to patch ``Path.home``.
+        master_config: MCP master config fixture.
+
+    Returns:
+        None.
+    """
+    codex_path = _write_codex_config(
+        temp_home,
+        """[tui]
+status_line = ["model"]
+animations = false
+""",
+    )
+
+    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
+    sync_codex_mcp(master_config)
+
+    parsed = tomllib.loads(codex_path.read_text(encoding="utf-8"))
+
+    # Template wins for the keys it defines
+    assert parsed["tui"]["status_line"][0] == "model-with-reasoning"
+    assert "task-progress" in parsed["tui"]["status_line"]
+    # Keys the template does not define are preserved
+    assert parsed["tui"]["animations"] is False
+
+
+def test_sync_codex_mcp_tui_preserves_codex_owned_subtables(
+    temp_home, monkeypatch_home, master_config
+):
+    """Codex-written ``[tui.*]`` subtables (with quoted keys) survive the rewrite.
+
+    Args:
+        temp_home: Path fixture for the isolated home directory.
+        monkeypatch_home: MonkeyPatch fixture used to patch ``Path.home``.
+        master_config: MCP master config fixture.
+
+    Returns:
+        None.
+    """
+    codex_path = _write_codex_config(
+        temp_home,
+        """model = "gpt-5.5"
+
+[tui.model_availability_nux]
+"gpt-5.5" = 2
+""",
+    )
+
+    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
+    sync_codex_mcp(master_config)
+
+    parsed = tomllib.loads(codex_path.read_text(encoding="utf-8"))
+
+    assert parsed["tui"]["model_availability_nux"]["gpt-5.5"] == 2
+    assert parsed["tui"]["status_line_use_colors"] is True
+
+
+def test_sync_codex_mcp_tui_idempotent(temp_home, monkeypatch_home, master_config):
+    """A second sync run leaves the config byte-identical.
+
+    Args:
+        temp_home: Path fixture for the isolated home directory.
+        monkeypatch_home: MonkeyPatch fixture used to patch ``Path.home``.
+        master_config: MCP master config fixture.
+
+    Returns:
+        None.
+    """
+    codex_path = _write_codex_config(
+        temp_home,
+        """[tui.model_availability_nux]
+"gpt-5.5" = 2
+""",
+    )
+
+    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
+    sync_codex_mcp(master_config)
+    first = codex_path.read_text(encoding="utf-8")
+    sync_codex_mcp(master_config)
+    second = codex_path.read_text(encoding="utf-8")
+
+    assert first == second
+
+
+def test_sync_codex_mcp_invalid_toml_skips_tui_enforcement(
+    temp_home, monkeypatch_home, master_config
+):
+    """A config that fails TOML parsing still gets MCP servers patched.
+
+    The MCP-server patching is text-based and tolerant, so a malformed
+    existing config must not crash the sync — only the ``[tui]`` enforcement
+    is skipped.
+
+    Args:
+        temp_home: Path fixture for the isolated home directory.
+        monkeypatch_home: MonkeyPatch fixture used to patch ``Path.home``.
+        master_config: MCP master config fixture.
+
+    Returns:
+        None.
+    """
+    codex_path = _write_codex_config(
+        temp_home,
+        """model =
+
+[desktop]
+appearanceTheme = "dark"
+""",
+    )
+
+    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
+    sync_codex_mcp(master_config)
+
+    result = codex_path.read_text(encoding="utf-8")
+
+    # tui enforcement skipped, mcp patching still applied
+    assert "status_line" not in result
+    assert "[mcp_servers.filesystem]" in result
+    assert "[desktop]" in result
 
 
 def test_identity_format_does_not_propagate_master_schema():

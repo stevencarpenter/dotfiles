@@ -9,21 +9,33 @@ set -euo pipefail
 exit 0
 {{- end }}
 
+# Fresh machines may not have run `brew bundle` yet — run_once_setup-macos.sh
+# only *checks* the Brewfile, it doesn't install. Skip quietly instead of
+# failing the whole apply; the next apply after `brew bundle` starts the stack.
+
 # ── sketchybar ────────────────────────────────────────────────────────────────
 # Managed via Homebrew services; the LaunchAgent is created by brew services.
 # If already running, restart to pick up any config changes chezmoi just wrote.
-if brew services list | grep -q '^sketchybar.*started'; then
-  brew services restart sketchybar
+if command -v sketchybar > /dev/null 2>&1; then
+  if brew services list | grep -q '^sketchybar.*started'; then
+    brew services restart sketchybar
+  else
+    brew services start sketchybar
+  fi
 else
-  brew services start sketchybar
+  echo "tiling-stack: sketchybar not installed yet — skipping" >&2
 fi
 
 # ── aerospace ─────────────────────────────────────────────────────────────────
 # Installed as a cask (not a brew formula), so Homebrew services don't manage
 # it. start-at-login = true in aerospace.toml registers the macOS login item,
 # but only after the app has run at least once. Open it here if not running.
-if pgrep -x "AeroSpace" > /dev/null 2>&1; then
-  aerospace reload-config
+if command -v aerospace > /dev/null 2>&1; then
+  if pgrep -x "AeroSpace" > /dev/null 2>&1; then
+    aerospace reload-config
+  else
+    open -a AeroSpace
+  fi
 else
-  open -a AeroSpace
+  echo "tiling-stack: aerospace not installed yet — skipping" >&2
 fi

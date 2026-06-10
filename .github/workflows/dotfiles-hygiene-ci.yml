@@ -74,3 +74,12 @@ jobs:
 
       - name: Validate SketchyBar clock popup behavior
         run: scripts/test-sketchybar-clock-popup.sh
+
+      - name: Install chezmoi
+        run: |
+          set -euo pipefail
+          sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "${RUNNER_TEMP}/bin"
+          echo "${RUNNER_TEMP}/bin" >> "${GITHUB_PATH}"
+
+      - name: Validate Claude statusline rendering
+        run: scripts/test-claude-statusline-command.sh

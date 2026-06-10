@@ -23,37 +23,24 @@ require_subscription() {
 require_subscription clock
 require_subscription calendar
 
-require_popup_item_exit() {
+# Popup rows must stay passive: a mouse.exited subscription on a row fires
+# when the cursor crosses to the other row inside the horizontal popup and
+# closes the popup mid-hover. mouse.exited.global on clock/calendar handles
+# leaving the popup.
+require_popup_item_passive() {
   local item_name="$1"
-  local item_block
 
-  item_block="$(
-    awk -v item="${item_name}" '
-      $0 ~ "--add item " item " popup\\.calendar" { in_block = 1 }
-      in_block { print }
-      in_block && $0 ~ "--subscribe " item { exit }
-    ' "${item_file}"
-  )"
-
-  case "${item_block}" in
-    *'script="$PLUGIN_DIR/clock.sh"'* ) ;;
-    *)
-      echo "expected ${item_name} to run the clock plugin on popup hover events" >&2
+  case "${item_source}" in
+    *"--subscribe ${item_name}"*)
+      echo "expected ${item_name} to have no event subscriptions (closing is handled by mouse.exited.global)" >&2
       exit 1
       ;;
-  esac
-
-  case "${item_block}" in
-    *"--subscribe ${item_name} mouse.exited"* ) ;;
-    *)
-      echo "expected ${item_name} to hide the UTC popup when the cursor leaves that popup row" >&2
-      exit 1
-      ;;
+    *) ;;
   esac
 }
 
-require_popup_item_exit calendar.utc_date
-require_popup_item_exit calendar.utc_time
+require_popup_item_passive calendar.utc_date
+require_popup_item_passive calendar.utc_time
 
 tmpdir="$(mktemp -d "${TMPDIR:-/tmp}/sketchybar-clock-popup.XXXXXX")"
 trap 'rm -rf "${tmpdir}"' EXIT

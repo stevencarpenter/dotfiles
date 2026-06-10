@@ -37,14 +37,19 @@ if [[ -d "$REPO_ROOT/dot_config/mcp/overrides" ]]; then
   cp -R "$REPO_ROOT/dot_config/mcp/overrides/." "$SANDBOX/.config/mcp/overrides/"
 fi
 
-# Mirror the deployed Claude/Copilot files so the in-place patchers have
-# something to patch (otherwise they log "skipping: file not found").
+# Mirror the deployed Claude/Copilot/Codex files so the in-place patchers have
+# something to patch (otherwise they log "skipping: file not found", and codex
+# falls back to the fresh-seed template path, making its diff meaningless).
 if [[ -f "$REAL_HOME/.claude.json" ]]; then
   cp "$REAL_HOME/.claude.json" "$SANDBOX/.claude.json"
 fi
 if [[ -f "$REAL_HOME/.config/.copilot/config.json" ]]; then
   mkdir -p "$SANDBOX/.config/.copilot"
   cp "$REAL_HOME/.config/.copilot/config.json" "$SANDBOX/.config/.copilot/config.json"
+fi
+if [[ -f "$REAL_HOME/.codex/config.toml" ]]; then
+  mkdir -p "$SANDBOX/.codex"
+  cp "$REAL_HOME/.codex/config.toml" "$SANDBOX/.codex/config.toml"
 fi
 
 echo "==> Running mcp_sync against sandbox HOME=$SANDBOX"

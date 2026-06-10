@@ -2,29 +2,43 @@
 # Claude Code status line command — pimped out edition
 # Reads JSON from stdin and outputs a styled, information-dense status line
 
+# -u catches unset-variable bugs. No -e: the git probes below are expected to
+# fail in non-repo cwds.
+set -uo pipefail
+
 input=$(cat)
 
-cwd=$(echo "$input" | jq -r '.workspace.current_dir // .cwd // empty')
-model=$(echo "$input" | jq -r '.model.display_name // empty')
-used=$(echo "$input" | jq -r '.context_window.used_percentage // empty')
-remaining=$(echo "$input" | jq -r '.context_window.remaining_percentage // empty')
-total_input=$(echo "$input" | jq -r '.context_window.total_input_tokens // empty')
-total_output=$(echo "$input" | jq -r '.context_window.total_output_tokens // empty')
-five_h=$(echo "$input" | jq -r '.rate_limits.five_hour.used_percentage // empty')
-seven_d=$(echo "$input" | jq -r '.rate_limits.seven_day.used_percentage // empty')
-worktree=$(echo "$input" | jq -r '.worktree.branch // empty')
-effort=$(echo "$input" | jq -r '.effort.level // empty')
-version=$(echo "$input" | jq -r '.version // empty')
-pr_number=$(echo "$input" | jq -r '.pr.number // empty')
-pr_state=$(echo "$input" | jq -r '.pr.review_state // empty')
-agent=$(echo "$input" | jq -r '.agent.name // empty')
-lines_added=$(echo "$input" | jq -r '.cost.total_lines_added // empty')
-lines_removed=$(echo "$input" | jq -r '.cost.total_lines_removed // empty')
+# Single jq pass for every field (this script runs on each render tick).
+# Fields are joined on the unit separator (\x1f): unlike tab, it is not IFS
+# whitespace, so empty fields don't collapse and columns stay aligned.
+IFS=$'\x1f' read -r cwd model used remaining total_input total_output \
+	five_h seven_d worktree effort version pr_number pr_state agent \
+	session_name lines_added lines_removed < <(
+	echo "$input" | jq -r '[
+		(.workspace.current_dir // .cwd // ""),
+		(.model.display_name // ""),
+		(.context_window.used_percentage // ""),
+		(.context_window.remaining_percentage // ""),
+		(.context_window.total_input_tokens // ""),
+		(.context_window.total_output_tokens // ""),
+		(.rate_limits.five_hour.used_percentage // ""),
+		(.rate_limits.seven_day.used_percentage // ""),
+		(.worktree.branch // ""),
+		(.effort.level // ""),
+		(.version // ""),
+		(.pr.number // ""),
+		(.pr.review_state // ""),
+		(.agent.name // ""),
+		(.session_name // ""),
+		(.cost.total_lines_added // ""),
+		(.cost.total_lines_removed // "")
+	] | map(tostring) | join("\u001f")'
+)
 
 # Shorten home directory to ~
 cwd="${cwd/#$HOME/~}"
 
-# Everforest dark-medium truecolor palette. Using explicit RGB avoids Ghostty /
+# Everforest dark-hard truecolor palette. Using explicit RGB avoids Ghostty /
 # tmux mapping secondary text to ANSI bright-black, which is too dim here.
 RESET='\033[0m'
 BOLD='\033[1m'
@@ -118,19 +132,6 @@ if [ -n "$pr_number" ]; then
 	pr_part="${pr_color} ${pr_label}${RESET}"
 fi
 
-# ── Permissions ──────────────────────────────────────────────
-perm_part=""
-if [ -n "$permission" ]; then
-	case "$permission" in
-	bypassPermissions | dangerously-skip-permissions) perm_color="${FG_RED}" ;;
-	auto) perm_color="${FG_GREEN}" ;;
-	acceptEdits | dontAsk) perm_color="${FG_YELLOW}" ;;
-	plan | default) perm_color="${FG_CYAN}" ;;
-	*) perm_color="${FG_GRAY}" ;;
-	esac
-	perm_part="${perm_color} perm:${permission}${RESET}"
-fi
-
 # ── Context Progress Bar ─────────────────────────────────────
 ctx_part=""
 if [ -n "$used" ]; then
@@ -205,6 +206,12 @@ if [ -n "$agent" ]; then
 	agent_part="${FG_GRAY} agent:${agent}${RESET}"
 fi
 
+# ── Task (session name) ──────────────────────────────────────
+task_part=""
+if [ -n "$session_name" ]; then
+	task_part="${FG_GRAY} task:${session_name}${RESET}"
+fi
+
 # ── Version ──────────────────────────────────────────────────
 version_part=""
 if [ -n "$version" ]; then
@@ -242,11 +249,11 @@ if [ -n "$model_part" ]; then line="${line}${SEP}${model_part}"; fi
 if [ -n "$effort_part" ]; then line="${line}${SEP}${effort_part}"; fi
 if [ -n "$pr_part" ]; then line="${line}${SEP}${pr_part}"; fi
 if [ -n "$tree_part" ]; then line="${line}${SEP}${tree_part}"; fi
-if [ -n "$perm_part" ]; then line="${line}${SEP}${perm_part}"; fi
 if [ -n "$ctx_part" ]; then line="${line}${SEP}${ctx_part}"; fi
 if [ -n "$limits_part" ]; then line="${line}${SEP}${limits_part}"; fi
 if [ -n "$version_part" ]; then line="${line}${SEP}${version_part}"; fi
 if [ -n "$tokens_part" ]; then line="${line}${SEP}${tokens_part}"; fi
 if [ -n "$agent_part" ]; then line="${line}${SEP}${agent_part}"; fi
+if [ -n "$task_part" ]; then line="${line}${SEP}${task_part}"; fi
 
 printf '%b' "${line}"

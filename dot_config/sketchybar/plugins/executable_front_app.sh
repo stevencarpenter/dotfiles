@@ -11,8 +11,11 @@ PLUGIN_DIR="$CONFIG_DIR/plugins"
 if [ -n "${INFO:-}" ]; then
   app_name="$INFO"
 
-  # Get icon from icon_map
-  icon=$("$PLUGIN_DIR/icon_map.sh" "$app_name")
+  # icon_map.sh is a function library (defines __icon_map → icon_result), not
+  # a filter — executing it directly prints nothing.
+  source "$PLUGIN_DIR/icon_map.sh"
+  __icon_map "$app_name"
+  icon="$icon_result"
 
   # Get badge count
   badge=$("$PLUGIN_DIR/app_badge.sh" "$app_name")

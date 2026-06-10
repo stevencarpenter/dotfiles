@@ -4,9 +4,15 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 script="${repo_root}/dot_claude/executable_statusline-command.sh"
 workdir="$(mktemp -d "${TMPDIR:-/tmp}/claude-statusline.XXXXXX")"
-trap 'rm -rf "${workdir}"' EXIT
+confdir="$(mktemp -d "${TMPDIR:-/tmp}/claude-statusline-conf.XXXXXX")"
+trap 'rm -rf "${workdir}" "${confdir}"' EXIT
 
-managed_source="$(chezmoi --source="${repo_root}" source-path "$HOME/.claude/statusline-command.sh" 2>/dev/null || true)"
+# Synthetic chezmoi config: the source state (.chezmoiignore) needs .machine
+# to render, and CI runners have no local chezmoi config. Any machine works —
+# the statusline re-include is unconditional.
+printf '[data]\n    machine = "personal-mac"\n' > "${confdir}/chezmoi.toml"
+
+managed_source="$(chezmoi --config "${confdir}/chezmoi.toml" --source "${repo_root}" source-path "$HOME/.claude/statusline-command.sh" 2>/dev/null || true)"
 if [[ "${managed_source}" != "${script}" ]]; then
   {
     echo "~/.claude/statusline-command.sh is not managed by the expected source"
@@ -153,7 +159,6 @@ assert_contains "feature/statusline"
 assert_contains "Opus 4.8"
 assert_contains "effort:xhigh"
 assert_contains "PR#1234:pending"
-assert_contains "perm:auto"
 assert_contains "ctx:92% left"
 assert_contains "5h:24%"
 assert_contains "7d:41%"
@@ -163,10 +168,13 @@ assert_contains "in:15.5k"
 assert_contains "out:1.2k"
 assert_contains "Δ+156/-23"
 assert_contains "±1"
-assert_contains "NORMAL"
 assert_contains "agent:builder"
 assert_contains "task:ship-statusline"
 assert_not_contains "fast"
+# Dropped segments (chore(statusline): drop vim mode and permission segments)
+# must stay dropped even though the harness still sends the input fields.
+assert_not_contains "perm:"
+assert_not_contains "NORMAL"
 
 everforest_fg=$'\033[38;2;211;198;170m'
 everforest_green=$'\033[38;2;167;192;128m'
@@ -177,7 +185,6 @@ assert_raw_contains "${everforest_fg} ctx:92% left"
 assert_raw_contains "${everforest_fg} v2.1.90"
 assert_raw_contains "${everforest_fg} tok:16.7k"
 assert_raw_contains "${everforest_fg} task:ship-statusline"
-assert_raw_contains "${everforest_green} perm:auto"
 assert_raw_contains "${everforest_teal} ${workdir}"
 assert_raw_contains "${everforest_yellow} "$'\033[1m'"Opus 4.8"
 assert_raw_contains "${everforest_green}5h:24%"

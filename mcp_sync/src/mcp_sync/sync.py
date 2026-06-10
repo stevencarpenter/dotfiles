@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import copy
+import datetime
 import json
 import shutil
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from string import Template as StringTemplate
@@ -271,8 +273,10 @@ def sync_codex_mcp(master: JsonDict, home: Path | None = None) -> None:
     ``hooks`` trust hashes, ``marketplaces`` timestamps, desktop settings). We
     therefore preserve the existing file verbatim and only replace the
     ``[mcp_servers.NAME]`` tables we manage, mirroring
-    ``patch_claude_code_config`` for ``~/.claude.json``. The base template only
-    seeds a brand-new file on a fresh machine.
+    ``patch_claude_code_config`` for ``~/.claude.json``. The base template
+    seeds a brand-new file on a fresh machine; on existing files its ``[tui]``
+    table is additionally enforced via ``_apply_codex_tui_settings`` so status
+    line changes reach already-provisioned machines.
 
     Args:
         master: Merged master + machine-overlay MCP config.
@@ -302,6 +306,8 @@ def sync_codex_mcp(master: JsonDict, home: Path | None = None) -> None:
         if not base_text:
             log_info("Skipping codex config (base template not found)")
             return
+
+    base_text = _apply_codex_tui_settings(base_text, home_path)
 
     preserved = _strip_codex_managed_blocks(base_text, set(managed) | disabled)
     text = preserved.rstrip() + "\n" + _render_codex_mcp_section(managed)
@@ -359,6 +365,149 @@ def _strip_codex_managed_blocks(text: str, names: set[str]) -> str:
 
 def _toml_string(value: str) -> str:
     return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def _toml_key(key: str) -> str:
+    """Render a TOML key, quoting it unless it is a bare key.
+
+    Bare keys may only contain ASCII letters, digits, ``-`` and ``_``;
+    anything else (e.g. Codex's ``"gpt-5.5"`` model keys) must be quoted.
+
+    Args:
+        key: The raw key string.
+
+    Returns:
+        The key rendered for use in a TOML key/value pair or table header.
+    """
+    if key and key.isascii() and all(c.isalnum() or c in "-_" for c in key):
+        return key
+    return _toml_string(key)
+
+
+def _toml_value(value: Any) -> str:
+    """Render a Python value parsed by ``tomllib`` back to TOML syntax.
+
+    Covers every scalar type ``tomllib`` can produce for the settings tables
+    this tool manages: strings, booleans, ints, floats, lists, and the
+    datetime family. ``bool`` is checked before ``int`` because it is an
+    ``int`` subclass.
+
+    Args:
+        value: The Python value to render.
+
+    Returns:
+        The TOML source text for the value.
+
+    Raises:
+        TypeError: If the value type has no TOML rendering here (e.g. dict —
+            tables are rendered by ``_render_codex_settings_table``).
+    """
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, str):
+        return _toml_string(value)
+    if isinstance(value, int | float):
+        return str(value)
+    if isinstance(value, list):
+        return "[" + ", ".join(_toml_value(item) for item in value) + "]"
+    if isinstance(value, datetime.datetime | datetime.date | datetime.time):
+        return str(value)
+    raise TypeError(f"Cannot render {type(value).__name__} as a TOML value")
+
+
+def _render_codex_settings_table(name: str, table: JsonDict) -> str:
+    """Render a settings table (with nested subtables) as TOML text.
+
+    Args:
+        name: Fully-qualified table name (e.g. ``tui``).
+        table: Mapping of keys to scalar values or nested dicts; nested dicts
+            become ``[name.key]`` subtables after the flat keys.
+
+    Returns:
+        The TOML source text for the table, without a trailing newline.
+    """
+    lines = [f"[{name}]"]
+    subtables: list[tuple[str, JsonDict]] = []
+    for key, value in table.items():
+        if isinstance(value, dict):
+            subtables.append((f"{name}.{_toml_key(key)}", value))
+        else:
+            lines.append(f"{_toml_key(key)} = {_toml_value(value)}")
+    for sub_name, sub_table in subtables:
+        lines.append("")
+        lines.append(_render_codex_settings_table(sub_name, sub_table))
+    return "\n".join(lines)
+
+
+def _strip_codex_table(text: str, root: str) -> str:
+    """Remove ``[root]`` and ``[root.*]`` tables, preserving everything else.
+
+    Args:
+        text: Existing ``config.toml`` contents.
+        root: Top-level table name to remove (e.g. ``tui``).
+
+    Returns:
+        The config text with the named table sections removed.
+    """
+    kept: list[str] = []
+    dropping = False
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            header = stripped[1:-1].strip()
+            dropping = header == root or header.startswith(f"{root}.")
+        if not dropping:
+            kept.append(line)
+    return "\n".join(kept)
+
+
+def _apply_codex_tui_settings(base_text: str, home: Path | None) -> str:
+    """Enforce the base template's ``[tui]`` keys on existing config text.
+
+    The base template otherwise only seeds a brand-new config, so template
+    changes (e.g. the ``[tui]`` status line) would never reach a machine whose
+    ``config.toml`` already exists. The template's ``[tui]`` table is treated
+    as managed: its keys always win, while Codex-owned keys and subtables
+    under ``[tui]`` (e.g. ``model_availability_nux``) are preserved. If either
+    the template or the existing config fails to parse as TOML, the text is
+    returned unchanged so the (text-based, tolerant) MCP-server patching can
+    still proceed.
+
+    Args:
+        base_text: Existing ``config.toml`` contents (or freshly-seeded
+            template text, for which this is a no-op).
+        home: Override home directory (for tests). Defaults to ``Path.home()``.
+
+    Returns:
+        The config text with the merged ``[tui]`` table enforced, or the
+        original text when nothing needs to change.
+    """
+    template_text = _load_text_template("codex", home)
+    if not template_text:
+        return base_text
+    try:
+        template_tui = tomllib.loads(template_text).get("tui")
+    except tomllib.TOMLDecodeError:
+        log_info("Skipping codex [tui] settings (template is not valid TOML)")
+        return base_text
+    if not isinstance(template_tui, dict) or not template_tui:
+        return base_text
+
+    try:
+        existing_tui = tomllib.loads(base_text).get("tui")
+    except tomllib.TOMLDecodeError:
+        log_info("Skipping codex [tui] settings (existing config is not valid TOML)")
+        return base_text
+    if not isinstance(existing_tui, dict):
+        existing_tui = {}
+
+    merged_tui = deep_merge(existing_tui, template_tui)
+    if merged_tui == existing_tui:
+        return base_text
+
+    stripped = _strip_codex_table(base_text, "tui")
+    rendered = _render_codex_settings_table("tui", merged_tui)
+    return stripped.rstrip() + "\n\n" + rendered + "\n"
 
 
 def _render_codex_mcp_section(servers: JsonDict) -> str:
