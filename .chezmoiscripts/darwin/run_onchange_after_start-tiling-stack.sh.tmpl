@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Starts the tiling window manager stack (sketchybar + aerospace) after
+# chezmoi deploys their configs. Runs when this script changes (run_onchange),
+# so adding a machine to the tiling set triggers a re-run on next apply.
+set -euo pipefail
+
+{{- if not (index .machines .machine).tiling }}
+# Tiling not enabled on this machine — nothing to do.
+exit 0
+{{- end }}
+
+# ── sketchybar ────────────────────────────────────────────────────────────────
+# Managed via Homebrew services; the LaunchAgent is created by brew services.
+# If already running, restart to pick up any config changes chezmoi just wrote.
+if brew services list | grep -q '^sketchybar.*started'; then
+  brew services restart sketchybar
+else
+  brew services start sketchybar
+fi
+
+# ── aerospace ─────────────────────────────────────────────────────────────────
+# Installed as a cask (not a brew formula), so Homebrew services don't manage
+# it. start-at-login = true in aerospace.toml registers the macOS login item,
+# but only after the app has run at least once. Open it here if not running.
+if pgrep -x "AeroSpace" > /dev/null 2>&1; then
+  aerospace reload-config
+else
+  open -a AeroSpace
+fi
