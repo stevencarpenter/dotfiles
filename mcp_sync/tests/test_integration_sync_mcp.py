@@ -82,7 +82,7 @@ def test_full_sync_opencode_includes_local_providers(
     assert {"lmstudio", "omlx"} <= providers.keys()
     assert providers["lmstudio"]["npm"] == "@ai-sdk/openai-compatible"
     assert providers["lmstudio"]["options"]["baseURL"] == "http://localhost:1234/v1"
-    assert providers["omlx"]["options"]["baseURL"] == "http://localhost:8000/v1"
+    assert providers["omlx"]["options"]["baseURL"] == "http://localhost:42069/v1"
 
 
 def test_full_sync_cursor_writes_home_dotfolder(

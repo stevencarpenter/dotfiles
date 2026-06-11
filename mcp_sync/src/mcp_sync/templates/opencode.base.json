@@ -20,7 +20,7 @@
       "npm": "@ai-sdk/openai-compatible",
       "name": "oMLX (local)",
       "options": {
-        "baseURL": "http://localhost:8000/v1"
+        "baseURL": "http://localhost:42069/v1"
       },
       "models": {
         "Qwen3.6-35B-A3B-UD-MLX-4bit": {
