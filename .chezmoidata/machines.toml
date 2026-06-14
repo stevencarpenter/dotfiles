@@ -65,7 +65,13 @@
 # `(index .machines .machine).<capability>`.
 
 [machines.personal-mac]
-tiling = true
+# tiling is OFF here despite this being a GUI machine: the M5 personal MacBook
+# runs the macOS 27.0 beta, which is incompatible with aerospace + sketchybar +
+# borders (crashes / broken windowing). Disabling the capability keeps the
+# tiling stack from installing, deploying config, or being auto-started by
+# .chezmoiscripts/darwin/run_onchange_after_start-tiling-stack.sh on apply.
+# Revisit (flip back to true) once macOS 27 is stable and the stack works again.
+tiling = false
 atuin = true
 mcp = true
 skills = true
