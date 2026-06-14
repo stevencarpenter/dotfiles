@@ -92,7 +92,10 @@ prefetch_badges() {
   done
   local lines=()
   mapfile -t lines < <(lsappinfo "${args[@]}" 2>/dev/null || true)
-  (( ${#lines[@]} != ${#apps[@]} )) && return
+  (( ${#lines[@]} != ${#apps[@]} )) && {
+    echo "aerospace.sh: badge prefetch line count mismatch (${#lines[@]} vs ${#apps[@]}), skipping badges" >&2
+    return
+  }
   local i label
   for i in "${!apps[@]}"; do
     label=""
@@ -103,11 +106,9 @@ prefetch_badges() {
   done
 }
 
-# Normalizes the prefetched raw label into $badge_result using the shared
-# app_badge.sh rules while keeping badge collection batched above.
-get_badge_label() {
-  local raw="${BADGE_CACHE[$1]-}"
-  badge_result="$(normalize_app_badge_label "$raw")"
+# Normalizes the prefetched raw label into badge_result (dot or empty).
+workspace_app_has_badge() {
+  has_app_badge_label "${BADGE_CACHE[$1]-}"
 }
 
 # ─── Determine focused workspace ─────────────────────────────────────────────
@@ -167,20 +168,17 @@ for sid in "${WORKSPACES[@]}"; do
         color=$GRAY
       fi
 
-      # Get notification badge for this app (only care if badge exists)
-      get_badge_label "$app"
-      badge="$badge_result"
-
-      if [[ -n "$badge" ]]; then
+      # Notification badge dot when dock reports unread/count for this app.
+      if workspace_app_has_badge "$app"; then
         SETS+=(--set "workspace.$sid.app.$i"
                "icon=$icon_result" "icon.color=$color"
-               icon.padding_right=2
-               "label=•"
-               "label.font=JetBrainsMono Nerd Font:Bold:16.0"
+               icon.padding_right=$SKETCHYBAR_WS_BADGE_ICON_PADDING_RIGHT
+               "label=$SKETCHYBAR_WS_BADGE_DOT"
+               "label.font=$SKETCHYBAR_WS_BADGE_LABEL_FONT"
                "label.color=$RED"
-               "label.padding_left=-4"
-               "label.padding_right=3"
-               "label.y_offset=4"
+               "label.padding_left=$SKETCHYBAR_WS_BADGE_LABEL_PADDING_LEFT"
+               "label.padding_right=$SKETCHYBAR_WS_BADGE_LABEL_PADDING_RIGHT"
+               "label.y_offset=$SKETCHYBAR_WS_BADGE_LABEL_Y_OFFSET"
                "label.drawing=on"
                background.drawing=off
                drawing=on)

@@ -5,6 +5,8 @@
 
 set -euo pipefail
 
+source "$PLUGIN_DIR/app_badge.sh"
+
 MAX_APPS=5
 WORKSPACES=(1 2 3 4 5 6 7 8 9)
 
@@ -37,11 +39,11 @@ for sid in "${WORKSPACES[@]}"; do
         icon.font="sketchybar-app-font:Regular:14.0" \
         icon.padding_left=2 \
         icon.padding_right=0 \
-        label.font="JetBrainsMono Nerd Font:Bold:16.0" \
+        label.font="$SKETCHYBAR_WS_BADGE_LABEL_FONT" \
         label.color=$RED \
-        label.padding_left=-4 \
-        label.padding_right=3 \
-        label.y_offset=4 \
+        label.padding_left=$SKETCHYBAR_WS_BADGE_LABEL_PADDING_LEFT \
+        label.padding_right=$SKETCHYBAR_WS_BADGE_LABEL_PADDING_RIGHT \
+        label.y_offset=$SKETCHYBAR_WS_BADGE_LABEL_Y_OFFSET \
         label.drawing=off \
         padding_left=0 \
         padding_right=0 \

@@ -63,11 +63,27 @@ format_count() {
 		return
 	fi
 
-	awk -v n="$value" 'BEGIN {
-    if (n >= 1000000) printf "%.1fM", n / 1000000;
-    else if (n >= 1000) printf "%.1fk", n / 1000;
-    else printf "%d", n;
-  }'
+	if [ "$value" -ge 1000000 ] 2>/dev/null; then
+		awk -v n="$value" 'BEGIN { printf "%.1fM", n / 1000000 }'
+	elif [ "$value" -ge 1000 ] 2>/dev/null; then
+		awk -v n="$value" 'BEGIN { printf "%.1fk", n / 1000 }'
+	else
+		printf '%s' "$value"
+	fi
+}
+
+color_for_pct() {
+	local pct="$1"
+	local pct_int
+
+	pct_int=$(printf '%.0f' "$pct")
+	if [ "$pct_int" -ge 85 ]; then
+		echo "$FG_RED"
+	elif [ "$pct_int" -ge 60 ]; then
+		echo "$FG_YELLOW"
+	else
+		echo "$FG_GREEN"
+	fi
 }
 
 # ── User@Host ────────────────────────────────────────────────
@@ -151,13 +167,7 @@ if [ -n "$used" ]; then
 	for ((i = 0; i < empty; i++)); do bar="${bar}░"; done
 
 	# Color the bar based on usage level
-	if [ "$used_int" -ge 85 ]; then
-		bar_color="${FG_RED}"
-	elif [ "$used_int" -ge 60 ]; then
-		bar_color="${FG_YELLOW}"
-	else
-		bar_color="${FG_GREEN}"
-	fi
+	bar_color="$(color_for_pct "$used_int")"
 
 	ctx_part="${FG_GRAY} ctx:${remaining_int}% left ${bar_color}${bar}${RESET}"
 fi
@@ -176,24 +186,12 @@ limits_part=""
 limit_bits=""
 if [ -n "$five_h" ]; then
 	five_int=$(printf '%.0f' "$five_h")
-	if [ "$five_int" -ge 85 ]; then
-		lc="${FG_RED}"
-	elif [ "$five_int" -ge 60 ]; then
-		lc="${FG_YELLOW}"
-	else
-		lc="${FG_GREEN}"
-	fi
+	lc="$(color_for_pct "$five_int")"
 	limit_bits="${lc}5h:${five_int}%${RESET}"
 fi
 if [ -n "$seven_d" ]; then
 	seven_int=$(printf '%.0f' "$seven_d")
-	if [ "$seven_int" -ge 85 ]; then
-		lc="${FG_RED}"
-	elif [ "$seven_int" -ge 60 ]; then
-		lc="${FG_YELLOW}"
-	else
-		lc="${FG_GREEN}"
-	fi
+	lc="$(color_for_pct "$seven_int")"
 	limit_bits="${limit_bits:+${limit_bits} }${lc}7d:${seven_int}%${RESET}"
 fi
 if [ -n "$limit_bits" ]; then
@@ -242,18 +240,22 @@ if [ -n "$git_root" ]; then
 fi
 
 # ── Assemble ─────────────────────────────────────────────────
-line="${dir_display}"
+parts=("$dir_display")
+[[ -n "$git_part" ]] && parts+=("$git_part")
+[[ -n "$model_part" ]] && parts+=("$model_part")
+[[ -n "$effort_part" ]] && parts+=("$effort_part")
+[[ -n "$pr_part" ]] && parts+=("$pr_part")
+[[ -n "$tree_part" ]] && parts+=("$tree_part")
+[[ -n "$ctx_part" ]] && parts+=("$ctx_part")
+[[ -n "$limits_part" ]] && parts+=("$limits_part")
+[[ -n "$version_part" ]] && parts+=("$version_part")
+[[ -n "$tokens_part" ]] && parts+=("$tokens_part")
+[[ -n "$agent_part" ]] && parts+=("$agent_part")
+[[ -n "$task_part" ]] && parts+=("$task_part")
 
-if [ -n "$git_part" ]; then line="${line}${SEP}${git_part}"; fi
-if [ -n "$model_part" ]; then line="${line}${SEP}${model_part}"; fi
-if [ -n "$effort_part" ]; then line="${line}${SEP}${effort_part}"; fi
-if [ -n "$pr_part" ]; then line="${line}${SEP}${pr_part}"; fi
-if [ -n "$tree_part" ]; then line="${line}${SEP}${tree_part}"; fi
-if [ -n "$ctx_part" ]; then line="${line}${SEP}${ctx_part}"; fi
-if [ -n "$limits_part" ]; then line="${line}${SEP}${limits_part}"; fi
-if [ -n "$version_part" ]; then line="${line}${SEP}${version_part}"; fi
-if [ -n "$tokens_part" ]; then line="${line}${SEP}${tokens_part}"; fi
-if [ -n "$agent_part" ]; then line="${line}${SEP}${agent_part}"; fi
-if [ -n "$task_part" ]; then line="${line}${SEP}${task_part}"; fi
+line="${parts[0]}"
+for part in "${parts[@]:1}"; do
+	line="${line}${SEP}${part}"
+done
 
 printf '%b' "${line}"

@@ -16,7 +16,7 @@ function _ca_has_target_drift() {
 # - Warns when destination files have manual drift
 # - Shows what would be applied before doing so
 function ca() {
-  local diff_output pending_scripts
+  local diff_output pending_scripts script_diff_err
 
   echo "Checking for conflicts between source and target..."
 
@@ -35,10 +35,19 @@ function ca() {
   # suppresses chezmoi's own per-script prompts — so list which scripts will
   # execute. --exclude=none resets the global exclude (a plain --include=scripts
   # loses to it); full content: `chezmoi diff --exclude=none --include=scripts`.
-  # This is run-log visibility, not a gate: with no target drift, apply runs
-  # immediately after this — read the list, don't expect a pause.
-  pending_scripts="$(chezmoi diff --exclude=none --include=scripts --no-pager "$@" 2>/dev/null \
-    | sed -n 's#^diff --git a/.* b/#  #p')"
+  # Path extraction depends on git-diff(1) headers (`diff --git a/... b/...`);
+  # if chezmoi changes diff format, update the sed below.
+  script_diff_err="$(mktemp "${TMPDIR:-/tmp}/ca-script-diff.XXXXXX")"
+  pending_scripts="$(chezmoi diff --exclude=none --include=scripts --no-pager "$@" 2>"${script_diff_err}" \
+    | sed -n 's#^diff --git a/.* b/#  #p')" || {
+    [[ -s "${script_diff_err}" ]] && print -r -- "$(<"${script_diff_err}")" >&2
+    rm -f "${script_diff_err}"
+    return 1
+  }
+  if [[ -s "${script_diff_err}" ]]; then
+    print -r -- "$(<"${script_diff_err}")" >&2
+  fi
+  rm -f "${script_diff_err}"
   if [[ -n "${pending_scripts}" ]]; then
     echo ""
     echo "Scripts that will run on apply:"

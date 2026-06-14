@@ -1,8 +1,15 @@
 #!/bin/bash
 
-# Generic app badge fetcher — queries macOS dock badge via lsappinfo.
-# Usage: app_badge.sh <app_name>
-# Output: badge label (empty, "•", or numeric/99+ count)
+# Shared macOS dock badge helpers for SketchyBar plugins.
+# Source for functions/constants; run as CLI: app_badge.sh <app_name>
+
+# Workspace icon notification dot styling — keep in sync with aerospace.sh --set.
+SKETCHYBAR_WS_BADGE_DOT='•'
+SKETCHYBAR_WS_BADGE_LABEL_FONT='JetBrainsMono Nerd Font:Bold:16.0'
+SKETCHYBAR_WS_BADGE_LABEL_PADDING_LEFT=-4
+SKETCHYBAR_WS_BADGE_LABEL_PADDING_RIGHT=3
+SKETCHYBAR_WS_BADGE_LABEL_Y_OFFSET=4
+SKETCHYBAR_WS_BADGE_ICON_PADDING_RIGHT=2
 
 normalize_app_badge_label() {
   local badge_label="${1:-}"
@@ -24,6 +31,19 @@ normalize_app_badge_label() {
       else
         echo ""
       fi
+      ;;
+  esac
+}
+
+# True when lsappinfo's raw StatusLabel means "show a badge" (dot or count).
+has_app_badge_label() {
+  local raw="${1:-}"
+
+  case "$raw" in
+    "" ) return 1 ;;
+    "•" ) return 0 ;;
+    * )
+      [[ "$raw" =~ ^[0-9]+$ ]] && [ "$raw" -gt 0 ]
       ;;
   esac
 }
