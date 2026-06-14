@@ -70,7 +70,8 @@
 # borders (crashes / broken windowing). Disabling the capability keeps the
 # tiling stack from installing, deploying config, or being auto-started by
 # .chezmoiscripts/darwin/run_onchange_after_start-tiling-stack.sh on apply.
-# Revisit (flip back to true) once macOS 27 is stable and the stack works again.
+# TODO(tiling): flip back to true once macOS 27 is stable and the stack works
+# again (greppable marker so this temporary beta workaround resurfaces).
 tiling = false
 atuin = true
 mcp = true

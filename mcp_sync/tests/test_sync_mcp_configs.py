@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime
 import json
 import tomllib
 from pathlib import Path
@@ -17,6 +18,7 @@ from mcp_sync import (
     transform_to_mcpservers_format,
     transform_to_opencode_format,
 )
+from mcp_sync.codex_tui import apply_tui_settings, toml_value
 from mcp_sync.sync import transform_to_generic_mcp_format
 from mcp_sync.sync import transform_to_identity_format
 
@@ -825,6 +827,46 @@ def test_identity_format_does_not_propagate_master_schema():
     result = transform_to_identity_format(master)
     assert "$schema" not in result
     assert "a" in result["servers"]
+
+
+def test_toml_value_renders_date_via_str():
+    """A date/time value renders through ``str`` (already TOML-native)."""
+    assert toml_value(datetime.date(2026, 6, 14)) == "2026-06-14"
+
+
+def test_toml_value_rejects_unsupported_type():
+    """A value type with no TOML rendering raises ``TypeError``."""
+    with pytest.raises(TypeError):
+        toml_value({"unsupported": "mapping"})
+
+
+def test_apply_tui_settings_empty_template_is_noop():
+    """An empty template leaves the existing config text untouched."""
+    base = 'model = "gpt-5.5"\n'
+    assert apply_tui_settings(base, "") == base
+
+
+def test_apply_tui_settings_skips_invalid_template_toml():
+    """A template that fails to parse is skipped and logged; config unchanged."""
+    base = 'model = "gpt-5.5"\n'
+    logged: list[str] = []
+    result = apply_tui_settings(base, "model =\n", log_info=logged.append)
+    assert result == base
+    assert any("not valid TOML" in line for line in logged)
+
+
+def test_apply_tui_settings_template_without_tui_is_noop():
+    """A valid template with no ``[tui]`` table leaves the config untouched."""
+    base = 'model = "gpt-5.5"\n'
+    assert apply_tui_settings(base, 'model = "gpt-5.5"\n') == base
+
+
+def test_apply_tui_settings_deep_merges_nested_subtables():
+    """Nested ``[tui.*]`` subtables are deep-merged, not replaced wholesale."""
+    base = "[tui.sub]\nkeep = 1\n"
+    template = "[tui.sub]\nadd = 2\n"
+    parsed = tomllib.loads(apply_tui_settings(base, template))
+    assert parsed["tui"]["sub"] == {"keep": 1, "add": 2}
 
 
 def test_identity_format_preserves_other_top_level_keys():

@@ -299,15 +299,17 @@ def sync_codex_mcp(master: JsonDict, home: Path | None = None) -> None:
         if isinstance(config, dict) and not _is_server_enabled(config)
     }
 
+    # Load the template once; it seeds a fresh config and enforces [tui] below.
+    template_text = _load_text_template("codex", home_path)
+
     if codex_config_path.is_file():
         base_text = codex_config_path.read_text(encoding="utf-8")
+    elif template_text:
+        base_text = template_text
     else:
-        base_text = _load_text_template("codex", home_path)
-        if not base_text:
-            log_info("Skipping codex config (base template not found)")
-            return
+        log_info("Skipping codex config (base template not found)")
+        return
 
-    template_text = _load_text_template("codex", home_path)
     base_text = apply_tui_settings(base_text, template_text, log_info=log_info)
 
     preserved = _strip_codex_managed_blocks(base_text, set(managed) | disabled)

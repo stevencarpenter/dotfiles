@@ -78,6 +78,9 @@ jobs:
       - name: Validate SketchyBar badge wiring
         run: scripts/test-sketchybar-badge-wiring.sh
 
+      - name: Validate ca() drift-safety gate
+        run: scripts/test-ca-drift-gate.sh
+
       - name: Install chezmoi
         run: |
           set -euo pipefail

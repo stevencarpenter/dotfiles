@@ -40,20 +40,23 @@ cwd="${cwd/#$HOME/~}"
 
 # Everforest dark-hard truecolor palette. Using explicit RGB avoids Ghostty /
 # tmux mapping secondary text to ANSI bright-black, which is too dim here.
-RESET='\033[0m'
-BOLD='\033[1m'
+# ANSI-C quoting ($'...') stores real ESC bytes, so the final printf uses %s
+# (not %b). A cwd or branch containing a literal "\t"/"\n" then renders as-is
+# instead of being expanded into a tab/newline. Keep $'...' and %s in sync.
+RESET=$'\033[0m'
+BOLD=$'\033[1m'
 
 # Foreground colors
-FG_CYAN='\033[38;2;131;192;146m'
-FG_GREEN='\033[38;2;167;192;128m'
-FG_YELLOW='\033[38;2;219;188;127m'
-FG_MAGENTA='\033[38;2;214;153;182m'
-FG_BLUE='\033[38;2;127;187;179m'
-FG_RED='\033[38;2;230;126;128m'
-FG_GRAY='\033[38;2;211;198;170m'
+FG_CYAN=$'\033[38;2;131;192;146m'
+FG_GREEN=$'\033[38;2;167;192;128m'
+FG_YELLOW=$'\033[38;2;219;188;127m'
+FG_MAGENTA=$'\033[38;2;214;153;182m'
+FG_BLUE=$'\033[38;2;127;187;179m'
+FG_RED=$'\033[38;2;230;126;128m'
+FG_GRAY=$'\033[38;2;211;198;170m'
 
 # Dim separator color
-SEP_COLOR='\033[38;2;157;169;160m'
+SEP_COLOR=$'\033[38;2;157;169;160m'
 SEP="${SEP_COLOR}  ${RESET}"
 
 format_count() {
@@ -85,6 +88,31 @@ color_for_pct() {
 		echo "$FG_GREEN"
 	fi
 }
+
+to_int() {
+	# Echo a non-negative integer for integer or simple-decimal input (rounding
+	# decimals); echo nothing for empty or non-numeric input. Claude Code emits
+	# these fields as integers today, but a schema drift to a float or a string
+	# like "NaN" would otherwise abort the whole render at the first $((...))
+	# under `set -u`, blanking the entire status line before it prints.
+	local v="$1"
+	if [[ "$v" =~ ^[0-9]+$ ]]; then
+		printf '%s' "$v"
+	elif [[ "$v" =~ ^[0-9]+\.[0-9]+$ ]]; then
+		printf '%.0f' "$v"
+	fi
+}
+
+# Normalize every field that feeds arithmetic or an integer comparison below,
+# so one malformed value degrades to a skipped segment instead of a blank line.
+used="$(to_int "$used")"
+remaining="$(to_int "$remaining")"
+total_input="$(to_int "$total_input")"
+total_output="$(to_int "$total_output")"
+five_h="$(to_int "$five_h")"
+seven_d="$(to_int "$seven_d")"
+lines_added="$(to_int "$lines_added")"
+lines_removed="$(to_int "$lines_removed")"
 
 # ── User@Host ────────────────────────────────────────────────
 # user_host="${BOLD}${FG_GREEN} ${user}${FG_GRAY}@${FG_CYAN}${host}${RESET}"
@@ -258,4 +286,4 @@ for part in "${parts[@]:1}"; do
 	line="${line}${SEP}${part}"
 done
 
-printf '%b' "${line}"
+printf '%s' "${line}"

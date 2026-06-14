@@ -16,7 +16,11 @@ function _ca_has_target_drift() {
 # - Warns when destination files have manual drift
 # - Shows what would be applied before doing so
 function ca() {
-  local diff_output pending_scripts script_diff_err
+  emulate -L zsh
+  # pipefail so the script-diff pipeline below reports a `chezmoi diff` failure
+  # (not just `sed`'s success), and local_options confines it to this function.
+  setopt local_options pipefail
+  local diff_output pending_scripts script_diff_err status_output
 
   echo "Checking for conflicts between source and target..."
 
@@ -54,7 +58,15 @@ function ca() {
     print -r -- "${pending_scripts}"
   fi
 
-  if chezmoi status --exclude=scripts --no-pager "$@" | _ca_has_target_drift; then
+  # Capture status FIRST so a `chezmoi status` failure aborts here, instead of
+  # being misread as "no drift" and falling through to `apply --force` (which
+  # silently overwrites target-side edits). A pipe straight into
+  # _ca_has_target_drift cannot surface that failure: the `if` reads the
+  # pipeline exit as a drift boolean, and _ca_has_target_drift returns "no
+  # drift" on empty input regardless of WHY the input was empty — so pipefail
+  # alone does not help here.
+  status_output="$(chezmoi status --exclude=scripts --no-pager "$@")" || return $?
+  if print -r -- "${status_output}" | _ca_has_target_drift; then
     echo ""
     echo "   Target files have changes that differ from source."
     echo "   Running chezmoi apply may overwrite those target-side changes."

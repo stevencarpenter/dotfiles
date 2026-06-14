@@ -84,6 +84,9 @@ done
 # Controller — hidden, off-bar item whose script does all the per-event work for
 # every workspace in a single pass. The position "right" keeps it out of the
 # visible left-side group; `drawing=off` means nothing is rendered.
+# Badge freshness is event-driven (aerospace_workspace_change / front_app_switched
+# below) with no update_freq: a notification badge that appears without a
+# workspace/focus change only renders on the next such event, not instantly.
 sketchybar --add item workspaces.controller right \
   --set workspaces.controller \
     drawing=off \

@@ -190,4 +190,43 @@ assert_raw_contains "${everforest_yellow} "$'\033[1m'"Opus 4.8"
 assert_raw_contains "${everforest_green}5h:24%"
 assert_raw_not_contains $'\033[90m'
 
+# ── Edge cases: malformed / missing / fractional numeric fields ──────────────
+# A bad field must degrade to a skipped segment, never abort the render — under
+# `set -u` an aborted render blanks the ENTIRE status line, not just one piece.
+render_dir_survives() {
+  local label="$1" json="$2" out plain_out
+
+  if ! out="$(printf '%s\n' "${json}" | bash "${script}")"; then
+    echo "statusline aborted (non-zero exit) on: ${label}" >&2
+    exit 1
+  fi
+  plain_out="$(printf '%b' "${out}" | perl -pe 's/\e\[[0-9;]*m//g')"
+  if [[ "${plain_out}" != *"${workdir}"* ]]; then
+    {
+      echo "statusline blanked the dir segment on: ${label}"
+      echo "actual: ${plain_out}"
+    } >&2
+    exit 1
+  fi
+}
+
+# Non-numeric context percentage: was a hard crash ($((100 - NaN)) →
+# "NaN: unbound variable") that blanked the whole line under set -u.
+render_dir_survives "non-numeric used_percentage" \
+  "$(jq -n --arg cwd "${workdir}" '{cwd: $cwd, context_window: {used_percentage: "NaN"}}')"
+
+# Fractional token total: was "arithmetic syntax error" in $((input + output)).
+render_dir_survives "fractional token total" \
+  "$(jq -n --arg cwd "${workdir}" '{cwd: $cwd, context_window: {total_input_tokens: 15500, total_output_tokens: 1200.5}}')"
+
+# Sparse object: every numeric field absent — must still render the dir prefix.
+render_dir_survives "sparse object" \
+  "$(jq -n --arg cwd "${workdir}" '{cwd: $cwd}')"
+
+# Empty object on stdin must not crash the shell.
+if ! printf '%s' '{}' | bash "${script}" >/dev/null 2>&1; then
+  echo "statusline aborted on empty object stdin" >&2
+  exit 1
+fi
+
 echo "claude statusline renders codex-parity segments"
