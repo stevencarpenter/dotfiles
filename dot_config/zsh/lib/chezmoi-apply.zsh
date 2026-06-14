@@ -16,7 +16,7 @@ function _ca_has_target_drift() {
 # - Warns when destination files have manual drift
 # - Shows what would be applied before doing so
 function ca() {
-  local diff_output
+  local diff_output pending_scripts
 
   echo "Checking for conflicts between source and target..."
 
@@ -27,6 +27,22 @@ function ca() {
     print -r -- "${diff_output}"
   else
     echo "Changes to be applied: (none — post-apply hooks will still run)"
+  fi
+
+  # Scripts are hidden from the diff above (by --exclude=scripts here and by the
+  # repo's global [diff] exclude) so every apply isn't a wall of phantom "new
+  # file" script diffs. But scripts ALWAYS run on apply, and --force below
+  # suppresses chezmoi's own per-script prompts — so list which scripts will
+  # execute. --exclude=none resets the global exclude (a plain --include=scripts
+  # loses to it); full content: `chezmoi diff --exclude=none --include=scripts`.
+  # This is run-log visibility, not a gate: with no target drift, apply runs
+  # immediately after this — read the list, don't expect a pause.
+  pending_scripts="$(chezmoi diff --exclude=none --include=scripts --no-pager "$@" 2>/dev/null \
+    | sed -n 's#^diff --git a/.* b/#  #p')"
+  if [[ -n "${pending_scripts}" ]]; then
+    echo ""
+    echo "Scripts that will run on apply:"
+    print -r -- "${pending_scripts}"
   fi
 
   if chezmoi status --exclude=scripts --no-pager "$@" | _ca_has_target_drift; then
