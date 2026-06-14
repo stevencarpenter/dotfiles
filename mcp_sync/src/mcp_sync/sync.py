@@ -10,6 +10,8 @@ from pathlib import Path
 from string import Template as StringTemplate
 from typing import Any, Callable
 
+from mcp_sync.codex_tui import apply_tui_settings, toml_string
+
 type JsonDict = dict[str, Any]
 type Transform = Callable[[JsonDict], JsonDict]
 
@@ -271,8 +273,10 @@ def sync_codex_mcp(master: JsonDict, home: Path | None = None) -> None:
     ``hooks`` trust hashes, ``marketplaces`` timestamps, desktop settings). We
     therefore preserve the existing file verbatim and only replace the
     ``[mcp_servers.NAME]`` tables we manage, mirroring
-    ``patch_claude_code_config`` for ``~/.claude.json``. The base template only
-    seeds a brand-new file on a fresh machine.
+    ``patch_claude_code_config`` for ``~/.claude.json``. The base template
+    seeds a brand-new file on a fresh machine; on existing files its ``[tui]``
+    table is additionally enforced via ``codex_tui.apply_tui_settings`` so status
+    line changes reach already-provisioned machines.
 
     Args:
         master: Merged master + machine-overlay MCP config.
@@ -295,13 +299,18 @@ def sync_codex_mcp(master: JsonDict, home: Path | None = None) -> None:
         if isinstance(config, dict) and not _is_server_enabled(config)
     }
 
+    # Load the template once; it seeds a fresh config and enforces [tui] below.
+    template_text = _load_text_template("codex", home_path)
+
     if codex_config_path.is_file():
         base_text = codex_config_path.read_text(encoding="utf-8")
+    elif template_text:
+        base_text = template_text
     else:
-        base_text = _load_text_template("codex", home_path)
-        if not base_text:
-            log_info("Skipping codex config (base template not found)")
-            return
+        log_info("Skipping codex config (base template not found)")
+        return
+
+    base_text = apply_tui_settings(base_text, template_text, log_info=log_info)
 
     preserved = _strip_codex_managed_blocks(base_text, set(managed) | disabled)
     text = preserved.rstrip() + "\n" + _render_codex_mcp_section(managed)
@@ -357,10 +366,6 @@ def _strip_codex_managed_blocks(text: str, names: set[str]) -> str:
     return "\n".join(kept)
 
 
-def _toml_string(value: str) -> str:
-    return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
-
-
 def _render_codex_mcp_section(servers: JsonDict) -> str:
     lines: list[str] = ["", CODEX_MCP_BEGIN_MARKER]
 
@@ -370,19 +375,19 @@ def _render_codex_mcp_section(servers: JsonDict) -> str:
 
         url = server.get("url")
         if isinstance(url, str) and url:
-            lines.append(f"url = {_toml_string(url)}")
+            lines.append(f"url = {toml_string(url)}")
             continue
 
-        lines.append(f"command = {_toml_string(str(server.get('command', '')))}")
+        lines.append(f"command = {toml_string(str(server.get('command', '')))}")
 
         args = list(server.get("args", []) or [])
-        args_str = ", ".join(_toml_string(str(arg)) for arg in args)
+        args_str = ", ".join(toml_string(str(arg)) for arg in args)
         lines.append(f"args = [{args_str}]")
 
         env = server.get("env")
         if isinstance(env, dict):
             env_parts = [
-                f"{key} = {_toml_string(str(value))}" for key, value in env.items()
+                f"{key} = {toml_string(str(value))}" for key, value in env.items()
             ]
             lines.append(f"environment = {{ {', '.join(env_parts)} }}")
 

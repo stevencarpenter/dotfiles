@@ -5,6 +5,8 @@
 
 set -euo pipefail
 
+source "$PLUGIN_DIR/app_badge.sh"
+
 MAX_APPS=5
 WORKSPACES=(1 2 3 4 5 6 7 8 9)
 
@@ -36,9 +38,13 @@ for sid in "${WORKSPACES[@]}"; do
       --set "workspace.$sid.app.$i" \
         icon.font="sketchybar-app-font:Regular:14.0" \
         icon.padding_left=2 \
-        icon.padding_right=2 \
+        icon.padding_right=0 \
+        label.font="$SKETCHYBAR_WS_BADGE_LABEL_FONT" \
+        label.color=$RED \
+        label.padding_left=$SKETCHYBAR_WS_BADGE_LABEL_PADDING_LEFT \
+        label.padding_right=$SKETCHYBAR_WS_BADGE_LABEL_PADDING_RIGHT \
+        label.y_offset=$SKETCHYBAR_WS_BADGE_LABEL_Y_OFFSET \
         label.drawing=off \
-        background.drawing=off \
         padding_left=0 \
         padding_right=0 \
         click_script="aerospace workspace $sid" \
@@ -78,6 +84,9 @@ done
 # Controller — hidden, off-bar item whose script does all the per-event work for
 # every workspace in a single pass. The position "right" keeps it out of the
 # visible left-side group; `drawing=off` means nothing is rendered.
+# Badge freshness is event-driven (aerospace_workspace_change / front_app_switched
+# below) with no update_freq: a notification badge that appears without a
+# workspace/focus change only renders on the next such event, not instantly.
 sketchybar --add item workspaces.controller right \
   --set workspaces.controller \
     drawing=off \

@@ -63,9 +63,6 @@ sketchybar --add event aerospace_workspace_change
 # Left
 source "$ITEM_DIR/workspaces.sh"
 
-# Center
-source "$ITEM_DIR/front_app.sh"
-
 # Right (first sourced = rightmost)
 source "$ITEM_DIR/clock.sh"
 source "$ITEM_DIR/battery.sh"

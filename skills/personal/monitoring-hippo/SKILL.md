@@ -47,7 +47,7 @@ curl -s http://localhost:9175/health
 ### 4. Check inference server API
 ```bash
 # omlx default (LM Studio uses port 1234)
-curl -s http://localhost:8000/v1/models
+curl -s http://localhost:42069/v1/models
 ```
 
 ## Log Monitoring
@@ -121,7 +121,7 @@ mise run nuke      # SIGKILL everything + remove socket (hard reset; data preser
 |---------|-------|-----|
 | "brain not reachable" in daemon logs | Brain on port 9175? `curl localhost:9175/health` | `launchctl kickstart -k "gui/$(id -u)/com.hippo.brain"` |
 | No enrichment happening | `brain.stderr.log` for errors; queue depth growing? | Restart brain (kickstart), then `hippo doctor` |
-| Inference server not responding | `curl http://localhost:8000/v1/models` (`:1234` for LM Studio) | `launchctl kickstart -k "gui/$(id -u)/com.hippo.omlx"`, ensure a model is loaded |
+| Inference server not responding | `curl http://localhost:42069/v1/models` (`:1234` for LM Studio) | `launchctl kickstart -k "gui/$(id -u)/com.hippo.omlx"`, ensure a model is loaded |
 | Socket not found | Daemon loaded? `launchctl list \| grep daemon` | `launchctl kickstart -k "gui/$(id -u)/com.hippo.daemon"` |
 | Multiple things wedged | — | `cd ~/projects/hippo && mise run restart` (or `mise run nuke` then `mise run start`) |
 
@@ -214,7 +214,7 @@ Run these to confirm hippo is fully operational:
 1. Everything at once: `hippo doctor`
 2. Daemon: `hippo status`
 3. Brain health: `curl -s http://localhost:9175/health`
-4. Inference server: `curl -s http://localhost:8000/v1/models | jq '.data[].id'`  (`:1234` for LM Studio)
+4. Inference server: `curl -s http://localhost:42069/v1/models | jq '.data[].id'`  (`:1234` for LM Studio)
 5. Recent enrichment: `tail -10 ~/.local/share/hippo/brain.stderr.log | grep enriched`
 6. OTEL collector: `curl -s http://localhost:13133/`
 7. Grafana: `curl -s http://localhost:3030/api/health` (unauthenticated liveness; anonymous `/api/search` 404s on this stack, so list dashboards from the UI)

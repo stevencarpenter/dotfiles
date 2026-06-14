@@ -2,42 +2,117 @@
 # Claude Code status line command — pimped out edition
 # Reads JSON from stdin and outputs a styled, information-dense status line
 
+# -u catches unset-variable bugs. No -e: the git probes below are expected to
+# fail in non-repo cwds.
+set -uo pipefail
+
 input=$(cat)
 
-cwd=$(echo "$input"        | jq -r '.workspace.current_dir // .cwd // empty')
-model=$(echo "$input"      | jq -r '.model.display_name // empty')
-used=$(echo "$input"       | jq -r '.context_window.used_percentage // empty')
-five_h=$(echo "$input"     | jq -r '.rate_limits.five_hour.used_percentage // empty')
-seven_d=$(echo "$input"    | jq -r '.rate_limits.seven_day.used_percentage // empty')
-# remaining=$(echo "$input"  | jq -r '.context_window.remaining_percentage // empty')
-session=$(echo "$input"    | jq -r '.session_name // empty')
-vim_mode=$(echo "$input"   | jq -r '.vim.mode // empty')
-worktree=$(echo "$input"   | jq -r '.worktree.branch // empty')
-effort=$(echo "$input"     | jq -r '.effort.level // empty')
-
-# user=$(whoami)
-# host=$(hostname -s)
+# Single jq pass for every field (this script runs on each render tick).
+# Fields are joined on the unit separator (\x1f): unlike tab, it is not IFS
+# whitespace, so empty fields don't collapse and columns stay aligned.
+IFS=$'\x1f' read -r cwd model used remaining total_input total_output \
+	five_h seven_d worktree effort version pr_number pr_state agent \
+	session_name lines_added lines_removed < <(
+	echo "$input" | jq -r '[
+		(.workspace.current_dir // .cwd // ""),
+		(.model.display_name // ""),
+		(.context_window.used_percentage // ""),
+		(.context_window.remaining_percentage // ""),
+		(.context_window.total_input_tokens // ""),
+		(.context_window.total_output_tokens // ""),
+		(.rate_limits.five_hour.used_percentage // ""),
+		(.rate_limits.seven_day.used_percentage // ""),
+		(.worktree.branch // ""),
+		(.effort.level // ""),
+		(.version // ""),
+		(.pr.number // ""),
+		(.pr.review_state // ""),
+		(.agent.name // ""),
+		(.session_name // ""),
+		(.cost.total_lines_added // ""),
+		(.cost.total_lines_removed // "")
+	] | map(tostring) | join("\u001f")'
+)
 
 # Shorten home directory to ~
 cwd="${cwd/#$HOME/~}"
 
-# ANSI colors (dim-friendly — bold + bright colors readable even when dimmed)
-RESET='\033[0m'
-BOLD='\033[1m'
+# Everforest dark-hard truecolor palette. Using explicit RGB avoids Ghostty /
+# tmux mapping secondary text to ANSI bright-black, which is too dim here.
+# ANSI-C quoting ($'...') stores real ESC bytes, so the final printf uses %s
+# (not %b). A cwd or branch containing a literal "\t"/"\n" then renders as-is
+# instead of being expanded into a tab/newline. Keep $'...' and %s in sync.
+RESET=$'\033[0m'
+BOLD=$'\033[1m'
 
 # Foreground colors
-# FG_WHITE='\033[97m'
-FG_CYAN='\033[96m'
-FG_GREEN='\033[92m'
-FG_YELLOW='\033[93m'
-FG_MAGENTA='\033[95m'
-FG_BLUE='\033[94m'
-FG_RED='\033[91m'
-FG_GRAY='\033[90m'
+FG_CYAN=$'\033[38;2;131;192;146m'
+FG_GREEN=$'\033[38;2;167;192;128m'
+FG_YELLOW=$'\033[38;2;219;188;127m'
+FG_MAGENTA=$'\033[38;2;214;153;182m'
+FG_BLUE=$'\033[38;2;127;187;179m'
+FG_RED=$'\033[38;2;230;126;128m'
+FG_GRAY=$'\033[38;2;211;198;170m'
 
 # Dim separator color
-SEP_COLOR='\033[90m'
+SEP_COLOR=$'\033[38;2;157;169;160m'
 SEP="${SEP_COLOR}  ${RESET}"
+
+format_count() {
+	local value="$1"
+
+	if [ -z "$value" ]; then
+		return
+	fi
+
+	if [ "$value" -ge 1000000 ] 2>/dev/null; then
+		awk -v n="$value" 'BEGIN { printf "%.1fM", n / 1000000 }'
+	elif [ "$value" -ge 1000 ] 2>/dev/null; then
+		awk -v n="$value" 'BEGIN { printf "%.1fk", n / 1000 }'
+	else
+		printf '%s' "$value"
+	fi
+}
+
+color_for_pct() {
+	local pct="$1"
+	local pct_int
+
+	pct_int=$(printf '%.0f' "$pct")
+	if [ "$pct_int" -ge 85 ]; then
+		echo "$FG_RED"
+	elif [ "$pct_int" -ge 60 ]; then
+		echo "$FG_YELLOW"
+	else
+		echo "$FG_GREEN"
+	fi
+}
+
+to_int() {
+	# Echo a non-negative integer for integer or simple-decimal input (rounding
+	# decimals); echo nothing for empty or non-numeric input. Claude Code emits
+	# these fields as integers today, but a schema drift to a float or a string
+	# like "NaN" would otherwise abort the whole render at the first $((...))
+	# under `set -u`, blanking the entire status line before it prints.
+	local v="$1"
+	if [[ "$v" =~ ^[0-9]+$ ]]; then
+		printf '%s' "$v"
+	elif [[ "$v" =~ ^[0-9]+\.[0-9]+$ ]]; then
+		printf '%.0f' "$v"
+	fi
+}
+
+# Normalize every field that feeds arithmetic or an integer comparison below,
+# so one malformed value degrades to a skipped segment instead of a blank line.
+used="$(to_int "$used")"
+remaining="$(to_int "$remaining")"
+total_input="$(to_int "$total_input")"
+total_output="$(to_int "$total_output")"
+five_h="$(to_int "$five_h")"
+seven_d="$(to_int "$seven_d")"
+lines_added="$(to_int "$lines_added")"
+lines_removed="$(to_int "$lines_removed")"
 
 # ── User@Host ────────────────────────────────────────────────
 # user_host="${BOLD}${FG_GREEN} ${user}${FG_GRAY}@${FG_CYAN}${host}${RESET}"
@@ -49,21 +124,21 @@ dir_display="${BOLD}${FG_BLUE} ${cwd}${RESET}"
 git_part=""
 # Try worktree branch first, then fall back to git command
 if [ -n "$worktree" ]; then
-  git_part="${FG_MAGENTA} ${worktree}${RESET}"
+	git_part="${FG_MAGENTA} ${worktree}${RESET}"
 else
-  branch=$(git -C "${cwd/#\~/$HOME}" rev-parse --abbrev-ref HEAD 2>/dev/null)
-  if [ -n "$branch" ]; then
-    git_part="${FG_MAGENTA} ${branch}${RESET}"
-  fi
+	branch=$(git -C "${cwd/#\~/$HOME}" rev-parse --abbrev-ref HEAD 2>/dev/null)
+	if [ -n "$branch" ]; then
+		git_part="${FG_MAGENTA} ${branch}${RESET}"
+	fi
 fi
 
 # ── Model ────────────────────────────────────────────────────
 model_part=""
 if [ -n "$model" ]; then
-  # Shorten verbose model names
-  short_model="$model"
-  short_model="${short_model/Claude /}"          # strip "Claude " prefix
-  model_part="${FG_YELLOW} ${BOLD}${short_model}${RESET}"
+	# Shorten verbose model names
+	short_model="$model"
+	short_model="${short_model/Claude /}" # strip "Claude " prefix
+	model_part="${FG_YELLOW} ${BOLD}${short_model}${RESET}"
 fi
 
 # ── Effort Level ─────────────────────────────────────────────
@@ -73,110 +148,100 @@ fi
 # the meter.
 effort_part=""
 if [ -n "$effort" ]; then
-  case "$effort" in
-    low)    eff_color="${FG_GRAY}"    ;;
-    medium) eff_color="${FG_CYAN}"    ;;
-    high)   eff_color="${FG_YELLOW}"  ;;
-    xhigh)  eff_color="${FG_MAGENTA}" ;;
-    max)    eff_color="${FG_RED}"     ;;
-    *)      eff_color="${FG_GRAY}"    ;;
-  esac
-  effort_part="${eff_color} ${effort}${RESET}"
+	case "$effort" in
+	low) eff_color="${FG_GRAY}" ;;
+	medium) eff_color="${FG_CYAN}" ;;
+	high) eff_color="${FG_YELLOW}" ;;
+	xhigh) eff_color="${FG_MAGENTA}" ;;
+	max) eff_color="${FG_RED}" ;;
+	*) eff_color="${FG_GRAY}" ;;
+	esac
+	effort_part="${eff_color} effort:${effort}${RESET}"
+fi
+
+# ── Pull Request ─────────────────────────────────────────────
+pr_part=""
+if [ -n "$pr_number" ]; then
+	case "$pr_state" in
+	approved) pr_color="${FG_GREEN}" ;;
+	changes_requested) pr_color="${FG_RED}" ;;
+	draft) pr_color="${FG_GRAY}" ;;
+	pending | "") pr_color="${FG_YELLOW}" ;;
+	*) pr_color="${FG_GRAY}" ;;
+	esac
+	pr_label="PR#${pr_number}"
+	if [ -n "$pr_state" ]; then
+		pr_label="${pr_label}:${pr_state}"
+	fi
+	pr_part="${pr_color} ${pr_label}${RESET}"
 fi
 
 # ── Context Progress Bar ─────────────────────────────────────
 ctx_part=""
 if [ -n "$used" ]; then
-  used_int=${used%.*}
+	used_int=${used%.*}
+	if [ -n "$remaining" ]; then
+		remaining_int=$(printf '%.0f' "$remaining")
+	else
+		remaining_int=$((100 - used_int))
+	fi
 
-  # Build an 8-block progress bar
-  filled=$(( used_int * 8 / 100 ))
-  empty=$(( 8 - filled ))
+	# Build an 8-block progress bar
+	filled=$((used_int * 8 / 100))
+	empty=$((8 - filled))
 
-  bar=""
-  for (( i=0; i<filled; i++ ));  do bar="${bar}█"; done
-  for (( i=0; i<empty; i++ ));   do bar="${bar}░"; done
+	bar=""
+	for ((i = 0; i < filled; i++)); do bar="${bar}█"; done
+	for ((i = 0; i < empty; i++)); do bar="${bar}░"; done
 
-  # Color the bar based on usage level
-  if   [ "$used_int" -ge 85 ]; then bar_color="${FG_RED}"
-  elif [ "$used_int" -ge 60 ]; then bar_color="${FG_YELLOW}"
-  else                               bar_color="${FG_GREEN}"
-  fi
+	# Color the bar based on usage level
+	bar_color="$(color_for_pct "$used_int")"
 
-  ctx_part="${FG_GRAY} ${bar_color}${bar}${RESET}${FG_GRAY} ${used_int}%${RESET}"
+	ctx_part="${FG_GRAY} ctx:${remaining_int}% left ${bar_color}${bar}${RESET}"
+fi
+
+# ── Tokens ───────────────────────────────────────────────────
+tokens_part=""
+if [ -n "$total_input" ] || [ -n "$total_output" ]; then
+	total_input_int=${total_input:-0}
+	total_output_int=${total_output:-0}
+	total_tokens=$((total_input_int + total_output_int))
+	tokens_part="${FG_GRAY} tok:$(format_count "$total_tokens") in:$(format_count "$total_input_int") out:$(format_count "$total_output_int")${RESET}"
 fi
 
 # ── Rate Limits ─────────────────────────────────────────────
 limits_part=""
 limit_bits=""
 if [ -n "$five_h" ]; then
-  five_int=$(printf '%.0f' "$five_h")
-  if   [ "$five_int" -ge 85 ]; then lc="${FG_RED}"
-  elif [ "$five_int" -ge 60 ]; then lc="${FG_YELLOW}"
-  else                               lc="${FG_GREEN}"
-  fi
-  limit_bits="${lc}5h:${five_int}%${RESET}"
+	five_int=$(printf '%.0f' "$five_h")
+	lc="$(color_for_pct "$five_int")"
+	limit_bits="${lc}5h:${five_int}%${RESET}"
 fi
 if [ -n "$seven_d" ]; then
-  seven_int=$(printf '%.0f' "$seven_d")
-  if   [ "$seven_int" -ge 85 ]; then lc="${FG_RED}"
-  elif [ "$seven_int" -ge 60 ]; then lc="${FG_YELLOW}"
-  else                                lc="${FG_GREEN}"
-  fi
-  limit_bits="${limit_bits:+${limit_bits} }${lc}7d:${seven_int}%${RESET}"
+	seven_int=$(printf '%.0f' "$seven_d")
+	lc="$(color_for_pct "$seven_int")"
+	limit_bits="${limit_bits:+${limit_bits} }${lc}7d:${seven_int}%${RESET}"
 fi
 if [ -n "$limit_bits" ]; then
-  limits_part="${FG_GRAY} ${limit_bits}"
+	limits_part="${FG_GRAY} ${limit_bits}"
 fi
 
-# ── Vim Mode ─────────────────────────────────────────────────
-vim_part=""
-if [ -n "$vim_mode" ]; then
-  if [ "$vim_mode" = "NORMAL" ]; then
-    vim_part="${FG_CYAN}${BOLD} NORMAL${RESET}"
-  else
-    vim_part="${FG_GREEN}${BOLD} INSERT${RESET}"
-  fi
+# ── Agent ────────────────────────────────────────────────────
+agent_part=""
+if [ -n "$agent" ]; then
+	agent_part="${FG_GRAY} agent:${agent}${RESET}"
 fi
 
-# ── Session Name ─────────────────────────────────────────────
-session_part=""
-if [ -n "$session" ]; then
-  session_part="${FG_GRAY} ${session}${RESET}"
+# ── Task (session name) ──────────────────────────────────────
+task_part=""
+if [ -n "$session_name" ]; then
+	task_part="${FG_GRAY} task:${session_name}${RESET}"
 fi
 
-# ── Machine ──────────────────────────────────────────────────
-# Source: ~/.config/chezmoi/chezmoi.toml line `machine = "<name>"`. Reading
-# this directly with awk is ~1-2ms; `chezmoi data` would shell out to a Go
-# binary and add ~100ms+ per status tick — too expensive.
-machine_part=""
-machine=""
-if [ -r "$HOME/.config/chezmoi/chezmoi.toml" ]; then
-  machine=$(awk -F'"' '/^machine[[:space:]]*=/ { print $2; exit }' "$HOME/.config/chezmoi/chezmoi.toml" 2>/dev/null)
-fi
-if [ -n "$machine" ]; then
-  case "$machine" in
-    personal-mac) m_icon=" "; m_color="${FG_GREEN}"; m_short="personal" ;;
-    work-mac)     m_icon=" "; m_color="${FG_BLUE}";  m_short="work"     ;;
-    lab-mac)      m_icon=" "; m_color="${FG_CYAN}";  m_short="lab"      ;;
-    *)            m_icon=" "; m_color="${FG_GRAY}";  m_short="$machine" ;;
-  esac
-  machine_part="${m_color}${m_icon}${m_short}${RESET}"
-fi
-
-# ── Hippo Daemon ─────────────────────────────────────────────
-# Cheap liveness probe: socket file existence at the well-known path. A real
-# RTT ping would be more accurate (catches stale socket files left by a
-# crashed daemon) but would require either `nc -U` with a timeout or a CLI
-# subprocess on every tick — too costly. Only shown on personal-mac (the
-# machine that runs the hippo brain; hippo is personal-only).
-hippo_part=""
-if [ "$machine" = "personal-mac" ]; then
-  if [ -S "$HOME/.local/share/hippo/daemon.sock" ]; then
-    hippo_part="${FG_GREEN}hp✓${RESET}"
-  else
-    hippo_part="${FG_RED}hp✗${RESET}"
-  fi
+# ── Version ──────────────────────────────────────────────────
+version_part=""
+if [ -n "$version" ]; then
+	version_part="${FG_GRAY} v${version}${RESET}"
 fi
 
 # ── Tree State ───────────────────────────────────────────────
@@ -185,26 +250,40 @@ fi
 # with a passive indicator: ±N marks N files modified/staged/untracked.
 # One extra git invocation per status tick (~5-15ms); only shown when dirty.
 tree_part=""
+added_int=${lines_added:-0}
+removed_int=${lines_removed:-0}
+if [ "$added_int" -gt 0 ] || [ "$removed_int" -gt 0 ]; then
+	tree_part="${FG_YELLOW}Δ+${added_int}/-${removed_int}${RESET}"
+fi
 git_root=$(git -C "${cwd/#\~/$HOME}" rev-parse --show-toplevel 2>/dev/null)
 if [ -n "$git_root" ]; then
-  dirty=$(git -C "$git_root" status --porcelain 2>/dev/null | wc -l | tr -d ' ')
-  if [ "$dirty" -gt 0 ]; then
-    tree_part="${FG_YELLOW}±${dirty}${RESET}"
-  fi
+	dirty=$(git -C "$git_root" status --porcelain 2>/dev/null | wc -l | tr -d ' ')
+	if [ "$dirty" -gt 0 ]; then
+		if [ -n "$tree_part" ]; then
+			tree_part="${tree_part}${FG_YELLOW} ±${dirty}${RESET}"
+		else
+			tree_part="${FG_YELLOW}±${dirty}${RESET}"
+		fi
+	fi
 fi
 
 # ── Assemble ─────────────────────────────────────────────────
-line="${dir_display}"
+parts=("$dir_display")
+[[ -n "$git_part" ]] && parts+=("$git_part")
+[[ -n "$model_part" ]] && parts+=("$model_part")
+[[ -n "$effort_part" ]] && parts+=("$effort_part")
+[[ -n "$pr_part" ]] && parts+=("$pr_part")
+[[ -n "$tree_part" ]] && parts+=("$tree_part")
+[[ -n "$ctx_part" ]] && parts+=("$ctx_part")
+[[ -n "$limits_part" ]] && parts+=("$limits_part")
+[[ -n "$version_part" ]] && parts+=("$version_part")
+[[ -n "$tokens_part" ]] && parts+=("$tokens_part")
+[[ -n "$agent_part" ]] && parts+=("$agent_part")
+[[ -n "$task_part" ]] && parts+=("$task_part")
 
-if [ -n "$git_part" ];     then line="${line}${SEP}${git_part}"; fi
-if [ -n "$model_part" ];   then line="${line}${SEP}${model_part}"; fi
-if [ -n "$effort_part" ];  then line="${line}${SEP}${effort_part}"; fi
-if [ -n "$ctx_part" ];     then line="${line}${SEP}${ctx_part}"; fi
-if [ -n "$limits_part" ];  then line="${line}${SEP}${limits_part}"; fi
-if [ -n "$vim_part" ];     then line="${line}${SEP}${vim_part}"; fi
-if [ -n "$session_part" ]; then line="${line}${SEP}${session_part}"; fi
-if [ -n "$machine_part" ]; then line="${line}${SEP}${machine_part}"; fi
-if [ -n "$hippo_part" ];   then line="${line}${SEP}${hippo_part}"; fi
-if [ -n "$tree_part" ];    then line="${line}${SEP}${tree_part}"; fi
+line="${parts[0]}"
+for part in "${parts[@]:1}"; do
+	line="${line}${SEP}${part}"
+done
 
-printf '%b' "${line}"
+printf '%s' "${line}"

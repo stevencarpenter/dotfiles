@@ -4,7 +4,7 @@
 # `front_app_switched` by `workspaces.controller` (see items/workspaces.sh).
 # Fires ONCE per event, queries aerospace once, and emits a single batched
 # `sketchybar --set ...` invocation that updates every workspace's highlight,
-# bracket color, and app-icon slots.
+# bracket color, and app-icon slots with notification badges.
 #
 # Requires bash >= 4 for associative arrays. Resolves to brew bash (5.x) via
 # /opt/homebrew/bin on sketchybar's inherited PATH; the system /bin/bash (3.2)
@@ -20,11 +20,13 @@ fi
 BG=0xff272e33
 BG2=0xff374145
 GRAY=0xff7a8478
+RED=0xffe67e80
 MAX_APPS=5
 WORKSPACES=(1 2 3 4 5 6 7 8 9)
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/icon_map.sh"
+source "$SCRIPT_DIR/app_badge.sh"
 
 # ─── App → Brand color map ───────────────────────────────────────────────────
 
@@ -71,6 +73,44 @@ color_for_app() {
   esac
 }
 
+# ─── Get dock badge labels via one batched lsappinfo call ────────────────────
+
+# Each lsappinfo invocation costs ~270ms of spawn+IPC on this box, so per-app
+# calls would add seconds per event. lsappinfo accepts repeated verbs in one
+# invocation and prints exactly one "StatusLabel"=... line per verb, in
+# argument order (non-running apps still emit a line), so one call fetches
+# every app and the lines map back by index. If the one-line-per-app invariant
+# ever breaks, badges go blank for this tick instead of misattributing.
+declare -A BADGE_CACHE
+
+prefetch_badges() {
+  local apps=("$@")
+  (( ${#apps[@]} == 0 )) && return
+  local args=() app
+  for app in "${apps[@]}"; do
+    args+=(info -only StatusLabel "$app")
+  done
+  local lines=()
+  mapfile -t lines < <(lsappinfo "${args[@]}" 2>/dev/null || true)
+  (( ${#lines[@]} != ${#apps[@]} )) && {
+    echo "aerospace.sh: badge prefetch line count mismatch (${#lines[@]} vs ${#apps[@]}), skipping badges" >&2
+    return
+  }
+  local i label
+  for i in "${!apps[@]}"; do
+    label=""
+    if [[ "${lines[$i]}" =~ \"label\"=\"([^\"]*)\" ]]; then
+      label="${BASH_REMATCH[1]}"
+    fi
+    BADGE_CACHE[${apps[$i]}]="$label"
+  done
+}
+
+# Normalizes the prefetched raw label into badge_result (dot or empty).
+workspace_app_has_badge() {
+  has_app_badge_label "${BADGE_CACHE[$1]-}"
+}
+
 # ─── Determine focused workspace ─────────────────────────────────────────────
 
 # aerospace_workspace_change sets FOCUSED_WORKSPACE; other events don't.
@@ -88,6 +128,18 @@ while IFS='|' read -r ws app; do
     APPS_BY_WS[$ws]="${existing:+$existing$'\n'}$app"
   fi
 done < <(aerospace list-windows --all --format '%{workspace}|%{app-name}' 2>/dev/null || true)
+
+# Unique apps across all workspaces → one badge prefetch for the whole run.
+declare -A SEEN_APPS
+ALL_APPS=()
+for ws in "${!APPS_BY_WS[@]}"; do
+  while IFS= read -r app; do
+    [[ -z "$app" || -n "${SEEN_APPS[$app]+x}" ]] && continue
+    SEEN_APPS[$app]=1
+    ALL_APPS+=("$app")
+  done <<<"${APPS_BY_WS[$ws]}"
+done
+prefetch_badges "${ALL_APPS[@]}"
 
 # ─── Build a single batched sketchybar invocation ────────────────────────────
 
@@ -115,8 +167,29 @@ for sid in "${WORKSPACES[@]}"; do
       else
         color=$GRAY
       fi
-      SETS+=(--set "workspace.$sid.app.$i"
-             "icon=$icon_result" "icon.color=$color" drawing=on)
+
+      # Notification badge dot when dock reports unread/count for this app.
+      if workspace_app_has_badge "$app"; then
+        SETS+=(--set "workspace.$sid.app.$i"
+               "icon=$icon_result" "icon.color=$color"
+               icon.padding_right=$SKETCHYBAR_WS_BADGE_ICON_PADDING_RIGHT
+               "label=$SKETCHYBAR_WS_BADGE_DOT"
+               "label.font=$SKETCHYBAR_WS_BADGE_LABEL_FONT"
+               "label.color=$RED"
+               "label.padding_left=$SKETCHYBAR_WS_BADGE_LABEL_PADDING_LEFT"
+               "label.padding_right=$SKETCHYBAR_WS_BADGE_LABEL_PADDING_RIGHT"
+               "label.y_offset=$SKETCHYBAR_WS_BADGE_LABEL_Y_OFFSET"
+               "label.drawing=on"
+               background.drawing=off
+               drawing=on)
+      else
+        SETS+=(--set "workspace.$sid.app.$i"
+               "icon=$icon_result" "icon.color=$color"
+               icon.padding_right=0
+               label="" label.drawing=off label.padding_left=0
+               background.drawing=off
+               drawing=on)
+      fi
       # NOTE: `((i++))` under `set -euo pipefail` exits with status 1 when
       # the pre-increment value is 0 (post-increment returns old value →
       # arithmetic context reads 0 as false → exit 1). Use arithmetic

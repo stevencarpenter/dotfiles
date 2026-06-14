@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import datetime
 import json
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -16,6 +18,7 @@ from mcp_sync import (
     transform_to_mcpservers_format,
     transform_to_opencode_format,
 )
+from mcp_sync.codex_tui import apply_tui_settings, toml_value
 from mcp_sync.sync import transform_to_generic_mcp_format
 from mcp_sync.sync import transform_to_identity_format
 
@@ -559,6 +562,15 @@ def test_sync_codex_mcp_missing_config(temp_home, monkeypatch_home, master_confi
     result = codex_path.read_text()
     # Fresh machine: base template is seeded...
     assert 'model = "gpt-5.5"' in result
+    assert "[tui]" in result
+    assert (
+        'status_line = ["model-with-reasoning", "current-dir", "git-branch", '
+        '"pull-request-number", "branch-changes", "permissions", '
+        '"context-remaining", "five-hour-limit", "weekly-limit", '
+        '"codex-version", "used-tokens", "total-input-tokens", '
+        '"total-output-tokens", "fast-mode", "task-progress"]' in result
+    )
+    assert "status_line_use_colors = true" in result
     # ...and the managed MCP servers are delimited by the begin marker.
     assert "# MCP Servers - BEGIN Codex" in result
     assert "[mcp_servers.filesystem]" in result
@@ -617,6 +629,189 @@ def test_sync_codex_mcp_mixed_stdio_and_url(temp_home, monkeypatch_home, master_
     assert "command =" not in xcode_block
 
 
+def _write_codex_config(temp_home: Path, text: str) -> Path:
+    """Write an existing codex config into the isolated home.
+
+    Args:
+        temp_home: Path fixture for the isolated home directory.
+        text: The ``config.toml`` contents to seed.
+
+    Returns:
+        The path to the written config file.
+    """
+    codex_dir = temp_home / ".codex"
+    codex_dir.mkdir(parents=True, exist_ok=True)
+    codex_path = codex_dir / "config.toml"
+    codex_path.write_text(text, encoding="utf-8")
+    return codex_path
+
+
+def test_sync_codex_mcp_applies_template_tui_to_existing_config(
+    temp_home, monkeypatch_home, master_config
+):
+    """Template ``[tui]`` settings reach a config that predates them.
+
+    Args:
+        temp_home: Path fixture for the isolated home directory.
+        monkeypatch_home: MonkeyPatch fixture used to patch ``Path.home``.
+        master_config: MCP master config fixture.
+
+    Returns:
+        None.
+    """
+    codex_path = _write_codex_config(
+        temp_home,
+        """model = "gpt-5.4"
+
+[desktop]
+appearanceTheme = "dark"
+""",
+    )
+
+    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
+    sync_codex_mcp(master_config)
+
+    result = codex_path.read_text(encoding="utf-8")
+    parsed = tomllib.loads(result)
+
+    # Template [tui] keys land on the existing config
+    assert parsed["tui"]["status_line"][0] == "model-with-reasoning"
+    assert parsed["tui"]["status_line_use_colors"] is True
+    # Codex-owned content is untouched
+    assert parsed["model"] == "gpt-5.4"
+    assert parsed["desktop"]["appearanceTheme"] == "dark"
+    # Managed servers still patched
+    assert "[mcp_servers.filesystem]" in result
+
+
+def test_sync_codex_mcp_tui_template_wins_and_preserves_unmanaged_keys(
+    temp_home, monkeypatch_home, master_config
+):
+    """Stale template-managed keys are replaced; unmanaged keys survive.
+
+    Args:
+        temp_home: Path fixture for the isolated home directory.
+        monkeypatch_home: MonkeyPatch fixture used to patch ``Path.home``.
+        master_config: MCP master config fixture.
+
+    Returns:
+        None.
+    """
+    codex_path = _write_codex_config(
+        temp_home,
+        """[tui]
+status_line = ["model"]
+animations = false
+""",
+    )
+
+    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
+    sync_codex_mcp(master_config)
+
+    parsed = tomllib.loads(codex_path.read_text(encoding="utf-8"))
+
+    # Template wins for the keys it defines
+    assert parsed["tui"]["status_line"][0] == "model-with-reasoning"
+    assert "task-progress" in parsed["tui"]["status_line"]
+    # Keys the template does not define are preserved
+    assert parsed["tui"]["animations"] is False
+
+
+def test_sync_codex_mcp_tui_preserves_codex_owned_subtables(
+    temp_home, monkeypatch_home, master_config
+):
+    """Codex-written ``[tui.*]`` subtables (with quoted keys) survive the rewrite.
+
+    Args:
+        temp_home: Path fixture for the isolated home directory.
+        monkeypatch_home: MonkeyPatch fixture used to patch ``Path.home``.
+        master_config: MCP master config fixture.
+
+    Returns:
+        None.
+    """
+    codex_path = _write_codex_config(
+        temp_home,
+        """model = "gpt-5.5"
+
+[tui.model_availability_nux]
+"gpt-5.5" = 2
+""",
+    )
+
+    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
+    sync_codex_mcp(master_config)
+
+    parsed = tomllib.loads(codex_path.read_text(encoding="utf-8"))
+
+    assert parsed["tui"]["model_availability_nux"]["gpt-5.5"] == 2
+    assert parsed["tui"]["status_line_use_colors"] is True
+
+
+def test_sync_codex_mcp_tui_idempotent(temp_home, monkeypatch_home, master_config):
+    """A second sync run leaves the config byte-identical.
+
+    Args:
+        temp_home: Path fixture for the isolated home directory.
+        monkeypatch_home: MonkeyPatch fixture used to patch ``Path.home``.
+        master_config: MCP master config fixture.
+
+    Returns:
+        None.
+    """
+    codex_path = _write_codex_config(
+        temp_home,
+        """[tui.model_availability_nux]
+"gpt-5.5" = 2
+""",
+    )
+
+    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
+    sync_codex_mcp(master_config)
+    first = codex_path.read_text(encoding="utf-8")
+    sync_codex_mcp(master_config)
+    second = codex_path.read_text(encoding="utf-8")
+
+    assert first == second
+
+
+def test_sync_codex_mcp_invalid_toml_skips_tui_enforcement(
+    temp_home, monkeypatch_home, master_config
+):
+    """A config that fails TOML parsing still gets MCP servers patched.
+
+    The MCP-server patching is text-based and tolerant, so a malformed
+    existing config must not crash the sync — only the ``[tui]`` enforcement
+    is skipped.
+
+    Args:
+        temp_home: Path fixture for the isolated home directory.
+        monkeypatch_home: MonkeyPatch fixture used to patch ``Path.home``.
+        master_config: MCP master config fixture.
+
+    Returns:
+        None.
+    """
+    codex_path = _write_codex_config(
+        temp_home,
+        """model =
+
+[desktop]
+appearanceTheme = "dark"
+""",
+    )
+
+    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
+    sync_codex_mcp(master_config)
+
+    result = codex_path.read_text(encoding="utf-8")
+
+    # tui enforcement skipped, mcp patching still applied
+    assert "status_line" not in result
+    assert "[mcp_servers.filesystem]" in result
+    assert "[desktop]" in result
+
+
 def test_identity_format_does_not_propagate_master_schema():
     """The identity transform must not leak master's `$schema` into per-tool outputs.
 
@@ -632,6 +827,46 @@ def test_identity_format_does_not_propagate_master_schema():
     result = transform_to_identity_format(master)
     assert "$schema" not in result
     assert "a" in result["servers"]
+
+
+def test_toml_value_renders_date_via_str():
+    """A date/time value renders through ``str`` (already TOML-native)."""
+    assert toml_value(datetime.date(2026, 6, 14)) == "2026-06-14"
+
+
+def test_toml_value_rejects_unsupported_type():
+    """A value type with no TOML rendering raises ``TypeError``."""
+    with pytest.raises(TypeError):
+        toml_value({"unsupported": "mapping"})
+
+
+def test_apply_tui_settings_empty_template_is_noop():
+    """An empty template leaves the existing config text untouched."""
+    base = 'model = "gpt-5.5"\n'
+    assert apply_tui_settings(base, "") == base
+
+
+def test_apply_tui_settings_skips_invalid_template_toml():
+    """A template that fails to parse is skipped and logged; config unchanged."""
+    base = 'model = "gpt-5.5"\n'
+    logged: list[str] = []
+    result = apply_tui_settings(base, "model =\n", log_info=logged.append)
+    assert result == base
+    assert any("not valid TOML" in line for line in logged)
+
+
+def test_apply_tui_settings_template_without_tui_is_noop():
+    """A valid template with no ``[tui]`` table leaves the config untouched."""
+    base = 'model = "gpt-5.5"\n'
+    assert apply_tui_settings(base, 'model = "gpt-5.5"\n') == base
+
+
+def test_apply_tui_settings_deep_merges_nested_subtables():
+    """Nested ``[tui.*]`` subtables are deep-merged, not replaced wholesale."""
+    base = "[tui.sub]\nkeep = 1\n"
+    template = "[tui.sub]\nadd = 2\n"
+    parsed = tomllib.loads(apply_tui_settings(base, template))
+    assert parsed["tui"]["sub"] == {"keep": 1, "add": 2}
 
 
 def test_identity_format_preserves_other_top_level_keys():

@@ -34,6 +34,12 @@ jobs:
         with:
           python-version: "3.14"
 
+      - name: Install shell test dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends zsh
+
       - name: Install pre-commit
         run: python -m pip install --upgrade pip pre-commit
 
@@ -71,3 +77,21 @@ jobs:
           while IFS= read -r -d '' file; do
             bash -n "${file}"
           done < <(find .chezmoiscripts scripts -type f -name "*.sh" -print0)
+
+      - name: Validate SketchyBar clock popup behavior
+        run: scripts/test-sketchybar-clock-popup.sh
+
+      - name: Validate SketchyBar badge wiring
+        run: scripts/test-sketchybar-badge-wiring.sh
+
+      - name: Validate ca() drift-safety gate
+        run: scripts/test-ca-drift-gate.sh
+
+      - name: Install chezmoi
+        run: |
+          set -euo pipefail
+          sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "${RUNNER_TEMP}/bin"
+          echo "${RUNNER_TEMP}/bin" >> "${GITHUB_PATH}"
+
+      - name: Validate Claude statusline rendering
+        run: scripts/test-claude-statusline-command.sh
