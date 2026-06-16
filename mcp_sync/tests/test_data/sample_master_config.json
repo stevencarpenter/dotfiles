@@ -16,12 +16,12 @@
       "args": ["sequential-thinking"],
       "type": "local"
     },
-    "github": {
+    "env-server": {
       "command": "uv",
-      "args": ["run", "github-mcp"],
+      "args": ["run", "env-mcp"],
       "type": "local",
       "env": {
-        "GITHUB_TOKEN": "${GITHUB_TOKEN}"
+        "ENV_SERVER_TOKEN": "${ENV_SERVER_TOKEN}"
       }
     },
     "railway": {

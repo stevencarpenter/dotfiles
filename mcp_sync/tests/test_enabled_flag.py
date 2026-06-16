@@ -131,6 +131,18 @@ class TestFilterEnabledServers:
         }
         assert "conflicted" not in _filter_enabled_servers(servers)
 
+    def test_filter_removes_retired_servers(self):
+        """Retired server names are filtered even if otherwise enabled."""
+        servers = {
+            "github": {"command": "cmd1", "enabled": True},
+            "xcode": {"type": "http", "url": "http://localhost:9876/mcp"},
+            "kept": {"command": "cmd2"},
+        }
+        result = _filter_enabled_servers(servers)
+        assert "github" not in result
+        assert "xcode" not in result
+        assert "kept" in result
+
 
 class TestEnablementFieldStripping:
     """Both `enabled` and `disabled` are sync-time concerns and must not leak."""
@@ -388,7 +400,7 @@ class TestEnabledFlagIntegration:
         opencode_config = json.loads(opencode_path.read_text())
         assert "filesystem" in opencode_config["mcp"]
         assert "memory" in opencode_config["mcp"]
-        assert "github" in opencode_config["mcp"]
+        assert "env-server" in opencode_config["mcp"]
 
 
 class TestCodexSyncWithEnabledFlag:
@@ -513,4 +525,4 @@ class TestClaudeCodePatchWithEnabledFlag:
 
         claude_config = json.loads(claude_path.read_text())
         assert "filesystem" not in claude_config["mcpServers"]
-        assert "github" in claude_config["mcpServers"]
+        assert "env-server" in claude_config["mcpServers"]

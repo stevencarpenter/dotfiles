@@ -26,8 +26,9 @@ its body is a no-op.
 ## Current MCP Servers
 
 The master config is intentionally empty — no server is deployed to every machine. GitHub is no
-longer an MCP server here: it moved to the `github@claude-plugins-official` Claude Code plugin (a
-remote HTTP server, enabled in `dot_claude/modify_settings.json.tmpl`). Railway was removed. All
+longer an MCP server in this sync; any Claude Code GitHub plugin setup is managed separately in
+`dot_claude/modify_settings.json.tmpl`. The retired `github` and `xcode` MCP server names are
+scrubbed from generated targets and old in-place configs during sync. Railway was removed. All
 remaining servers live in machine overlays:
 
 | Server | Machine(s) | Package / command | Purpose |
