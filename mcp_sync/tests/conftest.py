@@ -32,11 +32,11 @@ def master_config():
                 "args": ["/path/to/memory-mcp-server/dist/index.js"],
                 "type": "local",
             },
-            "github": {
+            "env-server": {
                 "command": "uv",
-                "args": ["run", "github-mcp"],
+                "args": ["run", "env-mcp"],
                 "type": "local",
-                "env": {"GITHUB_TOKEN": "${GITHUB_TOKEN}"},
+                "env": {"ENV_SERVER_TOKEN": "${ENV_SERVER_TOKEN}"},
             },
         }
     }

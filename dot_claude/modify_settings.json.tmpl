@@ -87,14 +87,12 @@ managed=$(cat <<'JSON'
     "atlassian@claude-plugins-official": {{ $work }},
     "claude-code-setup@claude-plugins-official": true,
     "claude-md-management@claude-plugins-official": true,
-    "cloudflare@cloudflare": {{ $dev }},
     "code-review@claude-plugins-official": true,
     "code-simplifier@claude-plugins-official": true,
     "commit-commands@claude-plugins-official": true,
     "context7@claude-plugins-official": true,
     "feature-dev@claude-plugins-official": true,
     "frontend-design@claude-plugins-official": {{ $dev }},
-    "github@claude-plugins-official": true,
     "gopls-lsp@claude-plugins-official": true,
     "hookify@claude-plugins-official": true,
     "lua-lsp@claude-plugins-official": {{ $dev }},
@@ -115,12 +113,6 @@ managed=$(cat <<'JSON'
       "source": {
         "source": "github",
         "repo": "anthropics/claude-plugins-official"
-      }
-    },
-    "cloudflare": {
-      "source": {
-        "source": "github",
-        "repo": "cloudflare/skills"
       }
     }
   },

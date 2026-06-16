@@ -121,19 +121,18 @@ def test_full_sync_env_vars_preserved(temp_home, monkeypatch_home, master_config
     monkeypatch_home.setattr(Path, "home", lambda: temp_home)
     main()
 
-    # Check GitHub config has env
-    github_config = json.loads(
+    # Check GitHub Copilot target config preserves env-bearing servers.
+    copilot_config = json.loads(
         (temp_home / ".config/github-copilot/intellij/mcp.json").read_text()
     )
-    github_server = github_config.get("servers", {}).get("github", {})
-    assert "env" in github_server
-    assert github_server["env"]["GITHUB_TOKEN"] == "${GITHUB_TOKEN}"
+    env_server = copilot_config.get("servers", {}).get("env-server", {})
+    assert "env" in env_server
+    assert env_server["env"]["ENV_SERVER_TOKEN"] == "${ENV_SERVER_TOKEN}"
 
     # Check OpenCode format
     opencode_path = temp_home / ".config/opencode/opencode.json"
     opencode_config = json.loads(opencode_path.read_text())
-    if "mcp" in opencode_config and "github" in opencode_config["mcp"]:
-        assert "environment" in opencode_config["mcp"]["github"]
+    assert "environment" in opencode_config["mcp"]["env-server"]
 
 
 def test_sync_with_existing_claude_config(

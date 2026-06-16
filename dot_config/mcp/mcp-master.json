@@ -1,4 +1,10 @@
 {
   "$schema": "https://modelcontextprotocol.io/schema/config.json",
-  "servers": {}
+  "servers": {
+    "codegraph": {
+      "type": "stdio",
+      "command": "codegraph",
+      "args": ["serve", "--mcp"]
+    }
+  }
 }

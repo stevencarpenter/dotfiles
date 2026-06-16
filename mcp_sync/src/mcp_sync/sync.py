@@ -18,6 +18,7 @@ type Transform = Callable[[JsonDict], JsonDict]
 TEMPLATES_DIR = Path(__file__).with_name("templates")
 CODEX_MCP_BEGIN_MARKER = "# MCP Servers - BEGIN Codex"
 CODEX_MCP_END_MARKER = "# MCP Servers - END Codex"
+RETIRED_MCP_SERVER_NAMES = frozenset({"github", "xcode"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,7 +46,7 @@ class SyncTarget:
         cleaned_overrides = _override_without_servers(overrides)
         if cleaned_overrides:
             config = deep_merge(config, cleaned_overrides)
-        return config
+        return _remove_retired_server_entries(config)
 
     def sync(self, master: JsonDict, home: Path | None = None) -> None:
         config = self.build(master, home=home)
@@ -182,21 +183,25 @@ def _is_server_enabled(config: JsonDict) -> bool:
 
 
 def _filter_enabled_servers(servers: JsonDict) -> JsonDict:
-    """Filter servers dict to only include enabled servers.
+    """Filter servers dict to only include enabled, non-retired servers.
 
     Args:
         servers: Dictionary of server configurations.
 
     Returns:
-        Dictionary containing only servers that are enabled. A server is
-        enabled if it has neither field, or "enabled" is truthy, or
+        Dictionary containing only servers that are enabled and not retired. A
+        server is enabled if it has neither field, or "enabled" is truthy, or
         "disabled" is falsy (when "enabled" is absent). See
         ``_is_server_enabled`` for full precedence rules.
     """
     return {
         name: config
         for name, config in servers.items()
-        if isinstance(config, dict) and _is_server_enabled(config)
+        if (
+            name not in RETIRED_MCP_SERVER_NAMES
+            and isinstance(config, dict)
+            and _is_server_enabled(config)
+        )
     }
 
 
@@ -223,6 +228,26 @@ def _master_with_servers(master: JsonDict, servers: JsonDict) -> JsonDict:
     merged_master = copy.deepcopy(master)
     merged_master["servers"] = servers
     return merged_master
+
+
+def _disabled_or_retired_server_names(servers: JsonDict) -> set[str]:
+    disabled = {
+        key
+        for key, val in servers.items()
+        if isinstance(val, dict) and not _is_server_enabled(val)
+    }
+    return disabled | set(RETIRED_MCP_SERVER_NAMES)
+
+
+def _remove_retired_server_entries(config: JsonDict) -> JsonDict:
+    cleaned = copy.deepcopy(config)
+    for key in ("servers", "mcpServers", "mcp"):
+        servers = cleaned.get(key)
+        if not isinstance(servers, dict):
+            continue
+        for name in RETIRED_MCP_SERVER_NAMES:
+            servers.pop(name, None)
+    return cleaned
 
 
 def _override_without_servers(overrides: JsonDict) -> JsonDict:
@@ -293,11 +318,7 @@ def sync_codex_mcp(master: JsonDict, home: Path | None = None) -> None:
     managed = _strip_server_fields(
         _filter_enabled_servers(merged_servers), *_ENABLEMENT_FIELDS
     )
-    disabled = {
-        name
-        for name, config in merged_servers.items()
-        if isinstance(config, dict) and not _is_server_enabled(config)
-    }
+    disabled = _disabled_or_retired_server_names(merged_servers)
 
     # Load the template once; it seeds a fresh config and enforces [tui] below.
     template_text = _load_text_template("codex", home_path)
@@ -425,11 +446,7 @@ def patch_claude_code_config(master: JsonDict, home: Path | None = None) -> None
 
     overrides = _load_override("claude", home_path)
     merged_servers = _merge_override_servers(master, overrides)
-    disabled_servers = {
-        key
-        for key, val in merged_servers.items()
-        if isinstance(val, dict) and not _is_server_enabled(val)
-    }
+    disabled_servers = _disabled_or_retired_server_names(merged_servers)
     servers = _strip_server_fields(
         _filter_enabled_servers(merged_servers), "note", *_ENABLEMENT_FIELDS
     )
@@ -448,6 +465,7 @@ def patch_claude_code_config(master: JsonDict, home: Path | None = None) -> None
     cleaned_overrides = _override_without_servers(overrides)
     if cleaned_overrides:
         claude_cfg = deep_merge(claude_cfg, cleaned_overrides)
+    claude_cfg = _remove_retired_server_entries(claude_cfg)
 
     # Preserve key order in ~/.claude.json. Claude Code owns this file and
     # writes its own state into it (recent projects, transient UI bits, etc.);

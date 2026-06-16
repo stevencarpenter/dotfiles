@@ -19,6 +19,7 @@ from mcp_sync import (
     transform_to_opencode_format,
 )
 from mcp_sync.codex_tui import apply_tui_settings, toml_value
+from mcp_sync.sync import run_sync
 from mcp_sync.sync import transform_to_generic_mcp_format
 from mcp_sync.sync import transform_to_identity_format
 
@@ -93,21 +94,23 @@ def test_transform_to_opencode_with_env(master_config):
     """Test OpenCode format preserves environment variables."""
     result = transform_to_opencode_format(master_config)
 
-    # github server has env
-    assert "environment" in result["mcp"]["github"]
-    assert result["mcp"]["github"]["environment"]["GITHUB_TOKEN"] == "${GITHUB_TOKEN}"
+    assert "environment" in result["mcp"]["env-server"]
+    assert (
+        result["mcp"]["env-server"]["environment"]["ENV_SERVER_TOKEN"]
+        == "${ENV_SERVER_TOKEN}"
+    )
 
 
 def test_transform_to_opencode_url_server():
     """URL-based servers render as remote entries, not local command arrays."""
     master = {
         "servers": {
-            "xcode": {"type": "http", "url": "http://localhost:9876/mcp"},
+            "remote-http": {"type": "http", "url": "http://localhost:9876/mcp"},
         }
     }
     result = transform_to_opencode_format(master)
 
-    entry = result["mcp"]["xcode"]
+    entry = result["mcp"]["remote-http"]
     assert entry == {
         "type": "remote",
         "url": "http://localhost:9876/mcp",
@@ -124,7 +127,7 @@ def test_transform_to_opencode_mixed_stdio_and_url(master_config):
         **master_config,
         "servers": {
             **master_config["servers"],
-            "xcode": {"type": "http", "url": "http://localhost:9876/mcp"},
+            "remote-http": {"type": "http", "url": "http://localhost:9876/mcp"},
         },
     }
     result = transform_to_opencode_format(master)
@@ -135,8 +138,8 @@ def test_transform_to_opencode_mixed_stdio_and_url(master_config):
     assert result["mcp"]["filesystem"]["timeout"] == 30000
 
     # URL entry uses remote shape
-    assert result["mcp"]["xcode"]["type"] == "remote"
-    assert result["mcp"]["xcode"]["url"] == "http://localhost:9876/mcp"
+    assert result["mcp"]["remote-http"]["type"] == "remote"
+    assert result["mcp"]["remote-http"]["url"] == "http://localhost:9876/mcp"
 
 
 def test_sync_to_locations_creates_parent_dirs(temp_home, monkeypatch_home):
@@ -199,7 +202,7 @@ def test_patch_claude_code_config_merges_servers(
 
     # Master servers should also be present
     assert "filesystem" in result["mcpServers"]
-    assert "github" in result["mcpServers"]
+    assert "env-server" in result["mcpServers"]
 
 
 def test_patch_claude_code_config_passes_url_servers_through(
@@ -213,16 +216,88 @@ def test_patch_claude_code_config_passes_url_servers_through(
 
     master = {
         "servers": {
-            "xcode": {"type": "http", "url": "http://127.0.0.1:9876/mcp"},
+            "remote-http": {"type": "http", "url": "http://127.0.0.1:9876/mcp"},
         }
     }
     patch_claude_code_config(master)
 
     result = json.loads(claude_path.read_text())
-    assert result["mcpServers"]["xcode"] == {
+    assert result["mcpServers"]["remote-http"] == {
         "type": "http",
         "url": "http://127.0.0.1:9876/mcp",
     }
+
+
+def test_patch_claude_code_config_removes_retired_servers(
+    temp_home, monkeypatch_home, claude_config_template
+):
+    """Retired server names are removed from old in-place Claude configs."""
+    claude_path = temp_home / ".claude.json"
+    template = dict(claude_config_template)
+    template["mcpServers"] = {
+        "github": {"command": "uv", "args": ["run", "github-mcp"]},
+        "xcode": {"type": "http", "url": "http://localhost:9876/mcp"},
+        "old_server": {"command": "old", "args": ["old"]},
+    }
+    claude_path.write_text(json.dumps(template, indent=2), encoding="utf-8")
+
+    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
+    patch_claude_code_config({"servers": {}})
+
+    result = json.loads(claude_path.read_text())
+    assert "github" not in result["mcpServers"]
+    assert "xcode" not in result["mcpServers"]
+    assert "old_server" in result["mcpServers"]
+
+
+def test_transform_filters_retired_mcp_servers():
+    """Retired server names are not emitted to generated target configs."""
+    master = {
+        "servers": {
+            "github": {"command": "uv", "args": ["run", "github-mcp"]},
+            "xcode": {"type": "http", "url": "http://localhost:9876/mcp"},
+            "kept": {"command": "node", "args": ["server.js"]},
+        }
+    }
+
+    assert "github" not in transform_to_opencode_format(master)["mcp"]
+    assert "xcode" not in transform_to_opencode_format(master)["mcp"]
+    assert "kept" in transform_to_opencode_format(master)["mcp"]
+
+
+def test_target_native_overrides_cannot_readd_retired_servers(
+    temp_home, monkeypatch_home
+):
+    """Per-tool native override blocks cannot reintroduce retired server names."""
+    master_path = temp_home / ".config" / "mcp" / "mcp-master.json"
+    master_path.parent.mkdir(parents=True, exist_ok=True)
+    master_path.write_text(json.dumps({"servers": {}}, indent=2), encoding="utf-8")
+
+    override_dir = temp_home / ".config" / "mcp" / "overrides"
+    override_dir.mkdir(parents=True, exist_ok=True)
+    (override_dir / "opencode.json").write_text(
+        json.dumps(
+            {
+                "mcp": {
+                    "github": {"type": "local", "command": ["github-mcp"]},
+                    "xcode": {"type": "remote", "url": "http://localhost:9876/mcp"},
+                    "kept": {"type": "local", "command": ["kept-mcp"]},
+                }
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
+    assert run_sync(master_path=master_path, home=temp_home) == 0
+
+    opencode = json.loads(
+        (temp_home / ".config" / "opencode" / "opencode.json").read_text()
+    )
+    assert "github" not in opencode["mcp"]
+    assert "xcode" not in opencode["mcp"]
+    assert "kept" in opencode["mcp"]
 
 
 def test_empty_master_config_handling(master_config_file, temp_home, monkeypatch_home):
@@ -475,6 +550,42 @@ TOKEN = "old"
     assert "[mcp_servers.filesystem]" in result
 
 
+def test_sync_codex_mcp_removes_retired_servers(temp_home, monkeypatch_home):
+    """Retired server names are removed even from old unmarked Codex tables."""
+    codex_dir = temp_home / ".codex"
+    codex_dir.mkdir(parents=True, exist_ok=True)
+    codex_path = codex_dir / "config.toml"
+    codex_path.write_text(
+        """model = "gpt-5.4"
+
+[mcp_servers.github]
+command = "uv"
+args = ["run", "github-mcp"]
+
+[mcp_servers.xcode]
+url = "http://localhost:9876/mcp"
+
+[mcp_servers.xcode.env]
+TOKEN = "old"
+
+[mcp_servers.third_party]
+command = "keep"
+args = []
+""",
+        encoding="utf-8",
+    )
+
+    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
+    sync_codex_mcp({"servers": {}})
+
+    result = codex_path.read_text(encoding="utf-8")
+    assert "[mcp_servers.github]" not in result
+    assert "[mcp_servers.xcode]" not in result
+    assert "[mcp_servers.xcode.env]" not in result
+    assert 'TOKEN = "old"' not in result
+    assert "[mcp_servers.third_party]" in result
+
+
 def test_sync_codex_mcp_preserves_third_party_servers_after_plain_header(
     temp_home, monkeypatch_home
 ):
@@ -582,7 +693,7 @@ def test_sync_codex_mcp_url_server(temp_home, monkeypatch_home):
     """URL-based servers render as `url = "..."` with no command/args."""
     master = {
         "servers": {
-            "xcode": {"type": "http", "url": "http://localhost:9876/mcp"},
+            "remote-http": {"type": "http", "url": "http://localhost:9876/mcp"},
         }
     }
     monkeypatch_home.setattr(Path, "home", lambda: temp_home)
@@ -590,15 +701,15 @@ def test_sync_codex_mcp_url_server(temp_home, monkeypatch_home):
 
     result = (temp_home / ".codex" / "config.toml").read_text(encoding="utf-8")
 
-    assert "[mcp_servers.xcode]" in result
+    assert "[mcp_servers.remote-http]" in result
     assert 'url = "http://localhost:9876/mcp"' in result
     # No stdio fields for a URL server
-    xcode_section = result.split("[mcp_servers.xcode]", 1)[1]
-    # Next section boundary (or EOF) bounds xcode's block
-    xcode_block = xcode_section.split("[mcp_servers.", 1)[0]
-    assert "command =" not in xcode_block
-    assert "args =" not in xcode_block
-    assert "environment =" not in xcode_block
+    remote_section = result.split("[mcp_servers.remote-http]", 1)[1]
+    # Next section boundary (or EOF) bounds the remote server block
+    remote_block = remote_section.split("[mcp_servers.", 1)[0]
+    assert "command =" not in remote_block
+    assert "args =" not in remote_block
+    assert "environment =" not in remote_block
 
 
 def test_sync_codex_mcp_mixed_stdio_and_url(temp_home, monkeypatch_home, master_config):
@@ -607,7 +718,7 @@ def test_sync_codex_mcp_mixed_stdio_and_url(temp_home, monkeypatch_home, master_
         **master_config,
         "servers": {
             **master_config["servers"],
-            "xcode": {"type": "http", "url": "http://localhost:9876/mcp"},
+            "remote-http": {"type": "http", "url": "http://localhost:9876/mcp"},
         },
     }
     monkeypatch_home.setattr(Path, "home", lambda: temp_home)
@@ -624,9 +735,11 @@ def test_sync_codex_mcp_mixed_stdio_and_url(temp_home, monkeypatch_home, master_
     assert "url =" not in fs_block
 
     # URL server uses url=
-    xcode_block = result.split("[mcp_servers.xcode]", 1)[1].split("[mcp_servers.", 1)[0]
-    assert 'url = "http://localhost:9876/mcp"' in xcode_block
-    assert "command =" not in xcode_block
+    remote_block = result.split("[mcp_servers.remote-http]", 1)[1].split(
+        "[mcp_servers.", 1
+    )[0]
+    assert 'url = "http://localhost:9876/mcp"' in remote_block
+    assert "command =" not in remote_block
 
 
 def _write_codex_config(temp_home: Path, text: str) -> Path:
