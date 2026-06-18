@@ -1,7 +1,24 @@
 #!/usr/bin/env zsh
 
-# Update all the AI CLI tools like a degenerate
-alias burp='brew update && brew upgrade && npm install -g @github/copilot && npm install -g @openai/codex && claude update'
+# Update the brewed world + the AI CLI constellation via each tool's native
+# self-update subcommand. Each step runs independently — a transient registry
+# blip on one package shouldn't kill the rest of the chain. Failed steps are
+# collected and printed at the end so a quick `burp` makes its own diagnostics
+# obvious.
+function burp() {
+    local failed=()
+    claude update    || failed+=('claude')
+    codex update     || failed+=('codex')
+    copilot update   || failed+=('copilot')
+    brew update      || failed+=('brew update')
+    brew upgrade -y  || failed+=('brew upgrade')
+
+    if (( $#failed )); then
+        print -u2 "burp: failed: ${failed[*]}"
+        return 1
+    fi
+    print 'burp: ok'
+}
 
 # STS assume-role helper. Generic — requires existing AWS credentials in the
 # environment for the source account (e.g. from aws-config-gen or any other
