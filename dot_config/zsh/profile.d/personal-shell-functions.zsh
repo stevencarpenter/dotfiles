@@ -1,7 +1,25 @@
 #!/usr/bin/env zsh
 
-# Update all the AI CLI tools like a degenerate
-alias burp='brew update && brew upgrade && claude update && opencode upgrade'
+# Update the brewed world + the AI CLI constellation via each tool's native
+# self-update subcommand. Each step runs independently — a transient registry
+# blip on one package shouldn't kill the rest of the chain. Failed steps are
+# collected and printed at the end so a quick `burp` makes its own diagnostics
+# obvious.
+function burp() {
+    local failed=()
+    claude update    || failed+=('claude')
+    codex update     || failed+=('codex')
+    copilot update   || failed+=('copilot')
+    opencode upgrade || failed+=('opencode')
+    brew update      || failed+=('brew update')
+    brew upgrade -y  || failed+=('brew upgrade')
+
+    if (( $#failed )); then
+        print -u2 "burp: failed: ${failed[*]}"
+        return 1
+    fi
+    print 'burp: ok'
+}
 
 # Jump into the long-lived tmux session on the i9 home server. mosh survives
 # laptop sleep / network roam; `tmux new -A -s main` attaches-or-creates so you

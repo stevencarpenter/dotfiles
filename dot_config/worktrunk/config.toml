@@ -78,7 +78,7 @@ squash-template = """
  </style>
 
  <commits branch="{{ branch }}" target="{{ target_branch }}">
- {% for commit in commits %}- {{ commit }}
+ {% for commit in commit_details %}- {{ commit }}
  {% endfor %}</commits>
 
  <diffstat>

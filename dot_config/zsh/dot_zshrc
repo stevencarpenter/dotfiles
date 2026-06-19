@@ -76,18 +76,14 @@ fi
 path=(
     $HOME/.opencode/bin
     $HOME/.local/bin
-    ~/bin
     ${HOMEBREW_PREFIX:-/opt/homebrew}/opt/libpq/bin(N-/)
     "/Applications/IntelliJ IDEA.app/Contents/MacOS"
     $HOME/.lmstudio/bin
     $HOME/.amp/bin
     $HOME/go/bin
+    $HOME/.bun/bin
     $path
 )
-
-# bun
-export BUN_INSTALL="$HOME/.bun"
-path=($BUN_INSTALL/bin $path)
 
 export PATH
 
@@ -318,7 +314,7 @@ function gcam() {
     return 127
   fi
   local msg rc
-  msg="$(claude -p "generate commit message and only return the message in plaintext with no quoting, newlines, emoji, or formatting")"
+  msg="$(claude -p "generate commit message and only return the message in plaintext with no quoting, newlines, emoji, or formatting. Strictly plaintext formatted for direct use as a conventional commit compliant git commit message. The commit should encompass all current changes in the repo, so consider all changed files and their diffs when generating the message. Keep it concise, ideally under 72 characters, but include enough detail to be informative. Do not include any metadata, explanations, or formatting—just the raw commit message text." 2>/dev/null))"
   rc=$?
   if (( rc != 0 )); then
     echo "gcam: claude exited with status $rc; aborting commit" >&2

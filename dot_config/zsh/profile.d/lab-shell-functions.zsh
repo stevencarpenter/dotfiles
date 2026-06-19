@@ -11,12 +11,13 @@
 # obvious.
 function burp() {
     local failed=()
-    brew update      || failed+=('brew update')
-    brew upgrade     || failed+=('brew upgrade')
     claude update    || failed+=('claude')
     codex update     || failed+=('codex')
     copilot update   || failed+=('copilot')
     opencode upgrade || failed+=('opencode')
+    brew update      || failed+=('brew update')
+    brew upgrade -y  || failed+=('brew upgrade')
+
     if (( $#failed )); then
         print -u2 "burp: failed: ${failed[*]}"
         return 1
