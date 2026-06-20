@@ -8,6 +8,14 @@ echo "Running macOS setup..."
 brew bundle --global check --verbose || true
 brew doctor || true
 
+# Assert Xcode CLT headers and license
+if ! xcode-select -p &>/dev/null; then
+    echo "Installing Xcode Command Line Tools..."
+    xcode-select --install
+fi
+# Accept license non-interactively (no-op if already accepted)
+sudo xcodebuild -license accept 2>/dev/null || true
+
 # Install rustup if not present
 if ! command -v rustup &> /dev/null; then
     echo "Installing rustup..."
