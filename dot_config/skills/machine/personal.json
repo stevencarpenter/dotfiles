@@ -1,6 +1,10 @@
 {
   "skills": {
     "using-hippo-brain": { "source": "personal" },
-    "monitoring-hippo": { "source": "personal" }
+    "monitoring-hippo": { "source": "personal" },
+    "journaling": { "source": "personal" },
+    "record-decision": { "source": "personal" },
+    "record-todo": { "source": "personal" },
+    "wrap-session": { "source": "personal" }
   }
 }
