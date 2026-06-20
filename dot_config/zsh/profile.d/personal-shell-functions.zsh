@@ -47,3 +47,26 @@ esac
 
 # Mill build tool completions
 #source ~/.local/share/mill/completion/mill-completion.sh # MILL_SOURCE_COMPLETION_LINE
+
+# Verify key dev toolchain binaries are native ARM64 (not Rosetta-translated)
+check-arch() {
+  local tools=(node python3 go rustc java ruby)
+  local found_issue=0
+  for t in "${tools[@]}"; do
+    local bin
+    bin=$(command -v "$t" 2>/dev/null) || continue
+    local arch
+    arch=$(file "$bin" | grep -o 'arm64\|x86_64' | head -1)
+    if [[ "$arch" == "x86_64" ]]; then
+      echo "⚠️  $t ($bin): x86_64 — running under Rosetta"
+      found_issue=1
+    elif [[ "$arch" == "arm64" ]]; then
+      echo "✅ $t ($bin): arm64"
+    else
+      echo "?  $t ($bin): unknown arch ($arch)"
+    fi
+  done
+  if (( found_issue == 0 )); then
+    echo "All checked binaries are native ARM64."
+  fi
+}

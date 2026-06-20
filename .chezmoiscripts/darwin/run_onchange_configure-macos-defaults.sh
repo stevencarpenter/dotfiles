@@ -14,6 +14,7 @@
 #   5. Menu bar clock      — date/weekday (SketchyBar owns time display)
 #   6. Trackpad            — tap-to-click, gestures, three-finger drag
 #   7. Activity Monitor    — default category
+#   8. Spotlight exclusions — .metadata_never_index in ~/projects and ~/programs
 #
 # Not managed here (TCC-protected, requires manual one-time setup in System
 # Settings):
@@ -121,6 +122,16 @@ defaults write com.apple.driver.AppleBluetoothMultitouch.trackpad TrackpadFourFi
 # Hierarchically, 102=System, 103=Other User, 104=Active, 105=Inactive,
 # 106=Windowed, 107=Selected Processes, 108=Apps in last 8 hours).
 defaults write com.apple.ActivityMonitor ShowCategory -int 100
+
+# ─── 8. Spotlight exclusions ──────────────────────────────────────────────────
+
+# Drop .metadata_never_index sentinel files so mds never descends into these
+# high-churn dev trees. More reliable than the System Settings UI exclusion
+# list, which has a known regression on macOS 27 beta.
+for dir in "$HOME/projects" "$HOME/programs"; do
+  mkdir -p "$dir"
+  touch "$dir/.metadata_never_index"
+done
 
 # ─── Apply changes ────────────────────────────────────────────────────────────
 

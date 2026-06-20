@@ -91,6 +91,11 @@ export PATH
 export GPG_TTY=$TTY
 export ENABLE_LSP_TOOL=1
 
+# ─── Limits ───────────────────────────────────────────────────────────────────
+# Raise open file descriptor limit (launchd plist sets it at boot; this covers
+# the current session and any tmux panes opened before a reboot).
+ulimit -n 65536
+
 # === 4. Source Encrypted/Local Files ===
 # Base secrets (always loaded on all machines)
 z4h source ~/.env.zsh
