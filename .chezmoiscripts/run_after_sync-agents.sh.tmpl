@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Post-apply hook: install the AI agent registry into each tool's agents dir.
+# Triggered by: chezmoi apply
+#
+# Self-gates on the `agents` machine capability — on machines where
+# agents=false the body collapses to a no-op. The agent-registry repo is
+# cloned to ~/.local/share/agent-registry by .chezmoiexternal.toml.tmpl; this
+# hook runs that repo's installer, which fans the canonical agents out to:
+#   ~/.claude/agents          (markdown + frontmatter)
+#   ~/.codex/agents           (TOML)
+#   ~/.config/opencode/agents (native subagent markdown)
+#   ~/.config/github-copilot/global-agents-instructions.md (consolidated)
+# The installer is manifest-based: it prunes only files it previously wrote and
+# never touches hand-authored agents in those directories.
+
+{{ if not (index .machines .machine).agents -}}
+echo "Agent registry install skipped (machine capability agents=false)."
+exit 0
+{{- else -}}
+
+REGISTRY_PROJECT="${HOME}/.local/share/agent-registry"
+STRICT_MODE="${AGENT_SYNC_STRICT:-0}"
+
+fail_or_warn() {
+  local message="$1"
+  if [[ "${STRICT_MODE}" == "1" ]]; then
+    echo "Error: ${message}" >&2
+    exit 1
+  fi
+  echo "Warning: ${message}" >&2
+  exit 0
+}
+
+if ! command -v uv >/dev/null 2>&1; then
+  fail_or_warn "uv is not installed; skipping agent registry install."
+fi
+
+# The external clone lands the repo here; if the clone failed (no network / no
+# auth on first apply) the project file is absent and we warn instead of erroring.
+if [[ ! -f "${REGISTRY_PROJECT}/pyproject.toml" ]]; then
+  fail_or_warn "agent registry not found at ${REGISTRY_PROJECT}; external clone may have failed."
+fi
+
+if ! uv run --project "${REGISTRY_PROJECT}" agent-registry install; then
+  fail_or_warn "Agent registry install failed."
+fi
+
+echo "Agent registry installed."
+{{- end }}

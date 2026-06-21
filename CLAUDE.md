@@ -171,6 +171,18 @@ Current capabilities (one row per machine in `machines.toml`):
   and build tooling (gradle, goreleaser, pnpm) live in the global mise block now — they install on
   every machine and are not gated here. Currently work-only; `lab-mac` flips this on once homelab
   cluster-ops (k8s) actually moves there.
+- **`agent_journal`** — deploy the personal Obsidian agent-journal beta: `~/.config/agent-journal/`
+  config, the `agent-journal` / `agent-note` CLI wrappers in `~/.local/bin`, and the Claude
+  `Stop` lifecycle hook. Personal-only until the workflow proves out in daily use. Gated in
+  `.chezmoiignore` (skips `.config/agent-journal` + the two bin wrappers); the hook file ships via
+  the hook allowlist regardless but stays inert without the config.
+- **`agents`** — clone the personal agent-registry (`git@github.com:stevencarpenter/agents.git`) to
+  `~/.local/share/agent-registry` and run its installer, which fans the canonical agents out to each
+  tool's native format (Claude, Codex, opencode, Copilot). Personal-only — the registry is on the
+  user's personal GitHub (SSH) and the agents are personal content. Unlike most capabilities it has
+  no `.chezmoiignore` consumer (its payload is a cloned repo, not tracked source); instead it gates
+  the clone in `.chezmoiexternal.toml.tmpl` and the installer in
+  `.chezmoiscripts/run_after_sync-agents.sh.tmpl` (which self-gates to a no-op when off).
 
 > No `wireguard` capability is defined. The home network uses Tailscale (which speaks WireGuard
 > under the hood) for the "phone home" use case; if a future device needs a raw WG tunnel, add
