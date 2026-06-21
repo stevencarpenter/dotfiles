@@ -384,23 +384,20 @@ function _with_project_venv() {
   fi
 }
 
-# Print a token-usage audit for $provider's most recent session. Runs the auditor
-# in its own --project environment, so it is independent of any active venv.
+# Print a token-usage audit for $provider's most recent session. Uses the
+# standalone token-auditor uv tool (installed from
+# github.com/stevencarpenter/token-auditor), so it is independent of any active venv.
 function _audit_token_usage() {
   local wrapper_name="$1"
   local provider="$2"
   local use_cwd="$3"
 
-  local token_auditor_project="$HOME/.local/share/chezmoi/token_auditor"
-  if [[ ! -d "$token_auditor_project" ]]; then
-    echo "${wrapper_name}: project not found at $token_auditor_project" >&2
+  if ! command -v token-auditor >/dev/null 2>&1; then
+    echo "${wrapper_name}: token-auditor not installed (uv tool install git+https://github.com/stevencarpenter/token-auditor)" >&2
     return 0
   fi
 
-  local -a audit_cmd=(
-    uv run --project "$token_auditor_project"
-    token-auditor --provider "$provider"
-  )
+  local -a audit_cmd=(token-auditor --provider "$provider")
   if [[ "$use_cwd" == "1" ]]; then
     audit_cmd+=(--cwd "$PWD")
   fi

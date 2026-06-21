@@ -7,14 +7,16 @@ them here.
 ## What This Is
 
 A personal dotfiles repository managed by [Chezmoi](https://www.chezmoi.io/) for macOS. Secrets are
-encrypted with age (key sourced from 1Password). The repo also vendors three small Python tools
-(`mcp_sync/`, `aws_config_gen/`, `token_auditor/`) that ship alongside the dotfiles.
+encrypted with age (key sourced from 1Password). The repo also vendors two small Python tools
+(`mcp_sync/`, `aws_config_gen/`) that ship alongside the dotfiles. A third tool, `token-auditor`,
+was extracted to its own public repo (github.com/stevencarpenter/token-auditor) and is installed as
+a standalone uv tool by a post-apply hook.
 
 ## Commands
 
 All Python commands run from the repo root. Each tool is its own `uv` project.
 
-All three Python tools use PEP 735 `[dependency-groups]`; install dev deps with `--group dev`.
+Both vendored Python tools use PEP 735 `[dependency-groups]`; install dev deps with `--group dev`.
 
 ### MCP Sync (`mcp_sync/`)
 
@@ -45,16 +47,16 @@ uv run --project aws_config_gen --group dev pytest aws_config_gen/tests --cov=aw
 uv run --project aws_config_gen aws-config-gen
 ```
 
-### Token Auditor (`token_auditor/`)
+### Token Auditor (external — `token-auditor` uv tool)
+
+`token-auditor` (the auditor behind the `codax`/`claade`/`opencade` wrappers) now lives in its own
+repo: <https://github.com/stevencarpenter/token-auditor>. Lint/type/test run there, not here. The
+dotfiles pin it in `.chezmoidata/tools.toml` (`tools.token_auditor.version`; set to `"latest"` to
+track `main`) and install it via `.chezmoiscripts/run_onchange_install-token-auditor.sh.tmpl`.
 
 ```bash
-cd token_auditor
-uv sync --locked --group dev
-uv run ruff check .
-uv run ruff format --check .
-uv run ty check .
-uv run pytest -v          # 100% coverage required
-uv run token-auditor --help   # or `uv run codax --help`
+uv tool install git+https://github.com/stevencarpenter/token-auditor   # manual install / upgrade
+token-auditor --help                                                   # or `codax --help`
 ```
 
 ### Chezmoi
@@ -183,6 +185,13 @@ Current capabilities (one row per machine in `machines.toml`):
   no `.chezmoiignore` consumer (its payload is a cloned repo, not tracked source); instead it gates
   the clone in `.chezmoiexternal.toml.tmpl` and the installer in
   `.chezmoiscripts/run_after_sync-agents.sh.tmpl` (which self-gates to a no-op when off).
+- **`token_auditor`** — install the standalone `token-auditor` uv tool from its public repo
+  (`github.com/stevencarpenter/token-auditor`) via
+  `.chezmoiscripts/run_onchange_install-token-auditor.sh.tmpl`, putting `token-auditor` / `codax` on
+  PATH for the `codax`/`claade`/`opencade` shell wrappers. Pin lives in `.chezmoidata/tools.toml`
+  (`tools.token_auditor.version`; `"latest"` tracks `main`). Public `https` repo, so it installs on
+  every machine — the capability just lets a machine opt out. Like `agents`, no `.chezmoiignore`
+  consumer (the payload is an installed tool, not tracked source).
 
 > No `wireguard` capability is defined. The home network uses Tailscale (which speaks WireGuard
 > under the hood) for the "phone home" use case; if a future device needs a raw WG tunnel, add
@@ -198,7 +207,7 @@ capability: add the key to every row in `machines.toml` and gate the relevant te
 - `dot_config/mcp/` — Master MCP config + per-machine overlays (per-tool override layer wired in `sync.py`; no override files managed in-repo yet)
 - `mcp_sync/` — MCP fan-out tool (uv project, Python 3.14+, no runtime deps)
 - `aws_config_gen/` — AWS SSO profile generator (uv project, Python 3.14+)
-- `token_auditor/` — Token usage auditor / `codax` CLI (uv project, Python 3.14+, 100% coverage gate)
+- `.chezmoidata/tools.toml` — Version pins for externally-installed tools (e.g. `token-auditor`)
 - `.chezmoiscripts/` — Post-apply hooks (MCP sync, macOS setup)
 - `.chezmoidata/machines.toml` — Per-machine capability table (single source of truth for gating)
 - `dot_config/zsh/` — Zsh config; `encrypted_dot_env.age` holds API keys
@@ -231,7 +240,7 @@ Environment variables live in `dot_config/zsh/encrypted_dot_env.age`. To update:
 ## CI
 
 GitHub Actions in `.github/workflows/`:
-- `mcp-sync-ci.yml`, `aws-config-gen-ci.yml`, `token-auditor-ci.yml` — lint + test for each Python tool
+- `mcp-sync-ci.yml`, `aws-config-gen-ci.yml` — lint + test for each vendored Python tool (token-auditor's CI lives in its own repo now)
 - `dotfiles-hygiene-ci.yml` — repo-wide hygiene checks
 
 ## Style

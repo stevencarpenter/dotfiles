@@ -7,7 +7,7 @@
 .Trashes
 .fseventsd
 
-# Python (mcp_sync, aws_config_gen, token_auditor)
+# Python (mcp_sync, aws_config_gen)
 __pycache__/
 *.py[cod]
 *$py.class

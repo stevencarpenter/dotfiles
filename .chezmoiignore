@@ -73,7 +73,6 @@ private_dot_claude.json
 # leak into the home directory on every `chezmoi apply`.
 aws_config_gen
 mcp_sync
-token_auditor
 
 # Pyright config for the in-repo tools above. Consumed by the repo-root LSP
 # (Claude Code spawns one Pyright rooted here); it is not a dotfile, so keep

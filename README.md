@@ -147,10 +147,12 @@ Each is an isolated `uv` project (Python 3.14+, no runtime dependencies). See
 
 - `mcp_sync/` — MCP and skills fan-out
 - `aws_config_gen/` — AWS SSO profile generator
-- `token_auditor/` — AI-agent token/cost auditor (`codax` CLI), 100% coverage gate
+
+`token-auditor` (the `codax`/`claade`/`opencade` auditor) was extracted to
+[its own repo](https://github.com/stevencarpenter/token-auditor) and installs as a standalone uv
+tool; it is no longer vendored here.
 
 ```shell
 uv run --project mcp_sync --group dev pytest mcp_sync/tests
 uv run --project aws_config_gen --group dev pytest aws_config_gen/tests
-cd token_auditor && uv sync --locked --group dev && uv run pytest
 ```

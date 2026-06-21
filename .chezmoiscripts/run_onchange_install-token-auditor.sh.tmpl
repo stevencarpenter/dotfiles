@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Post-apply hook: install token-auditor as a standalone uv tool.
+# Triggered by: chezmoi apply.
+#
+# token-auditor used to be vendored at ~/.local/share/chezmoi/token_auditor and
+# run via `uv run --project`. It now lives in its own public repo
+# (github.com/stevencarpenter/token-auditor) and is installed here as a uv tool,
+# putting `token-auditor` / `codax` on PATH for the codax/claade/opencade shell
+# wrappers in dot_config/zsh/dot_zshrc.
+#
+# Self-gates on the `token_auditor` machine capability. As a run_onchange_ hook,
+# chezmoi re-runs it only when this rendered script changes: when the pinned
+# version in .chezmoidata/tools.toml changes (a bump upgrades in place), or —
+# when tracking "latest" — once a day (the date stamp below rotates the hash).
+
+{{ if not (index .machines .machine).token_auditor -}}
+echo "token-auditor install skipped (machine capability token_auditor=false)."
+exit 0
+{{- else -}}
+
+# Shared strict knob across the sync hooks (skills/mcp/agents/token-auditor):
+# set MCP_SYNC_STRICT=1 to make an install failure fail `chezmoi apply`.
+STRICT_MODE="${MCP_SYNC_STRICT:-0}"
+REPO_URL="git+https://github.com/stevencarpenter/token-auditor"
+{{ if eq (.tools.token_auditor.version | default "latest") "latest" -}}
+# Tracking latest: install from the default branch. The date stamp keeps this
+# script's hash rotating daily so run_onchange refreshes at most once per day.
+# latest @ {{ now | date "2006-01-02" }}
+INSTALL_REF="${REPO_URL}"
+{{- else -}}
+INSTALL_REF="${REPO_URL}@{{ .tools.token_auditor.version }}"
+{{- end }}
+
+fail_or_warn() {
+  local message="$1"
+  if [[ "${STRICT_MODE}" == "1" ]]; then
+    echo "Error: ${message}" >&2
+    exit 1
+  fi
+  echo "Warning: ${message}" >&2
+  exit 0
+}
+
+if ! command -v uv >/dev/null 2>&1; then
+  fail_or_warn "uv is not installed; skipping token-auditor install."
+fi
+
+# --force makes re-install idempotent and lets a version bump (or a daily latest
+# refresh) upgrade the installed tool in place.
+if ! uv tool install --force "${INSTALL_REF}"; then
+  fail_or_warn "token-auditor install failed (${INSTALL_REF})."
+fi
+
+echo "token-auditor installed (${INSTALL_REF})."
+{{- end }}
