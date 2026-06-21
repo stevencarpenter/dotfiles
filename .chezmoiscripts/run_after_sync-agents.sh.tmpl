@@ -45,7 +45,12 @@ if [[ ! -f "${REGISTRY_PROJECT}/pyproject.toml" ]]; then
   fail_or_warn "agent registry not found at ${REGISTRY_PROJECT}; external clone may have failed."
 fi
 
-if ! uv run --project "${REGISTRY_PROJECT}" agent-registry install; then
+# The registry is a uv *virtual* project (no [build-system]), so its
+# `agent-registry` console script is never built. Invoke the installer the way
+# the repo's justfile does — `python -m agent_registry.cli` — and use
+# `--directory` so the project root is the CWD (the module is only importable
+# from there; `--project` alone sets the env but not the working directory).
+if ! uv run --directory "${REGISTRY_PROJECT}" python -m agent_registry.cli install; then
   fail_or_warn "Agent registry install failed."
 fi
 
