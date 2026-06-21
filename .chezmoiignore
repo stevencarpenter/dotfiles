@@ -207,3 +207,13 @@ Library/LaunchAgents/com.user.xcode-mcp-proxy.plist
 {{ if not (index .machines .machine).skills }}
 .config/skills
 {{ end }}
+
+# Skip the personal agent-journal beta on machines that are not opted in. The
+# Claude hook file itself is still deployed through the hook allowlist above,
+# but the script self-gates on this config so it becomes inert without the
+# capability.
+{{ if not (index .machines .machine).agent_journal }}
+.config/agent-journal
+.local/bin/agent-note
+.local/bin/agent-journal
+{{ end }}

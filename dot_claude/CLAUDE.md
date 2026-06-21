@@ -59,3 +59,7 @@ Agent teams are enabled with **tmux mode** (`teammateMode: tmux`) — each agent
 Note: `mcp__idea__*`, `LSP`, `TeamCreate`, and other deferred tools require a `ToolSearch` call first to get their schema before invoking.
 
 This is a non-negotiable standing instruction.
+
+## Agent Journaling
+
+If `agent-journal` is configured, use the journaling skills to record material decisions, todos, blockers, completed changes, and session wrap-ups. Do not journal secrets, credentials, or trivial command chatter.

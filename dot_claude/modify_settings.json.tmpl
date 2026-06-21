@@ -56,6 +56,20 @@ managed=$(cat <<'JSON'
         ]
       }
     ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "{{ .chezmoi.homeDir }}/.claude/hooks/agent-journal-stop.sh" }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "{{ .chezmoi.homeDir }}/.claude/hooks/agent-journal-stop.sh" }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Edit|Write|MultiEdit",

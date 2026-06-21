@@ -54,6 +54,16 @@
 #            are not gated here. Distinct from `aws_sso` so AWS-only gates
 #            stay narrow; lab can flip this on later when homelab cluster-ops
 #            (k8s) actually moves there.
+#   agent_journal — deploy the personal Obsidian agent-journal beta config,
+#            CLI wrappers, and Claude lifecycle hook. Personal-only until the
+#            workflow has proved itself in daily use.
+#   agents — clone the personal agent-registry
+#            (git@github.com:stevencarpenter/agents.git) into
+#            ~/.local/share/agent-registry via .chezmoiexternal.toml.tmpl and
+#            run its installer (run_after_sync-agents.sh.tmpl), which fans the
+#            canonical agents out to each tool's native format (Claude, Codex,
+#            opencode, Copilot). Personal-only: the registry lives on the
+#            user's personal GitHub (SSH) and the agents are personal content.
 #
 # Note on VPN: there is intentionally no `wireguard` capability. The home
 # network uses Tailscale (which speaks WireGuard under the hood) for the
@@ -80,6 +90,8 @@ gui = true
 dev = true
 aws_sso = false
 infra = false
+agent_journal = true
+agents = true
 
 [machines.work-mac]
 tiling = true
@@ -90,6 +102,8 @@ gui = true
 dev = false
 aws_sso = true
 infra = true
+agent_journal = false
+agents = false
 
 [machines.lab-mac]
 # 2019 i9 Intel MacBook Pro, accessed via macOS Screen Share. Home-server
@@ -110,3 +124,5 @@ gui = true
 dev = false
 aws_sso = false
 infra = false
+agent_journal = false
+agents = false
