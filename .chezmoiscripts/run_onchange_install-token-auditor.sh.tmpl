@@ -24,7 +24,7 @@ exit 0
 # set MCP_SYNC_STRICT=1 to make an install failure fail `chezmoi apply`.
 STRICT_MODE="${MCP_SYNC_STRICT:-0}"
 REPO_URL="git+https://github.com/stevencarpenter/token-auditor"
-{{ if eq .tools.token_auditor.version "latest" -}}
+{{ if eq (.tools.token_auditor.version | default "latest") "latest" -}}
 # Tracking latest: install from the default branch. The date stamp keeps this
 # script's hash rotating daily so run_onchange refreshes at most once per day.
 # latest @ {{ now | date "2006-01-02" }}

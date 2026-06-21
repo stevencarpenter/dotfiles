@@ -8,7 +8,7 @@ set -euo pipefail
 root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 fail=0
 
-for tool in token_auditor mcp_sync aws_config_gen; do
+for tool in mcp_sync aws_config_gen; do
   testdir="$root/$tool/tests"
   [ -d "$testdir" ] || continue
 
