@@ -13,5 +13,5 @@
 [".local/share/agent-registry"]
     type = "git-repo"
     url = "git@github.com:stevencarpenter/agents.git"
-    refreshPeriod = "168h"  # Pull updates weekly
+    refreshPeriod = "1h"  # Pull hourly — registry is actively curated (force now: chezmoi apply --refresh-externals)
 {{- end }}
