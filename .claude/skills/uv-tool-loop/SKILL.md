@@ -1,13 +1,14 @@
 ---
 name: uv-tool-loop
-description: Run the correct per-tool uv lint/type-check/test loop for the 3 vendored Python tools on the first try, and guard that tests never write real machine state. USE THIS SKILL whenever you edit or test a file under `token_auditor/`, `mcp_sync/`, or `aws_config_gen/`; whenever you need to lint/type-check/test a vendored tool before opening a PR; whenever you hit "ModuleNotFoundError: No module named mcp_sync.skills", "ImportError: cannot import ..." in a just-added test, "I001 Import block is un-sorted" on a test file, or "No module named toml" (system python, not the venv); whenever the user asks "run the tests for the python tools", "which uv invocation does this tool use", "token_auditor coverage", or says "the tests wrote a real config file". Bias toward triggering on edits to these three trees: each tool has a DIFFERENT invocation (token_auditor: `cd token_auditor && uv sync --locked --group dev` then `uv run ty check . && uv run pytest` at a 100%-coverage gate; mcp_sync / aws_config_gen: `uv run --project <tool> --group dev <cmd>`, NO ty step, NO coverage gate). Enforce TDD ordering (create+export the module symbol BEFORE importing it in tests), run `ruff check --fix && ruff format` on new files BEFORE pytest, and assert tool tests use tmp_path / monkeypatched HOME and NEVER touch real `~/.aws` or other live `$HOME` state. All uv calls run with the sandbox disabled (see sandbox-preflight).
+description: Run the correct per-tool uv lint/test loop for the 2 vendored Python tools on the first try, and guard that tests never write real machine state. USE THIS SKILL whenever you edit or test a file under `mcp_sync/` or `aws_config_gen/`; whenever you need to lint/test a vendored tool before opening a PR; whenever you hit "ModuleNotFoundError: No module named mcp_sync.skills", "ImportError: cannot import ..." in a just-added test, "I001 Import block is un-sorted" on a test file, or "No module named toml" (system python, not the venv); whenever the user asks "run the tests for the python tools", "which uv invocation does this tool use", or says "the tests wrote a real config file". Both tools share one invocation form: `uv run --project <tool> --group dev <cmd>` (ruff + pytest with a coverage report, NO ty step, NO 100% gate). Enforce TDD ordering (create+export the module symbol BEFORE importing it in tests), run `ruff check --fix && ruff format` on new files BEFORE pytest, and assert tool tests use tmp_path / monkeypatched HOME and NEVER touch real `~/.aws` or other live `$HOME` state. All uv calls run with the sandbox disabled (see sandbox-preflight). token-auditor was de-vendored to its own repo (github.com/stevencarpenter/token-auditor) and is no longer covered here.
 ---
 
 # uv tool loop
 
-Three uv projects ride along in this repo and they do **not** share an invocation. Run the
-right lint/type/test sequence for the tool you touched, in the right order, with tests
-isolated from real machine state.
+Two uv projects ride along in this repo (`mcp_sync`, `aws_config_gen`). They now share one
+invocation form (`uv run --project <tool> --group dev`), but each still has its own paths and the
+test-isolation rules below still bite. Run the right lint/test sequence with tests isolated from
+real machine state.
 
 ## Why this skill exists
 
@@ -21,7 +22,7 @@ are documented but not converting to first-try behavior; this skill makes the pe
 and the isolation guard explicit.
 
 > `mcp-sync-verify` covers the mcp_sync **fan-out pipeline** (sandbox-HOME dry-run + diff).
-> This skill covers the **dev loop** (lint/type/test) for all three tools. Different jobs.
+> This skill covers the **dev loop** (lint/test) for both tools. Different jobs.
 
 ## The recipe (per tool)
 
@@ -33,7 +34,6 @@ bash .claude/skills/uv-tool-loop/scripts/tool_ci.sh <path-under-a-tool>
 
 | Tool | Invocation | ty? | coverage gate |
 |---|---|:---:|---|
-| `token_auditor` | `cd token_auditor && uv sync --locked --group dev`, then `uv run ruff check .` / `uv run ruff format --check .` / `uv run ty check .` / `uv run pytest -v` | **yes** | **100% required** |
 | `mcp_sync` | `uv run --project mcp_sync --group dev ruff check mcp_sync/src mcp_sync/tests` / `uv run --project mcp_sync --group dev ruff format --check mcp_sync/src mcp_sync/tests` / `uv run --project mcp_sync --group dev pytest mcp_sync/tests --cov=mcp_sync --cov-report=term-missing` | no | report only |
 | `aws_config_gen` | `uv run --project aws_config_gen --group dev ruff check aws_config_gen/src aws_config_gen/tests` / `uv run --project aws_config_gen --group dev ruff format --check aws_config_gen/src aws_config_gen/tests` / `uv run --project aws_config_gen --group dev pytest aws_config_gen/tests --cov=aws_config_gen --cov-report=term-missing` | no | report only |
 

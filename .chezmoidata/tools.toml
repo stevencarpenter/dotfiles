@@ -1,0 +1,8 @@
+# Pins for tools the dotfiles install from their own repos (vs. vendor in-tree).
+# Consumed by the .chezmoiscripts/run_onchange_install-*.sh.tmpl install hooks.
+
+[tools.token_auditor]
+# Git ref the install hook pins to. A tag (e.g. "v0.1.0") tracks a fixed
+# release and upgrades in place whenever this value changes. Set to "latest"
+# to track the default branch (main); the hook then refreshes at most daily.
+version = "v0.1.0"

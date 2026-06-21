@@ -8,22 +8,11 @@ set -euo pipefail
 
 path="${1:-}"
 if [ -z "$path" ]; then
-  echo "usage: tool_ci.sh <path-under-token_auditor|mcp_sync|aws_config_gen>" >&2
+  echo "usage: tool_ci.sh <path-under-mcp_sync|aws_config_gen>" >&2
   exit 2
 fi
 
 case "$path" in
-  token_auditor/*|*/token_auditor/*|token_auditor)
-    cat <<'EOF'
-# token_auditor — own dir, uv sync, ruff, ty, pytest @ 100% coverage gate
-cd token_auditor
-uv sync --locked --group dev
-uv run ruff check .
-uv run ruff format --check .
-uv run ty check .
-uv run pytest -v
-EOF
-    ;;
   mcp_sync/*|*/mcp_sync/*|mcp_sync)
     cat <<'EOF'
 # mcp_sync — --project form; ruff + pytest with coverage report (no ty, no 100% gate)
@@ -41,7 +30,7 @@ uv run --project aws_config_gen --group dev pytest aws_config_gen/tests --cov=aw
 EOF
     ;;
   *)
-    echo "ERROR: '$path' is not under token_auditor/, mcp_sync/, or aws_config_gen/." >&2
+    echo "ERROR: '$path' is not under mcp_sync/ or aws_config_gen/." >&2
     echo "For the mcp_sync FAN-OUT pipeline (generated configs / sandbox-HOME diff), use mcp-sync-verify instead." >&2
     exit 1
     ;;
