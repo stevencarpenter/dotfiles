@@ -1740,7 +1740,7 @@ typeset -g POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(
   aws
   kubecontext
   dir
-  jj
+  jj_status
   vcs
   virtualenv
   prompt_char
