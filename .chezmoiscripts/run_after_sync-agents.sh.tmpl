@@ -21,7 +21,9 @@ exit 0
 {{- else -}}
 
 REGISTRY_PROJECT="${HOME}/.local/share/agent-registry"
-STRICT_MODE="${AGENT_SYNC_STRICT:-0}"
+# Shared strict knob across all sync hooks (skills/mcp/agents): set
+# MCP_SYNC_STRICT=1 to make a sync failure fail `chezmoi apply`.
+STRICT_MODE="${MCP_SYNC_STRICT:-0}"
 
 fail_or_warn() {
   local message="$1"
