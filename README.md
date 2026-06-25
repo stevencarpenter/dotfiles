@@ -91,7 +91,7 @@ macOS Screen Share.
 
 ## Dynamic configuration for AI agents
 
-Three post-apply hooks regenerate machine-specific config so a single source tree fans out to
+Four post-apply hooks regenerate machine-specific config so a single source tree fans out to
 whatever tools a given machine runs. Each hook is a no-op where its capability is off, warns rather
 than fails on missing `uv` so first boot can continue, and fails fast when `MCP_SYNC_STRICT=1`.
 
@@ -101,6 +101,10 @@ than fails on missing `uv` so first boot can continue, and fails fast when `MCP_
   GitHub is a Claude Code plugin (`github@claude-plugins-official`), not an MCP server.
 - **Skills sync** (`sync-skills`, `skills` capability) — populates `~/.claude/skills/` from vendored
   upstream skills and personal skills, with per-machine overlays.
+- **Agent registry sync** (`agents` capability) — clones `stevencarpenter/agents` into
+  `~/.local/share/agent-registry`, then installs its generated Claude, Codex, OpenCode, and Copilot
+  agents. After landing registry changes, refresh the external clone with
+  `MCP_SYNC_STRICT=1 chezmoi apply --refresh-externals` so live `~/.claude/agents` is updated.
 - **AWS SSO config** (`aws_config_gen/`, `aws_sso` capability) — generates `~/.aws/config` from SSO
   profiles (work only).
 
@@ -109,6 +113,7 @@ Run any of them by hand:
 ```shell
 uv run --project ~/.local/share/chezmoi/mcp_sync sync-mcp-configs
 uv run --project ~/.local/share/chezmoi/mcp_sync sync-skills
+uv run --directory ~/.local/share/agent-registry python -m agent_registry.cli install
 uv run --project ~/.local/share/chezmoi/aws_config_gen aws-config-gen
 ```
 

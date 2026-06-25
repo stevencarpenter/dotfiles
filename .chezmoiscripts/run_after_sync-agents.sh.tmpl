@@ -35,6 +35,16 @@ fail_or_warn() {
   exit 0
 }
 
+count_matching_files() {
+  local dir="$1"
+  local pattern="$2"
+  if [[ ! -d "${dir}" ]]; then
+    printf '0'
+    return
+  fi
+  find "${dir}" -maxdepth 1 -type f -name "${pattern}" | wc -l | tr -d ' '
+}
+
 if ! command -v uv >/dev/null 2>&1; then
   fail_or_warn "uv is not installed; skipping agent registry install."
 fi
@@ -54,5 +64,60 @@ if ! uv run --directory "${REGISTRY_PROJECT}" python -m agent_registry.cli insta
   fail_or_warn "Agent registry install failed."
 fi
 
-echo "Agent registry installed."
+registry_commit="$(git -C "${REGISTRY_PROJECT}" rev-parse --short HEAD 2>/dev/null || printf 'unknown')"
+claude_count="$(count_matching_files "${HOME}/.claude/agents" '*.md')"
+codex_count="$(count_matching_files "${HOME}/.codex/agents" '*.toml')"
+opencode_count="$(count_matching_files "${HOME}/.config/opencode/agents" '*.md')"
+copilot_count="$(count_matching_files "${HOME}/.config/github-copilot" 'global-agents-instructions.md')"
+
+echo "Agent registry installed from ${registry_commit}."
+echo "Installed agent counts: claude=${claude_count} codex=${codex_count} opencode=${opencode_count} copilot=${copilot_count}"
+
+if ! violations="$(
+  uv run --directory "${REGISTRY_PROJECT}" python - "${HOME}/.claude/agents" <<'PY'
+from pathlib import Path
+import sys
+
+root = Path(sys.argv[1])
+builtins = {
+    "Read",
+    "Write",
+    "Edit",
+    "MultiEdit",
+    "NotebookEdit",
+    "Bash",
+    "Glob",
+    "Grep",
+    "LS",
+}
+violations: list[str] = []
+
+for path in sorted(root.glob("*.md")):
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        violations.append(f"{path.name}: cannot read: {exc}")
+        continue
+    if not text.startswith("---\n"):
+        continue
+    try:
+        frontmatter = text[4:].split("\n---\n", 1)[0]
+    except ValueError:
+        continue
+    for line_number, line in enumerate(frontmatter.splitlines(), start=2):
+        if not line.startswith("tools:"):
+            continue
+        tools = [part.strip() for part in line.split(":", 1)[1].split(",") if part.strip()]
+        if tools and all(tool in builtins for tool in tools):
+            violations.append(f"{path.name}:{line_number}: {line}")
+
+if violations:
+    print("\n".join(violations))
+    sys.exit(1)
+PY
+)"; then
+  fail_or_warn "Claude agents contain built-in-only tools allowlists:
+${violations}"
+fi
+
 {{- end }}
