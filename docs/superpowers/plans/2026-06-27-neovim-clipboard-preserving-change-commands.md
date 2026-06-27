@@ -53,7 +53,7 @@ Expected: exit status 0 with no assertion output.
 Run:
 
 ```bash
-stylua --check dot_config/nvim/lua/config/keymaps.lua
+pre-commit run --files dot_config/nvim/lua/config/keymaps.lua
 git diff --check -- dot_config/nvim/lua/config/keymaps.lua
 ```
 
