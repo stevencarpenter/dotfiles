@@ -18,6 +18,9 @@
 #            window manager stack). Headless / Screen Share boxes set this
 #            false because point-and-click + native macOS windowing is
 #            preferred there.
+#   sketchybar_workspace_badges — allow SketchyBar workspace app icons to query
+#            LaunchServices via lsappinfo for dock notification dots. Keep this
+#            off on machines where LaunchServices is under triage.
 #   atuin  — deploy ~/.config/atuin/config.toml pointing at the self-hosted
 #            atuin server (homelab repo: services/atuin/). Off on work
 #            machines so corporate shells never sync history to the home lab.
@@ -82,14 +85,11 @@
 # `(index .machines .machine).<capability>`.
 
 [machines.personal-mac]
-# tiling is OFF here despite this being a GUI machine: the M5 personal MacBook
-# runs the macOS 27.0 beta, which is incompatible with aerospace + sketchybar +
-# borders (crashes / broken windowing). Disabling the capability keeps the
-# tiling stack from installing, deploying config, or being auto-started by
-# .chezmoiscripts/darwin/run_onchange_after_start-tiling-stack.sh on apply.
-# TODO(tiling): flip back to true once macOS 27 is stable and the stack works
-# again (greppable marker so this temporary beta workaround resurfaces).
-tiling = false
+# Tiling stays enabled for the macOS 27 diagnostic path, but workspace dock
+# badge queries are disabled below to remove the lsappinfo/LaunchServices path
+# implicated in the beta crash logs.
+tiling = true
+sketchybar_workspace_badges = false
 atuin = true
 mcp = true
 skills = true
@@ -103,6 +103,7 @@ token_auditor = true
 
 [machines.work-mac]
 tiling = true
+sketchybar_workspace_badges = true
 atuin = false
 mcp = true
 skills = true
@@ -126,6 +127,7 @@ token_auditor = true
 # here. Flip `gui = false` once stand-up is done and Screen Share use
 # tapers off.
 tiling = false
+sketchybar_workspace_badges = false
 atuin = true
 mcp = true
 skills = true

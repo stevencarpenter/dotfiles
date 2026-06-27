@@ -28,6 +28,13 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/icon_map.sh"
 source "$SCRIPT_DIR/app_badge.sh"
 
+machine_env="$SCRIPT_DIR/../machine.env"
+if [[ -r "$machine_env" ]]; then
+  # shellcheck disable=SC1090
+  source "$machine_env"
+fi
+SKETCHYBAR_WORKSPACE_BADGES="${SKETCHYBAR_WORKSPACE_BADGES:-1}"
+
 # ─── App → Brand color map ───────────────────────────────────────────────────
 
 color_for_app() {
@@ -83,7 +90,15 @@ color_for_app() {
 # ever breaks, badges go blank for this tick instead of misattributing.
 declare -A BADGE_CACHE
 
+workspace_badges_enabled() {
+  case "${SKETCHYBAR_WORKSPACE_BADGES:-1}" in
+    0|false|False|FALSE|no|No|NO|off|Off|OFF) return 1 ;;
+    *) return 0 ;;
+  esac
+}
+
 prefetch_badges() {
+  workspace_badges_enabled || return 0
   local apps=("$@")
   (( ${#apps[@]} == 0 )) && return
   local args=() app
@@ -108,6 +123,7 @@ prefetch_badges() {
 
 # Normalizes the prefetched raw label into badge_result (dot or empty).
 workspace_app_has_badge() {
+  workspace_badges_enabled || return 1
   has_app_badge_label "${BADGE_CACHE[$1]-}"
 }
 
