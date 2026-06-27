@@ -278,3 +278,22 @@ History uses Conventional Commit prefixes: `feat:`, `fix:`, `chore:`, `docs:`, `
   naming an AI agent, assistant, or harness (Claude, Codex, Copilot, Gemini, etc.), to commits
   in this repo.** This overrides the harness default. Slash commands that template such a
   trailer must strip it before committing here.
+
+## Cursor Cloud specific instructions
+
+This repo is macOS-targeted chezmoi dotfiles, but the Cloud VM is Linux. `chezmoi`, `just`, and
+`brew` are **not installed** and the dotfiles layer is not meant to be `chezmoi apply`'d here. The
+only runnable/testable products in the Cloud VM are the two vendored Python `uv` projects:
+`mcp_sync/` and `aws_config_gen/`.
+
+- `uv` is the entrypoint for everything; it provisions Python 3.14 automatically. The startup update
+  script runs `uv sync --group dev` for both projects. Run the `Justfile` recipes' underlying
+  commands directly (e.g. `uv run --project mcp_sync --group dev pytest mcp_sync/tests`) since
+  `just` is absent — see `CLAUDE.md` "Commands" and the `Justfile` for the full lint/test matrix.
+- `sync-mcp-configs` and `sync-skills` accept `--home`, `--master`/`--manifest`, `--machine-config`,
+  and `--repo-root` overrides; pass a throwaway `--home` (and `--master dot_config/mcp/mcp-master.json`)
+  to exercise the fan-out without touching real configs. The `.tmpl` overlays under
+  `dot_config/mcp/machine/` need chezmoi rendering — use the plain `work.json` overlay for local runs.
+- `aws-config-gen` needs live AWS SSO auth (network + cached token) to discover roles; with no
+  credentials it prints a `Run aws sso login ...` hint and exits 0 (exit 1 under `--strict`). Its
+  full profile-generation path is covered by the mocked tests, not runnable end-to-end here.
