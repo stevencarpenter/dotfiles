@@ -6,6 +6,7 @@ sketchybarrc="${repo_root}/dot_config/sketchybar/executable_sketchybarrc"
 workspaces_item="${repo_root}/dot_config/sketchybar/items/executable_workspaces.sh"
 aerospace_plugin="${repo_root}/dot_config/sketchybar/plugins/executable_aerospace.sh"
 badge_plugin="${repo_root}/dot_config/sketchybar/plugins/executable_app_badge.sh"
+machine_env="${repo_root}/dot_config/sketchybar/machine.env.tmpl"
 
 assert_contains() {
   local file="$1"
@@ -60,6 +61,14 @@ assert_contains "${aerospace_plugin}" \
   "expected Aerospace plugin to source the shared badge utility"
 
 assert_contains "${aerospace_plugin}" \
+  'source "$machine_env"' \
+  "expected Aerospace plugin to source per-machine SketchyBar settings"
+
+assert_contains "${aerospace_plugin}" \
+  'workspace_badges_enabled || return 0' \
+  "expected Aerospace plugin to skip lsappinfo badge prefetch when badges are disabled"
+
+assert_contains "${aerospace_plugin}" \
   'workspace_app_has_badge "$app"' \
   "expected Aerospace plugin to use has_app_badge_label via workspace_app_has_badge"
 
@@ -70,6 +79,10 @@ assert_contains "${aerospace_plugin}" \
 assert_not_contains "${aerospace_plugin}" \
   'normalize_app_badge_label "$raw"' \
   "expected Aerospace plugin not to normalize counts it never displays"
+
+assert_contains "${machine_env}" \
+  'SKETCHYBAR_WORKSPACE_BADGES=' \
+  "expected machine.env template to render the workspace badge toggle"
 
 # app_badge.sh must be usable as both a CLI and a sourceable function library.
 set +e +u +o pipefail
@@ -127,5 +140,33 @@ assert_normalized "42" "42"
 assert_normalized "100" "99+"
 assert_normalized "0" ""
 assert_normalized "Inbox" ""
+
+tmpdir="$(mktemp -d)"
+trap 'rm -rf "${tmpdir}"' EXIT
+mkdir -p "${tmpdir}/plugins" "${tmpdir}/bin"
+cp "${aerospace_plugin}" "${tmpdir}/plugins/aerospace.sh"
+cp "${repo_root}/dot_config/sketchybar/plugins/executable_icon_map.sh" "${tmpdir}/plugins/icon_map.sh"
+cp "${badge_plugin}" "${tmpdir}/plugins/app_badge.sh"
+cat > "${tmpdir}/machine.env" <<'ENV'
+SKETCHYBAR_WORKSPACE_BADGES=0
+ENV
+cat > "${tmpdir}/bin/aerospace" <<'SH'
+#!/usr/bin/env bash
+case "$*" in
+  'list-workspaces --focused') printf '1\n' ;;
+  'list-windows --all --format %{workspace}|%{app-name}') printf '1|Slack\n2|Firefox Developer Edition\n' ;;
+esac
+SH
+cat > "${tmpdir}/bin/sketchybar" <<'SH'
+#!/usr/bin/env bash
+exit 0
+SH
+cat > "${tmpdir}/bin/lsappinfo" <<'SH'
+#!/usr/bin/env bash
+echo 'lsappinfo should not be called when SKETCHYBAR_WORKSPACE_BADGES=0' >&2
+exit 99
+SH
+chmod +x "${tmpdir}/bin/aerospace" "${tmpdir}/bin/sketchybar" "${tmpdir}/bin/lsappinfo"
+PATH="${tmpdir}/bin:${PATH}" bash "${tmpdir}/plugins/aerospace.sh"
 
 echo "sketchybar badge deployment wiring and normalization are covered"
