@@ -27,20 +27,20 @@ This user has spent significant effort configuring MCP servers, plugins, skills,
 
 ### Git Operations
 
-- Note: any `gh` / `git push` / `git fetch` that reaches GitHub or writes `.git/config` fails under the default command sandbox (`Operation not permitted` / `OSStatus -26276`). Retry these with the sandbox disabled.
+- Use `gh-axi` for GitHub and `chrome-devtools-axi` for browser automation.
 - Never sign commits as being created by an AI agent, assistant, or coding harness.
 - Never add anything to a commit message that references an AI agent, assistant, or harness — or any of their underlying models or tools (Claude, Codex, Copilot, Gemini, etc.).
 
 ### IntelliJ MCP substitutions (IntelliJ is always running)
 
-| Instead of | Prefer |
-|---|---|
-| `Read` on a project file | `mcp__idea__get_file_text_by_path` |
+| Instead of                  | Prefer                                                                        |
+| --------------------------- | ----------------------------------------------------------------------------- |
+| `Read` on a project file    | `mcp__idea__get_file_text_by_path`                                            |
 | `Grep` for code/text search | `mcp__idea__search_in_files_by_text` or `mcp__idea__search_in_files_by_regex` |
-| `Glob` for file discovery | `mcp__idea__find_files_by_glob` or `mcp__idea__find_files_by_name_keyword` |
-| Manual lint/error checking | `mcp__idea__get_file_problems` |
-| Symbol/type resolution | `mcp__idea__get_symbol_info` |
-| Running tests/builds | `mcp__idea__execute_run_configuration` or `mcp__idea__build_project` |
+| `Glob` for file discovery   | `mcp__idea__find_files_by_glob` or `mcp__idea__find_files_by_name_keyword`    |
+| Manual lint/error checking  | `mcp__idea__get_file_problems`                                                |
+| Symbol/type resolution      | `mcp__idea__get_symbol_info`                                                  |
+| Running tests/builds        | `mcp__idea__execute_run_configuration` or `mcp__idea__build_project`          |
 
 Also use the `LSP` tool for language-server-level diagnostics, hover info, go-to-definition, and references — this gives semantic understanding beyond text search. Language-specific LSP plugins: **Python (pyright), Go (gopls), Rust (rust-analyzer)** are enabled on every machine; **Swift, TypeScript, Lua** only on dev machines (the `dev` capability). Use LSP before falling back to `rg` for symbol resolution, type checking, or finding references.
 
