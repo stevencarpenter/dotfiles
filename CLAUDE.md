@@ -278,3 +278,29 @@ History uses Conventional Commit prefixes: `feat:`, `fix:`, `chore:`, `docs:`, `
   naming an AI agent, assistant, or harness (Claude, Codex, Copilot, Gemini, etc.), to commits
   in this repo.** This overrides the harness default. Slash commands that template such a
   trailer must strip it before committing here.
+
+## Cursor Cloud specific instructions
+
+The Cloud Agent VM is **Linux**, but this is a macOS dotfiles repo. The only things that
+genuinely run/test end-to-end here are the two vendored Python `uv` tools (`mcp_sync/`,
+`aws_config_gen/`) plus the dotfiles-hygiene checks. A real `chezmoi apply` of the dotfiles is
+macOS-only (needs the 1Password age key, Homebrew, and GUI apps) and cannot be validated on the VM.
+
+- **Python:** the tools require Python **3.14+**; the VM's system `python3` is 3.12. Always drive
+  them through `uv` (it provisions 3.14), e.g. `uv run --project mcp_sync ...`. The startup update
+  script installs `uv` + Python 3.14 and `uv sync`s both projects, so deps are ready.
+- **Standard commands** live in the `Justfile` (`just lint`, `just test`, `just check`, `just fmt`)
+  and `CLAUDE.md` above — prefer those over retyping the raw `uv run` invocations.
+- **Run the apps without touching real `$HOME` / live cloud:**
+  - MCP fan-out: `uv run --project mcp_sync sync-mcp-configs --master dot_config/mcp/mcp-master.json
+    --machine-config dot_config/mcp/machine/work.json --home "$(mktemp -d)"` (use `work.json`; the
+    `personal`/`lab` overlays are `.tmpl` and need chezmoi rendering first). `--home` redirects all
+    per-tool writes into the temp dir.
+  - AWS gen: `uv run --project aws_config_gen aws-config-gen --generator-config <json> --dry-run`.
+    Without a live SSO token it prints `Run aws sso login …` and exits 0 (use `--strict` to force
+    exit 1). Generator config keys: `sso_session`, `sso_start_url`, `sso_region`, `default_region`.
+- **`pre-commit` gotcha:** the `machine-capability-audit` hook calls `chezmoi source-path`, which
+  (once `chezmoi` is on PATH, as it is on the VM) resolves to the nonexistent default
+  `~/.local/share/chezmoi` and fails with "machines.toml not found". Run pre-commit with the repo
+  root pinned: `REPO_ROOT=/workspace pre-commit run --all-files`. (CI passes only because it
+  installs chezmoi *after* pre-commit.) `pre-commit` needs network on first run to fetch hook repos.
