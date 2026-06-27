@@ -21,11 +21,11 @@ Run:
 
 ```bash
 nvim --clean --headless \
-  "+lua dofile('dot_config/nvim/lua/config/keymaps.lua'); for _, mode in ipairs({ 'n', 'x' }) do for _, key in ipairs({ 'c', 'C', 's', 'S' }) do local mapping = vim.fn.maparg(key, mode, false, true); assert(mapping.rhs == '\"_' .. key, mode .. ' ' .. key .. ' is not clipboard-safe') end end" \
+  "+lua dofile('dot_config/nvim/lua/config/keymaps.lua'); for _, mode in ipairs({ 'n', 'x' }) do for _, key in ipairs({ 'c', 'C', 's', 'S' }) do local mapping = vim.fn.maparg(key, mode, false, true); if mapping.rhs ~= '\"_' .. key then io.stderr:write(mode .. ' ' .. key .. ' is not clipboard-safe\\n'); vim.cmd('cquit 1') end end end" \
   +qa
 ```
 
-Expected: FAIL with `n c is not clipboard-safe` because no change mappings exist yet.
+Expected: exit status 1 with `n c is not clipboard-safe` because no change mappings exist yet.
 
 - [ ] **Step 2: Add the minimal mappings**
 
@@ -67,7 +67,7 @@ Run:
 chezmoi apply ~/.config/nvim/lua/config/keymaps.lua
 cmp -s dot_config/nvim/lua/config/keymaps.lua ~/.config/nvim/lua/config/keymaps.lua
 nvim --clean --headless \
-  "+lua dofile(vim.fn.expand('~/.config/nvim/lua/config/keymaps.lua')); for _, mode in ipairs({ 'n', 'x' }) do for _, key in ipairs({ 'c', 'C', 's', 'S' }) do local mapping = vim.fn.maparg(key, mode, false, true); assert(mapping.rhs == '\"_' .. key, mode .. ' ' .. key .. ' is not clipboard-safe') end end" \
+  "+lua dofile(vim.fn.expand('~/.config/nvim/lua/config/keymaps.lua')); for _, mode in ipairs({ 'n', 'x' }) do for _, key in ipairs({ 'c', 'C', 's', 'S' }) do local mapping = vim.fn.maparg(key, mode, false, true); if mapping.rhs ~= '\"_' .. key then io.stderr:write(mode .. ' ' .. key .. ' is not clipboard-safe\\n'); vim.cmd('cquit 1') end end end" \
   +qa
 ```
 
