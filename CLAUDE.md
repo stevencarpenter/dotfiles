@@ -184,7 +184,9 @@ Current capabilities (one row per machine in `machines.toml`):
   user's personal GitHub (SSH) and the agents are personal content. Unlike most capabilities it has
   no `.chezmoiignore` consumer (its payload is a cloned repo, not tracked source); instead it gates
   the clone in `.chezmoiexternal.toml.tmpl` and the installer in
-  `.chezmoiscripts/run_after_sync-agents.sh.tmpl` (which self-gates to a no-op when off).
+  `.chezmoiscripts/run_after_sync-agents.sh.tmpl` (which self-gates to a no-op when off). After
+  landing changes in `~/projects/agents`, use `MCP_SYNC_STRICT=1 chezmoi apply --refresh-externals`
+  so the external clone and live `~/.claude/agents` refresh together.
 - **`token_auditor`** — install the standalone `token-auditor` uv tool from its public repo
   (`github.com/stevencarpenter/token-auditor`) via
   `.chezmoiscripts/run_onchange_install-token-auditor.sh.tmpl`, putting `token-auditor` / `codax` on
