@@ -1,0 +1,21 @@
+#:schema https://docs.jj-vcs.dev/latest/config-schema.json
+
+[user]
+name = "Steven Carpenter"
+email = "steven@sjcarpenter.com"
+
+[ui]
+default-command = ["log", "-T", "builtin_log_oneline"]
+# replace with your editor
+editor = "nvim"
+
+[template-aliases]
+# Username part of the email address
+'format_short_signature(signature)' = 'signature.email().local()'
+# Relative timestamp rendered as "x days/hours/seconds ago"
+'format_timestamp(timestamp)' = 'timestamp.ago()'
+# Hide git commit id
+'format_short_commit_id(id)' = '""'
+
+[templates]
+log = "builtin_log_comfortable"
