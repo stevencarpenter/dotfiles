@@ -20,7 +20,18 @@ echo "Agent registry install skipped (machine capability agents=false)."
 exit 0
 {{- else -}}
 
-REGISTRY_PROJECT="${HOME}/.local/share/agent-registry"
+# On the dev machine where the working copy is actively edited, install from
+# it directly rather than the hourly-refreshed external clone — otherwise
+# `chezmoi apply` silently installs whatever the clone last fetched, which can
+# be days stale relative to uncommitted or unpushed local work. Any other
+# machine (or this one before the working copy exists) falls back to the
+# external clone as before.
+WORKING_COPY="{{ .chezmoi.homeDir }}/projects/agents"
+if [[ -f "${WORKING_COPY}/pyproject.toml" ]]; then
+  REGISTRY_PROJECT="${WORKING_COPY}"
+else
+  REGISTRY_PROJECT="${HOME}/.local/share/agent-registry"
+fi
 # Shared strict knob across all sync hooks (skills/mcp/agents): set
 # MCP_SYNC_STRICT=1 to make a sync failure fail `chezmoi apply`.
 STRICT_MODE="${MCP_SYNC_STRICT:-0}"
@@ -72,6 +83,23 @@ copilot_count="$(count_matching_files "${HOME}/.config/github-copilot" 'global-a
 
 echo "Agent registry installed from ${registry_commit}."
 echo "Installed agent counts: claude=${claude_count} codex=${codex_count} opencode=${opencode_count} copilot=${copilot_count}"
+
+# Refresh the SessionStart routing-context cache now that ~/.claude/agents is
+# current. Stdlib-only, no uv/deps needed. Best-effort: a stale or missing
+# cache just means the next session's routing hook emits nothing or slightly
+# old content, never a broken apply.
+ROUTING_SCRIPT="${REGISTRY_PROJECT}/tools/routing/generate_context.py"
+ROUTING_CACHE="${HOME}/.cache/agent-routing/context.md"
+if [[ -f "${ROUTING_SCRIPT}" ]] && command -v python3 >/dev/null 2>&1; then
+  mkdir -p "$(dirname "${ROUTING_CACHE}")"
+  if python3 "${ROUTING_SCRIPT}" > "${ROUTING_CACHE}.tmp" 2>/dev/null; then
+    mv "${ROUTING_CACHE}.tmp" "${ROUTING_CACHE}"
+    echo "Refreshed agent-routing context cache."
+  else
+    rm -f "${ROUTING_CACHE}.tmp"
+    echo "Warning: agent-routing context generation failed; leaving previous cache in place." >&2
+  fi
+fi
 
 if ! violations="$(
   uv run --directory "${REGISTRY_PROJECT}" python - "${HOME}/.claude/agents" <<'PY'
