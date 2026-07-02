@@ -105,9 +105,15 @@ chmod 600 "$PLAIN"
 # shellcheck disable=SC2329  # invoked indirectly via the EXIT/INT/TERM trap below
 cleanup() {
   if [ -f "$PLAIN" ]; then
-    # overwrite then remove; `shred` is GNU-only, fall back to dd+rm
+    # overwrite then remove; `shred` is GNU-only, fall back to dd+rm sized to
+    # the actual file (a fixed small block count would leave the tail of a
+    # large plaintext secret un-wiped)
     if command -v shred >/dev/null 2>&1; then shred -u "$PLAIN" 2>/dev/null || rm -f "$PLAIN"
-    else dd if=/dev/zero of="$PLAIN" bs=1k count=8 conv=notrunc 2>/dev/null || true; rm -f "$PLAIN"; fi
+    else
+      plain_size="$(wc -c < "$PLAIN" 2>/dev/null || echo 0)"
+      dd if=/dev/zero of="$PLAIN" bs=1 count="$plain_size" conv=notrunc 2>/dev/null || true
+      rm -f "$PLAIN"
+    fi
   fi
 }
 trap cleanup EXIT INT TERM
@@ -283,7 +289,10 @@ if [ "${#EXPECT_VALUES[@]}" -gt 0 ]; then
       ok "working tree clean of secret [$masked]"
     else
       fail "secret [$masked] found in PLAINTEXT in the working tree:"
-      printf '%s\n' "$hits" | sed 's/^/        /' >&2
+      # Redact the literal secret value out of each matched line before
+      # printing — otherwise a FAIL echoes the very value this tool exists
+      # to keep out of terminal scrollback / CI logs.
+      printf '%s\n' "${hits//$secret/[REDACTED]}" | sed 's/^/        /' >&2
     fi
   done
 else
