@@ -3,22 +3,15 @@
      Curated set for the homelab box (2019 i9 MacBook Pro, headless +
      Screen Share). Lab is a standalone home server, unrelated to
      personal-mac: its only MCP server is the local Grafana instance for
-     home-ops. It does not run hippo (no local LM brain), and hippo is not
-     shared from personal.
+     home-ops (defined once in mcp-master.json, shared with personal). It
+     does not run hippo (no local LM brain), and hippo is not shared from
+     personal. This overlay is intentionally empty — lab wants exactly the
+     master-config defaults, no server here needs enabling or disabling.
 
      github MCP comes from the github@claude-plugins-official plugin (enabled
      in dot_claude/modify_settings.json.tmpl), not from a server defined here
      or in mcp-master.json. */}}
 {
   "$schema": "https://modelcontextprotocol.io/schema/config.json",
-  "servers": {
-    "grafana": {
-      "type": "stdio",
-      "command": "uvx",
-      "args": ["mcp-grafana@0.15.2", "--disable-write"],
-      "env": {
-        "GRAFANA_URL": "http://localhost:3000"
-      }
-    }
-  }
+  "servers": {}
 }

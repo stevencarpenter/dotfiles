@@ -1,6 +1,9 @@
 {
   "$schema": "https://modelcontextprotocol.io/schema/config.json",
   "servers": {
+    "grafana": {
+      "enabled": false
+    },
     "awslabs-ccapi-mcp-server": {
       "type": "stdio",
       "command": "uvx",

@@ -11,14 +11,6 @@
         "hippo-mcp"
       ],
       "autoApprove": ["ask", "search_knowledge", "search_events", "get_entities"]
-    },
-    "grafana": {
-      "type": "stdio",
-      "command": "uvx",
-      "args": ["mcp-grafana@0.15.2", "--disable-write"],
-      "env": {
-        "GRAFANA_URL": "http://localhost:3000"
-      }
     }
   }
 }
