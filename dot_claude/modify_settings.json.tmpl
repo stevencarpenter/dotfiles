@@ -15,6 +15,7 @@ set -euo pipefail
 {{- $work := hasPrefix "work" .machine -}}
 {{- $hippo := hasPrefix "personal" .machine -}}
 {{- $dev := (index .machines .machine).dev }}
+{{- $agents := (index .machines .machine).agents }}
 
 managed=$(cat <<'JSON'
 {
@@ -30,8 +31,9 @@ managed=$(cat <<'JSON'
     "defaultMode": "auto"
   },
   "hooks": {
-{{- if $hippo }}
+{{- if or $hippo $agents }}
     "SessionStart": [
+{{- if $hippo }}
       {
         "hooks": [
           {
@@ -39,7 +41,19 @@ managed=$(cat <<'JSON'
             "command": "{{ .chezmoi.homeDir }}/.local/share/hippo-brain/shell/claude-session-hook.sh"
           }
         ]
-      }
+      },
+{{- end }}
+{{- if $agents }}
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{ .chezmoi.homeDir }}/.claude/hooks/emit-routing-context.sh"
+          }
+        ]
+      },
+{{- end }}
+      null
     ],
 {{- end }}
     "WorktreeCreate": [
@@ -140,6 +154,16 @@ managed=$(cat <<'JSON'
 JSON
 )
 
+# SessionStart above is built with a trailing `null` sentinel so each
+# conditional hook entry (hippo, agents) can end in a plain comma without
+# Go-template comma bookkeeping across independent gates. Drop the
+# sentinel now, before $managed is used anywhere.
+managed=$(printf '%s\n' "$managed" | jq '
+  if (.hooks.SessionStart // null) then
+    .hooks.SessionStart |= map(select(. != null))
+  else . end
+')
+
 existing=$(cat)
 [[ -z "$existing" ]] && existing='{}'
 
@@ -168,15 +192,32 @@ merged=$(printf '%s\n' "$merged" | jq --arg p "{{ .chezmoi.homeDir }}/.cache/pre
     else .sandbox.filesystem.allowWrite = ($aw + [$p]) end
 ')
 
-{{- if not $hippo }}
-# Hippo runs only on personal — strip any previously-injected SessionStart
-# hook pointing into ~/.local/share/hippo-brain/ (legacy state from when this
-# machine was provisioned with hippo on). Recursive merge alone wouldn't
-# remove keys not present in $managed, so we filter explicitly.
+{{- if or (not $hippo) (not $agents) }}
+# Strip any previously-injected SessionStart hook whose capability has since
+# flipped off — hippo (personal-only) and/or the agent-routing context hook
+# (agents capability). Recursive merge alone wouldn't remove keys not
+# present in $managed, so we filter explicitly by command substring. This
+# runs whenever EITHER capability is off, and only touches that capability's
+# own hook — a hippo-off, agents-on machine keeps the routing hook, and
+# vice versa.
 merged=$(printf '%s\n' "$merged" | jq '
   if (.hooks.SessionStart // null) then
     .hooks.SessionStart |= (
-      map(.hooks |= map(select((.command // "") | contains("/hippo-brain/") | not)))
+      map(.hooks |= map(select(
+        (.command // "") | (
+{{- if not $hippo }}
+          (contains("/hippo-brain/") | not)
+{{- else }}
+          true
+{{- end }}
+        ) and (
+{{- if not $agents }}
+          (contains("/emit-routing-context.sh") | not)
+{{- else }}
+          true
+{{- end }}
+        )
+      )))
       | map(select((.hooks // []) | length > 0))
     )
     | (if (.hooks.SessionStart // [] | length) == 0 then del(.hooks.SessionStart) else . end)
