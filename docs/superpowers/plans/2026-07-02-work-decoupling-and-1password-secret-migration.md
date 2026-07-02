@@ -111,10 +111,14 @@ do **not** try to transplant the private-SSH-external pattern onto a team audien
 - Work-mac already has a **separate SSH key registered to the personal GitHub account** — so it
   authenticates to the personal dotfiles repo today via its own key (no shared key). It is an
   **equal contributor**: changes and branches are pushed from work-mac, not just personal-mac.
-- For the company org, add an SSH host-alias (mirroring the existing `i9`/`orb` blocks in
+- For the company org, add an SSH host-alias (mirroring the existing per-host blocks in
   `~/.ssh/config`): `Host github-work` / `HostName github.com` / `IdentityFile ~/.ssh/work_git.pub`
-  (public key only — private stays in 1Password) / `IdentitiesOnly yes`. Clone/set-url work
-  repos as `github-work:org/repo.git`. Personal `github.com` URLs are unaffected.
+  / `IdentitiesOnly yes`. Pointing `IdentityFile` at the **public** key is intentional, not a
+  typo: with the 1Password SSH agent as the system-wide SSH auth (no local private key file
+  exists at all), OpenSSH accepts a `.pub` path here purely to select which identity to *request*
+  from the agent — the agent matches it to the private key it holds and never touches disk.
+  Clone/set-url work repos as `github-work:org/repo.git`. Personal `github.com` URLs are
+  unaffected.
 - **Use the SSH alias for git, not global `gh auth switch`.** `gh` supports concurrent
   multi-account login, but the active account is a single *global* per-host setting — easy to
   push/comment as the wrong identity. For the narrow set of `gh` calls that must hit the company
