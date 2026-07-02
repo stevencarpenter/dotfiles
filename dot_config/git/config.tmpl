@@ -3,7 +3,7 @@
 
 [user]
     name = Steven Carpenter
-    email = {{ .email }}
+    email = 13987584+stevencarpenter@users.noreply.github.com
 
 [core]
     excludesfile = ~/.config/git/.gitignore_global
@@ -23,6 +23,12 @@
 
 [init]
     defaultBranch = main
+
+[push]
+    autoSetupRemote = true
+
+[fetch]
+    prune = true
 
 [alias]
     wt = worktree
