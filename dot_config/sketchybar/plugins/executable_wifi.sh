@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Wi-Fi status — icon only (Material Design)
 # 󰤨 nf-md-wifi | 󰤭 nf-md-wifi_off

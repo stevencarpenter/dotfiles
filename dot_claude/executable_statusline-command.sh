@@ -114,9 +114,6 @@ seven_d="$(to_int "$seven_d")"
 lines_added="$(to_int "$lines_added")"
 lines_removed="$(to_int "$lines_removed")"
 
-# ── User@Host ────────────────────────────────────────────────
-# user_host="${BOLD}${FG_GREEN} ${user}${FG_GRAY}@${FG_CYAN}${host}${RESET}"
-
 # ── Current Directory ────────────────────────────────────────
 dir_display="${BOLD}${FG_BLUE} ${cwd}${RESET}"
 
