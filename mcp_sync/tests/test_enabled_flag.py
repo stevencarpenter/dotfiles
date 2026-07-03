@@ -10,7 +10,6 @@ from mcp_sync import (
     transform_to_mcpservers_format,
     transform_to_opencode_format,
 )
-from mcp_sync.sync import transform_to_generic_mcp_format
 from mcp_sync.sync import (
     _filter_enabled_servers,
     patch_claude_code_config,
@@ -153,11 +152,6 @@ class TestEnablementFieldStripping:
         assert "disabled" not in result["mcpServers"]["s"]
         assert "enabled" not in result["mcpServers"]["s"]
 
-    def test_generic_mcp_strips_disabled_field(self):
-        master = {"servers": {"s": {"command": "cmd", "disabled": False}}}
-        result = transform_to_generic_mcp_format(master)
-        assert "disabled" not in result["mcpServers"]["s"]
-
     def test_mcpservers_strips_disabled_field(self):
         master = {"servers": {"s": {"command": "cmd", "disabled": False}}}
         result = transform_to_mcpservers_format(master)
@@ -194,24 +188,6 @@ class TestTransformWithEnabledFlag:
         result = transform_to_copilot_format(master)
         assert "enabled" not in result["mcpServers"]["server1"]
         assert result["mcpServers"]["server1"]["command"] == "cmd1"
-
-    def test_generic_mcp_format_filters_disabled(self):
-        """Generic MCP transform filters disabled servers."""
-        master = {
-            "servers": {
-                "enabled_server": {"command": "cmd1", "enabled": True},
-                "disabled_server": {"command": "cmd2", "enabled": False},
-            }
-        }
-        result = transform_to_generic_mcp_format(master)
-        assert "enabled_server" in result["mcpServers"]
-        assert "disabled_server" not in result["mcpServers"]
-
-    def test_generic_mcp_format_removes_enabled_field(self):
-        """Enabled field is not included in generic MCP output."""
-        master = {"servers": {"server1": {"command": "cmd1", "enabled": True}}}
-        result = transform_to_generic_mcp_format(master)
-        assert "enabled" not in result["mcpServers"]["server1"]
 
     def test_mcpservers_format_filters_disabled(self):
         """McpServers transform filters disabled servers."""
@@ -414,22 +390,6 @@ class TestCodexSyncWithEnabledFlag:
                 "disabled": {"command": "cmd2", "args": [], "enabled": False},
             }
         }
-
-        # Create codex base template
-        codex_template_dir = (
-            temp_home
-            / ".local"
-            / "share"
-            / "chezmoi"
-            / "mcp_sync"
-            / "src"
-            / "mcp_sync"
-            / "templates"
-        )
-        codex_template_dir.mkdir(parents=True, exist_ok=True)
-        (codex_template_dir / "codex.base.toml").write_text(
-            "[general]\nmodel = 'claude'\n"
-        )
 
         sync_codex_mcp(master, home=temp_home)
 
