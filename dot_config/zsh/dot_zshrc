@@ -452,6 +452,17 @@ function y() {
 	rm -f -- "$tmp"
 }
 
+# Triage SecureInput state on macOS (for debugging keylogger issues). Returns the PID of the process holding SecureInput, if any, and its command name.
+function sip_holder() {
+  local pid
+  pid=$(ioreg -l -w 0 | grep -o 'kCGSSessionSecureInputPID"=[0-9]*' | cut -d= -f2)
+  if [[ -n "$pid" && "$pid" != "0" ]]; then
+    printf 'SecureInput held by PID %s: %s\n' "$pid" "$(ps -p "$pid" -o comm= 2>/dev/null)"
+  else
+    printf 'SecureInput: not held\n'
+  fi
+}
+
 # === 8. Tool Initializations (after PATH is set) ===
 # These tools need to be initialized after PATH is configured
 
