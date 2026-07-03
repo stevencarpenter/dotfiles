@@ -7,7 +7,7 @@ import json
 import sys
 import urllib.error
 from pathlib import Path
-from typing import Sequence
+from collections.abc import Sequence
 
 from aws_config_gen.config_writer import render_profiles, write_config
 from aws_config_gen.discovery import discover_all_roles
