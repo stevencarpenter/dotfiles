@@ -24,4 +24,8 @@ cursor-color=#d3c6aa
 selection-foreground=#2f383e
 selection-background=#d3c6aa
 
-macos-auto-secure-input = false
+# Disables macOS SecureInput auto-detection fleet-wide (work-mac included).
+# Only flip this on if SecureInput gets stuck again (a triage helper for
+# that is sip_holder() in dot_config/zsh/dot_zshrc) — treating it as a
+# transient issue for now rather than a standing security tradeoff.
+# macos-auto-secure-input = false
