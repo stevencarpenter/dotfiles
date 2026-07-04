@@ -5,7 +5,8 @@ from __future__ import annotations
 import copy
 import datetime
 import tomllib
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 type JsonDict = dict[str, Any]
 type LogFn = Callable[[str], None]

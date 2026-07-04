@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Battery — horizontal icon + percentage + time remaining/to charge
 
@@ -10,12 +10,12 @@ RED=0xffe67e80
 AQUA=0xff83c092
 
 BATT_INFO="$(pmset -g batt)"
-# `|| true` on pipelines that can legitimately miss — grep returns 1 when not
-# matched, which would kill the script under pipefail. The `-z` guard below
+# `|| true` on pipelines that can legitimately miss — rg returns 1 when nothing
+# matches, which would kill the script under pipefail. The `-z` guard below
 # still catches the truly-unknown case.
-PERCENTAGE="$(echo "$BATT_INFO" | grep -Eo '\d+%' | cut -d% -f1 || true)"
-CHARGING="$(echo "$BATT_INFO" | grep 'AC Power' || true)"
-TIME_LEFT="$(echo "$BATT_INFO" | grep -Eo '\d+:\d+' | head -1 || true)"
+PERCENTAGE="$(echo "$BATT_INFO" | rg -o '\d+%' | cut -d% -f1 || true)"
+CHARGING="$(echo "$BATT_INFO" | rg 'AC Power' || true)"
+TIME_LEFT="$(echo "$BATT_INFO" | rg -o '\d+:\d+' | head -1 || true)"
 
 if [ -z "$PERCENTAGE" ]; then
   exit 0

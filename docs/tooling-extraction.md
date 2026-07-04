@@ -1,5 +1,12 @@
 # Extracting the vendored tools — shape, trade-offs, sequence
 
+> **Status (2026-07): decision made, step 1 shipped.** `token_auditor` was extracted to
+> [github.com/stevencarpenter/token-auditor](https://github.com/stevencarpenter/token-auditor)
+> (PR #104) and now installs via `.chezmoiscripts/run_onchange_install-token-auditor.sh.tmpl`,
+> pinned in `.chezmoidata/tools.toml`. The mcp_sync skills seam was NOT cut and
+> `aws_config_gen` remains vendored. Everything below is the pre-decision analysis,
+> kept as a historical record.
+
 Decision aid for moving the regularly-used vendored tools out of this dotfiles repo so
 others can use them. Adversarial on purpose: the goal is to find where the idea breaks,
 not to cheerlead it.

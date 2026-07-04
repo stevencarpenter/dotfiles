@@ -9,56 +9,13 @@ set -euo pipefail
 # ~/.config/mcp/ on those machines, so there'd be no master config to sync
 # anyway. Today no machine has mcp=false; the gate exists for future
 # headless/server-only machines.
+#
+# Body shared with run_after_sync-skills.sh.tmpl via
+# .chezmoitemplates/sync-hook-body.sh.
 
-{{ if not (index .machines .machine).mcp -}}
-echo "MCP sync skipped (machine capability mcp=false)."
-exit 0
-{{- else -}}
-
-SYNC_PROJECT="${HOME}/.local/share/chezmoi/mcp_sync"
-STRICT_MODE="${MCP_SYNC_STRICT:-0}"
-
-fail_or_warn() {
-  local message="$1"
-  if [[ "${STRICT_MODE}" == "1" ]]; then
-    echo "Error: ${message}" >&2
-    exit 1
-  fi
-  echo "Warning: ${message}" >&2
-}
-
-if ! command -v uv >/dev/null 2>&1; then
-  fail_or_warn "uv is not installed; skipping MCP sync."
-  exit 0
-fi
-
-if [[ -f "${SYNC_PROJECT}/pyproject.toml" ]]; then
-  sync_cmd=(sync-mcp-configs)
-
-  # Select the overlay for THIS machine type, rendered from chezmoi's .machine
-  # data — never whatever stale overlay happens to sort first on disk after a
-  # machine-type change.
-  MACHINE_DIR="${HOME}/.config/mcp/machine"
-  MACHINE_OVERLAY=""
-  {{- if hasPrefix "personal" .machine }}
-  MACHINE_OVERLAY="${MACHINE_DIR}/personal.json"
-  {{- else if hasPrefix "work" .machine }}
-  MACHINE_OVERLAY="${MACHINE_DIR}/work.json"
-  {{- else if eq .machine "lab-mac" }}
-  MACHINE_OVERLAY="${MACHINE_DIR}/lab.json"
-  {{- end }}
-
-  if [[ -n "${MACHINE_OVERLAY}" && -f "${MACHINE_OVERLAY}" ]]; then
-    sync_cmd+=(--machine-config "${MACHINE_OVERLAY}")
-  fi
-
-  if ! uv run --project "${SYNC_PROJECT}" "${sync_cmd[@]}"; then
-    fail_or_warn "MCP sync failed."
-    exit 0
-  fi
-else
-  echo "Warning: MCP sync project not found at ${SYNC_PROJECT}." >&2
-  exit 0
-fi
-
-{{- end }}
+{{ template "sync-hook-body.sh" dict
+     "machine" .machine
+     "machines" .machines
+     "capability" "mcp"
+     "label" "MCP sync"
+     "entrypoint" "sync-mcp-configs" }}

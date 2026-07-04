@@ -78,13 +78,11 @@ Tests individual functions in isolation:
 
 - **Format Transformations**
   - `test_transform_to_copilot_format` - GitHub Copilot format
-  - `test_transform_to_generic_mcp_format` - Generic MCP standard format
   - `test_transform_to_mcpservers_format` - mcpServers format
   - `test_transform_to_opencode_format` - OpenCode format with env vars
 
 - **File Operations**
   - `test_sync_to_locations_creates_parent_dirs` - Directory creation
-  - `test_sync_to_locations_with_legacy` - Legacy path mirroring
 
 - **Claude Code Integration**
   - `test_patch_claude_code_config_missing` - Missing config handling

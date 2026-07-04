@@ -1,7 +1,7 @@
 # Dotfiles
 
 Personal macOS dotfiles managed with [chezmoi](https://www.chezmoi.io/). Secrets are age-encrypted,
-with the key sourced from 1Password. The repo also vendors three small Python tools that regenerate
+with the key sourced from 1Password. The repo also vendors two small Python tools that regenerate
 machine-specific configuration after every apply.
 
 One source tree drives three machine types — `personal-mac`, `work-mac`, and `lab-mac` — gated by a
@@ -59,9 +59,8 @@ chezmoi apply     # apply, then run the sync hooks
 exec zsh
 ```
 
-`chezmoi init` prompts once for the machine type (`personal-mac`, `work-mac`, `lab-mac`) and an
-email, caching both in `~/.config/chezmoi/chezmoi.toml`. On a work machine, point git at the right
-SSH key:
+`chezmoi init` prompts once for the machine type (`personal-mac`, `work-mac`, `lab-mac`), caching
+it in `~/.config/chezmoi/chezmoi.toml`. On a work machine, point git at the right SSH key:
 
 ```shell
 git -C ~/.local/share/chezmoi config --local \
@@ -78,6 +77,7 @@ machine is a one-row change. Templates and `.chezmoiignore` read
 | Capability | personal | work | lab | Gates |
 |------------|:--:|:--:|:--:|-------|
 | `tiling`  | yes | yes | no  | AeroSpace + SketchyBar + borders |
+| `sketchybar_workspace_badges` | no | yes | no | SketchyBar dock-notification badges via lsappinfo |
 | `atuin`   | yes | no  | yes | atuin client pointed at the self-hosted sync server |
 | `mcp`     | yes | yes | yes | MCP master config + per-tool sync hook |
 | `skills`  | yes | yes | yes | Claude skills manifest + sync hook |
@@ -85,6 +85,9 @@ machine is a one-row change. Templates and `.chezmoiignore` read
 | `dev`     | yes | no  | no  | language LSP plugins + dev Brewfile block |
 | `aws_sso` | no  | yes | no  | AWS SSO profile generator |
 | `infra`   | no  | yes | no  | Kubernetes / cluster-ops tooling via mise |
+| `agent_journal` | yes | no | no | Obsidian agent-journal config, CLI wrappers, Claude hook |
+| `agents`  | yes | no  | no  | personal agent-registry clone + fan-out installer |
+| `token_auditor` | yes | yes | yes | standalone token-auditor uv tool (codax/claade wrappers) |
 
 `work` is corporate-curated (`dev` and `atuin` off); `lab` is a 2019 i9 home server reached over
 macOS Screen Share.

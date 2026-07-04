@@ -18,6 +18,8 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.14"
 
       - name: Lint with ruff
         working-directory: aws_config_gen
@@ -32,6 +34,8 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.14"
 
       - name: Run tests
         working-directory: aws_config_gen

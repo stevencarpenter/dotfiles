@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Volume — mute indicator only (Material Design icons)
 

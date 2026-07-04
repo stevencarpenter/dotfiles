@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Workspace indicators — bracketed groups with colored app icons
 # Each workspace: [number + app icons] in one rounded rectangle

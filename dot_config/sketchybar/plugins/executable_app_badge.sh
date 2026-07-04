@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Shared macOS dock badge helpers for SketchyBar plugins.
 # Source for functions/constants; run as CLI: app_badge.sh <app_name>

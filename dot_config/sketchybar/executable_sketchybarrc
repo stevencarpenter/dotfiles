@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # SketchyBar configuration — Everforest Dark Hard theme
 # Docs: https://felixkratz.github.io/SketchyBar/config/bar
