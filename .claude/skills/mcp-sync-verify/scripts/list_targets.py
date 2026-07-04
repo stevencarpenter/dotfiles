@@ -22,8 +22,6 @@ def main() -> int:
     print("## Generated wholesale (from _build_targets):")
     for t in _build_targets(home):
         print(f"  - {t.name:<28} {t.destination}")
-        if t.legacy_destination:
-            print(f"    {'(legacy)':<28} {t.legacy_destination}")
     print()
     print("## Special-cased writers (see sync.py):")
     print(f"  - codex                        {home / '.codex' / 'config.toml'}")

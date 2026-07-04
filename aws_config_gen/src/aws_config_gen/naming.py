@@ -9,7 +9,7 @@ from pathlib import Path
 from aws_config_gen.types import AccountRole, GeneratorConfig, ProfileEntry
 
 
-def _parse_skip_list(raw: list) -> list[tuple[str, str]]:
+def _parse_skip_list(raw: list[list[str]]) -> list[tuple[str, str]]:
     """Validate and convert skip entries to (account_id, role_name) tuples."""
     result: list[tuple[str, str]] = []
     for i, pair in enumerate(raw):

@@ -95,7 +95,7 @@ The sync tool reads `dot_config/mcp/mcp-master.json` and generates tool-specific
 - **Machine overlays**: `dot_config/mcp/machine/{work.json,personal.json.tmpl,lab.json.tmpl}` — machine-type-specific
   servers (e.g., AWS MCP on work only), deployed conditionally by chezmoi
 - **Templates**: `mcp_sync/src/mcp_sync/templates/` — base config templates per tool
-- **Transform functions** in `sync.py`: `transform_to_copilot_format()`, `transform_to_generic_mcp_format()`,
+- **Transform functions** in `sync.py`: `transform_to_copilot_format()`, `transform_to_identity_format()`,
   `transform_to_mcpservers_format()`, `transform_to_opencode_format()`
 - **Merge order**: base template + master + machine overlay + per-tool overrides (later values win).
   The overrides layer is wired in `sync.py` — each target reads `~/.config/mcp/overrides/<key>.json`
@@ -125,7 +125,7 @@ Configuration is gated by machine type via chezmoi's `.machine` variable (e.g., 
 - **AeroSpace workspace assignments**: `dot_config/aerospace/aerospace.toml.tmpl` — separate
   `personal` / `work` blocks for `on-window-detected` rules; service-mode keybindings for personal
   layout scripts also gated
-- **`.chezmoiignore`**: gates personal-only files (e.g., `workspace-5-comms.sh`, personal env /
+- **`.chezmoiignore`**: gates personal-only files (e.g., `workspace-8-comms.sh`, personal env /
   shell-function profiles) out of work deploys, and work-only files (e.g.,
   `aws-config-gen/overrides.json`) out of personal deploys
 
@@ -137,8 +137,11 @@ Current capabilities (one row per machine in `machines.toml`):
 
 - **`tiling`** — install/configure aerospace + sketchybar + borders. Off on `lab-mac` (Screen Share
   machine prefers point-and-click). Gated in `.chezmoiignore` (skips `.config/aerospace`,
-  `.config/sketchybar`) and in `dot_config/homebrew/Brewfile.tmpl` (skips the WM brew block +
-  `font-sketchybar-app-font`).
+  `.config/sketchybar`, `.config/borders`) and in `dot_config/homebrew/Brewfile.tmpl` (skips the WM
+  brew block + `font-sketchybar-app-font`).
+- **`sketchybar_workspace_badges`** — allow SketchyBar workspace app icons to query LaunchServices
+  via `lsappinfo` for dock notification dots. Off on `personal-mac` while LaunchServices is under
+  triage (macOS 27 beta crash logs). Rendered into `dot_config/sketchybar/machine.env.tmpl`.
 - **`atuin`** — deploy `~/.config/atuin/config.toml` (mode 0600 via the source's `private_`
   prefix) pointing at the self-hosted atuin server on `i9`
   (`https://logbook.snugmarina.org`). Off on work machines so corporate shells never sync history
@@ -184,7 +187,9 @@ Current capabilities (one row per machine in `machines.toml`):
   user's personal GitHub (SSH) and the agents are personal content. Unlike most capabilities it has
   no `.chezmoiignore` consumer (its payload is a cloned repo, not tracked source); instead it gates
   the clone in `.chezmoiexternal.toml.tmpl` and the installer in
-  `.chezmoiscripts/run_after_sync-agents.sh.tmpl` (which self-gates to a no-op when off).
+  `.chezmoiscripts/run_after_sync-agents.sh.tmpl` (which self-gates to a no-op when off). After
+  landing changes in `~/projects/agents`, use `MCP_SYNC_STRICT=1 chezmoi apply --refresh-externals`
+  so the external clone and live `~/.claude/agents` refresh together.
 - **`token_auditor`** — install the standalone `token-auditor` uv tool from its public repo
   (`github.com/stevencarpenter/token-auditor`) via
   `.chezmoiscripts/run_onchange_install-token-auditor.sh.tmpl`, putting `token-auditor` / `codax` on

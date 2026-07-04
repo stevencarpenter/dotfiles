@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Clock + Calendar — local in bar, UTC in popup
 # Only update UTC popup items when popup is visible (hover)

@@ -20,7 +20,6 @@ from mcp_sync import (
 )
 from mcp_sync.codex_tui import apply_tui_settings, toml_value
 from mcp_sync.sync import run_sync
-from mcp_sync.sync import transform_to_generic_mcp_format
 from mcp_sync.sync import transform_to_identity_format
 
 
@@ -58,16 +57,6 @@ def test_transform_to_copilot_format(master_config):
     assert "filesystem" in result["mcpServers"]
     assert result["mcpServers"]["filesystem"]["tools"] == ["*"]
     assert result["mcpServers"]["filesystem"]["type"] == "local"
-
-
-def test_transform_to_generic_mcp_format(master_config):
-    """Test transformation to generic MCP format."""
-    result = transform_to_generic_mcp_format(master_config)
-
-    assert "$schema" in result
-    assert "mcpServers" in result
-    assert "filesystem" in result["mcpServers"]
-    assert result["$schema"] == "https://modelcontextprotocol.io/schema/config.json"
 
 
 def test_transform_to_mcpservers_format(master_config):
@@ -156,23 +145,6 @@ def test_sync_to_locations_creates_parent_dirs(temp_home, monkeypatch_home):
     assert json.loads(target.read_text()) == config
 
 
-def test_sync_to_locations_with_legacy(temp_home, monkeypatch_home):
-    """Test that sync_to_locations mirrors to legacy location."""
-    config = {"mcpServers": {"test": {}}}
-    xdg_target = temp_home / ".config" / "test" / "mcp.json"
-    legacy_dir = temp_home / ".test"
-    legacy_target = legacy_dir / "mcp.json"
-
-    # Create legacy dir to trigger copy
-    legacy_dir.mkdir(parents=True, exist_ok=True)
-
-    sync_to_locations(config, xdg_target, legacy_dir, legacy_target)
-
-    assert xdg_target.exists()
-    assert legacy_target.exists()
-    assert xdg_target.read_text() == legacy_target.read_text()
-
-
 def test_patch_claude_code_config_missing(temp_home, monkeypatch_home, master_config):
     """Test that missing Claude Code config is skipped gracefully."""
     # No ~/.claude.json file exists
@@ -241,7 +213,6 @@ def test_patch_claude_code_config_removes_retired_servers(
     }
     claude_path.write_text(json.dumps(template, indent=2), encoding="utf-8")
 
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
     patch_claude_code_config({"servers": {}})
 
     result = json.loads(claude_path.read_text())
@@ -289,7 +260,6 @@ def test_target_native_overrides_cannot_readd_retired_servers(
         encoding="utf-8",
     )
 
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
     assert run_sync(master_path=master_path, home=temp_home) == 0
 
     opencode = json.loads(
@@ -300,21 +270,21 @@ def test_target_native_overrides_cannot_readd_retired_servers(
     assert "kept" in opencode["mcp"]
 
 
-def test_empty_master_config_handling(master_config_file, temp_home, monkeypatch_home):
+def test_empty_master_config_handling():
     """Test handling of master config with no servers."""
     empty_config = {"servers": {}}
 
-    result = transform_to_generic_mcp_format(empty_config)
+    result = transform_to_mcpservers_format(empty_config)
 
     assert "mcpServers" in result
     assert result["mcpServers"] == {}
 
 
-def test_none_servers_handling(master_config):
+def test_none_servers_handling():
     """Test handling when servers is None."""
     config = {"servers": None}
 
-    result = transform_to_generic_mcp_format(config)
+    result = transform_to_mcpservers_format(config)
 
     assert "mcpServers" in result
     assert result["mcpServers"] == {}
@@ -366,7 +336,6 @@ def test_patch_claude_code_config_applies_override(
         encoding="utf-8",
     )
 
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
     patch_claude_code_config(master_config)
 
     result = json.loads(claude_path.read_text())
@@ -403,7 +372,6 @@ hide_gpt5_1_migration_prompt = true
 """
     codex_path.write_text(initial_config, encoding="utf-8")
 
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
     sync_codex_mcp(master_config)
 
     result = codex_path.read_text(encoding="utf-8")
@@ -451,7 +419,6 @@ appearanceTheme = "dark"
 """
     codex_path.write_text(initial_config, encoding="utf-8")
 
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
     sync_codex_mcp(master_config)
 
     result = codex_path.read_text(encoding="utf-8")
@@ -493,7 +460,6 @@ args = ["old.js"]
             "legacy": {"command": "node", "args": ["old.js"], "enabled": False},
         }
     }
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
     sync_codex_mcp(master)
 
     result = codex_path.read_text(encoding="utf-8")
@@ -537,7 +503,6 @@ TOKEN = "old"
             "filesystem": {"command": "node", "args": ["fs.js"], "type": "local"},
         }
     }
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
     sync_codex_mcp(master)
 
     result = codex_path.read_text(encoding="utf-8")
@@ -575,7 +540,6 @@ args = []
         encoding="utf-8",
     )
 
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
     sync_codex_mcp({"servers": {}})
 
     result = codex_path.read_text(encoding="utf-8")
@@ -620,7 +584,6 @@ TOKEN = "keep"
             "filesystem": {"command": "node", "args": ["fs.js"], "type": "local"},
         }
     }
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
     sync_codex_mcp(master)
 
     result = codex_path.read_text(encoding="utf-8")
@@ -650,7 +613,6 @@ def test_sync_codex_mcp_idempotent(temp_home, monkeypatch_home, master_config):
         'appearanceTheme = "dark"\n',
         encoding="utf-8",
     )
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
 
     sync_codex_mcp(master_config)
     first = codex_path.read_text()
@@ -665,7 +627,6 @@ def test_sync_codex_mcp_idempotent(temp_home, monkeypatch_home, master_config):
 
 def test_sync_codex_mcp_missing_config(temp_home, monkeypatch_home, master_config):
     """Syncing seeds the Codex config from the base template when missing."""
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
     sync_codex_mcp(master_config)
 
     codex_path = temp_home / ".codex" / "config.toml"
@@ -696,7 +657,6 @@ def test_sync_codex_mcp_url_server(temp_home, monkeypatch_home):
             "remote-http": {"type": "http", "url": "http://localhost:9876/mcp"},
         }
     }
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
     sync_codex_mcp(master)
 
     result = (temp_home / ".codex" / "config.toml").read_text(encoding="utf-8")
@@ -721,7 +681,6 @@ def test_sync_codex_mcp_mixed_stdio_and_url(temp_home, monkeypatch_home, master_
             "remote-http": {"type": "http", "url": "http://localhost:9876/mcp"},
         },
     }
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
     sync_codex_mcp(master)
 
     result = (temp_home / ".codex" / "config.toml").read_text(encoding="utf-8")
@@ -781,7 +740,6 @@ appearanceTheme = "dark"
 """,
     )
 
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
     sync_codex_mcp(master_config)
 
     result = codex_path.read_text(encoding="utf-8")
@@ -818,7 +776,6 @@ animations = false
 """,
     )
 
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
     sync_codex_mcp(master_config)
 
     parsed = tomllib.loads(codex_path.read_text(encoding="utf-8"))
@@ -852,7 +809,6 @@ def test_sync_codex_mcp_tui_preserves_codex_owned_subtables(
 """,
     )
 
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
     sync_codex_mcp(master_config)
 
     parsed = tomllib.loads(codex_path.read_text(encoding="utf-8"))
@@ -879,7 +835,6 @@ def test_sync_codex_mcp_tui_idempotent(temp_home, monkeypatch_home, master_confi
 """,
     )
 
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
     sync_codex_mcp(master_config)
     first = codex_path.read_text(encoding="utf-8")
     sync_codex_mcp(master_config)
@@ -914,7 +869,6 @@ appearanceTheme = "dark"
 """,
     )
 
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
     sync_codex_mcp(master_config)
 
     result = codex_path.read_text(encoding="utf-8")
@@ -1012,7 +966,6 @@ def test_patch_claude_preserves_key_order(temp_home, monkeypatch_home):
     claude_path.write_text(json.dumps(initial, indent=2), encoding="utf-8")
 
     master = {"servers": {"s": {"command": "x", "args": []}}}
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
     patch_claude_code_config(master)
 
     text = claude_path.read_text(encoding="utf-8")
@@ -1052,7 +1005,6 @@ def test_patch_claude_managed_server_replaces_existing_entry(
             "managed-server": {"command": "new-cmd", "args": []},
         }
     }
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
     patch_claude_code_config(master)
 
     result = json.loads(claude_path.read_text())
@@ -1081,7 +1033,6 @@ def test_full_sync_does_not_propagate_master_schema_to_identity_tools(
     )
     from mcp_sync import main
 
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
     assert main() == 0
 
     vscode = json.loads(

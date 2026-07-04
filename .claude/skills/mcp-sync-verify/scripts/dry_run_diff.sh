@@ -69,10 +69,7 @@ from mcp_sync.sync import _build_targets
 home = Path.home()
 seen = set()
 for t in _build_targets(home):
-    rel = t.destination.relative_to(home)
-    seen.add(str(rel))
-    if t.legacy_destination:
-        seen.add(str(t.legacy_destination.relative_to(home)))
+    seen.add(str(t.destination.relative_to(home)))
 # Special-cased writers
 seen.add(".codex/config.toml")
 seen.add(".claude.json")
@@ -81,6 +78,14 @@ for p in sorted(seen):
     print(p)
 PY
 )
+
+# A crash in the introspection above exits the process substitution, which
+# set -e cannot see — mapfile just gets zero lines and the loop below would
+# report a false "all in sync". Guard explicitly.
+if [[ ${#REL_PATHS[@]} -eq 0 ]]; then
+  echo "==> ERROR: target discovery produced no paths (introspection failed?)" >&2
+  exit 1
+fi
 
 DIFFS=0
 for rel in "${REL_PATHS[@]}"; do

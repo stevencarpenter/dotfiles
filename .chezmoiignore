@@ -106,9 +106,6 @@ pyrightconfig.json
 {{ if (index .machines .machine).skills }}
 !.claude/skills
 .claude/skills/*
-# Deployed on every skills-enabled machine:
-!.claude/skills/chezmoi-secret-encrypt-verify
-!.claude/skills/chezmoi-secret-encrypt-verify/**
 {{ if hasPrefix "work" .machine }}
 # Work-only skills (iac / databricks / kafka / spark / schema work domains):
 !.claude/skills/terraform-precommit-gauntlet
@@ -146,7 +143,6 @@ pyrightconfig.json
 .config/zsh/profile.d/personal-secrets.zsh
 .config/zsh/profile.d/personal-shell-functions.zsh
 .config/aerospace/layouts/workspace-8-comms.sh
-Library/LaunchAgents/com.user.xcode-mcp-proxy.plist
 {{ end }}
 
 # Skip lab files on non-lab machines
@@ -165,18 +161,6 @@ Library/LaunchAgents/com.user.xcode-mcp-proxy.plist
 # private_dot_ssh/encrypted_private_config.age header).
 .ssh/config
 {{ end }}
-
-{{ if ne .chezmoi.os "darwin" }}
-Library/LaunchAgents/com.user.xcode-mcp-proxy.plist
-{{ end }}
-
-# xcode-mcp-proxy temporarily disabled — this is the SINGLE kill-switch.
-# Remove this line (and its comment) to re-enable. The plist template + the
-# load script already gate themselves on (personal-mac && darwin), so simply
-# un-ignoring restores the feature on personal-mac without touching three
-# files. Lines 81-89 above also gate the plist on hasPrefix "personal" —
-# that gate becomes the only restriction once this line is gone.
-Library/LaunchAgents/com.user.xcode-mcp-proxy.plist
 
 # Capability gates (see .chezmoidata/machines.toml)
 # Skip the tiling-WM stack (aerospace + sketchybar) on machines where it's off.

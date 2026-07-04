@@ -1,11 +1,5 @@
 {{- /* chezmoi config template — prompts once per machine, caches in chezmoi.toml */ -}}
 {{- $machine := promptStringOnce . "machine" "Machine type (personal-mac, work-mac, lab-mac)" -}}
-{{- $email := "" -}}
-{{- if hasPrefix "work" $machine -}}
-{{-   $email = promptStringOnce . "email" "Work email address" -}}
-{{- else -}}
-{{-   $email = promptStringOnce . "email" "Personal email address" -}}
-{{- end }}
 
 sourceDir = "~/.local/share/chezmoi"
 
@@ -20,7 +14,6 @@ command = "nvim"
 
 [data]
 machine = {{ $machine | quote }}
-email = {{ $email | quote }}
 
 # Scripts in .chezmoiscripts/ execute on apply but never persist in ~ — without
 # these excludes, every diff/status shows three phantom "new file" script diffs.

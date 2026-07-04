@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import copy
 import json
-import shutil
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from string import Template as StringTemplate
-from typing import Any, Callable
+from typing import Any
 
 from mcp_sync.codex_tui import apply_tui_settings, toml_string
 
@@ -20,6 +20,9 @@ CODEX_MCP_BEGIN_MARKER = "# MCP Servers - BEGIN Codex"
 CODEX_MCP_END_MARKER = "# MCP Servers - END Codex"
 RETIRED_MCP_SERVER_NAMES = frozenset({"github", "xcode"})
 
+# Timeout stamped onto local servers in the opencode output (milliseconds).
+_OPENCODE_TIMEOUT_MS = 30_000
+
 
 @dataclass(frozen=True, slots=True)
 class SyncTarget:
@@ -28,8 +31,6 @@ class SyncTarget:
     transform: Transform
     template_key: str | None = None
     override_key: str | None = None
-    legacy_dir: Path | None = None
-    legacy_destination: Path | None = None
 
     def build(self, master: JsonDict, home: Path | None = None) -> JsonDict:
         template_key = self.template_key or self.name
@@ -50,9 +51,7 @@ class SyncTarget:
 
     def sync(self, master: JsonDict, home: Path | None = None) -> None:
         config = self.build(master, home=home)
-        sync_to_locations(
-            config, self.destination, self.legacy_dir, self.legacy_destination
-        )
+        sync_to_locations(config, self.destination)
 
 
 def _log(prefix: str, message: str) -> None:
@@ -72,8 +71,15 @@ def log_error(message: str) -> None:
 
 
 def load_master_config(path: Path) -> JsonDict:
-    with open(path, encoding="utf-8") as handle:
-        return json.load(handle)
+    """Load the master MCP config document.
+
+    Args:
+        path: Path to ``mcp-master.json``.
+
+    Returns:
+        The parsed master config.
+    """
+    return _load_json(path)
 
 
 def _ensure_mapping(value: Any) -> JsonDict:
@@ -148,10 +154,6 @@ def load_machine_config(path: Path | None) -> JsonDict:
     except Exception:
         log_info(f"Skipping machine config: {path} (read error)")
         return {}
-
-
-def _identity(master: JsonDict) -> JsonDict:
-    return master
 
 
 def _normalize_servers(master: JsonDict) -> JsonDict:
@@ -270,6 +272,19 @@ def _merge_lists(base: list[Any], extra: list[Any]) -> list[Any]:
 
 
 def deep_merge(base: JsonDict, override: JsonDict) -> JsonDict:
+    """Recursively merge ``override`` into ``base`` without mutating either.
+
+    Nested dicts merge key-by-key; scalars and lists replace. A key ending in
+    ``+`` appends to the list under the un-suffixed key instead of replacing
+    it.
+
+    Args:
+        base: Document providing default values.
+        override: Document whose values win on collision.
+
+    Returns:
+        A new merged document; both inputs are left untouched.
+    """
     result: JsonDict = copy.deepcopy(base)
     for key, value in override.items():
         if key.endswith("+"):
@@ -315,9 +330,7 @@ def sync_codex_mcp(master: JsonDict, home: Path | None = None) -> None:
 
     overrides = _load_override("codex", home_path)
     merged_servers = _merge_override_servers(master, overrides)
-    managed = _strip_server_fields(
-        _filter_enabled_servers(merged_servers), *_ENABLEMENT_FIELDS
-    )
+    managed = _enabled_stripped_servers(merged_servers)
     disabled = _disabled_or_retired_server_names(merged_servers)
 
     # Load the template once; it seeds a fresh config and enforces [tui] below.
@@ -436,6 +449,17 @@ def _write_json(path: Path, payload: JsonDict, *, sort_keys: bool = True) -> Non
 
 
 def patch_claude_code_config(master: JsonDict, home: Path | None = None) -> None:
+    """Patch managed MCP servers into ``~/.claude.json`` in place.
+
+    Unlike the file-generating targets, Claude Code owns this file — only the
+    ``mcpServers`` key is rewritten (managed servers replace their entries,
+    unmanaged ones are preserved), and key order is kept to avoid churning
+    Claude's own runtime state.
+
+    Args:
+        master: Master MCP config document.
+        home: Home directory override for tests; defaults to ``Path.home()``.
+    """
     home_path = _home_dir(home)
     claude_path = home_path / ".claude.json"
     if not claude_path.is_file():
@@ -447,9 +471,7 @@ def patch_claude_code_config(master: JsonDict, home: Path | None = None) -> None
     overrides = _load_override("claude", home_path)
     merged_servers = _merge_override_servers(master, overrides)
     disabled_servers = _disabled_or_retired_server_names(merged_servers)
-    servers = _strip_server_fields(
-        _filter_enabled_servers(merged_servers), "note", *_ENABLEMENT_FIELDS
-    )
+    servers = _enabled_stripped_servers(merged_servers, "note")
 
     existing = _ensure_mapping(claude_cfg.get("mcpServers"))
     preserved_existing = {
@@ -477,25 +499,43 @@ def patch_claude_code_config(master: JsonDict, home: Path | None = None) -> None
     log_success(f"Synced: {claude_path}")
 
 
-def sync_to_locations(
-    config: JsonDict,
-    xdg_target: Path,
-    legacy_dir: Path | None = None,
-    legacy_target: Path | None = None,
-) -> None:
+def sync_to_locations(config: JsonDict, xdg_target: Path) -> None:
+    """Write a generated per-tool config to its destination.
+
+    Args:
+        config: The fully merged per-tool config document.
+        xdg_target: Destination file; parent directories are created.
+    """
     _write_json(xdg_target, config)
     log_success(f"Synced: {xdg_target}")
 
-    if legacy_dir and legacy_target and legacy_dir.is_dir():
-        legacy_target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(xdg_target, legacy_target)
-        log_success(f"Synced: {legacy_target} (legacy)")
+
+def _enabled_stripped_servers(servers: JsonDict, *extra_fields: str) -> JsonDict:
+    """Enabled servers from ``servers`` with sync-time gating fields stripped.
+
+    Args:
+        servers: Mapping of server name to config (already normalized/merged).
+        extra_fields: Additional per-target fields to strip beyond the
+            enablement fields every target strips (e.g. ``"note"``).
+
+    Returns:
+        Mapping of server name to config, ready for per-tool output.
+    """
+    return _strip_server_fields(
+        _filter_enabled_servers(servers), *extra_fields, *_ENABLEMENT_FIELDS
+    )
 
 
 def transform_to_copilot_format(master: JsonDict) -> JsonDict:
-    servers = _strip_server_fields(
-        _filter_enabled_servers(_normalize_servers(master)), *_ENABLEMENT_FIELDS
-    )
+    """Shape the master config for GitHub Copilot's ``mcpServers`` document.
+
+    Args:
+        master: Master MCP config document.
+
+    Returns:
+        Copilot-format document with every server granted ``tools: ["*"]``.
+    """
+    servers = _enabled_stripped_servers(_normalize_servers(master))
     mcp_servers: JsonDict = {}
     for name, server in servers.items():
         mcp_servers[name] = {
@@ -507,39 +547,47 @@ def transform_to_copilot_format(master: JsonDict) -> JsonDict:
 
 
 def transform_to_identity_format(master: JsonDict) -> JsonDict:
+    """Pass the master config through, filtered to enabled servers.
+
+    Args:
+        master: Master MCP config document.
+
+    Returns:
+        A copy of ``master`` with disabled servers and gating fields removed.
+    """
     config = copy.deepcopy(master)
     # The master config carries an MCP-flavored `$schema` URL, but per-tool
     # outputs that use the identity transform (vscode, github-copilot) have
     # their own schema URLs (or none). Don't propagate the master's schema —
     # let the per-tool base template assert the right one.
     config.pop("$schema", None)
-    config["servers"] = _strip_server_fields(
-        _filter_enabled_servers(_normalize_servers(master)), *_ENABLEMENT_FIELDS
-    )
+    config["servers"] = _enabled_stripped_servers(_normalize_servers(master))
     return config
 
 
-def transform_to_generic_mcp_format(master: JsonDict) -> JsonDict:
-    servers = _strip_server_fields(
-        _filter_enabled_servers(_normalize_servers(master)), *_ENABLEMENT_FIELDS
-    )
-    return {
-        "$schema": "https://modelcontextprotocol.io/schema/config.json",
-        "mcpServers": servers,
-    }
-
-
 def transform_to_mcpservers_format(master: JsonDict) -> JsonDict:
-    servers = _strip_server_fields(
-        _filter_enabled_servers(_normalize_servers(master)), *_ENABLEMENT_FIELDS
-    )
-    return {"mcpServers": servers}
+    """Shape the master config as a bare ``mcpServers`` document.
+
+    Args:
+        master: Master MCP config document.
+
+    Returns:
+        ``{"mcpServers": ...}`` holding only enabled, stripped servers.
+    """
+    return {"mcpServers": _enabled_stripped_servers(_normalize_servers(master))}
 
 
 def transform_to_opencode_format(master: JsonDict) -> JsonDict:
-    servers = _strip_server_fields(
-        _filter_enabled_servers(_normalize_servers(master)), *_ENABLEMENT_FIELDS
-    )
+    """Shape the master config for opencode's ``mcp`` block.
+
+    Args:
+        master: Master MCP config document.
+
+    Returns:
+        opencode-format document: remote servers keep their URL; local
+        servers get a merged command array and a default timeout.
+    """
+    servers = _enabled_stripped_servers(_normalize_servers(master))
     mcp: JsonDict = {}
     for name, server in servers.items():
         url = server.get("url")
@@ -559,7 +607,7 @@ def transform_to_opencode_format(master: JsonDict) -> JsonDict:
             "type": "local",
             "command": cmd_array,
             "enabled": True,
-            "timeout": 30000,
+            "timeout": _OPENCODE_TIMEOUT_MS,
         }
         if "env" in server:
             entry["environment"] = server["env"]
@@ -645,6 +693,17 @@ def run_sync(
     home: Path | None = None,
     machine_config_path: Path | None = None,
 ) -> int:
+    """Fan the master MCP config out to every tool's native config.
+
+    Args:
+        master_path: Master config location; defaults to
+            ``~/.config/mcp/mcp-master.json``.
+        home: Home directory override for tests; defaults to ``Path.home()``.
+        machine_config_path: Optional machine overlay merged over the master.
+
+    Returns:
+        Process exit code: ``0`` on success, ``1`` if the master is missing.
+    """
     home_path = home or Path.home()
     master_config_path = (
         master_path or home_path / ".config" / "mcp" / "mcp-master.json"
@@ -675,4 +734,9 @@ def run_sync(
 
 
 def main() -> int:
+    """Entry point for the ``sync-mcp-configs`` console script.
+
+    Returns:
+        Process exit code from :func:`run_sync`.
+    """
     return run_sync()

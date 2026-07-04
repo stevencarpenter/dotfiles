@@ -20,7 +20,18 @@ echo "Agent registry install skipped (machine capability agents=false)."
 exit 0
 {{- else -}}
 
-REGISTRY_PROJECT="${HOME}/.local/share/agent-registry"
+# On the dev machine where the working copy is actively edited, install from
+# it directly rather than the hourly-refreshed external clone — otherwise
+# `chezmoi apply` silently installs whatever the clone last fetched, which can
+# be days stale relative to uncommitted or unpushed local work. Any other
+# machine (or this one before the working copy exists) falls back to the
+# external clone as before.
+WORKING_COPY="{{ .chezmoi.homeDir }}/projects/agents"
+if [[ -f "${WORKING_COPY}/pyproject.toml" ]]; then
+  REGISTRY_PROJECT="${WORKING_COPY}"
+else
+  REGISTRY_PROJECT="${HOME}/.local/share/agent-registry"
+fi
 # Shared strict knob across all sync hooks (skills/mcp/agents): set
 # MCP_SYNC_STRICT=1 to make a sync failure fail `chezmoi apply`.
 STRICT_MODE="${MCP_SYNC_STRICT:-0}"
@@ -33,6 +44,16 @@ fail_or_warn() {
   fi
   echo "Warning: ${message}" >&2
   exit 0
+}
+
+count_matching_files() {
+  local dir="$1"
+  local pattern="$2"
+  if [[ ! -d "${dir}" ]]; then
+    printf '0'
+    return
+  fi
+  find "${dir}" -maxdepth 1 -type f -name "${pattern}" | wc -l | tr -d ' '
 }
 
 if ! command -v uv >/dev/null 2>&1; then
@@ -54,5 +75,77 @@ if ! uv run --directory "${REGISTRY_PROJECT}" python -m agent_registry.cli insta
   fail_or_warn "Agent registry install failed."
 fi
 
-echo "Agent registry installed."
+registry_commit="$(git -C "${REGISTRY_PROJECT}" rev-parse --short HEAD 2>/dev/null || printf 'unknown')"
+claude_count="$(count_matching_files "${HOME}/.claude/agents" '*.md')"
+codex_count="$(count_matching_files "${HOME}/.codex/agents" '*.toml')"
+opencode_count="$(count_matching_files "${HOME}/.config/opencode/agents" '*.md')"
+copilot_count="$(count_matching_files "${HOME}/.config/github-copilot" 'global-agents-instructions.md')"
+
+echo "Agent registry installed from ${registry_commit}."
+echo "Installed agent counts: claude=${claude_count} codex=${codex_count} opencode=${opencode_count} copilot=${copilot_count}"
+
+# Refresh the SessionStart routing-context cache now that ~/.claude/agents is
+# current. Stdlib-only, no uv/deps needed. Best-effort: a stale or missing
+# cache just means the next session's routing hook emits nothing or slightly
+# old content, never a broken apply.
+ROUTING_SCRIPT="${REGISTRY_PROJECT}/tools/routing/generate_context.py"
+ROUTING_CACHE="${HOME}/.cache/agent-routing/context.md"
+if [[ -f "${ROUTING_SCRIPT}" ]] && command -v python3 >/dev/null 2>&1; then
+  mkdir -p "$(dirname "${ROUTING_CACHE}")"
+  if python3 "${ROUTING_SCRIPT}" > "${ROUTING_CACHE}.tmp" 2>/dev/null; then
+    mv "${ROUTING_CACHE}.tmp" "${ROUTING_CACHE}"
+    echo "Refreshed agent-routing context cache."
+  else
+    rm -f "${ROUTING_CACHE}.tmp"
+    echo "Warning: agent-routing context generation failed; leaving previous cache in place." >&2
+  fi
+fi
+
+if ! violations="$(
+  uv run --directory "${REGISTRY_PROJECT}" python - "${HOME}/.claude/agents" <<'PY'
+from pathlib import Path
+import sys
+
+root = Path(sys.argv[1])
+builtins = {
+    "Read",
+    "Write",
+    "Edit",
+    "MultiEdit",
+    "NotebookEdit",
+    "Bash",
+    "Glob",
+    "Grep",
+    "LS",
+}
+violations: list[str] = []
+
+for path in sorted(root.glob("*.md")):
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        violations.append(f"{path.name}: cannot read: {exc}")
+        continue
+    if not text.startswith("---\n"):
+        continue
+    try:
+        frontmatter = text[4:].split("\n---\n", 1)[0]
+    except ValueError:
+        continue
+    for line_number, line in enumerate(frontmatter.splitlines(), start=2):
+        if not line.startswith("tools:"):
+            continue
+        tools = [part.strip() for part in line.split(":", 1)[1].split(",") if part.strip()]
+        if tools and all(tool in builtins for tool in tools):
+            violations.append(f"{path.name}:{line_number}: {line}")
+
+if violations:
+    print("\n".join(violations))
+    sys.exit(1)
+PY
+)"; then
+  fail_or_warn "Claude agents contain built-in-only tools allowlists:
+${violations}"
+fi
+
 {{- end }}

@@ -31,6 +31,7 @@
     "edit-article": { "source": "mattpocock", "path": "skills/personal/edit-article" },
     "obsidian-vault": { "source": "mattpocock", "path": "skills/personal/obsidian-vault" },
     "refactor": { "source": "personal" },
-    "claude-cost": { "source": "personal" }
+    "claude-cost": { "source": "personal" },
+    "chezmoi-secret-encrypt-verify": { "source": "personal" }
   }
 }

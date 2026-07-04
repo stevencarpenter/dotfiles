@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 
@@ -14,9 +13,6 @@ def test_full_sync_workflow_all_targets(
     temp_home, monkeypatch_home, master_config_file
 ):
     """Integration test: full sync to all target locations."""
-    # Mock Path.home() to return temp_home
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
-
     exit_code = main()
 
     assert exit_code == 0
@@ -46,7 +42,6 @@ def test_full_sync_copilot_format_has_tools_array(
 ):
     """Integration test: verify Copilot format includes tools array."""
 
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
     main()
 
     copilot_config = json.loads((temp_home / ".copilot/mcp-config.json").read_text())
@@ -74,7 +69,6 @@ def test_full_sync_opencode_includes_local_providers(
     Returns:
         None.
     """
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
     main()
 
     cfg = json.loads((temp_home / ".config/opencode/opencode.json").read_text())
@@ -103,8 +97,6 @@ def test_full_sync_cursor_writes_home_dotfolder(
         None.
     """
 
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
-
     main()
 
     cursor_path = temp_home / ".cursor/mcp.json"
@@ -118,7 +110,6 @@ def test_full_sync_cursor_writes_home_dotfolder(
 def test_full_sync_env_vars_preserved(temp_home, monkeypatch_home, master_config_file):
     """Integration test: environment variables are preserved in all formats."""
 
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
     main()
 
     # Check GitHub Copilot target config preserves env-bearing servers.
@@ -139,8 +130,6 @@ def test_sync_with_existing_claude_config(
     temp_home, monkeypatch_home, master_config_file, claude_config_template
 ):
     """Integration test: existing Claude config is merged correctly."""
-
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
 
     # Create existing Claude config
     claude_path = temp_home / ".claude.json"
@@ -167,8 +156,6 @@ def test_sync_with_existing_opencode_config(
     temp_home, monkeypatch_home, master_config_file
 ):
     """Integration test: existing OpenCode config is overwritten from base template."""
-
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
 
     # Create existing OpenCode config
     opencode_dir = temp_home / ".config/opencode"
@@ -203,8 +190,6 @@ def test_sync_with_existing_opencode_config(
 def test_sync_missing_master_config(temp_home, monkeypatch_home):
     """Integration test: graceful failure when master config missing."""
 
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
-
     exit_code = main()
 
     assert exit_code == 1
@@ -212,8 +197,6 @@ def test_sync_missing_master_config(temp_home, monkeypatch_home):
 
 def test_sync_with_codex_config(temp_home, monkeypatch_home, master_config_file):
     """Integration test: Codex config created with MCP servers."""
-
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
 
     # Create existing Codex config
     codex_dir = temp_home / ".codex"
@@ -234,8 +217,6 @@ def test_sync_with_codex_config(temp_home, monkeypatch_home, master_config_file)
 
 def test_sync_idempotency(temp_home, monkeypatch_home, master_config_file):
     """Integration test: running sync twice produces identical results."""
-
-    monkeypatch_home.setattr(Path, "home", lambda: temp_home)
 
     # First run
     main()

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
 DEV_UID="${DEV_UID:-1000}"
 DEV_GID="${DEV_GID:-1000}"

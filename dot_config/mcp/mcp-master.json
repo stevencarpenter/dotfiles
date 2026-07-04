@@ -5,6 +5,14 @@
       "type": "stdio",
       "command": "codegraph",
       "args": ["serve", "--mcp"]
+    },
+    "grafana": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["mcp-grafana@0.15.2", "--disable-write"],
+      "env": {
+        "GRAFANA_URL": "http://localhost:3000"
+      }
     }
   }
 }

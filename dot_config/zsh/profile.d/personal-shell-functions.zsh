@@ -42,12 +42,6 @@ case ":$PATH:" in
 esac
 # pnpm end
 
-# ghcup (Haskell toolchain manager) why am I even doing this in 2026
-#[ -f "$HOME/.ghcup/env" ] && . "$HOME/.ghcup/env" # ghcup-env
-
-# Mill build tool completions
-#source ~/.local/share/mill/completion/mill-completion.sh # MILL_SOURCE_COMPLETION_LINE
-
 # Verify key dev toolchain binaries are native ARM64 (not Rosetta-translated)
 check-arch() {
   local tools=(node python3 go rustc java ruby)
@@ -56,7 +50,7 @@ check-arch() {
     local bin
     bin=$(command -v "$t" 2>/dev/null) || continue
     local arch
-    arch=$(file "$bin" | grep -o 'arm64\|x86_64' | head -1)
+    arch=$(file "$bin" | rg -o 'arm64|x86_64' | head -1)
     if [[ "$arch" == "x86_64" ]]; then
       echo "⚠️  $t ($bin): x86_64 — running under Rosetta"
       found_issue=1
