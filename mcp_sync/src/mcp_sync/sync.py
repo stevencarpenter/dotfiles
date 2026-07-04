@@ -330,9 +330,7 @@ def sync_codex_mcp(master: JsonDict, home: Path | None = None) -> None:
 
     overrides = _load_override("codex", home_path)
     merged_servers = _merge_override_servers(master, overrides)
-    managed = _strip_server_fields(
-        _filter_enabled_servers(merged_servers), *_ENABLEMENT_FIELDS
-    )
+    managed = _enabled_stripped_servers(merged_servers)
     disabled = _disabled_or_retired_server_names(merged_servers)
 
     # Load the template once; it seeds a fresh config and enforces [tui] below.
@@ -473,9 +471,7 @@ def patch_claude_code_config(master: JsonDict, home: Path | None = None) -> None
     overrides = _load_override("claude", home_path)
     merged_servers = _merge_override_servers(master, overrides)
     disabled_servers = _disabled_or_retired_server_names(merged_servers)
-    servers = _strip_server_fields(
-        _filter_enabled_servers(merged_servers), "note", *_ENABLEMENT_FIELDS
-    )
+    servers = _enabled_stripped_servers(merged_servers, "note")
 
     existing = _ensure_mapping(claude_cfg.get("mcpServers"))
     preserved_existing = {
@@ -514,17 +510,19 @@ def sync_to_locations(config: JsonDict, xdg_target: Path) -> None:
     log_success(f"Synced: {xdg_target}")
 
 
-def _enabled_stripped_servers(master: JsonDict) -> JsonDict:
-    """Enabled servers from ``master`` with sync-time gating fields stripped.
+def _enabled_stripped_servers(servers: JsonDict, *extra_fields: str) -> JsonDict:
+    """Enabled servers from ``servers`` with sync-time gating fields stripped.
 
     Args:
-        master: Master MCP config document.
+        servers: Mapping of server name to config (already normalized/merged).
+        extra_fields: Additional per-target fields to strip beyond the
+            enablement fields every target strips (e.g. ``"note"``).
 
     Returns:
         Mapping of server name to config, ready for per-tool output.
     """
     return _strip_server_fields(
-        _filter_enabled_servers(_normalize_servers(master)), *_ENABLEMENT_FIELDS
+        _filter_enabled_servers(servers), *extra_fields, *_ENABLEMENT_FIELDS
     )
 
 
@@ -537,7 +535,7 @@ def transform_to_copilot_format(master: JsonDict) -> JsonDict:
     Returns:
         Copilot-format document with every server granted ``tools: ["*"]``.
     """
-    servers = _enabled_stripped_servers(master)
+    servers = _enabled_stripped_servers(_normalize_servers(master))
     mcp_servers: JsonDict = {}
     for name, server in servers.items():
         mcp_servers[name] = {
@@ -563,7 +561,7 @@ def transform_to_identity_format(master: JsonDict) -> JsonDict:
     # their own schema URLs (or none). Don't propagate the master's schema —
     # let the per-tool base template assert the right one.
     config.pop("$schema", None)
-    config["servers"] = _enabled_stripped_servers(master)
+    config["servers"] = _enabled_stripped_servers(_normalize_servers(master))
     return config
 
 
@@ -576,7 +574,7 @@ def transform_to_mcpservers_format(master: JsonDict) -> JsonDict:
     Returns:
         ``{"mcpServers": ...}`` holding only enabled, stripped servers.
     """
-    return {"mcpServers": _enabled_stripped_servers(master)}
+    return {"mcpServers": _enabled_stripped_servers(_normalize_servers(master))}
 
 
 def transform_to_opencode_format(master: JsonDict) -> JsonDict:
@@ -589,7 +587,7 @@ def transform_to_opencode_format(master: JsonDict) -> JsonDict:
         opencode-format document: remote servers keep their URL; local
         servers get a merged command array and a default timeout.
     """
-    servers = _enabled_stripped_servers(master)
+    servers = _enabled_stripped_servers(_normalize_servers(master))
     mcp: JsonDict = {}
     for name, server in servers.items():
         url = server.get("url")

@@ -24,4 +24,4 @@ cursor-color=#d3c6aa
 selection-foreground=#2f383e
 selection-background=#d3c6aa
 
-macos-secure-input = false
+macos-auto-secure-input = false

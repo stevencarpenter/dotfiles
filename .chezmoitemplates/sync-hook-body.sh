@@ -7,11 +7,12 @@ except for a handful of strings. Invoked from .chezmoiscripts via:
 Expected context keys:
   machine    — chezmoi's .machine
   machines   — chezmoi's .machines capability table
-  capability — capability key gating the hook (e.g. "mcp")
-  label      — sentence-case label for messages (e.g. "MCP sync")
-  labelLower — mid-sentence label (e.g. "skill sync"; acronyms stay as-is)
+  capability — capability key gating the hook and the ~/.config subdir
+               holding its machine overlays (e.g. "mcp")
+  label      — label for messages (e.g. "MCP sync"); used both sentence-case
+               and mid-sentence, so keep it lowercasable without losing
+               meaning (acronyms like "MCP" stay as-is either way)
   entrypoint — mcp_sync console script to run (e.g. "sync-mcp-configs")
-  configdir  — subdir of ~/.config holding the machine overlays (e.g. "mcp")
 */ -}}
 {{ if not (index (index .machines .machine) .capability) -}}
 echo "{{ .label }} skipped (machine capability {{ .capability }}=false)."
@@ -31,7 +32,7 @@ fail_or_warn() {
 }
 
 if ! command -v uv >/dev/null 2>&1; then
-  fail_or_warn "uv is not installed; skipping {{ .labelLower }}."
+  fail_or_warn "uv is not installed; skipping {{ .label }}."
   exit 0
 fi
 
@@ -41,7 +42,7 @@ if [[ -f "${SYNC_PROJECT}/pyproject.toml" ]]; then
   # Select the overlay for THIS machine type, rendered from chezmoi's .machine
   # data — never whatever stale overlay happens to sort first on disk after a
   # machine-type change.
-  MACHINE_DIR="${HOME}/.config/{{ .configdir }}/machine"
+  MACHINE_DIR="${HOME}/.config/{{ .capability }}/machine"
   MACHINE_OVERLAY=""
   {{- if hasPrefix "personal" .machine }}
   MACHINE_OVERLAY="${MACHINE_DIR}/personal.json"
@@ -60,7 +61,7 @@ if [[ -f "${SYNC_PROJECT}/pyproject.toml" ]]; then
     exit 0
   fi
 else
-  echo "Warning: {{ .labelLower }} project not found at ${SYNC_PROJECT}." >&2
+  echo "Warning: {{ .label }} project not found at ${SYNC_PROJECT}." >&2
   exit 0
 fi
 

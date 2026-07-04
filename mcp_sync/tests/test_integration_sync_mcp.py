@@ -13,8 +13,6 @@ def test_full_sync_workflow_all_targets(
     temp_home, monkeypatch_home, master_config_file
 ):
     """Integration test: full sync to all target locations."""
-    # Mock Path.home() to return temp_home
-
     exit_code = main()
 
     assert exit_code == 0
