@@ -63,6 +63,29 @@ def test_hand_edit_reports_drift_with_diff(
     assert "hand-added" in entries["cursor"].diff
 
 
+def test_malformed_claude_json_reports_drift_not_crash(
+    temp_home, monkeypatch_home, master_config_file
+):
+    """A corrupt ~/.claude.json is reported as drift, never a traceback."""
+    claude_path = temp_home / ".claude.json"
+    claude_path.write_text('{"mcpServers": {,,}', encoding="utf-8")  # invalid JSON
+
+    master = load_master_config(master_config_file)
+    entries = _entries_by_name(drift_report(master, temp_home))
+
+    assert entries["claude"].status == "drift"
+    assert "not valid JSON" in entries["claude"].diff
+
+
+def test_check_exits_1_on_malformed_claude_json(
+    temp_home, monkeypatch_home, master_config_file
+):
+    """run_check surfaces a corrupt co-owned file as exit 1, not an exception."""
+    (temp_home / ".claude.json").write_text("{ broken", encoding="utf-8")
+
+    assert run_check(home=temp_home) == 1
+
+
 def test_claude_unmanaged_keys_are_not_drift(
     temp_home, monkeypatch_home, master_config_file, claude_config_template
 ):

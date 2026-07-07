@@ -23,18 +23,20 @@
       }
     ],
     "SessionStart": [
+{{- if hasPrefix "personal" .machine }}
       {
         "hooks": [
           {
-            "command": "/Users/carpenter/.local/share/hippo-brain/shell/claude-session-hook.sh",
+            "command": "{{ .chezmoi.homeDir }}/.local/share/hippo-brain/shell/claude-session-hook.sh",
             "type": "command"
           }
         ]
       },
+{{- end }}
       {
         "hooks": [
           {
-            "command": "bash '/Users/carpenter/.codex/herdr-agent-state.sh' session",
+            "command": "[ -x '{{ .chezmoi.homeDir }}/.codex/herdr-agent-state.sh' ] && bash '{{ .chezmoi.homeDir }}/.codex/herdr-agent-state.sh' session || true",
             "timeout": 10,
             "type": "command"
           }

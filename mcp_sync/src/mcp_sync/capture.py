@@ -17,6 +17,7 @@ reported so they can be fixed in the master config instead.
 from __future__ import annotations
 
 import copy
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -55,6 +56,11 @@ class CaptureResult:
             express.
         verified: True when a rebuild with the new override reproduces the
             deployed file's content.
+        residual: Dotted paths that a rebuild still cannot reproduce (e.g. a
+            hand-re-added retired server name, or an ``enabled: false`` on an
+            identity-format target that the sync gate strips). Populated only
+            when ``verified`` is False, to explain *what* did not round-trip
+            instead of a generic "residual drift" message.
     """
 
     name: str
@@ -62,6 +68,7 @@ class CaptureResult:
     delta: JsonDict = field(default_factory=dict)
     uncapturable: list[str] = field(default_factory=list)
     verified: bool = False
+    residual: list[str] = field(default_factory=list)
 
 
 def _diff_objects(
@@ -100,14 +107,53 @@ def _diff_objects(
     return delta, deletions
 
 
+def _leaf_paths(delta: JsonDict, prefix: tuple[str, ...] = ()) -> list[str]:
+    """Flatten a nested delta into dotted leaf paths (for residual reporting)."""
+    paths: list[str] = []
+    for key, value in delta.items():
+        if isinstance(value, dict) and value:
+            paths.extend(_leaf_paths(value, (*prefix, key)))
+        else:
+            paths.append(".".join((*prefix, key)))
+    return paths
+
+
+def _patch_renderers(master: JsonDict, home: Path) -> dict[str, tuple[Path, Any]]:
+    """Co-owned patch targets → ``(deployed path, zero-arg renderer)``.
+
+    One table so drift/capture/sync agree on which files are patch-managed and
+    how they render. ``codex`` is intentionally absent: it is patch-managed TOML
+    and not capturable.
+    """
+    return {
+        "claude": (home / ".claude.json", lambda: render_claude_config(master, home)),
+        "gemini": (
+            home / ".gemini" / "settings.json",
+            lambda: render_gemini_config(master, home),
+        ),
+    }
+
+
 def _expected_and_deployed(
     name: str, master: JsonDict, home: Path
 ) -> tuple[JsonDict, Path, str, Any]:
     """Resolve a target name to its expected doc, deployed path, and rebuilder.
 
+    Args:
+        name: Sync target name (a ``SyncTarget`` name or a patch target).
+        master: Merged master + machine-overlay MCP config.
+        home: Home directory to inspect.
+
     Returns:
-        ``(expected, deployed_path, override_key, rebuild)`` where ``rebuild``
-        re-renders the expected doc (re-reading overrides from disk).
+        ``(expected, deployed_path, override_key, rebuild)`` where ``expected``
+        is the current render and ``rebuild`` re-renders the same doc via the
+        identical code path (re-reading overrides from disk) for post-write
+        verification.
+
+    Raises:
+        ValueError: For ``"codex"`` (patch-managed TOML; not capturable), for a
+            patch target whose deployed file is absent, for a ``SyncTarget``
+            whose destination is absent, or for an unknown target name.
     """
     if name == "codex":
         raise ValueError(
@@ -115,28 +161,16 @@ def _expected_and_deployed(
             "already survive syncs, and edits inside it must go to the master "
             "config or a machine overlay — capture cannot express them."
         )
-    if name == "claude":
-        claude_path = home / ".claude.json"
-        expected = render_claude_config(master, home)
+
+    patch = _patch_renderers(master, home)
+    if name in patch:
+        path, rebuild = patch[name]
+        # rebuild() IS the expected render — compute it here so `expected` and
+        # the verification `rebuild()` can never diverge into two code paths.
+        expected = rebuild()
         if expected is None:
-            raise ValueError(f"{claude_path} does not exist; nothing to capture.")
-        return (
-            expected,
-            claude_path,
-            "claude",
-            lambda: render_claude_config(master, home),
-        )
-    if name == "gemini":
-        gemini_path = home / ".gemini" / "settings.json"
-        expected = render_gemini_config(master, home)
-        if expected is None:
-            raise ValueError(f"{gemini_path} does not exist; nothing to capture.")
-        return (
-            expected,
-            gemini_path,
-            "gemini",
-            lambda: render_gemini_config(master, home),
-        )
+            raise ValueError(f"{path} does not exist; nothing to capture.")
+        return expected, path, name, rebuild
 
     for target in _build_targets(home):
         if target.name == name:
@@ -152,7 +186,7 @@ def _expected_and_deployed(
             )
     known = ", ".join(t.name for t in _build_targets(home))
     raise ValueError(
-        f"Unknown capture target {name!r}. Known: {known}, claude, gemini."
+        f"Unknown capture target {name!r}. Known: {known}, {', '.join(patch)}."
     )
 
 
@@ -195,8 +229,21 @@ def capture_target(name: str, master: JsonDict, home: Path) -> CaptureResult:
         existing = _load_json(override_path) if override_path.is_file() else {}
         _write_json(override_path, deep_merge(existing, candidate))
 
-    verified = rebuild() == deployed
-    return CaptureResult(name, override_path, candidate, uncapturable, verified)
+    rebuilt = rebuild()
+    verified = rebuilt == deployed
+    residual: list[str] = []
+    if not verified:
+        # Report exactly what a rebuild still can't reproduce, rather than a
+        # generic "residual drift" — e.g. a re-added retired server name, or an
+        # enablement flag the sync gate strips, is unrepresentable in the
+        # override layer and shows up here.
+        residual_delta, residual_deletions = _diff_objects(rebuilt, deployed)
+        residual = _leaf_paths(residual_delta) + [
+            ".".join(deletion) for deletion in residual_deletions
+        ]
+    return CaptureResult(
+        name, override_path, candidate, uncapturable, verified, residual
+    )
 
 
 def run_capture(
@@ -233,6 +280,13 @@ def run_capture(
 
     try:
         result = capture_target(name, master, home_path)
+    except json.JSONDecodeError as exc:
+        # JSONDecodeError subclasses ValueError, so this must precede the
+        # ValueError arm to give a targeted message instead of a raw parse dump.
+        log_error(
+            f"{name}: deployed config is not valid JSON ({exc}); nothing captured."
+        )
+        return 1
     except ValueError as exc:
         log_error(str(exc))
         return 1
@@ -253,9 +307,19 @@ def run_capture(
             "delete keys. Change the master config or base template instead."
         )
     if not result.verified:
+        detail = (
+            f" The following could not be reproduced: {', '.join(result.residual)}."
+            if result.residual
+            else ""
+        )
         log_error(
             "A rebuild with the new override does not fully reproduce the "
-            "deployed file; residual drift remains."
+            "deployed file; residual drift remains." + detail
+        )
+        log_info(
+            "This usually means a retired server name or an enablement flag the "
+            "sync gate strips — such edits belong in the master config, not an "
+            "override."
         )
         return 1
     log_info(

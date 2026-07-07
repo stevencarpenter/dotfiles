@@ -170,10 +170,15 @@ existing=$(cat)
 # Recursive merge replaces arrays wholesale, which would wipe SessionStart
 # hooks that tools self-register into the live file (e.g. herdr's agent-state
 # hook). Preserve-unknown semantics, mirroring allowWrite below: managed
-# entries are enforced first, then live entries whose hook commands are not
-# already managed are re-appended. The capability strip further down still
-# removes hippo/routing entries when their gate flips off, because it filters
-# by command substring rather than provenance.
+# entries are enforced first, then live hooks that we don't manage are
+# re-appended. Filtering is per-HOOK, not per-entry, so a live entry that
+# bundles a managed command alongside a tool's own command keeps the tool's
+# command instead of being dropped wholesale. A live hook is treated as ours
+# (and dropped, since $managed already re-added the current version) when its
+# command is byte-identical to a managed command OR matches a managed marker
+# substring — the latter also sweeps a STALE managed command whose text
+# changed between applies, which an identity match alone would orphan forever.
+# The markers mirror the capability-strip block below.
 merged=$(printf '%s\n' "$existing" | jq --argjson managed "$managed" '
   . as $live
   | ($live * $managed)
@@ -181,11 +186,17 @@ merged=$(printf '%s\n' "$existing" | jq --argjson managed "$managed" '
       .hooks.SessionStart = (
         (.hooks.SessionStart // []) as $m
         | ($m | [.[].hooks[]?.command]) as $managed_cmds
-        | $m + ($live.hooks.SessionStart | map(select(
-            [.hooks[]?.command // empty] as $cmds
-            | ($cmds | length) > 0
-              and (($cmds | map(. as $c | $managed_cmds | index($c) != null) | any) | not)
-          )))
+        | ["/hippo-brain/", "/emit-routing-context.sh"] as $markers
+        | $m + (
+            $live.hooks.SessionStart
+            | map(.hooks = ((.hooks // []) | map(select(
+                (.command // "") as $c
+                | ($c | length) > 0
+                  and (($managed_cmds | index($c)) == null)
+                  and (($markers | map(. as $mk | $c | contains($mk)) | any) | not)
+              ))))
+            | map(select((.hooks | length) > 0))
+          )
       )
     else . end
 ')

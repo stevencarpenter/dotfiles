@@ -97,6 +97,43 @@ def test_url_server_mapped_to_http_url(temp_home):
     assert config["mcpServers"]["grafana"] == {"httpUrl": "http://localhost:3000/mcp"}
 
 
+def test_url_server_preserves_auth_headers(temp_home):
+    """A remote server's non-url fields (e.g. auth headers) survive the mapping."""
+    gemini_path = temp_home / ".gemini" / "settings.json"
+    _write_json(gemini_path, {"mcpServers": {}})
+    master = {
+        "servers": {
+            "grafana": {
+                "type": "sse",
+                "url": "https://grafana.example/mcp",
+                "headers": {"Authorization": "Bearer tok"},
+            }
+        }
+    }
+
+    config = render_gemini_config(master, temp_home)
+
+    assert config["mcpServers"]["grafana"] == {
+        "httpUrl": "https://grafana.example/mcp",
+        "headers": {"Authorization": "Bearer tok"},
+    }
+
+
+def test_local_server_with_falsy_url_drops_url(temp_home):
+    """A half-edited local server carrying url: null does not leak the key."""
+    gemini_path = temp_home / ".gemini" / "settings.json"
+    _write_json(gemini_path, {"mcpServers": {}})
+    master = {"servers": {"memory": {"command": "node", "args": ["x"], "url": None}}}
+
+    config = render_gemini_config(master, temp_home)
+
+    assert config["mcpServers"]["memory"] == {
+        "command": "node",
+        "args": ["x"],
+        "type": "stdio",
+    }
+
+
 def test_preserves_hand_added_server_and_other_keys(temp_home):
     """Unmanaged servers and non-mcpServers keys survive a render untouched."""
     gemini_path = temp_home / ".gemini" / "settings.json"

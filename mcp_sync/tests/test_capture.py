@@ -48,6 +48,35 @@ def test_capture_hand_added_server_round_trips(
     assert entries["cursor"].status == "clean"
 
 
+def test_empty_capture_target_errors_not_full_sync(
+    temp_home, monkeypatch_home, master_config_file
+):
+    """`--capture ""` must error out, never silently run a full sync."""
+    assert cli(["--capture", "", "--home", str(temp_home)]) == 1
+
+
+def test_capture_retired_server_reports_specific_residual(
+    temp_home, monkeypatch_home, master_config_file, capsys
+):
+    """Re-adding a retired server can't round-trip; residual names the path."""
+    run_sync(home=temp_home)
+    cursor_path = temp_home / ".cursor" / "mcp.json"
+    config = _read_json(cursor_path)
+    # "github" is retired: the sync strips it, so it can never be reproduced.
+    config["mcpServers"]["github"] = {"command": "gh", "args": ["mcp"]}
+    _write_json(cursor_path, config)
+
+    master = load_master_config(master_config_file)
+    result = capture_target("cursor", master, temp_home)
+
+    assert not result.verified
+    assert any("github" in path for path in result.residual)
+
+    # run_capture surfaces the specific path and exits 1 (not a generic message).
+    assert run_capture(home=temp_home, name="cursor") == 1
+    assert "github" in capsys.readouterr().out
+
+
 def test_capture_changed_field_round_trips(
     temp_home, monkeypatch_home, master_config_file
 ):

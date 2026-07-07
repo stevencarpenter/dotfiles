@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import difflib
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -69,6 +70,49 @@ def _compare_text(name: str, path: Path, expected: str) -> DriftEntry:
     return DriftEntry(name, path, "drift", _unified_diff(deployed, expected, path))
 
 
+def _semantic_drift(
+    name: str, path: Path, render: Callable[[], JsonDict | None]
+) -> DriftEntry:
+    """Drift for a co-owned JSON file, comparing content rather than bytes.
+
+    The owning tool (Claude Code, Gemini CLI) rewrites the file with its own
+    serializer — literal UTF-8, no trailing newline, its own key order — so a
+    byte comparison would report permanent false drift. We parse both sides and
+    compare the documents, normalizing through a shared dump only to render a
+    readable diff. A deployed file that is unreadable or not valid JSON is
+    reported as drift rather than crashing the whole check with a traceback.
+
+    Args:
+        name: Sync target name.
+        path: Deployed co-owned file.
+        render: Zero-arg renderer returning the expected document, or ``None``
+            when the file is absent (the sync skips it). It reads ``path``
+            internally, so it can also raise on a malformed deployed file.
+
+    Returns:
+        A ``DriftEntry`` with status ``"skipped"``, ``"clean"``, or ``"drift"``.
+    """
+    try:
+        expected = render()
+        if expected is None:
+            return DriftEntry(name, path, "skipped")
+        deployed = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return DriftEntry(
+            name,
+            path,
+            "drift",
+            f"deployed file is unreadable or not valid JSON: {exc}\n",
+        )
+    if deployed == expected:
+        return DriftEntry(name, path, "clean")
+    deployed_text = json.dumps(deployed, indent=2, sort_keys=True) + "\n"
+    expected_text = json.dumps(expected, indent=2, sort_keys=True) + "\n"
+    return DriftEntry(
+        name, path, "drift", _unified_diff(deployed_text, expected_text, path)
+    )
+
+
 def drift_report(master: JsonDict, home: Path) -> list[DriftEntry]:
     """Compare every sync target's deployed file against a fresh render.
 
@@ -94,51 +138,17 @@ def drift_report(master: JsonDict, home: Path) -> list[DriftEntry]:
     else:
         entries.append(_compare_text("codex", codex_path, codex_expected))
 
-    claude_path = home / ".claude.json"
-    claude_expected = render_claude_config(master, home)
-    if claude_expected is None:
-        entries.append(DriftEntry("claude", claude_path, "skipped"))
-    else:
-        # ~/.claude.json is co-owned: Claude Code rewrites it with its own
-        # serializer (literal UTF-8, no trailing newline), so byte comparison
-        # would report permanent false drift. Compare content, and normalize
-        # both sides through the same dump only to render a readable diff.
-        deployed = json.loads(claude_path.read_text(encoding="utf-8"))
-        if deployed == claude_expected:
-            entries.append(DriftEntry("claude", claude_path, "clean"))
-        else:
-            deployed_text = json.dumps(deployed, indent=2, sort_keys=True) + "\n"
-            expected_text = json.dumps(claude_expected, indent=2, sort_keys=True) + "\n"
-            entries.append(
-                DriftEntry(
-                    "claude",
-                    claude_path,
-                    "drift",
-                    _unified_diff(deployed_text, expected_text, claude_path),
-                )
-            )
-
-    gemini_path = home / ".gemini" / "settings.json"
-    gemini_expected = render_gemini_config(master, home)
-    if gemini_expected is None:
-        entries.append(DriftEntry("gemini", gemini_path, "skipped"))
-    else:
-        # ~/.gemini/settings.json is co-owned by Gemini CLI, same rationale as
-        # ~/.claude.json above: compare content, not bytes.
-        deployed = json.loads(gemini_path.read_text(encoding="utf-8"))
-        if deployed == gemini_expected:
-            entries.append(DriftEntry("gemini", gemini_path, "clean"))
-        else:
-            deployed_text = json.dumps(deployed, indent=2, sort_keys=True) + "\n"
-            expected_text = json.dumps(gemini_expected, indent=2, sort_keys=True) + "\n"
-            entries.append(
-                DriftEntry(
-                    "gemini",
-                    gemini_path,
-                    "drift",
-                    _unified_diff(deployed_text, expected_text, gemini_path),
-                )
-            )
+    # Co-owned JSON targets: the owning tool rewrites the file with its own
+    # serializer, so these compare content (not bytes) via _semantic_drift.
+    for name, path, render in (
+        ("claude", home / ".claude.json", lambda: render_claude_config(master, home)),
+        (
+            "gemini",
+            home / ".gemini" / "settings.json",
+            lambda: render_gemini_config(master, home),
+        ),
+    ):
+        entries.append(_semantic_drift(name, path, render))
 
     return entries
 

@@ -486,11 +486,20 @@ listening() {
         && lsof_args=(-i4TCP "${lsof_args[@]}") \
         || lsof_args=(-iTCP  "${lsof_args[@]}")
 
+    # lsof exits non-zero when a LISTEN search matches nothing, and on stat()
+    # warnings for inaccessible mounts even while printing valid rows — so we
+    # keep whatever it printed rather than gating on its exit status (a `||
+    # return` here would make an idle machine look like an error). Its own
+    # stderr warnings are dropped.
     local out
-    out=$(sudo lsof "${lsof_args[@]}") || return
+    out=$(sudo lsof "${lsof_args[@]}" 2>/dev/null)
 
     if [[ -n "$pattern" ]]; then
-        out=$(awk -v pat="$pattern" 'NR==1 || tolower($0) ~ tolower(pat)' <<< "$out")
+        # Literal (case-insensitive) substring match via index(), not `~`: a
+        # regex match would let metacharacters over-match (`.` matches every
+        # line) or abort awk on an invalid ERE (`[`, `(foo`), silently yielding
+        # an empty result that looks like "no matches".
+        out=$(awk -v pat="$pattern" 'NR==1 || index(tolower($0), tolower(pat))' <<< "$out")
     fi
 
     if command -v bat >/dev/null 2>&1; then

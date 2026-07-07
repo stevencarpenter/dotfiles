@@ -62,7 +62,7 @@ def cli(argv: Sequence[str] | None = None) -> int:
             master_path=master, home=home, machine_config_path=machine_config
         )
 
-    if args.capture:
+    if args.capture is not None:
         return run_capture(
             args.capture,
             master_path=master,

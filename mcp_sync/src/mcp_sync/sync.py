@@ -471,6 +471,65 @@ def _write_json(path: Path, payload: JsonDict, *, sort_keys: bool = True) -> Non
     path.write_text(serialized + "\n", encoding="utf-8")
 
 
+def _render_patched_owned_config(
+    master: JsonDict,
+    home: Path | None,
+    *,
+    path: Path,
+    override_key: str,
+    server_map: Callable[[JsonDict], JsonDict] | None = None,
+) -> JsonDict | None:
+    """Render one co-owned config a sync would write, without side effects.
+
+    Shared body for the "patch-style" targets (``~/.claude.json``,
+    ``~/.gemini/settings.json``): tools that own their file, where a sync only
+    rewrites the ``mcpServers`` key — managed servers replace their entries,
+    unmanaged (hand-added) ones are preserved, and Claude/Gemini's own keys are
+    left untouched. Reads the current file but never writes it, so drift checks
+    can compare deployed vs expected.
+
+    Args:
+        master: Master MCP config document.
+        home: Home directory override for tests; defaults to ``Path.home()``.
+        path: The owned file to read and render.
+        override_key: ``~/.config/mcp/overrides/<key>.json`` layer to apply.
+        server_map: Optional per-server transform into the tool's schema (e.g.
+            Gemini's ``url`` → ``httpUrl``). Identity when ``None``.
+
+    Returns:
+        The patched document, or ``None`` when ``path`` is absent (the sync
+        skips it in that case).
+    """
+    if not path.is_file():
+        return None
+
+    home_path = _home_dir(home)
+    cfg = _load_json(path)
+
+    overrides = _load_override(override_key, home_path)
+    merged_servers = _merge_override_servers(master, overrides)
+    disabled_servers = _disabled_or_retired_server_names(merged_servers)
+    servers = _enabled_stripped_servers(merged_servers, "note")
+    if server_map is not None:
+        servers = {name: server_map(config) for name, config in servers.items()}
+
+    existing = _ensure_mapping(cfg.get("mcpServers"))
+    preserved_existing = {
+        key: value for key, value in existing.items() if key not in disabled_servers
+    }
+    # Per-server collisions: managed config fully replaces the existing server
+    # entry. We don't shallow-merge per-server fields because that would leave
+    # stale env/args/etc. behind when master removes them. Hand-edits to
+    # individual server entries (e.g. tweaking `timeout`) will NOT survive a
+    # sync — make those changes in the master config or in the target's
+    # dot_config/mcp/overrides/<key>.json layer instead.
+    cfg["mcpServers"] = {**preserved_existing, **servers}
+    cleaned_overrides = _override_without_servers(overrides)
+    if cleaned_overrides:
+        cfg = deep_merge(cfg, cleaned_overrides)
+    return _remove_retired_server_entries(cfg)
+
+
 def render_claude_config(master: JsonDict, home: Path | None = None) -> JsonDict | None:
     """Render the ``~/.claude.json`` document a sync would write.
 
@@ -487,32 +546,12 @@ def render_claude_config(master: JsonDict, home: Path | None = None) -> JsonDict
         (the sync skips it in that case).
     """
     home_path = _home_dir(home)
-    claude_path = home_path / ".claude.json"
-    if not claude_path.is_file():
-        return None
-
-    claude_cfg = _load_json(claude_path)
-
-    overrides = _load_override("claude", home_path)
-    merged_servers = _merge_override_servers(master, overrides)
-    disabled_servers = _disabled_or_retired_server_names(merged_servers)
-    servers = _enabled_stripped_servers(merged_servers, "note")
-
-    existing = _ensure_mapping(claude_cfg.get("mcpServers"))
-    preserved_existing = {
-        key: value for key, value in existing.items() if key not in disabled_servers
-    }
-    # Per-server collisions: managed config fully replaces the existing server
-    # entry. We don't shallow-merge per-server fields because that would leave
-    # stale env/args/etc. behind when master removes them. Hand-edits to
-    # individual server entries in ~/.claude.json (e.g. tweaking `timeout`)
-    # will NOT survive a sync — make those changes in the master config or in
-    # dot_config/mcp/overrides/claude.json instead.
-    claude_cfg["mcpServers"] = {**preserved_existing, **servers}
-    cleaned_overrides = _override_without_servers(overrides)
-    if cleaned_overrides:
-        claude_cfg = deep_merge(claude_cfg, cleaned_overrides)
-    return _remove_retired_server_entries(claude_cfg)
+    return _render_patched_owned_config(
+        master,
+        home_path,
+        path=home_path / ".claude.json",
+        override_key="claude",
+    )
 
 
 def patch_claude_code_config(master: JsonDict, home: Path | None = None) -> None:
@@ -553,15 +592,23 @@ def _to_gemini_server(config: JsonDict) -> JsonDict:
             ``note``, ``type``) already stripped by the caller.
 
     Returns:
-        Remote servers (a ``url`` field) as ``{"httpUrl": ...}``; command-based
-        servers with their fields kept as-is plus ``"type": "stdio"``, Gemini's
-        convention for local servers (the master uses ``"local"`` or already
-        ``"stdio"`` inconsistently, so it is always overwritten here).
+        Remote servers (a non-empty string ``url`` field) as ``{"httpUrl":
+        <url>, ...}`` — the ``url`` key is renamed to ``httpUrl`` and the
+        master ``type`` is dropped (``httpUrl`` already implies a remote
+        server), but every *other* field (e.g. ``headers`` carrying auth) is
+        preserved, since Gemini's remote schema honors them. Command-based
+        servers keep their fields with ``"type": "stdio"`` (Gemini's
+        convention for local servers) forced on, and any stray falsy ``url``
+        stripped so a half-edited entry can't leak a bogus ``"url": null``.
     """
     url = config.get("url")
     if isinstance(url, str) and url:
-        return {"httpUrl": url}
-    return {**config, "type": "stdio"}
+        remote = {
+            key: value for key, value in config.items() if key not in ("url", "type")
+        }
+        return {"httpUrl": url, **remote}
+    stdio = {key: value for key, value in config.items() if key != "url"}
+    return {**stdio, "type": "stdio"}
 
 
 def render_gemini_config(master: JsonDict, home: Path | None = None) -> JsonDict | None:
@@ -580,29 +627,13 @@ def render_gemini_config(master: JsonDict, home: Path | None = None) -> JsonDict
         absent (the sync skips it in that case).
     """
     home_path = _home_dir(home)
-    gemini_path = home_path / ".gemini" / "settings.json"
-    if not gemini_path.is_file():
-        return None
-
-    gemini_cfg = _load_json(gemini_path)
-
-    overrides = _load_override("gemini", home_path)
-    merged_servers = _merge_override_servers(master, overrides)
-    disabled_servers = _disabled_or_retired_server_names(merged_servers)
-    servers = _enabled_stripped_servers(merged_servers, "note")
-    gemini_servers = {
-        name: _to_gemini_server(config) for name, config in servers.items()
-    }
-
-    existing = _ensure_mapping(gemini_cfg.get("mcpServers"))
-    preserved_existing = {
-        key: value for key, value in existing.items() if key not in disabled_servers
-    }
-    gemini_cfg["mcpServers"] = {**preserved_existing, **gemini_servers}
-    cleaned_overrides = _override_without_servers(overrides)
-    if cleaned_overrides:
-        gemini_cfg = deep_merge(gemini_cfg, cleaned_overrides)
-    return _remove_retired_server_entries(gemini_cfg)
+    return _render_patched_owned_config(
+        master,
+        home_path,
+        path=home_path / ".gemini" / "settings.json",
+        override_key="gemini",
+        server_map=_to_gemini_server,
+    )
 
 
 def patch_gemini_config(master: JsonDict, home: Path | None = None) -> None:
