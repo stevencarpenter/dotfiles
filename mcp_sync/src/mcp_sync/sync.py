@@ -305,6 +305,45 @@ def deep_merge(base: JsonDict, override: JsonDict) -> JsonDict:
     return result
 
 
+def render_codex_config(master: JsonDict, home: Path | None = None) -> str | None:
+    """Render the ``config.toml`` text a codex sync would write.
+
+    Pure with respect to the target file: reads the current
+    ``~/.codex/config.toml`` (or the base template on a fresh machine) but
+    never writes it, so drift checks can compare without side effects.
+
+    Args:
+        master: Merged master + machine-overlay MCP config.
+        home: Override home directory (for tests). Defaults to ``Path.home()``.
+
+    Returns:
+        The full config text a sync would write, or ``None`` when there is
+        neither an existing file nor a base template to seed from.
+    """
+    home_path = _home_dir(home)
+    codex_config_path = home_path / ".codex" / "config.toml"
+
+    overrides = _load_override("codex", home_path)
+    merged_servers = _merge_override_servers(master, overrides)
+    managed = _enabled_stripped_servers(merged_servers)
+    disabled = _disabled_or_retired_server_names(merged_servers)
+
+    # Load the template once; it seeds a fresh config and enforces [tui] below.
+    template_text = _load_text_template("codex", home_path)
+
+    if codex_config_path.is_file():
+        base_text = codex_config_path.read_text(encoding="utf-8")
+    elif template_text:
+        base_text = template_text
+    else:
+        return None
+
+    base_text = apply_tui_settings(base_text, template_text, log_info=log_info)
+
+    preserved = _strip_codex_managed_blocks(base_text, set(managed) | disabled)
+    return preserved.rstrip() + "\n" + _render_codex_mcp_section(managed)
+
+
 def sync_codex_mcp(master: JsonDict, home: Path | None = None) -> None:
     """Patch managed MCP servers into Codex's ``config.toml`` non-destructively.
 
@@ -328,26 +367,10 @@ def sync_codex_mcp(master: JsonDict, home: Path | None = None) -> None:
     home_path = _home_dir(home)
     codex_config_path = home_path / ".codex" / "config.toml"
 
-    overrides = _load_override("codex", home_path)
-    merged_servers = _merge_override_servers(master, overrides)
-    managed = _enabled_stripped_servers(merged_servers)
-    disabled = _disabled_or_retired_server_names(merged_servers)
-
-    # Load the template once; it seeds a fresh config and enforces [tui] below.
-    template_text = _load_text_template("codex", home_path)
-
-    if codex_config_path.is_file():
-        base_text = codex_config_path.read_text(encoding="utf-8")
-    elif template_text:
-        base_text = template_text
-    else:
+    text = render_codex_config(master, home_path)
+    if text is None:
         log_info("Skipping codex config (base template not found)")
         return
-
-    base_text = apply_tui_settings(base_text, template_text, log_info=log_info)
-
-    preserved = _strip_codex_managed_blocks(base_text, set(managed) | disabled)
-    text = preserved.rstrip() + "\n" + _render_codex_mcp_section(managed)
 
     codex_config_path.parent.mkdir(parents=True, exist_ok=True)
     codex_config_path.write_text(text, encoding="utf-8")
@@ -448,23 +471,25 @@ def _write_json(path: Path, payload: JsonDict, *, sort_keys: bool = True) -> Non
     path.write_text(serialized + "\n", encoding="utf-8")
 
 
-def patch_claude_code_config(master: JsonDict, home: Path | None = None) -> None:
-    """Patch managed MCP servers into ``~/.claude.json`` in place.
+def render_claude_config(master: JsonDict, home: Path | None = None) -> JsonDict | None:
+    """Render the ``~/.claude.json`` document a sync would write.
 
-    Unlike the file-generating targets, Claude Code owns this file — only the
-    ``mcpServers`` key is rewritten (managed servers replace their entries,
-    unmanaged ones are preserved), and key order is kept to avoid churning
-    Claude's own runtime state.
+    Reads the current file (Claude Code owns it) and applies the managed
+    ``mcpServers`` patch without writing anything back, so drift checks can
+    compare deployed vs expected without side effects.
 
     Args:
         master: Master MCP config document.
         home: Home directory override for tests; defaults to ``Path.home()``.
+
+    Returns:
+        The patched document, or ``None`` when ``~/.claude.json`` is absent
+        (the sync skips it in that case).
     """
     home_path = _home_dir(home)
     claude_path = home_path / ".claude.json"
     if not claude_path.is_file():
-        log_info(f"Skipping: {claude_path} (file not found)")
-        return
+        return None
 
     claude_cfg = _load_json(claude_path)
 
@@ -487,7 +512,28 @@ def patch_claude_code_config(master: JsonDict, home: Path | None = None) -> None
     cleaned_overrides = _override_without_servers(overrides)
     if cleaned_overrides:
         claude_cfg = deep_merge(claude_cfg, cleaned_overrides)
-    claude_cfg = _remove_retired_server_entries(claude_cfg)
+    return _remove_retired_server_entries(claude_cfg)
+
+
+def patch_claude_code_config(master: JsonDict, home: Path | None = None) -> None:
+    """Patch managed MCP servers into ``~/.claude.json`` in place.
+
+    Unlike the file-generating targets, Claude Code owns this file — only the
+    ``mcpServers`` key is rewritten (managed servers replace their entries,
+    unmanaged ones are preserved), and key order is kept to avoid churning
+    Claude's own runtime state.
+
+    Args:
+        master: Master MCP config document.
+        home: Home directory override for tests; defaults to ``Path.home()``.
+    """
+    home_path = _home_dir(home)
+    claude_path = home_path / ".claude.json"
+
+    claude_cfg = render_claude_config(master, home_path)
+    if claude_cfg is None:
+        log_info(f"Skipping: {claude_path} (file not found)")
+        return
 
     # Preserve key order in ~/.claude.json. Claude Code owns this file and
     # writes its own state into it (recent projects, transient UI bits, etc.);
@@ -497,6 +543,90 @@ def patch_claude_code_config(master: JsonDict, home: Path | None = None) -> None
     # for deterministic diffs.
     _write_json(claude_path, claude_cfg, sort_keys=False)
     log_success(f"Synced: {claude_path}")
+
+
+def _to_gemini_server(config: JsonDict) -> JsonDict:
+    """Map one stripped master server entry to Gemini CLI's schema.
+
+    Args:
+        config: A server config with sync-time/master-only fields (enablement,
+            ``note``, ``type``) already stripped by the caller.
+
+    Returns:
+        Remote servers (a ``url`` field) as ``{"httpUrl": ...}``; command-based
+        servers with their fields kept as-is plus ``"type": "stdio"``, Gemini's
+        convention for local servers (the master uses ``"local"`` or already
+        ``"stdio"`` inconsistently, so it is always overwritten here).
+    """
+    url = config.get("url")
+    if isinstance(url, str) and url:
+        return {"httpUrl": url}
+    return {**config, "type": "stdio"}
+
+
+def render_gemini_config(master: JsonDict, home: Path | None = None) -> JsonDict | None:
+    """Render the ``~/.gemini/settings.json`` document a sync would write.
+
+    Reads the current file (Gemini CLI owns it) and applies the managed
+    ``mcpServers`` patch without writing anything back, so drift checks can
+    compare deployed vs expected without side effects.
+
+    Args:
+        master: Master MCP config document.
+        home: Home directory override for tests; defaults to ``Path.home()``.
+
+    Returns:
+        The patched document, or ``None`` when ``~/.gemini/settings.json`` is
+        absent (the sync skips it in that case).
+    """
+    home_path = _home_dir(home)
+    gemini_path = home_path / ".gemini" / "settings.json"
+    if not gemini_path.is_file():
+        return None
+
+    gemini_cfg = _load_json(gemini_path)
+
+    overrides = _load_override("gemini", home_path)
+    merged_servers = _merge_override_servers(master, overrides)
+    disabled_servers = _disabled_or_retired_server_names(merged_servers)
+    servers = _enabled_stripped_servers(merged_servers, "note")
+    gemini_servers = {
+        name: _to_gemini_server(config) for name, config in servers.items()
+    }
+
+    existing = _ensure_mapping(gemini_cfg.get("mcpServers"))
+    preserved_existing = {
+        key: value for key, value in existing.items() if key not in disabled_servers
+    }
+    gemini_cfg["mcpServers"] = {**preserved_existing, **gemini_servers}
+    cleaned_overrides = _override_without_servers(overrides)
+    if cleaned_overrides:
+        gemini_cfg = deep_merge(gemini_cfg, cleaned_overrides)
+    return _remove_retired_server_entries(gemini_cfg)
+
+
+def patch_gemini_config(master: JsonDict, home: Path | None = None) -> None:
+    """Patch managed MCP servers into ``~/.gemini/settings.json`` in place.
+
+    Unlike the file-generating targets, Gemini CLI owns this file — only the
+    ``mcpServers`` key is rewritten (managed servers replace their entries,
+    unmanaged ones are preserved), and key order is kept to avoid churning
+    Gemini's own settings state.
+
+    Args:
+        master: Master MCP config document.
+        home: Home directory override for tests; defaults to ``Path.home()``.
+    """
+    home_path = _home_dir(home)
+    gemini_path = home_path / ".gemini" / "settings.json"
+
+    gemini_cfg = render_gemini_config(master, home_path)
+    if gemini_cfg is None:
+        log_info(f"Skipping: {gemini_path} (file not found)")
+        return
+
+    _write_json(gemini_path, gemini_cfg, sort_keys=False)
+    log_success(f"Synced: {gemini_path}")
 
 
 def sync_to_locations(config: JsonDict, xdg_target: Path) -> None:
@@ -727,6 +857,7 @@ def run_sync(
 
     sync_codex_mcp(master, home=home_path)
     patch_claude_code_config(master, home=home_path)
+    patch_gemini_config(master, home=home_path)
 
     print()
     log_success("MCP configuration sync complete!")

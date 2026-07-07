@@ -57,6 +57,9 @@ private_dot_claude.json
 !**/.config/github-copilot/
 !**/.config/github-copilot/intellij/
 !**/.config/github-copilot/intellij/global-copilot-instructions.md
+{{ if (index .machines .machine).mcp }}
+!.copilot/settings.json
+{{ end }}
 
 # Ignore all .DS_Store files
 **/*.DS_Store
@@ -182,6 +185,8 @@ pyrightconfig.json
 # capability, so it becomes a no-op without the source files.
 {{ if not (index .machines .machine).mcp }}
 .config/mcp
+.config/opencode/rules.toml
+.cursor/cli-config.json
 {{ end }}
 
 # Skip the skills manifest + machine overlays on machines that don't run

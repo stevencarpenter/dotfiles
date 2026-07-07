@@ -5,6 +5,7 @@
     "journaling": { "source": "personal" },
     "record-decision": { "source": "personal" },
     "record-todo": { "source": "personal" },
-    "wrap-session": { "source": "personal" }
+    "wrap-session": { "source": "personal" },
+    "use-railway": { "source": "personal" }
   }
 }
