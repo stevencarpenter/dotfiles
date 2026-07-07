@@ -101,7 +101,9 @@ than fails on missing `uv` so first boot can continue, and fails fast when `MCP_
 - **MCP sync** (`mcp_sync/`, `mcp` capability) — merges a master config, a per-machine overlay, and
   per-tool overrides, then writes native configs for Copilot, Cursor, VS Code, Junie, LM Studio,
   Codex, Claude Code, and OpenCode. See [docs/ai-tools/mcp-setup.md](docs/ai-tools/mcp-setup.md).
-  GitHub is a Claude Code plugin (`github@claude-plugins-official`), not an MCP server.
+  GitHub tooling is intentionally **not** wired in: the `github@claude-plugins-official` plugin
+  (which ships a remote GitHub MCP server) is pinned `false` in `dot_claude/modify_settings.json.tmpl`
+  so it stays disabled on every machine — `gh-axi` is used for GitHub instead.
 - **Skills sync** (`sync-skills`, `skills` capability) — populates `~/.claude/skills/` from vendored
   upstream skills and personal skills, with per-machine overlays.
 - **Agent registry sync** (`agents` capability) — clones `stevencarpenter/agents` into
