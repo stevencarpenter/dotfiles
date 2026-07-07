@@ -463,6 +463,43 @@ function sip_holder() {
   fi
 }
 
+# Show all occupied TCP ports and their PID. -4 restricts to IPv4.
+# Usage: listening [-4] [pattern]
+listening() {
+    local ipv4_only=0 pattern=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -4) ipv4_only=1 ;;
+            -*) echo "Usage: listening [-4] [pattern]" >&2; return 2 ;;
+            *)
+                if [[ -n "$pattern" ]]; then
+                    echo "Usage: listening [-4] [pattern]" >&2; return 2
+                fi
+                pattern="$1" ;;
+        esac
+        shift
+    done
+
+    local -a lsof_args=(-sTCP:LISTEN -n -P)
+    (( ipv4_only )) \
+        && lsof_args=(-i4TCP "${lsof_args[@]}") \
+        || lsof_args=(-iTCP  "${lsof_args[@]}")
+
+    local out
+    out=$(sudo lsof "${lsof_args[@]}") || return
+
+    if [[ -n "$pattern" ]]; then
+        out=$(awk -v pat="$pattern" 'NR==1 || tolower($0) ~ tolower(pat)' <<< "$out")
+    fi
+
+    if command -v bat >/dev/null 2>&1; then
+        bat --style=plain --paging=auto --language=log <<< "$out"
+    else
+        print -r -- "$out"
+    fi
+}
+
 # === 8. Tool Initializations (after PATH is set) ===
 # These tools need to be initialized after PATH is configured
 
