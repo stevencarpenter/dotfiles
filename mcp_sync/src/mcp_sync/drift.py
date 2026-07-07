@@ -11,22 +11,20 @@ from __future__ import annotations
 
 import difflib
 import json
-from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from mcp_sync.sync import (
+    PatchSpec,
     _build_targets,
-    deep_merge,
-    load_machine_config,
-    load_master_config,
+    load_merged_master,
     log_error,
     log_info,
     log_success,
-    render_claude_config,
+    patch_specs,
     render_codex_config,
-    render_gemini_config,
+    render_patch_with_source,
 )
 
 type JsonDict = dict[str, Any]
@@ -70,46 +68,47 @@ def _compare_text(name: str, path: Path, expected: str) -> DriftEntry:
     return DriftEntry(name, path, "drift", _unified_diff(deployed, expected, path))
 
 
-def _semantic_drift(
-    name: str, path: Path, render: Callable[[], JsonDict | None]
-) -> DriftEntry:
+def _semantic_drift(spec: PatchSpec, master: JsonDict, home: Path) -> DriftEntry:
     """Drift for a co-owned JSON file, comparing content rather than bytes.
 
     The owning tool (Claude Code, Gemini CLI) rewrites the file with its own
     serializer — literal UTF-8, no trailing newline, its own key order — so a
-    byte comparison would report permanent false drift. We parse both sides and
-    compare the documents, normalizing through a shared dump only to render a
-    readable diff. A deployed file that is unreadable or not valid JSON is
-    reported as drift rather than crashing the whole check with a traceback.
+    byte comparison would report permanent false drift. We parse the file once
+    (via :func:`render_patch_with_source`, which returns both the deployed and
+    expected documents) and compare the documents, normalizing through a
+    shared dump only to render a readable diff. A deployed file that is
+    unreadable or not valid JSON is reported as drift rather than crashing the
+    whole check with a traceback.
 
     Args:
-        name: Sync target name.
-        path: Deployed co-owned file.
-        render: Zero-arg renderer returning the expected document, or ``None``
-            when the file is absent (the sync skips it). It reads ``path``
-            internally, so it can also raise on a malformed deployed file.
+        spec: The patch target to check.
+        master: Merged master + machine-overlay MCP config.
+        home: Home directory to inspect.
 
     Returns:
         A ``DriftEntry`` with status ``"skipped"``, ``"clean"``, or ``"drift"``.
     """
     try:
-        expected = render()
-        if expected is None:
-            return DriftEntry(name, path, "skipped")
-        deployed = json.loads(path.read_text(encoding="utf-8"))
+        rendered = render_patch_with_source(spec, master, home)
     except (OSError, json.JSONDecodeError) as exc:
         return DriftEntry(
-            name,
-            path,
+            spec.name,
+            spec.path,
             "drift",
             f"deployed file is unreadable or not valid JSON: {exc}\n",
         )
+    if rendered is None:
+        return DriftEntry(spec.name, spec.path, "skipped")
+    deployed, expected = rendered
     if deployed == expected:
-        return DriftEntry(name, path, "clean")
+        return DriftEntry(spec.name, spec.path, "clean")
     deployed_text = json.dumps(deployed, indent=2, sort_keys=True) + "\n"
     expected_text = json.dumps(expected, indent=2, sort_keys=True) + "\n"
     return DriftEntry(
-        name, path, "drift", _unified_diff(deployed_text, expected_text, path)
+        spec.name,
+        spec.path,
+        "drift",
+        _unified_diff(deployed_text, expected_text, spec.path),
     )
 
 
@@ -140,15 +139,8 @@ def drift_report(master: JsonDict, home: Path) -> list[DriftEntry]:
 
     # Co-owned JSON targets: the owning tool rewrites the file with its own
     # serializer, so these compare content (not bytes) via _semantic_drift.
-    for name, path, render in (
-        ("claude", home / ".claude.json", lambda: render_claude_config(master, home)),
-        (
-            "gemini",
-            home / ".gemini" / "settings.json",
-            lambda: render_gemini_config(master, home),
-        ),
-    ):
-        entries.append(_semantic_drift(name, path, render))
+    for spec in patch_specs(home):
+        entries.append(_semantic_drift(spec, master, home))
 
     return entries
 
@@ -170,18 +162,9 @@ def run_check(
         is missing or drifted (or the master config is absent).
     """
     home_path = home or Path.home()
-    master_config_path = (
-        master_path or home_path / ".config" / "mcp" / "mcp-master.json"
-    )
-    if not master_config_path.is_file():
-        log_error(f"Master config not found at {master_config_path}")
+    master = load_merged_master(master_path, home_path, machine_config_path)
+    if master is None:
         return 1
-
-    master = load_master_config(master_config_path)
-    machine = load_machine_config(machine_config_path)
-    if machine:
-        log_info(f"Applying machine overlay: {machine_config_path}")
-        master = deep_merge(master, machine)
 
     dirty = 0
     for entry in drift_report(master, home_path):

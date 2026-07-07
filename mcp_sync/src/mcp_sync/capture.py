@@ -25,15 +25,15 @@ from typing import Any
 from mcp_sync.sync import (
     _build_targets,
     _load_json,
+    _patch_owned_config,
     _write_json,
     deep_merge,
-    load_machine_config,
-    load_master_config,
+    load_merged_master,
     log_error,
     log_info,
     log_success,
-    render_claude_config,
-    render_gemini_config,
+    patch_specs,
+    render_patch_with_source,
 )
 
 type JsonDict = dict[str, Any]
@@ -118,26 +118,13 @@ def _leaf_paths(delta: JsonDict, prefix: tuple[str, ...] = ()) -> list[str]:
     return paths
 
 
-def _patch_renderers(master: JsonDict, home: Path) -> dict[str, tuple[Path, Any]]:
-    """Co-owned patch targets → ``(deployed path, zero-arg renderer)``.
-
-    One table so drift/capture/sync agree on which files are patch-managed and
-    how they render. ``codex`` is intentionally absent: it is patch-managed TOML
-    and not capturable.
-    """
-    return {
-        "claude": (home / ".claude.json", lambda: render_claude_config(master, home)),
-        "gemini": (
-            home / ".gemini" / "settings.json",
-            lambda: render_gemini_config(master, home),
-        ),
-    }
-
-
 def _expected_and_deployed(
     name: str, master: JsonDict, home: Path
-) -> tuple[JsonDict, Path, str, Any]:
-    """Resolve a target name to its expected doc, deployed path, and rebuilder.
+) -> tuple[JsonDict, JsonDict, str, Any]:
+    """Resolve a target name to its expected/deployed docs and rebuilder.
+
+    The patch-managed targets come from :func:`mcp_sync.sync.patch_specs`, the
+    same registry the sync and drift check dispatch on.
 
     Args:
         name: Sync target name (a ``SyncTarget`` name or a patch target).
@@ -145,10 +132,11 @@ def _expected_and_deployed(
         home: Home directory to inspect.
 
     Returns:
-        ``(expected, deployed_path, override_key, rebuild)`` where ``expected``
-        is the current render and ``rebuild`` re-renders the same doc via the
-        identical code path (re-reading overrides from disk) for post-write
-        verification.
+        ``(expected, deployed, override_key, rebuild)`` where ``expected`` is
+        the current render, ``deployed`` is the parsed on-disk document (read
+        exactly once here), and ``rebuild`` re-renders the expected doc via
+        the identical patch/build code path — re-reading overrides from disk,
+        so a just-written override is picked up — for post-write verification.
 
     Raises:
         ValueError: For ``"codex"`` (patch-managed TOML; not capturable), for a
@@ -162,15 +150,26 @@ def _expected_and_deployed(
             "config or a machine overlay — capture cannot express them."
         )
 
-    patch = _patch_renderers(master, home)
-    if name in patch:
-        path, rebuild = patch[name]
-        # rebuild() IS the expected render — compute it here so `expected` and
-        # the verification `rebuild()` can never diverge into two code paths.
-        expected = rebuild()
-        if expected is None:
-            raise ValueError(f"{path} does not exist; nothing to capture.")
-        return expected, path, name, rebuild
+    for spec in patch_specs(home):
+        if spec.name == name:
+            rendered = render_patch_with_source(spec, master, home)
+            if rendered is None:
+                raise ValueError(f"{spec.path} does not exist; nothing to capture.")
+            deployed, expected = rendered
+
+            def rebuild(deployed: JsonDict = deployed, spec=spec) -> JsonDict:
+                # Same patch code path as `expected`, re-reading overrides from
+                # disk; the deployed doc — which capture never writes — is
+                # re-patched from the parse above instead of a third file read.
+                return _patch_owned_config(
+                    master,
+                    home,
+                    copy.deepcopy(deployed),
+                    override_key=spec.override_key,
+                    server_map=spec.server_map,
+                )
+
+            return expected, deployed, spec.name, rebuild
 
     for target in _build_targets(home):
         if target.name == name:
@@ -180,14 +179,13 @@ def _expected_and_deployed(
                 )
             return (
                 target.build(master, home=home),
-                target.destination,
+                _load_json(target.destination),
                 target.override_key or target.name,
                 lambda t=target: t.build(master, home=home),
             )
     known = ", ".join(t.name for t in _build_targets(home))
-    raise ValueError(
-        f"Unknown capture target {name!r}. Known: {known}, {', '.join(patch)}."
-    )
+    patch_names = ", ".join(spec.name for spec in patch_specs(home))
+    raise ValueError(f"Unknown capture target {name!r}. Known: {known}, {patch_names}.")
 
 
 def capture_target(name: str, master: JsonDict, home: Path) -> CaptureResult:
@@ -205,11 +203,10 @@ def capture_target(name: str, master: JsonDict, home: Path) -> CaptureResult:
         ValueError: For unknown targets, for ``"codex"`` (patch-managed; not
             capturable), or when the target's deployed file is absent.
     """
-    expected, deployed_path, override_key, rebuild = _expected_and_deployed(
+    expected, deployed, override_key, rebuild = _expected_and_deployed(
         name, master, home
     )
     override_path = home / ".config" / "mcp" / "overrides" / f"{override_key}.json"
-    deployed = _load_json(deployed_path)
 
     delta, deletions = _diff_objects(expected, deployed)
 
@@ -265,18 +262,9 @@ def run_capture(
         part of the drift could not be captured.
     """
     home_path = home or Path.home()
-    master_config_path = (
-        master_path or home_path / ".config" / "mcp" / "mcp-master.json"
-    )
-    if not master_config_path.is_file():
-        log_error(f"Master config not found at {master_config_path}")
+    master = load_merged_master(master_path, home_path, machine_config_path)
+    if master is None:
         return 1
-
-    master = load_master_config(master_config_path)
-    machine = load_machine_config(machine_config_path)
-    if machine:
-        log_info(f"Applying machine overlay: {machine_config_path}")
-        master = deep_merge(master, machine)
 
     try:
         result = capture_target(name, master, home_path)

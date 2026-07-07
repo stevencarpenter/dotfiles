@@ -167,9 +167,10 @@ managed=$(printf '%s\n' "$managed" | jq '
 existing=$(cat)
 [[ -z "$existing" ]] && existing='{}'
 
-# Recursive merge replaces arrays wholesale, which would wipe SessionStart
-# hooks that tools self-register into the live file (e.g. herdr's agent-state
-# hook). Preserve-unknown semantics, mirroring allowWrite below: managed
+# Recursive merge replaces arrays wholesale, which would wipe hooks that tools
+# self-register into the live file (e.g. herdr's agent-state hook) — under ANY
+# hook event, not just SessionStart. Preserve-unknown semantics, mirroring
+# allowWrite below: for every hook event present in the live file, managed
 # entries are enforced first, then live hooks that we don't manage are
 # re-appended. Filtering is per-HOOK, not per-entry, so a live entry that
 # bundles a managed command alongside a tool's own command keeps the tool's
@@ -177,27 +178,36 @@ existing=$(cat)
 # (and dropped, since $managed already re-added the current version) when its
 # command is byte-identical to a managed command OR matches a managed marker
 # substring — the latter also sweeps a STALE managed command whose text
-# changed between applies, which an identity match alone would orphan forever.
-# The markers mirror the capability-strip block below.
+# changed between applies, which an identity match alone would orphan forever,
+# and sweeps a capability-gated hook (hippo, agent routing) on machines where
+# that capability is off, since $managed only re-adds it while the capability
+# is on. $markers is the single source of truth for capability-gated hook
+# ownership; events whose arrays end up empty are dropped to avoid churn.
 merged=$(printf '%s\n' "$existing" | jq --argjson managed "$managed" '
-  . as $live
+  ["/hippo-brain/", "/emit-routing-context.sh"] as $markers
+  | . as $live
   | ($live * $managed)
-  | if (($live.hooks.SessionStart // []) | length) > 0 then
-      .hooks.SessionStart = (
-        (.hooks.SessionStart // []) as $m
-        | ($m | [.[].hooks[]?.command]) as $managed_cmds
-        | ["/hippo-brain/", "/emit-routing-context.sh"] as $markers
-        | $m + (
-            $live.hooks.SessionStart
-            | map(.hooks = ((.hooks // []) | map(select(
-                (.command // "") as $c
-                | ($c | length) > 0
-                  and (($managed_cmds | index($c)) == null)
-                  and (($markers | map(. as $mk | $c | contains($mk)) | any) | not)
-              ))))
-            | map(select((.hooks | length) > 0))
-          )
+  | (($live.hooks // {}) | if type == "object" then . else {} end) as $lh
+  | if ($lh | keys | length) > 0 then
+      .hooks = (
+        reduce ($lh | keys[]) as $k (.hooks // {};
+          (($managed.hooks[$k] // []) ) as $m
+          | ($m | [.[].hooks[]?.command]) as $managed_cmds
+          | .[$k] = ($m + (
+              ($lh[$k] | if type == "array" then . else [] end)
+              | map(select(type == "object"))
+              | map(.hooks = ((.hooks // []) | map(select(
+                  (.command // "") as $c
+                  | ($c | length) > 0
+                    and (($managed_cmds | index($c)) == null)
+                    and (($markers | map(. as $mk | $c | contains($mk)) | any) | not)
+                ))))
+              | map(select((.hooks | length) > 0))
+            ))
+        )
+        | with_entries(select((.value | length) > 0))
       )
+      | (if ((.hooks // {}) | keys | length) == 0 then del(.hooks) else . end)
     else . end
 ')
 
@@ -223,39 +233,5 @@ merged=$(printf '%s\n' "$merged" | jq --arg p "{{ .chezmoi.homeDir }}/.cache/pre
   | if ($aw | index($p)) then .
     else .sandbox.filesystem.allowWrite = ($aw + [$p]) end
 ')
-
-{{- if or (not $hippo) (not $agents) }}
-# Strip any previously-injected SessionStart hook whose capability has since
-# flipped off — hippo (personal-only) and/or the agent-routing context hook
-# (agents capability). Recursive merge alone wouldn't remove keys not
-# present in $managed, so we filter explicitly by command substring. This
-# runs whenever EITHER capability is off, and only touches that capability's
-# own hook — a hippo-off, agents-on machine keeps the routing hook, and
-# vice versa.
-merged=$(printf '%s\n' "$merged" | jq '
-  if (.hooks.SessionStart // null) then
-    .hooks.SessionStart |= (
-      map(.hooks |= map(select(
-        (.command // "") | (
-{{- if not $hippo }}
-          (contains("/hippo-brain/") | not)
-{{- else }}
-          true
-{{- end }}
-        ) and (
-{{- if not $agents }}
-          (contains("/emit-routing-context.sh") | not)
-{{- else }}
-          true
-{{- end }}
-        )
-      )))
-      | map(select((.hooks // []) | length > 0))
-    )
-    | (if (.hooks.SessionStart // [] | length) == 0 then del(.hooks.SessionStart) else . end)
-    | (if (.hooks // {} | keys | length) == 0 then del(.hooks) else . end)
-  else . end
-')
-{{- end }}
 
 printf '%s\n' "$merged"

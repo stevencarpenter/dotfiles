@@ -29,7 +29,7 @@
   },
   "runEverythingSettingsPromptStreak": 0,
   "attribution": {
-    "attributeCommitsToAgent": true,
-    "attributePRsToAgent": true
+    "attributeCommitsToAgent": false,
+    "attributePRsToAgent": false
   }
 }
