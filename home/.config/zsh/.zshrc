@@ -438,10 +438,11 @@ function opencade() {
   return $rc
 }
 
-# Chezmoi apply helper (kept separate so it can be regression-tested)
-chezmoi_apply_helper="${XDG_CONFIG_HOME:-$HOME/.config}/zsh/lib/chezmoi-apply.zsh"
-[[ -f "${chezmoi_apply_helper}" ]] && source "${chezmoi_apply_helper}"
-unset chezmoi_apply_helper
+# nix-darwin rebuild helper (replaces the retired chezmoi-apply `ca()` wrapper).
+# Defines `rebuild` (darwin-rebuild switch for this host) + a transitional `ca` shim.
+rebuild_helper="${XDG_CONFIG_HOME:-$HOME/.config}/zsh/lib/rebuild.zsh"
+[[ -f "${rebuild_helper}" ]] && source "${rebuild_helper}"
+unset rebuild_helper
 
 # Yazi TUI file manager wrapper (updates shell CWD on exit)
 function y() {

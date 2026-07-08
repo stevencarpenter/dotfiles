@@ -1,0 +1,39 @@
+name: Nix Flake Check
+
+on:
+  push:
+    paths:
+      - "flake.nix"
+      - "flake.lock"
+      - "lib/**"
+      - "hosts/**"
+      - "modules/**"
+      - "secrets/secrets.nix"
+      - ".github/workflows/nix-flake-check.yml"
+  pull_request:
+    paths:
+      - "flake.nix"
+      - "flake.lock"
+      - "lib/**"
+      - "hosts/**"
+      - "modules/**"
+      - "secrets/secrets.nix"
+      - ".github/workflows/nix-flake-check.yml"
+
+jobs:
+  flake-check:
+    # macOS runner: the flake builds darwinConfigurations for aarch64/x86_64-darwin.
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+
+      # --no-build keeps this fast: it evaluates every flake output (so a broken
+      # module or a bad option surfaces as a hard error) without realizing the
+      # full darwin system closures. No `nix fmt -- --check`: this flake ships no
+      # formatter (formatter.<system> is unset), so there is nothing to check.
+      - name: nix flake check
+        run: nix flake check --no-build

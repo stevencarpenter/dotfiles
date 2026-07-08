@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+# Bootstrap a fresh Mac into the nix-darwin + home-manager dotfiles flake.
+# Idempotent: safe to re-run. First run only — routine rebuilds use rebuild.sh.
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Map the machine's LocalHostName to a flake config name. Tune the matchers per
+# box as machines are added to lib/machines.nix.
+detect_host() {
+  case "$(scutil --get LocalHostName 2>/dev/null || true)" in
+    personal-mac) echo personal-mac ;;
+    work-mac) echo work-mac ;;
+    lab-mac) echo lab-mac ;;
+    *) return 1 ;;
+  esac
+}
+
+# ── 0. Xcode Command Line Tools ──────────────────────────────────────────
+# nix-darwin has no option for CLT; they must exist before nix can build
+# anything native. Idempotent — no-op if already installed/accepted.
+if ! xcode-select -p >/dev/null 2>&1; then
+  echo "==> Installing Xcode Command Line Tools ..."
+  xcode-select --install || true
+  echo "    Finish the GUI installer, then re-run ./bootstrap.sh."
+fi
+sudo xcodebuild -license accept 2>/dev/null || true
+
+# ── 1. Determinate Nix ───────────────────────────────────────────────────
+# nix.enable = false in modules/darwin/core.nix — Determinate manages the daemon.
+if ! command -v nix >/dev/null 2>&1; then
+  echo "==> Installing Determinate Nix ..."
+  curl --proto '=https' --tlsv1.2 -sSf -L \
+    https://install.determinate.systems/nix | sh -s -- install --determinate
+  # Load nix into THIS shell so the first switch below can run.
+  if [ -e /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh ]; then
+    # shellcheck disable=SC1091
+    . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+  fi
+else
+  echo "==> Nix already installed: $(command -v nix)"
+fi
+
+# ── 2. age identity key from 1Password ───────────────────────────────────
+# The existing chezmoi age identity; agenix (modules/home/secrets.nix) reads it
+# to decrypt secrets/**.age. Must exist before the first darwin-rebuild switch.
+KEY_DEST="$HOME/.config/chezmoi/key.txt"
+if [ ! -s "$KEY_DEST" ]; then
+  echo "==> Fetching age identity key from 1Password ..."
+  if ! command -v op >/dev/null 2>&1; then
+    echo "ERROR: 1Password CLI (op) not found. Install it, sign in, then re-run." >&2
+    exit 1
+  fi
+  mkdir -p "$(dirname "$KEY_DEST")"
+  op read "op://Private/chezmoi-age-key/key.txt" >"$KEY_DEST"
+  chmod 600 "$KEY_DEST"
+else
+  echo "==> age key already present at $KEY_DEST"
+fi
+
+# ── 3. ~/.dotfiles symlink (out-of-store root for raw dotfiles) ───────────
+if [ "$(readlink "$HOME/.dotfiles" 2>/dev/null || true)" != "$REPO_ROOT" ]; then
+  echo "==> Linking $HOME/.dotfiles -> $REPO_ROOT"
+  ln -sfn "$REPO_ROOT" "$HOME/.dotfiles"
+fi
+
+# ── 4. Resolve host config (arg > LocalHostName map > prompt) ─────────────
+HOST="${1:-$(detect_host || true)}"
+if [ -z "${HOST:-}" ]; then
+  echo "Could not auto-detect host from LocalHostName."
+  read -r -p "Enter host config (personal-mac / work-mac / lab-mac): " HOST
+fi
+echo "==> Using host config: $HOST"
+
+# ── 5. First switch ──────────────────────────────────────────────────────
+# darwin-rebuild is not on PATH yet, so run it straight from the flake input.
+echo "==> Building initial configuration #$HOST ..."
+sudo nix run \
+  github:nix-darwin/nix-darwin/nix-darwin-26.05#darwin-rebuild -- \
+  switch --flake "$HOME/.dotfiles#${HOST}"
+
+# ── 6. rustup (dev toolchain) ────────────────────────────────────────────
+# Kept as an imperative bootstrap rather than a nixpkgs toolchain: rustup's
+# toolchain-switching workflow differs from a pinned nix toolchain, and that
+# behavior change was deliberately NOT applied during the port (see
+# docs/nix-migration.md). Idempotent — no-op if rustup already present.
+if ! command -v rustup >/dev/null 2>&1; then
+  echo "==> Installing rustup ..."
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y || true
+fi
+
+# ── 7. Network/SSH side channels ─────────────────────────────────────────
+echo "==> Running 'just sync' for git externals + token-auditor ..."
+if command -v just >/dev/null 2>&1; then
+  just sync || echo "    (just sync had warnings; re-run later once online/authed)"
+else
+  echo "    'just' not on PATH yet; run 'just sync' after the switch completes."
+fi
+
+echo
+echo "==> Done. Subsequent rebuilds: ./rebuild.sh (or the 'rebuild' shell fn)."
+echo "    Provisioning that needs network/SSH (agent-registry, token-auditor,"
+echo "    tpm) runs via 'just sync'."
+echo
+echo "    Manual first-run steps (TCC-protected, cannot be scripted):"
+echo "      - Accessibility → Display → Reduce transparency"
+echo "      - Keyboard → Modifier Keys → remap Caps Lock"
+echo "      - Privacy & Security → Accessibility: grant AeroSpace + SketchyBar"

@@ -1,23 +1,71 @@
 # Dotfiles task runner
 # Usage: just <recipe>       List: just --list
 
+# Token-auditor pin, carried over from the retired .chezmoidata/tools.toml.
+# A tag (e.g. "v0.1.0") pins a fixed release; "latest" tracks the default
+# branch (main). Consumed by the `sync` recipe below.
+TOKEN_AUDITOR_VERSION := "latest"
+
 # Default recipe: show available commands
 default:
     @just --list
 
-# ── Chezmoi ──────────────────────────────────────────────
+# ── Nix (build / switch) ─────────────────────────────────
 
-# Preview changes that would be applied
-diff:
-    chezmoi diff
+# Rebuild and switch this host's nix-darwin + home-manager config.
+# Host is auto-detected from LocalHostName by rebuild.sh; pass one to override.
+rebuild *HOST:
+    ./rebuild.sh {{ HOST }}
 
-# Apply dotfiles
-apply *FLAGS:
-    chezmoi apply {{ FLAGS }}
+# Evaluate the flake without building (fast structural check).
+check:
+    nix flake check --no-build
 
-# Apply with verbose output
-apply-verbose:
-    chezmoi apply -v
+# First-time provisioning on a fresh Mac (Determinate Nix, age key, first switch).
+bootstrap *HOST:
+    ./bootstrap.sh {{ HOST }}
+
+# ── Sync (network / SSH side channels) ───────────────────
+
+# Clone/refresh the git externals and install the pinned token-auditor tool.
+# These are the network+SSH steps intentionally kept OUT of `darwin-rebuild
+# switch` (see docs/nix-migration.md, hooks bucket rule). Safe to re-run.
+sync:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # tpm (tmux plugin manager) — public https clone, weekly refresh upstream.
+    tpm_dir="$HOME/.config/tmux/plugins/tpm"
+    if [ -d "$tpm_dir/.git" ]; then
+        echo "==> Refreshing tpm"
+        git -C "$tpm_dir" pull --ff-only || echo "warning: tpm pull failed" >&2
+    else
+        echo "==> Cloning tpm"
+        git clone https://github.com/tmux-plugins/tpm.git "$tpm_dir"
+    fi
+    # Personal agent-registry — SSH clone, hourly-curated upstream. The
+    # agents capability gates the installer (modules/home/sync-hooks.nix);
+    # this recipe just guarantees the clone exists for it to run against.
+    reg_dir="$HOME/.local/share/agent-registry"
+    if [ -d "$reg_dir/.git" ]; then
+        echo "==> Refreshing agent-registry"
+        git -C "$reg_dir" pull --ff-only || echo "warning: agent-registry pull failed" >&2
+    else
+        echo "==> Cloning agent-registry (SSH)"
+        git clone git@github.com:stevencarpenter/agents.git "$reg_dir" \
+            || echo "warning: agent-registry clone failed (SSH key/network?)" >&2
+    fi
+    # token-auditor — standalone uv tool from its own public repo. --force
+    # makes re-install idempotent and upgrades in place on a version bump.
+    if command -v uv >/dev/null 2>&1; then
+        ref="git+https://github.com/stevencarpenter/token-auditor"
+        if [ "{{ TOKEN_AUDITOR_VERSION }}" != "latest" ]; then
+            ref="${ref}@{{ TOKEN_AUDITOR_VERSION }}"
+        fi
+        echo "==> Installing token-auditor (${ref})"
+        uv tool install --force "$ref" || echo "warning: token-auditor install failed" >&2
+    else
+        echo "warning: uv not found; skipping token-auditor install" >&2
+    fi
 
 # ── MCP Sync ─────────────────────────────────────────────
 
@@ -57,7 +105,7 @@ aws-fmt:
 aws-gen:
     uv run --project aws_config_gen aws-config-gen --dry-run
 
-# ── All Projects ─────────────────────────────────────────
+# ── All Python projects ──────────────────────────────────
 
 # Lint all Python projects
 lint: mcp-lint aws-lint
@@ -68,17 +116,11 @@ test: mcp-test aws-test
 # Format all Python projects
 fmt: mcp-fmt aws-fmt
 
-# Run all checks (lint + test)
-check: lint test
+# Run all Python checks (lint + test). Nix flake checks live under `just check`.
+py-check: lint test
 
 # ── Pre-commit ───────────────────────────────────────────
 
 # Run pre-commit on all files
 pre-commit:
     pre-commit run --all-files
-
-# ── Capability Audit ─────────────────────────────────────
-
-# Audit machine capability gates (orphans, undefined, prefix migrations)
-audit-capabilities:
-    bash .claude/skills/machine-capability-audit/scripts/audit.sh

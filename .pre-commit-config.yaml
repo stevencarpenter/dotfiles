@@ -5,7 +5,7 @@ repos:
       - id: check-yaml
       - id: check-toml
       - id: check-json
-        exclude: (^mcp_sync/tests/test_data/malformed_json\.json$|\.json\.tmpl$)
+        exclude: ^mcp_sync/tests/test_data/malformed_json\.json$
       - id: check-added-large-files
       - id: check-case-conflict
       - id: check-ast
@@ -28,14 +28,12 @@ repos:
 
   - repo: local
     hooks:
-      - id: machine-capability-audit
-        name: Machine capability gating audit
-        description: Find orphan capabilities, undefined gates, and prefix gates that could migrate
-        language: script
-        entry: .claude/skills/machine-capability-audit/scripts/audit.sh
-        files: ^(\.chezmoidata/machines\.toml|\.chezmoiignore|.+\.tmpl)$
-        pass_filenames: false
-
+      # The chezmoi-native `machine-capability-audit` hook was dropped in the
+      # nix port: its source of truth (.chezmoidata/machines.toml) and its
+      # `.tmpl`/`.chezmoiignore` grep targets no longer exist. Capability gating
+      # now lives in lib/machines.nix and is enforced structurally by
+      # `nix flake check` (a gate referencing an undefined cap fails evaluation).
+      # See docs/nix-migration.md for the deferred nix-flavored audit successor.
       - id: strip-claude-trailer
         name: Strip Co-Authored-By Claude trailer
         description: Enforce the no-Claude-attribution rule from dot_claude/CLAUDE.md

@@ -2,8 +2,8 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-item_file="${repo_root}/dot_config/sketchybar/items/executable_clock.sh"
-plugin_file="${repo_root}/dot_config/sketchybar/plugins/executable_clock.sh"
+item_file="${repo_root}/home/.config/sketchybar/items/clock.sh"
+plugin_file="${repo_root}/home/.config/sketchybar/plugins/clock.sh"
 
 item_source="$(<"${item_file}")"
 

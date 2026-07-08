@@ -72,3 +72,11 @@ private_dot_claude.json
 .understand-anything/intermediate/
 .understand-anything/tmp/
 .codegraph/
+
+# Nix build artifacts
+# `result` symlinks left by `nix build` / `darwin-rebuild build`, and the
+# per-directory direnv cache (`use flake`). flake.lock stays tracked.
+result
+result-*
+.direnv/
+.direnv

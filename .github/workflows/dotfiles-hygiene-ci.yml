@@ -5,21 +5,23 @@ on:
     paths:
       - ".github/workflows/dotfiles-hygiene-ci.yml"
       - ".pre-commit-config.yaml"
-      - ".chezmoiignore"
-      - ".chezmoiscripts/**"
-      - "dot_*"
-      - "dot_config/**"
+      - "home/**"
+      - "modules/**"
+      - "lib/**"
       - "scripts/**"
+      - "bootstrap.sh"
+      - "rebuild.sh"
       - "README.md"
   pull_request:
     paths:
       - ".github/workflows/dotfiles-hygiene-ci.yml"
       - ".pre-commit-config.yaml"
-      - ".chezmoiignore"
-      - ".chezmoiscripts/**"
-      - "dot_*"
-      - "dot_config/**"
+      - "home/**"
+      - "modules/**"
+      - "lib/**"
       - "scripts/**"
+      - "bootstrap.sh"
+      - "rebuild.sh"
       - "README.md"
 
 jobs:
@@ -27,10 +29,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.14"
 
@@ -52,14 +54,14 @@ jobs:
           import json
           from pathlib import Path
 
-          path = Path("dot_config/mcp/mcp-master.json")
+          path = Path("home/.config/mcp/mcp-master.json")
           data = json.loads(path.read_text(encoding="utf-8"))
 
           if not isinstance(data, dict):
               raise SystemExit("mcp-master.json must be a JSON object")
 
           # Master may define zero shared servers; the per-machine servers
-          # live in machine overlays (dot_config/mcp/machine/*.json).
+          # live in machine overlays (home/.config/mcp/machine/*.json).
           servers = data.get("servers")
           if not isinstance(servers, dict):
               raise SystemExit("mcp-master.json must define a 'servers' object")
@@ -76,7 +78,9 @@ jobs:
           set -euo pipefail
           while IFS= read -r -d '' file; do
             bash -n "${file}"
-          done < <(find .chezmoiscripts scripts -type f -name "*.sh" -print0)
+          done < <(find scripts -type f -name "*.sh" -print0)
+          bash -n bootstrap.sh
+          bash -n rebuild.sh
 
       - name: Validate SketchyBar clock popup behavior
         run: scripts/test-sketchybar-clock-popup.sh
@@ -84,14 +88,8 @@ jobs:
       - name: Validate SketchyBar badge wiring
         run: scripts/test-sketchybar-badge-wiring.sh
 
-      - name: Validate ca() drift-safety gate
-        run: scripts/test-ca-drift-gate.sh
-
-      - name: Install chezmoi
-        run: |
-          set -euo pipefail
-          sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "${RUNNER_TEMP}/bin"
-          echo "${RUNNER_TEMP}/bin" >> "${GITHUB_PATH}"
+      - name: Validate Claude settings merge order
+        run: scripts/test-claude-settings-order.sh
 
       - name: Validate Claude statusline rendering
         run: scripts/test-claude-statusline-command.sh
