@@ -22,13 +22,12 @@ def test_report_is_clean_immediately_after_sync(
     master = load_master_config(master_config_file)
     entries = _entries_by_name(drift_report(master, temp_home))
 
-    assert set(entries) >= {"cursor", "opencode", "vscode", "codex", "claude", "gemini"}
-    # ~/.claude.json and ~/.gemini/settings.json don't exist in the fixture
-    # home; the sync skips them, so drift must report skipped, not missing.
+    assert set(entries) >= {"cursor", "opencode", "vscode", "codex", "claude"}
+    # ~/.claude.json doesn't exist in the fixture home; the sync skips it,
+    # so drift must report skipped, not missing.
     assert entries["claude"].status == "skipped"
-    assert entries["gemini"].status == "skipped"
     for name, entry in entries.items():
-        if name in ("claude", "gemini"):
+        if name in ("claude",):
             continue
         assert entry.status == "clean", f"{name}: {entry.status}\n{entry.diff}"
 

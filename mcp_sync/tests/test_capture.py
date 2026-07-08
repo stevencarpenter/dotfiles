@@ -8,7 +8,7 @@ import pytest
 
 from mcp_sync.capture import capture_target, run_capture
 from mcp_sync.cli import cli
-from mcp_sync.drift import drift_report
+from mcp_sync.drift import drift_report, run_check
 from mcp_sync.sync import load_master_config, run_sync
 
 
@@ -242,4 +242,32 @@ def test_cli_capture_unknown_target_errors(
         ]
     )
 
+    assert exit_code == 1
+
+
+def test_capture_malformed_json_reports_error_not_crash(
+    temp_home, monkeypatch_home, master_config_file, capsys
+):
+    """A deployed file with broken JSON exits 1, never a traceback."""
+    run_sync(home=temp_home)
+    cursor_path = temp_home / ".cursor" / "mcp.json"
+    cursor_path.write_text("{ not valid json", encoding="utf-8")
+
+    exit_code = run_capture("cursor", master_path=master_config_file, home=temp_home)
+
+    assert exit_code == 1
+    assert "not valid JSON" in capsys.readouterr().out
+
+
+def test_capture_master_missing_exits_1(temp_home, monkeypatch_home):
+    """--capture with a nonexistent master config exits 1."""
+    exit_code = run_capture(
+        "cursor", master_path=temp_home / "nonesuch.json", home=temp_home
+    )
+    assert exit_code == 1
+
+
+def test_check_master_missing_exits_1(temp_home, monkeypatch_home):
+    """--check with a nonexistent master config exits 1."""
+    exit_code = run_check(master_path=temp_home / "nonesuch.json", home=temp_home)
     assert exit_code == 1

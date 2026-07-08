@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import copy
 import json
+import os
+import tempfile
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -132,7 +134,7 @@ def _load_override(key: str, home: Path | None) -> JsonDict:
     except json.JSONDecodeError:
         log_info(f"Skipping override: {override_path} (invalid JSON)")
         return {}
-    except Exception:
+    except OSError:
         log_info(f"Skipping override: {override_path} (read error)")
         return {}
 
@@ -151,7 +153,7 @@ def load_machine_config(path: Path | None) -> JsonDict:
     except json.JSONDecodeError:
         log_info(f"Skipping machine config: {path} (invalid JSON)")
         return {}
-    except Exception:
+    except OSError:
         log_info(f"Skipping machine config: {path} (read error)")
         return {}
 
@@ -494,7 +496,7 @@ def _load_json(path: Path) -> JsonDict:
 
 
 def _write_json(path: Path, payload: JsonDict, *, sort_keys: bool = True) -> None:
-    """Write JSON to ``path``.
+    """Write JSON to ``path`` atomically via a tempfile + rename.
 
     By default keys are alphabetized for deterministic output (good for
     files we own end-to-end). Pass ``sort_keys=False`` for files where a
@@ -503,7 +505,13 @@ def _write_json(path: Path, payload: JsonDict, *, sort_keys: bool = True) -> Non
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     serialized = json.dumps(payload, indent=2, sort_keys=sort_keys)
-    path.write_text(serialized + "\n", encoding="utf-8")
+    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+    try:
+        os.write(fd, (serialized + "\n").encode("utf-8"))
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+    os.replace(tmp, path)
 
 
 def _render_patched_owned_config(
@@ -516,20 +524,20 @@ def _render_patched_owned_config(
 ) -> JsonDict | None:
     """Render one co-owned config a sync would write, without side effects.
 
-    Shared body for the "patch-style" targets (``~/.claude.json``,
-    ``~/.gemini/settings.json``): tools that own their file, where a sync only
+    Shared body for the "patch-style" targets (e.g. ``~/.claude.json``):
+    tools that own their file, where a sync only
     rewrites the ``mcpServers`` key — managed servers replace their entries,
-    unmanaged (hand-added) ones are preserved, and Claude/Gemini's own keys are
-    left untouched. Reads the current file but never writes it, so drift checks
-    can compare deployed vs expected.
+    unmanaged (hand-added) ones are preserved, and the owning tool's
+    own keys are left untouched. Reads the current file but never writes it,
+    so drift checks can compare deployed vs expected.
 
     Args:
         master: Master MCP config document.
         home: Home directory override for tests; defaults to ``Path.home()``.
         path: The owned file to read and render.
         override_key: ``~/.config/mcp/overrides/<key>.json`` layer to apply.
-        server_map: Optional per-server transform into the tool's schema (e.g.
-            Gemini's ``url`` → ``httpUrl``). Identity when ``None``.
+        server_map: Optional per-server transform into the tool's schema.
+            Identity when ``None``.
 
     Returns:
         The patched document, or ``None`` when ``path`` is absent (the sync
@@ -629,68 +637,6 @@ def patch_claude_code_config(master: JsonDict, home: Path | None = None) -> None
     _sync_patch_spec(_patch_spec("claude", home_path), master, home_path)
 
 
-def _to_gemini_server(config: JsonDict) -> JsonDict:
-    """Map one stripped master server entry to Gemini CLI's schema.
-
-    Args:
-        config: A server config with sync-time/master-only fields (enablement,
-            ``note``, ``type``) already stripped by the caller.
-
-    Returns:
-        Remote servers (a non-empty string ``url`` field) as ``{"httpUrl":
-        <url>, ...}`` — the ``url`` key is renamed to ``httpUrl`` and the
-        master ``type`` is dropped (``httpUrl`` already implies a remote
-        server), but every *other* field (e.g. ``headers`` carrying auth) is
-        preserved, since Gemini's remote schema honors them. Command-based
-        servers keep their fields with ``"type": "stdio"`` (Gemini's
-        convention for local servers) forced on, and any stray falsy ``url``
-        stripped so a half-edited entry can't leak a bogus ``"url": null``.
-    """
-    url = config.get("url")
-    if isinstance(url, str) and url:
-        remote = {
-            key: value for key, value in config.items() if key not in ("url", "type")
-        }
-        return {"httpUrl": url, **remote}
-    stdio = {key: value for key, value in config.items() if key != "url"}
-    return {**stdio, "type": "stdio"}
-
-
-def render_gemini_config(master: JsonDict, home: Path | None = None) -> JsonDict | None:
-    """Render the ``~/.gemini/settings.json`` document a sync would write.
-
-    Reads the current file (Gemini CLI owns it) and applies the managed
-    ``mcpServers`` patch without writing anything back, so drift checks can
-    compare deployed vs expected without side effects.
-
-    Args:
-        master: Master MCP config document.
-        home: Home directory override for tests; defaults to ``Path.home()``.
-
-    Returns:
-        The patched document, or ``None`` when ``~/.gemini/settings.json`` is
-        absent (the sync skips it in that case).
-    """
-    home_path = _home_dir(home)
-    return _render_patch(_patch_spec("gemini", home_path), master, home_path)
-
-
-def patch_gemini_config(master: JsonDict, home: Path | None = None) -> None:
-    """Patch managed MCP servers into ``~/.gemini/settings.json`` in place.
-
-    Unlike the file-generating targets, Gemini CLI owns this file — only the
-    ``mcpServers`` key is rewritten (managed servers replace their entries,
-    unmanaged ones are preserved), and key order is kept to avoid churning
-    Gemini's own settings state.
-
-    Args:
-        master: Master MCP config document.
-        home: Home directory override for tests; defaults to ``Path.home()``.
-    """
-    home_path = _home_dir(home)
-    _sync_patch_spec(_patch_spec("gemini", home_path), master, home_path)
-
-
 @dataclass(frozen=True, slots=True)
 class PatchSpec:
     """One co-owned, patch-managed JSON target.
@@ -712,7 +658,7 @@ def patch_specs(home: Path) -> list[PatchSpec]:
     """The co-owned patch-managed JSON targets, in sync order.
 
     Single source of truth shared by the sync, ``--check`` (drift), and
-    ``--capture``: adding a new claude/gemini-style target here wires it into
+    ``--capture``: adding a new patch-style target here wires it into
     all three entry points at once. ``codex`` is intentionally absent — it is
     patch-managed TOML with its own renderer, check-only and not capturable.
 
@@ -724,9 +670,6 @@ def patch_specs(home: Path) -> list[PatchSpec]:
     """
     return [
         PatchSpec("claude", home / ".claude.json", "claude"),
-        PatchSpec(
-            "gemini", home / ".gemini" / "settings.json", "gemini", _to_gemini_server
-        ),
     ]
 
 
@@ -763,7 +706,7 @@ def _render_patch(spec: PatchSpec, master: JsonDict, home: Path) -> JsonDict | N
 def _sync_patch_spec(spec: PatchSpec, master: JsonDict, home: Path) -> None:
     """Render one patch spec and write the deployed file back in place.
 
-    Preserves key order: the owning tool (Claude Code, Gemini CLI) writes its
+    Preserves key order: the owning tool (e.g. Claude Code) writes its
     own state into this file (recent projects, transient UI bits, etc.);
     alphabetizing the whole document on every sync churns the diff and can
     interleave managed keys with the tool's runtime state in confusing ways.

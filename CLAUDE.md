@@ -105,8 +105,7 @@ The sync tool reads `dot_config/mcp/mcp-master.json` and generates tool-specific
   `transform_to_mcpservers_format()`, `transform_to_opencode_format()`
 - **Patch-style targets** (files co-owned by their tool; only the managed MCP portion is rewritten,
   compared semantically by drift): codex (`~/.codex/config.toml` managed block), claude
-  (`~/.claude.json` `mcpServers` key), gemini (`~/.gemini/settings.json` `mcpServers` key —
-  stdio servers get `"type": "stdio"`, remote servers map `url` → `httpUrl`)
+  (`~/.claude.json` `mcpServers` key)
 - **Merge order**: base template + master + machine overlay + per-tool overrides (later values win).
   The overrides layer is wired in `sync.py` — each target reads `~/.config/mcp/overrides/<key>.json`
   at sync time — but no override files are managed in-repo yet (`dot_config/mcp/overrides/` does not

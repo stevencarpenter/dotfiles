@@ -62,7 +62,10 @@ def _unified_diff(deployed: str, expected: str, path: Path) -> str:
 def _compare_text(name: str, path: Path, expected: str) -> DriftEntry:
     if not path.is_file():
         return DriftEntry(name, path, "missing")
-    deployed = path.read_text(encoding="utf-8")
+    try:
+        deployed = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        return DriftEntry(name, path, "drift", f"deployed file is unreadable: {exc}\n")
     if deployed == expected:
         return DriftEntry(name, path, "clean")
     return DriftEntry(name, path, "drift", _unified_diff(deployed, expected, path))
@@ -71,7 +74,7 @@ def _compare_text(name: str, path: Path, expected: str) -> DriftEntry:
 def _semantic_drift(spec: PatchSpec, master: JsonDict, home: Path) -> DriftEntry:
     """Drift for a co-owned JSON file, comparing content rather than bytes.
 
-    The owning tool (Claude Code, Gemini CLI) rewrites the file with its own
+    The owning tool (e.g. Claude Code) rewrites the file with its own
     serializer — literal UTF-8, no trailing newline, its own key order — so a
     byte comparison would report permanent false drift. We parse the file once
     (via :func:`render_patch_with_source`, which returns both the deployed and

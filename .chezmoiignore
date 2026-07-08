@@ -58,6 +58,7 @@ private_dot_claude.json
 !**/.config/github-copilot/intellij/
 !**/.config/github-copilot/intellij/global-copilot-instructions.md
 {{ if (index .machines .machine).mcp }}
+# Per-machine agent settings (e.g. experimental features, effort level).
 !.copilot/settings.json
 {{ end }}
 
