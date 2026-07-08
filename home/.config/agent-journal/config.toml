@@ -1,9 +1,9 @@
-machine = "{{ .machine }}"
+machine = "personal-mac"
 context = "personal"
 standup_hour = 8
 
 [vault]
-path = "{{ .chezmoi.homeDir }}/projects/obsidian"
+path = "/Users/carpenter/projects/obsidian"
 daily_dir = "Daily"
 daily_note_path_format = "%Y/%m/%d-%a"
 workstreams_dir = "Workstreams"
@@ -14,16 +14,16 @@ agent_notes_header = "## Agent Notes"
 todo_tag = "#agent-todo"
 
 [state]
-dir = "{{ .chezmoi.homeDir }}/.local/state/agent-journal"
+dir = "/Users/carpenter/.local/state/agent-journal"
 
 [adapters]
 enabled = ["codex", "claude_code"]
 
 [adapters.codex]
-sessions_glob = "{{ .chezmoi.homeDir }}/.codex/sessions/*/*/*/*.jsonl"
+sessions_glob = "/Users/carpenter/.codex/sessions/*/*/*/*.jsonl"
 
 [adapters.claude_code]
-projects_dir = "{{ .chezmoi.homeDir }}/.claude/projects"
+projects_dir = "/Users/carpenter/.claude/projects"
 
 [redaction]
 extra_patterns = []

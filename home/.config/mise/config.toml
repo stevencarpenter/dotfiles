@@ -2,6 +2,14 @@
 # Version policy:
 # - Pin critical automation/security tools to explicit versions for reproducibility.
 # - Use "latest" only for lower-risk tools where faster updates are preferred.
+#
+# This is the UNGATED base tool list (all machines). Capability-gated tool
+# blocks live in conf.d/*.toml, symlinked in only when the host has the
+# capability (see modules/home/dev-tools.nix):
+#   conf.d/dev.toml   — dev-capability LSP servers
+#   conf.d/infra.toml — infra-capability cluster/database tooling
+# mise loads ~/.config/mise/conf.d/*.toml (alphabetical) and merges their
+# [tools] tables with this one; the blocks are disjoint so the union is exact.
 
 # Programming Languages & Runtimes (all machines)
 go = "1.26"
@@ -26,26 +34,6 @@ rust-analyzer = "latest"                  # rust-analyzer (Rust)
 # compile parsers (Mason is disabled for it). All machines, since nvim deploys
 # everywhere.
 tree-sitter = "latest"
-{{- if (index .machines .machine).dev }}
-
-# LSP servers for dev machines — matches the dev-gated plugins typescript-lsp and
-# lua-lsp (swift-lsp's sourcekit-lsp ships with Xcode, so no install needed here).
-"npm:typescript-language-server" = "latest"
-"npm:typescript" = "latest"               # tsserver — required by typescript-language-server
-lua-language-server = "latest"
-{{- end }}
-{{- if (index .machines .machine).infra }}
-
-# Infrastructure Tools (machines with infra capability)
-helm = "3"
-k9s = "latest"
-kubectl = "1.35"
-kustomize = "latest"
-teleport-ent = "16"
-
-# Databases (work machines only)
-mysql = "8"
-{{- end }}
 
 # DuckDB — needed by yazi on every machine for tabular file previews
 duckdb = "latest"

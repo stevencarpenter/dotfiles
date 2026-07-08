@@ -11,10 +11,10 @@ after-startup-command = [
 after-login-command = []
 
 on-focus-changed = [
-  # Wrapped in /bin/bash -c because exec-and-forget doesn't process shell syntax
-  # (`[...]`, `&&`, `||`, `$(...)`) on its own — it execs the command directly.
-  # Matches the same pattern used for bordersrc above.
-  "exec-and-forget /bin/bash -c '[ \"$(aerospace list-windows --workspace focused | wc -l)\" -eq 1 ] && borders width=0.0 || borders width=3.0'"
+    # Wrapped in /bin/bash -c because exec-and-forget doesn't process shell syntax
+    # (`[...]`, `&&`, `||`, `$(...)`) on its own — it execs the command directly.
+    # Matches the same pattern used for bordersrc above.
+    "exec-and-forget /bin/bash -c '[ \"$(aerospace list-windows --workspace focused | wc -l)\" -eq 1 ] && borders width=0.0 || borders width=3.0'"
 ]
 
 # Normalizations — keep the tree sane automatically
@@ -123,17 +123,11 @@ enter = 'mode main'
 r = ['reload-config', 'mode main']
 f = ['flatten-workspace-tree', 'mode main']
 b = ['balance-sizes', 'mode main']
-{{- if hasPrefix "personal" .machine }}
 # Personal workspace layout scripts
 8 = ['exec-and-forget ~/.config/aerospace/layouts/workspace-8-comms.sh', 'mode main']
-{{- end }}
-{{- if hasPrefix "work" .machine }}
-# Work workspace layout scripts (add as needed)
-{{- end }}
 esc = 'mode main'
 
 # ─── Workspace Assignments ────────────────────────────────────────────────────
-{{- if hasPrefix "personal" .machine }}
 # ── Personal Machine ──
 # 1: Terminal (Ghostty)
 # 2: Browser (Firefox)
@@ -196,65 +190,6 @@ run = 'move-node-to-workspace 7'
 [[on-window-detected]]
 if.app-id = 'com.apple.ScreenSharing'
 run = 'move-node-to-workspace 9'
-{{- end }}
-{{- if hasPrefix "work" .machine }}
-# ── Work Machine ──
-# 1: Terminal (Ghostty)
-# 2: Browser (Firefox For Developers Work Profile)
-# 3: IDE (IntelliJ)
-# 4: Slack
-# 5: (unused — personal comms stack not applicable at work)
-# 6: Browser Personal (Firefox Dev Ed.)
-# 7: Notes (Obsidian)
-# 8: Zoom
-# 9: Editor (Zed)
-
-[[on-window-detected]]
-if.app-id = 'com.mitchellh.ghostty'
-run = 'move-node-to-workspace 1'
-
-[[on-window-detected]]
-if.app-id = 'org.mozilla.firefoxdeveloperedition'
-run = 'move-node-to-workspace 2'
-
-[[on-window-detected]]
-if.app-id = 'com.jetbrains.intellij'
-run = 'move-node-to-workspace 3'
-
-[[on-window-detected]]
-if.app-id = 'com.tinyspeck.slackmacgap'
-run = 'move-node-to-workspace 4'
-
-[[on-window-detected]]
-if.app-id = 'md.obsidian'
-run = 'move-node-to-workspace 7'
-
-[[on-window-detected]]
-if.app-id = 'zoom.us'
-run = 'move-node-to-workspace 8'
-
-[[on-window-detected]]
-if.app-id = 'dev.zed.Zed-Preview'
-run = 'move-node-to-workspace 9'
-
-# ── Work Machine: enterprise / security app floats ──
-# Name-substring matches handle multi-component apps (Zscaler has several
-# daemon/UI processes) and survive version renames (Self Service →
-# Self Service+). Floating so re-auth, update, and prompt flows aren't
-# fought by the tiler.
-
-[[on-window-detected]]
-if.app-name-regex-substring = '(?i)self service'
-run = 'layout floating'
-
-[[on-window-detected]]
-if.app-name-regex-substring = '(?i)zscaler'
-run = 'layout floating'
-
-[[on-window-detected]]
-if.app-name-regex-substring = '(?i)sentinel'
-run = 'layout floating'
-{{- end }}
 
 # ─── Window Rules ─────────────────────────────────────────────────────────────
 # Float apps that don't tile well (shared across all machines)

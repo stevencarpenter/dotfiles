@@ -7,10 +7,15 @@
       "args": [
         "run",
         "--project",
-        "{{ .chezmoi.homeDir }}/projects/hippo/brain",
+        "/Users/carpenter/projects/hippo/brain",
         "hippo-mcp"
       ],
-      "autoApprove": ["ask", "search_knowledge", "search_events", "get_entities"]
+      "autoApprove": [
+        "ask",
+        "search_knowledge",
+        "search_events",
+        "get_entities"
+      ]
     }
   }
 }
