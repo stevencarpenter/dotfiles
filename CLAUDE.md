@@ -167,12 +167,11 @@ Current capabilities (one row per machine in `machines.toml`):
 - **`mcp`** — deploy the MCP master config + run the post-apply sync hook that fans out per-tool MCP
   configs (codex, opencode, cursor, copilot, …). Off on machines that don't run a constellation of
   AI dev tools. Gated in `.chezmoiignore` (skips `.config/mcp`) and in
-  `.chezmoiscripts/run_after_sync-mcp.sh.tmpl` (body becomes a no-op). (github MCP moved from a
-  brew formula to the `github@claude-plugins-official` plugin — a remote HTTP server — so `mcp` no
-  longer gates a Brewfile entry.) Also gates the standalone AI-tool config files
-  `.config/opencode/rules.toml`, `.cursor/cli-config.json`, and `.copilot/settings.json` in
-  `.chezmoiignore` (the copilot one via a negation carved out of the blanket
-  `**/.copilot/**/*` runtime-state exclusion).
+  `.chezmoiscripts/run_after_sync-mcp.sh.tmpl` (body becomes a no-op). (No github MCP server ships
+  on any machine: `mcp_sync` strips a `github` server from the fanned-out configs via
+  `RETIRED_MCP_SERVER_NAMES`, and the `github@claude-plugins-official` Claude Code plugin — which
+  bundles a remote GitHub MCP server — is pinned `false` in `dot_claude/modify_settings.json.tmpl`
+  so it stays disabled everywhere. `gh-axi` is used for GitHub instead.)
 - **`skills`** — deploy `~/.config/skills/` (the skill manifest + machine overlays) and run the
   post-apply `sync-skills` hook that populates `~/.claude/skills/` from the personal skills in
   `skills/personal/` (deployed as symlinks, so edits to a deployed skill land directly in the repo
