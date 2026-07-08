@@ -2,6 +2,10 @@
 name: chezmoi-verify
 description: Verify chezmoi state before applying. USE THIS SKILL whenever the user says "preview chezmoi changes", "test the templates", "verify apply", "what would chezmoi apply do", "chezmoi diff", "dry-run chezmoi", "render the templates", "check the .tmpl files", "did I break any templates", "is my chezmoi config valid", "before I run chezmoi apply", "apply safely", or any phrasing where the user wants to inspect what `chezmoi apply` will change without committing the change. Bias toward triggering: a broken `*.tmpl` file renders as empty output and shows up in `chezmoi diff` as a silent file deletion that is easy to miss — running every template through `execute-template` first is the only reliable surface for syntax errors. The cost of an unnecessary trigger is one extra CI-style report; the cost of missing a template error is a corrupted dotfile on apply.
 ---
+> **DEPRECATED (nix port):** this skill targets the retired chezmoi machinery.
+> The repo is now a nix-darwin + home-manager flake — use `nix flake check --no-build`
+> / `just check` and `lib/machines.nix` instead. Kept for reference on main.
+
 
 # Chezmoi verify
 

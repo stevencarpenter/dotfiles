@@ -22,11 +22,11 @@
   # Directory Services UserShell, eliminating the bug class the script guarded
   # against (a stale Homebrew-cellar zsh path bricking login on arch change).
   #
-  # NOTE (divergence from the retired script, which pinned /bin/zsh): per the
-  # port contract this uses the nix-store pkgs.zsh. The current system
-  # generation's zsh path is GC-root-protected, so it is stable; if a reviewer
-  # prefers the always-present /bin/zsh for login resilience, swap this to
-  # `shell = "/bin/zsh";` (a plain path string is also accepted here).
+  # The pin is the LITERAL /bin/zsh, not pkgs.zsh: the retired script existed
+  # because a non-OS shell path (Homebrew cellar, and equally a nix store
+  # path) can dangle across upgrades/GC and brick login — /bin/zsh is the one
+  # shell Apple guarantees. Interactive shell richness comes from z4h config,
+  # not the login-shell binary.
   #
   # NOTE (reviewer): setting `shell` for a macOS-created (i.e. not
   # nix-darwin-managed / knownUsers) account relies on newer nix-darwin driving
@@ -36,11 +36,12 @@
   users.users.${user} = {
     name = user;
     home = "/Users/${user}";
-    shell = pkgs.zsh;
+    shell = "/bin/zsh";
   };
 
-  # Register the login shell in /etc/shells so it is a valid choice.
-  environment.shells = [ pkgs.zsh ];
+  # /bin/zsh is already in /etc/shells; keep pkgs.zsh registered too so a
+  # store zsh remains a valid `chsh` choice without being the login pin.
+  environment.shells = [ pkgs.zsh "/bin/zsh" ];
 
   # One-time migration cleanup carried over from the old login-shell script:
   # clear any stale `launchctl setenv SHELL <path>` override (e.g. a versioned

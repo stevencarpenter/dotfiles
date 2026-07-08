@@ -53,13 +53,12 @@ build/
 
 # Repo-local / machine-specific (defensive, files don't currently exist)
 .envrc
-private_dot_claude.json
 *threat-model*.md
 
-# All CLAUDE.md files except root and dot_claude/ (tracked) — explicit allowlist
+# All CLAUDE.md files except root and home/.claude/ (tracked) — explicit allowlist
 **/CLAUDE.md
 !/CLAUDE.md
-!/dot_claude/CLAUDE.md
+!/home/.claude/CLAUDE.md
 
 # Serena MCP cache
 .serena/

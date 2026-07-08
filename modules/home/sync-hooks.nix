@@ -138,6 +138,56 @@ in
             echo "Warning: agent registry install failed." >&2
             exit 0
           fi
+
+          # Refresh the SessionStart routing-context cache now that
+          # ~/.claude/agents is current. Stdlib-only; best-effort — a stale
+          # cache means slightly old routing hints, never a broken switch.
+          ROUTING_SCRIPT="$PROJECT/tools/routing/generate_context.py"
+          ROUTING_CACHE="$HOME/.cache/agent-routing/context.md"
+          if [ -f "$ROUTING_SCRIPT" ]; then
+            mkdir -p "$(dirname "$ROUTING_CACHE")"
+            if "${py}" "$ROUTING_SCRIPT" > "$ROUTING_CACHE.tmp" 2>/dev/null; then
+              mv "$ROUTING_CACHE.tmp" "$ROUTING_CACHE"
+            else
+              rm -f "$ROUTING_CACHE.tmp"
+              echo "Warning: agent-routing context generation failed; keeping previous cache." >&2
+            fi
+          fi
+
+          # Guard carried from the original hook: no installed Claude agent may
+          # declare a tools: allowlist of ONLY built-in tools (that strips the
+          # agent of MCP/skill access silently). Warn on violation.
+          if ! violations="$("${py}" - "$HOME/.claude/agents" <<'PYEOF'
+from pathlib import Path
+import sys
+
+root = Path(sys.argv[1])
+builtins = {"Read", "Write", "Edit", "MultiEdit", "NotebookEdit",
+            "Bash", "Glob", "Grep", "LS"}
+violations = []
+for path in sorted(root.glob("*.md")) if root.is_dir() else []:
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        violations.append(f"{path.name}: cannot read: {exc}")
+        continue
+    if not text.startswith("---\n"):
+        continue
+    frontmatter = text[4:].split("\n---\n", 1)[0]
+    for line_number, line in enumerate(frontmatter.splitlines(), start=2):
+        if not line.startswith("tools:"):
+            continue
+        tools = [p.strip() for p in line.split(":", 1)[1].split(",") if p.strip()]
+        if tools and all(tool in builtins for tool in tools):
+            violations.append(f"{path.name}:{line_number}: {line}")
+if violations:
+    print("\n".join(violations))
+    sys.exit(1)
+PYEOF
+          )"; then
+            echo "Warning: Claude agents contain built-in-only tools allowlists:" >&2
+            echo "$violations" >&2
+          fi
         ) || true
       ''
     );

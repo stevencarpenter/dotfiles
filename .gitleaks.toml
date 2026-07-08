@@ -6,7 +6,7 @@
 useDefault = true
 
 [allowlist]
-description = "Ignore age-encrypted secret files (encrypted at rest by chezmoi)"
+description = "Ignore age-encrypted secret files (ciphertext at rest under secrets/)"
 paths = [
-  '''(^|/)encrypted_[^/]+\.age$''',
+  '''^secrets/.*\.age$''',
 ]
