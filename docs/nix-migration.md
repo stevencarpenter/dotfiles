@@ -140,3 +140,25 @@ Explicitly scoped OUT of the port; none blocks a switch today.
   nix-darwin options; they were moved from the `dock` submodule (which rejected them) into
   `system.defaults.CustomUserPreferences."com.apple.dock"` in `macos-defaults.nix`, matching the
   original script's `modifier = 0` (none).
+
+## (f) Path to first switch
+
+Tracked in Linear as [SNUG-362](https://linear.app/snugmarina/issue/SNUG-362) (label: `dotfiles`).
+
+The port is complete *as a shape*: all 293 tracked files are accounted for (140 raw dotfiles →
+`home/`, 30 age blobs → `secrets/`, 12 `.tmpl` templates resolved, 10 hooks ported, machinery
+deleted), and every host evaluates. The honest gap is that **evaluates cleanly ≠ switches
+cleanly** — evaluation type-checks the whole module tree but cannot exercise Homebrew activation,
+launchd, macOS `defaults` acceptance, or agenix's runtime decrypt. Rollout order:
+
+1. **personal-mac first** — it is the machine that can be babysat. `./bootstrap.sh`, then walk the
+   on-hardware checklist in SNUG-362 (defaults edge-case keys, unmanaged-user shell pin, homebrew
+   activation with `cleanup = "none"`, agenix decrypt, the four sync-hook activations, tiling
+   restart), then `just sync`.
+2. **work-mac** once personal-mac proves out.
+3. **lab-mac last, pending a decision**: nixpkgs 26.05 is the last release supporting
+   x86_64-darwin, so the Intel lab machine's runway under this paradigm is finite — stay pinned,
+   move it to Linux/NixOS, or keep it on chezmoi.
+
+Until step 1 has run, treat every reviewer `NOTE:` comment in `modules/darwin/` as an open
+question, and do not merge this branch to main.
