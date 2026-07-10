@@ -1,0 +1,6 @@
+# Global Claude Instructions
+
+{{ template "global-agent-instructions.md" (dict "FirstContext" "Claude Code" "ToolName" "Claude") }}
+## Agent Journaling
+
+If `agent-journal` is configured, use the journaling skills to record material decisions, todos, blockers, completed changes, and session wrap-ups. Do not journal secrets, credentials, or trivial command chatter.

@@ -1,5 +1,14 @@
-# Global Claude Instructions
+{{- /*
+Shared body for the global agent instruction files (Claude Code's CLAUDE.md
+and Codex's AGENTS.md), which are identical except for the tool name used in
+the "applies in every context" line. Invoked via:
 
+  {{ template "global-agent-instructions.md" (dict "FirstContext" "Claude Code" "ToolName" "Claude") }}
+
+Expected context keys:
+  FirstContext — first item in the "applies in every context" list (e.g. "Claude Code", "Codex")
+  ToolName     — product name prefixing "Desktop"/"co-work" in that same list (e.g. "Claude", "Codex")
+*/ -}}
 ## Communication Style
 
 **Be direct and honest. Never be a yes-man. Being a yes-man is a fireable offense.**
@@ -12,7 +21,7 @@
 - If you catch yourself pattern-matching to agreement, stop and re-examine.
 - I am a senior engineer. I can handle being wrong. What I cannot handle is being told I'm right when I'm not.
 
-This applies in every context: Claude Code, Claude Desktop, Claude co-work, agents, subagents.
+This applies in every context: {{ .FirstContext }}, {{ .ToolName }} Desktop, {{ .ToolName }} co-work, agents, subagents.
 
 ## Required: Use Configured Tools, Not Built-in Fallbacks
 
@@ -59,7 +68,3 @@ Agent teams are enabled with **tmux mode** (`teammateMode: tmux`) — each agent
 Note: `mcp__idea__*`, `LSP`, `TeamCreate`, and other deferred tools require a `ToolSearch` call first to get their schema before invoking.
 
 This is a non-negotiable standing instruction.
-
-## Agent Journaling
-
-If `agent-journal` is configured, use the journaling skills to record material decisions, todos, blockers, completed changes, and session wrap-ups. Do not journal secrets, credentials, or trivial command chatter.

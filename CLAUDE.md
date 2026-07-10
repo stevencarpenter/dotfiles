@@ -31,6 +31,12 @@ uv run --project mcp_sync --group dev pytest mcp_sync/tests/test_sync_mcp_config
 
 # Run sync manually
 uv run --project mcp_sync sync-mcp-configs
+
+# Drift report: would a sync rewrite any deployed config? (read-only, exit 1 on drift)
+uv run --project mcp_sync sync-mcp-configs --check --machine-config ~/.config/mcp/machine/personal.json
+
+# Claw back an intentional hand-edit into the overrides layer so it survives future syncs
+uv run --project mcp_sync sync-mcp-configs --capture cursor --machine-config ~/.config/mcp/machine/personal.json
 ```
 
 ### AWS Config Gen (`aws_config_gen/`)
@@ -97,10 +103,21 @@ The sync tool reads `dot_config/mcp/mcp-master.json` and generates tool-specific
 - **Templates**: `mcp_sync/src/mcp_sync/templates/` — base config templates per tool
 - **Transform functions** in `sync.py`: `transform_to_copilot_format()`, `transform_to_identity_format()`,
   `transform_to_mcpservers_format()`, `transform_to_opencode_format()`
+- **Patch-style targets** (files co-owned by their tool; only the managed MCP portion is rewritten,
+  compared semantically by drift): codex (`~/.codex/config.toml` managed block), claude
+  (`~/.claude.json` `mcpServers` key)
 - **Merge order**: base template + master + machine overlay + per-tool overrides (later values win).
   The overrides layer is wired in `sync.py` — each target reads `~/.config/mcp/overrides/<key>.json`
   at sync time — but no override files are managed in-repo yet (`dot_config/mcp/overrides/` does not
-  exist; the deployed `~/.config/mcp/overrides/` dir is present but empty).
+  exist; the deployed `~/.config/mcp/overrides/` dir is present but empty until a capture writes one).
+- **Drift & claw-back**: `sync-mcp-configs --check` reports, per target, whether a sync would rewrite
+  the deployed file (read-only; exit 1 on drift). `sync-mcp-configs --capture <target>` writes the
+  deployed-vs-generated delta into `~/.config/mcp/overrides/<key>.json` so a tested hand-edit
+  survives future syncs (deleted servers become `servers.<name>.enabled: false`; deletions of
+  non-server keys can't be expressed by the merge and are reported instead). `codex` is
+  patch-managed TOML and is check-only — its hand edits outside the managed block already survive
+  syncs. Both flags accept the same `--machine-config` overlay as the sync itself. Implementation:
+  `mcp_sync/src/mcp_sync/drift.py`, `mcp_sync/src/mcp_sync/capture.py`.
 
 The sync runs automatically after `chezmoi apply` via `.chezmoiscripts/run_after_sync-mcp.sh.tmpl`.
 The hook selects the overlay for the deployed machine type (rendered from `.machine`, mirroring the
@@ -155,8 +172,10 @@ Current capabilities (one row per machine in `machines.toml`):
   bundles a remote GitHub MCP server — is pinned `false` in `dot_claude/modify_settings.json.tmpl`
   so it stays disabled everywhere. `gh-axi` is used for GitHub instead.)
 - **`skills`** — deploy `~/.config/skills/` (the skill manifest + machine overlays) and run the
-  post-apply `sync-skills` hook that populates `~/.claude/skills/` from vendored (mattpocock) +
-  personal skills. Off on machines that don't run Claude Code skills. Gated in `.chezmoiignore`
+  post-apply `sync-skills` hook that populates `~/.claude/skills/` from the personal skills in
+  `skills/personal/` (deployed as symlinks, so edits to a deployed skill land directly in the repo
+  working tree; the manifest still supports git-vendored sources if an upstream-maintained skill
+  returns). Off on machines that don't run Claude Code skills. Gated in `.chezmoiignore`
   (skips `.config/skills`) and in `.chezmoiscripts/run_after_sync-skills.sh.tmpl` (body becomes a
   no-op).
 - **`gui`** — install GUI applications (Raycast, Ghostty, Obsidian, VS Code, 1Password, …) +
@@ -189,7 +208,8 @@ Current capabilities (one row per machine in `machines.toml`):
   user's personal GitHub (SSH) and the agents are personal content. Unlike most capabilities it has
   no `.chezmoiignore` consumer (its payload is a cloned repo, not tracked source); instead it gates
   the clone in `.chezmoiexternal.toml.tmpl` and the installer in
-  `.chezmoiscripts/run_after_sync-agents.sh.tmpl` (which self-gates to a no-op when off). After
+  `.chezmoiscripts/run_after_sync-agents.sh.tmpl` (which self-gates to a no-op when off). The same
+  capability also gates the `.codex/superpowers` external clone (github.com/obra/superpowers). After
   landing changes in `~/projects/agents`, use `MCP_SYNC_STRICT=1 chezmoi apply --refresh-externals`
   so the external clone and live `~/.claude/agents` refresh together.
 - **`token_auditor`** — install the standalone `token-auditor` uv tool from its public repo

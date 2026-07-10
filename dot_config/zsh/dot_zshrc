@@ -463,6 +463,54 @@ function sip_holder() {
   fi
 }
 
+# Show all occupied TCP ports and their PID. -4 restricts to IPv4.
+# Usage: listening [-4] [pattern]
+listening() {
+    local ipv4_only=0 pattern=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -4) ipv4_only=1 ;;
+            -*) echo "Usage: listening [-4] [pattern]" >&2; return 2 ;;
+            *)
+                if [[ -n "$pattern" ]]; then
+                    echo "Usage: listening [-4] [pattern]" >&2; return 2
+                fi
+                pattern="$1" ;;
+        esac
+        shift
+    done
+
+    local -a lsof_args=(-sTCP:LISTEN -n -P)
+    (( ipv4_only )) \
+        && lsof_args=(-i4TCP "${lsof_args[@]}") \
+        || lsof_args=(-iTCP  "${lsof_args[@]}")
+
+    # lsof exits non-zero when a LISTEN search matches nothing, and on stat()
+    # warnings for inaccessible mounts even while printing valid rows — so we
+    # keep whatever it printed rather than gating on its exit status (a `||
+    # return` here would make an idle machine look like an error). Its own
+    # stderr warnings are dropped.
+    # No sudo: most ports (Docker containers, user applications) are visible
+    # without it. For system-owned listeners, prefix with sudo yourself.
+    local out
+    out=$(lsof "${lsof_args[@]}" 2>/dev/null)
+
+    if [[ -n "$pattern" ]]; then
+        # Literal (case-insensitive) substring match via index(), not `~`: a
+        # regex match would let metacharacters over-match (`.` matches every
+        # line) or abort awk on an invalid ERE (`[`, `(foo`), silently yielding
+        # an empty result that looks like "no matches".
+        out=$(awk -v pat="$pattern" 'NR==1 || index(tolower($0), tolower(pat))' <<< "$out")
+    fi
+
+    if command -v bat >/dev/null 2>&1; then
+        bat --style=plain --paging=auto --language=log <<< "$out"
+    else
+        print -r -- "$out"
+    fi
+}
+
 # === 8. Tool Initializations (after PATH is set) ===
 # These tools need to be initialized after PATH is configured
 

@@ -1,5 +1,6 @@
-# Templated externals. The tpm entry is unconditional; the agent-registry
-# clone is gated on the `agents` machine capability (see .chezmoidata/machines.toml).
+# Templated externals. The tpm entry is unconditional; the agent-registry and
+# superpowers clones are gated on the `agents` machine capability (see
+# .chezmoidata/machines.toml).
 
 [".config/tmux/plugins/tpm"]
     type = "git-repo"
@@ -14,4 +15,12 @@
     type = "git-repo"
     url = "git@github.com:stevencarpenter/agents.git"
     refreshPeriod = "1h"  # Pull hourly — registry is actively curated (force now: chezmoi apply --refresh-externals)
+
+# Superpowers skill framework, vendored for Codex (obra/superpowers). Gated
+# the same as the agent registry above since both are personal AI agent
+# tooling clones.
+[".codex/superpowers"]
+    type = "git-repo"
+    url = "git@github.com:obra/superpowers.git"
+    refreshPeriod = "168h"  # Pull updates weekly
 {{- end }}

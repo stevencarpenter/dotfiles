@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import copy
 import json
+import os
+import tempfile
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -132,7 +134,7 @@ def _load_override(key: str, home: Path | None) -> JsonDict:
     except json.JSONDecodeError:
         log_info(f"Skipping override: {override_path} (invalid JSON)")
         return {}
-    except Exception:
+    except OSError:
         log_info(f"Skipping override: {override_path} (read error)")
         return {}
 
@@ -151,9 +153,44 @@ def load_machine_config(path: Path | None) -> JsonDict:
     except json.JSONDecodeError:
         log_info(f"Skipping machine config: {path} (invalid JSON)")
         return {}
-    except Exception:
+    except OSError:
         log_info(f"Skipping machine config: {path} (read error)")
         return {}
+
+
+def load_merged_master(
+    master_path: Path | None,
+    home: Path,
+    machine_config_path: Path | None,
+) -> JsonDict | None:
+    """Load the master config with the machine overlay merged on top.
+
+    Shared by every CLI entry point (sync, ``--check``, ``--capture``) so the
+    default master location, the missing-master error, and the overlay-merge
+    semantics cannot drift between them.
+
+    Args:
+        master_path: Master config location override; defaults to
+            ``<home>/.config/mcp/mcp-master.json``.
+        home: Home directory used to resolve the default master location.
+        machine_config_path: Optional machine overlay merged over the master.
+
+    Returns:
+        The merged master document, or ``None`` (after logging the error)
+        when the master config is absent.
+    """
+    master_config_path = master_path or home / ".config" / "mcp" / "mcp-master.json"
+    if not master_config_path.is_file():
+        log_error(f"Master config not found at {master_config_path}")
+        log_info("Run 'chezmoi apply' to deploy dotfiles first")
+        return None
+
+    master = load_master_config(master_config_path)
+    machine = load_machine_config(machine_config_path)
+    if machine:
+        log_info(f"Applying machine overlay: {machine_config_path}")
+        master = deep_merge(master, machine)
+    return master
 
 
 def _normalize_servers(master: JsonDict) -> JsonDict:
@@ -305,6 +342,45 @@ def deep_merge(base: JsonDict, override: JsonDict) -> JsonDict:
     return result
 
 
+def render_codex_config(master: JsonDict, home: Path | None = None) -> str | None:
+    """Render the ``config.toml`` text a codex sync would write.
+
+    Pure with respect to the target file: reads the current
+    ``~/.codex/config.toml`` (or the base template on a fresh machine) but
+    never writes it, so drift checks can compare without side effects.
+
+    Args:
+        master: Merged master + machine-overlay MCP config.
+        home: Override home directory (for tests). Defaults to ``Path.home()``.
+
+    Returns:
+        The full config text a sync would write, or ``None`` when there is
+        neither an existing file nor a base template to seed from.
+    """
+    home_path = _home_dir(home)
+    codex_config_path = home_path / ".codex" / "config.toml"
+
+    overrides = _load_override("codex", home_path)
+    merged_servers = _merge_override_servers(master, overrides)
+    managed = _enabled_stripped_servers(merged_servers)
+    disabled = _disabled_or_retired_server_names(merged_servers)
+
+    # Load the template once; it seeds a fresh config and enforces [tui] below.
+    template_text = _load_text_template("codex", home_path)
+
+    if codex_config_path.is_file():
+        base_text = codex_config_path.read_text(encoding="utf-8")
+    elif template_text:
+        base_text = template_text
+    else:
+        return None
+
+    base_text = apply_tui_settings(base_text, template_text, log_info=log_info)
+
+    preserved = _strip_codex_managed_blocks(base_text, set(managed) | disabled)
+    return preserved.rstrip() + "\n" + _render_codex_mcp_section(managed)
+
+
 def sync_codex_mcp(master: JsonDict, home: Path | None = None) -> None:
     """Patch managed MCP servers into Codex's ``config.toml`` non-destructively.
 
@@ -328,26 +404,10 @@ def sync_codex_mcp(master: JsonDict, home: Path | None = None) -> None:
     home_path = _home_dir(home)
     codex_config_path = home_path / ".codex" / "config.toml"
 
-    overrides = _load_override("codex", home_path)
-    merged_servers = _merge_override_servers(master, overrides)
-    managed = _enabled_stripped_servers(merged_servers)
-    disabled = _disabled_or_retired_server_names(merged_servers)
-
-    # Load the template once; it seeds a fresh config and enforces [tui] below.
-    template_text = _load_text_template("codex", home_path)
-
-    if codex_config_path.is_file():
-        base_text = codex_config_path.read_text(encoding="utf-8")
-    elif template_text:
-        base_text = template_text
-    else:
+    text = render_codex_config(master, home_path)
+    if text is None:
         log_info("Skipping codex config (base template not found)")
         return
-
-    base_text = apply_tui_settings(base_text, template_text, log_info=log_info)
-
-    preserved = _strip_codex_managed_blocks(base_text, set(managed) | disabled)
-    text = preserved.rstrip() + "\n" + _render_codex_mcp_section(managed)
 
     codex_config_path.parent.mkdir(parents=True, exist_ok=True)
     codex_config_path.write_text(text, encoding="utf-8")
@@ -436,7 +496,7 @@ def _load_json(path: Path) -> JsonDict:
 
 
 def _write_json(path: Path, payload: JsonDict, *, sort_keys: bool = True) -> None:
-    """Write JSON to ``path``.
+    """Write JSON to ``path`` atomically via a tempfile + rename.
 
     By default keys are alphabetized for deterministic output (good for
     files we own end-to-end). Pass ``sort_keys=False`` for files where a
@@ -445,7 +505,120 @@ def _write_json(path: Path, payload: JsonDict, *, sort_keys: bool = True) -> Non
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     serialized = json.dumps(payload, indent=2, sort_keys=sort_keys)
-    path.write_text(serialized + "\n", encoding="utf-8")
+    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+    try:
+        os.write(fd, (serialized + "\n").encode("utf-8"))
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+    os.replace(tmp, path)
+
+
+def _render_patched_owned_config(
+    master: JsonDict,
+    home: Path | None,
+    *,
+    path: Path,
+    override_key: str,
+    server_map: Callable[[JsonDict], JsonDict] | None = None,
+) -> JsonDict | None:
+    """Render one co-owned config a sync would write, without side effects.
+
+    Shared body for the "patch-style" targets (e.g. ``~/.claude.json``):
+    tools that own their file, where a sync only
+    rewrites the ``mcpServers`` key — managed servers replace their entries,
+    unmanaged (hand-added) ones are preserved, and the owning tool's
+    own keys are left untouched. Reads the current file but never writes it,
+    so drift checks can compare deployed vs expected.
+
+    Args:
+        master: Master MCP config document.
+        home: Home directory override for tests; defaults to ``Path.home()``.
+        path: The owned file to read and render.
+        override_key: ``~/.config/mcp/overrides/<key>.json`` layer to apply.
+        server_map: Optional per-server transform into the tool's schema.
+            Identity when ``None``.
+
+    Returns:
+        The patched document, or ``None`` when ``path`` is absent (the sync
+        skips it in that case).
+    """
+    if not path.is_file():
+        return None
+    return _patch_owned_config(
+        master, home, _load_json(path), override_key=override_key, server_map=server_map
+    )
+
+
+def _patch_owned_config(
+    master: JsonDict,
+    home: Path | None,
+    cfg: JsonDict,
+    *,
+    override_key: str,
+    server_map: Callable[[JsonDict], JsonDict] | None = None,
+) -> JsonDict:
+    """Apply the managed ``mcpServers`` patch to an already-parsed document.
+
+    The pure patch step behind :func:`_render_patched_owned_config`, split out
+    so callers that already hold the parsed deployed document (drift checks,
+    capture verification) can re-patch it without re-reading the file.
+    Overrides are still read from disk on every call, so a just-written
+    override file is always picked up. ``cfg`` is mutated.
+
+    Args:
+        master: Master MCP config document.
+        home: Home directory override for tests; defaults to ``Path.home()``.
+        cfg: The parsed deployed document to patch.
+        override_key: ``~/.config/mcp/overrides/<key>.json`` layer to apply.
+        server_map: Optional per-server transform into the tool's schema.
+
+    Returns:
+        The patched document.
+    """
+    home_path = _home_dir(home)
+
+    overrides = _load_override(override_key, home_path)
+    merged_servers = _merge_override_servers(master, overrides)
+    disabled_servers = _disabled_or_retired_server_names(merged_servers)
+    servers = _enabled_stripped_servers(merged_servers, "note")
+    if server_map is not None:
+        servers = {name: server_map(config) for name, config in servers.items()}
+
+    existing = _ensure_mapping(cfg.get("mcpServers"))
+    preserved_existing = {
+        key: value for key, value in existing.items() if key not in disabled_servers
+    }
+    # Per-server collisions: managed config fully replaces the existing server
+    # entry. We don't shallow-merge per-server fields because that would leave
+    # stale env/args/etc. behind when master removes them. Hand-edits to
+    # individual server entries (e.g. tweaking `timeout`) will NOT survive a
+    # sync — make those changes in the master config or in the target's
+    # dot_config/mcp/overrides/<key>.json layer instead.
+    cfg["mcpServers"] = {**preserved_existing, **servers}
+    cleaned_overrides = _override_without_servers(overrides)
+    if cleaned_overrides:
+        cfg = deep_merge(cfg, cleaned_overrides)
+    return _remove_retired_server_entries(cfg)
+
+
+def render_claude_config(master: JsonDict, home: Path | None = None) -> JsonDict | None:
+    """Render the ``~/.claude.json`` document a sync would write.
+
+    Reads the current file (Claude Code owns it) and applies the managed
+    ``mcpServers`` patch without writing anything back, so drift checks can
+    compare deployed vs expected without side effects.
+
+    Args:
+        master: Master MCP config document.
+        home: Home directory override for tests; defaults to ``Path.home()``.
+
+    Returns:
+        The patched document, or ``None`` when ``~/.claude.json`` is absent
+        (the sync skips it in that case).
+    """
+    home_path = _home_dir(home)
+    return _render_patch(_patch_spec("claude", home_path), master, home_path)
 
 
 def patch_claude_code_config(master: JsonDict, home: Path | None = None) -> None:
@@ -461,42 +634,133 @@ def patch_claude_code_config(master: JsonDict, home: Path | None = None) -> None
         home: Home directory override for tests; defaults to ``Path.home()``.
     """
     home_path = _home_dir(home)
-    claude_path = home_path / ".claude.json"
-    if not claude_path.is_file():
-        log_info(f"Skipping: {claude_path} (file not found)")
+    _sync_patch_spec(_patch_spec("claude", home_path), master, home_path)
+
+
+@dataclass(frozen=True, slots=True)
+class PatchSpec:
+    """One co-owned, patch-managed JSON target.
+
+    Attributes:
+        name: Target name as used by the sync and ``--check``/``--capture``.
+        path: Deployed file the owning tool and the sync co-own.
+        override_key: ``~/.config/mcp/overrides/<key>.json`` layer to apply.
+        server_map: Optional per-server transform into the tool's schema.
+    """
+
+    name: str
+    path: Path
+    override_key: str
+    server_map: Callable[[JsonDict], JsonDict] | None = None
+
+
+def patch_specs(home: Path) -> list[PatchSpec]:
+    """The co-owned patch-managed JSON targets, in sync order.
+
+    Single source of truth shared by the sync, ``--check`` (drift), and
+    ``--capture``: adding a new patch-style target here wires it into
+    all three entry points at once. ``codex`` is intentionally absent — it is
+    patch-managed TOML with its own renderer, check-only and not capturable.
+
+    Args:
+        home: Home directory the deployed paths live under.
+
+    Returns:
+        One spec per co-owned JSON target.
+    """
+    return [
+        PatchSpec("claude", home / ".claude.json", "claude"),
+    ]
+
+
+def _patch_spec(name: str, home: Path) -> PatchSpec:
+    """Look up one patch spec by target name.
+
+    Args:
+        name: A name returned by :func:`patch_specs`.
+        home: Home directory the deployed paths live under.
+
+    Returns:
+        The matching spec.
+
+    Raises:
+        KeyError: When ``name`` is not a patch-managed target.
+    """
+    for spec in patch_specs(home):
+        if spec.name == name:
+            return spec
+    raise KeyError(name)
+
+
+def _render_patch(spec: PatchSpec, master: JsonDict, home: Path) -> JsonDict | None:
+    """Render the document a sync would write for one patch spec."""
+    return _render_patched_owned_config(
+        master,
+        home,
+        path=spec.path,
+        override_key=spec.override_key,
+        server_map=spec.server_map,
+    )
+
+
+def _sync_patch_spec(spec: PatchSpec, master: JsonDict, home: Path) -> None:
+    """Render one patch spec and write the deployed file back in place.
+
+    Preserves key order: the owning tool (e.g. Claude Code) writes its
+    own state into this file (recent projects, transient UI bits, etc.);
+    alphabetizing the whole document on every sync churns the diff and can
+    interleave managed keys with the tool's runtime state in confusing ways.
+    Per-tool outputs generated from scratch stay ``sort_keys=True`` for
+    deterministic diffs.
+
+    Args:
+        spec: The patch target to sync.
+        master: Merged master + machine-overlay MCP config.
+        home: Home directory the deployed paths live under.
+    """
+    cfg = _render_patch(spec, master, home)
+    if cfg is None:
+        log_info(f"Skipping: {spec.path} (file not found)")
         return
+    _write_json(spec.path, cfg, sort_keys=False)
+    log_success(f"Synced: {spec.path}")
 
-    claude_cfg = _load_json(claude_path)
 
-    overrides = _load_override("claude", home_path)
-    merged_servers = _merge_override_servers(master, overrides)
-    disabled_servers = _disabled_or_retired_server_names(merged_servers)
-    servers = _enabled_stripped_servers(merged_servers, "note")
+def render_patch_with_source(
+    spec: PatchSpec, master: JsonDict, home: Path
+) -> tuple[JsonDict, JsonDict] | None:
+    """Parse a patch target's deployed file once, returning both sides.
 
-    existing = _ensure_mapping(claude_cfg.get("mcpServers"))
-    preserved_existing = {
-        key: value for key, value in existing.items() if key not in disabled_servers
-    }
-    # Per-server collisions: managed config fully replaces the existing server
-    # entry. We don't shallow-merge per-server fields because that would leave
-    # stale env/args/etc. behind when master removes them. Hand-edits to
-    # individual server entries in ~/.claude.json (e.g. tweaking `timeout`)
-    # will NOT survive a sync — make those changes in the master config or in
-    # dot_config/mcp/overrides/claude.json instead.
-    claude_cfg["mcpServers"] = {**preserved_existing, **servers}
-    cleaned_overrides = _override_without_servers(overrides)
-    if cleaned_overrides:
-        claude_cfg = deep_merge(claude_cfg, cleaned_overrides)
-    claude_cfg = _remove_retired_server_entries(claude_cfg)
+    Drift checks and capture need the deployed document *and* the patched
+    render; going through :func:`_render_patched_owned_config` and then
+    re-reading the file would parse it twice (``~/.claude.json`` can reach
+    hundreds of KB of Claude runtime state).
 
-    # Preserve key order in ~/.claude.json. Claude Code owns this file and
-    # writes its own state into it (recent projects, transient UI bits, etc.);
-    # alphabetizing the whole document on every sync churns the diff and can
-    # interleave our managed keys with Claude's runtime state in confusing
-    # ways. Per-tool outputs we generate from scratch can stay sort_keys=True
-    # for deterministic diffs.
-    _write_json(claude_path, claude_cfg, sort_keys=False)
-    log_success(f"Synced: {claude_path}")
+    Args:
+        spec: The patch target to render.
+        master: Merged master + machine-overlay MCP config.
+        home: Home directory override for tests.
+
+    Returns:
+        ``(deployed, expected)`` — the parsed deployed document and the
+        document a sync would write — or ``None`` when the deployed file is
+        absent (the sync skips it).
+
+    Raises:
+        OSError: When the deployed file cannot be read.
+        json.JSONDecodeError: When the deployed file is not valid JSON.
+    """
+    if not spec.path.is_file():
+        return None
+    deployed = _load_json(spec.path)
+    expected = _patch_owned_config(
+        master,
+        home,
+        copy.deepcopy(deployed),
+        override_key=spec.override_key,
+        server_map=spec.server_map,
+    )
+    return deployed, expected
 
 
 def sync_to_locations(config: JsonDict, xdg_target: Path) -> None:
@@ -705,28 +969,17 @@ def run_sync(
         Process exit code: ``0`` on success, ``1`` if the master is missing.
     """
     home_path = home or Path.home()
-    master_config_path = (
-        master_path or home_path / ".config" / "mcp" / "mcp-master.json"
-    )
-
-    if not master_config_path.is_file():
-        log_error(f"Master config not found at {master_config_path}")
-        log_info("Run 'chezmoi apply' to deploy dotfiles first")
+    master = load_merged_master(master_path, home_path, machine_config_path)
+    if master is None:
         return 1
-
     log_info("Syncing MCP configurations from master...")
-    master = load_master_config(master_config_path)
-
-    machine = load_machine_config(machine_config_path)
-    if machine:
-        log_info(f"Applying machine overlay: {machine_config_path}")
-        master = deep_merge(master, machine)
 
     for target in _build_targets(home_path):
         target.sync(master, home=home_path)
 
     sync_codex_mcp(master, home=home_path)
-    patch_claude_code_config(master, home=home_path)
+    for spec in patch_specs(home_path):
+        _sync_patch_spec(spec, master, home_path)
 
     print()
     log_success("MCP configuration sync complete!")
