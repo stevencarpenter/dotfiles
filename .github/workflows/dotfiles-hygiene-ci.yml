@@ -93,3 +93,6 @@ jobs:
 
       - name: Validate Claude statusline rendering
         run: scripts/test-claude-statusline-command.sh
+
+      - name: Validate op-render fail-safe renderer
+        run: scripts/test-op-render.sh

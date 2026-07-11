@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# op-render — render op:// templates to 0600 secret files via 1Password Connect.
+#
+# Reads a manifest of `template:target` lines and, for each, `op inject`s the
+# template to a same-directory tmpfile, then atomically mv's it over a 0600
+# target ONLY if op inject succeeded and the output is non-empty. Never renders
+# in place: a Connect/Tailscale outage must leave the previous good file intact,
+# not truncate it (this box may only be reachable over the ssh config it renders).
+#
+# Auth: expects OP_CONNECT_HOST + OP_CONNECT_TOKEN (Connect mode). If unset, it
+# skips with exit 0 (leaves existing files untouched) rather than failing a boot
+# or a nix activation. bash 3.2 safe (macOS default shell).
+#
+# Env overrides: OP_BIN (default `op`), OP_RENDER_MANIFEST
+# (default ~/.config/op/render-manifest).
+set -uo pipefail
+
+OP_BIN="${OP_BIN:-op}"
+MANIFEST="${OP_RENDER_MANIFEST:-$HOME/.config/op/render-manifest}"
+
+log() { printf 'op-render: %s\n' "$*" >&2; }
+
+if [ -z "${OP_CONNECT_HOST:-}" ] || [ -z "${OP_CONNECT_TOKEN:-}" ]; then
+  log "Connect creds not set; skipping (existing secret files left intact)."
+  exit 0
+fi
+
+[ -f "$MANIFEST" ] || { log "no manifest at $MANIFEST; nothing to render."; exit 0; }
+
+rc=0
+while IFS=: read -r tpl target; do
+  [ -z "${tpl:-}" ] && continue
+  case "$tpl" in \#*) continue ;; esac
+
+  tpl="${tpl/#\~/$HOME}"
+  target="${target/#\~/$HOME}"
+  dir="$(dirname "$target")"
+  mkdir -p "$dir"
+
+  tmp="$(mktemp "$dir/.op-render.XXXXXX")" || { log "mktemp failed for $target"; rc=1; continue; }
+
+  if ! "$OP_BIN" inject -i "$tpl" -o "$tmp" 2>/dev/null; then
+    log "op inject failed for $tpl (keeping existing $target)"
+    rm -f "$tmp"; rc=1; continue
+  fi
+  if [ ! -s "$tmp" ]; then
+    log "rendered $tpl is empty (keeping existing $target)"
+    rm -f "$tmp"; rc=1; continue
+  fi
+
+  chmod 0600 "$tmp"
+  mv -f "$tmp" "$target"          # same-filesystem rename → atomic
+  log "rendered $target"
+done < "$MANIFEST"
+
+exit "$rc"
