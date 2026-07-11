@@ -20,6 +20,16 @@ Design spec: `docs/superpowers/specs/2026-07-11-secrets-op-connect-design.md`.
 - **Follow repo test convention:** plain `scripts/test-*.sh`, wired into `.github/workflows/dotfiles-hygiene-ci.yml`. No bats.
 - **Sub-project 3 boundary:** rendered secret files (`~/.config/zsh/.env`, `~/.ssh/config`) are NEVER included in any cross-machine config sync; only `*.tpl` templates are shareable.
 
+## Progress
+
+- ✅ **Task 3 — `op-render` renderer + tests** — DONE (commit `fb5b745`). Renderer at
+  `home/.local/bin/op-render`, tests at `scripts/test-op-render.sh` (4 passing: happy/0600,
+  creds-absent skip, inject-fail preserve, empty-output preserve), wired into
+  `dotfiles-hygiene-ci.yml`. This is the fully in-repo, unblocked core.
+- ⏳ **Blocked on homelab Connect standup (Task 2) + on-i9 access (Tasks 1, 5):** Tasks 1, 2, 4, 5,
+  6, 7, 8. Do Task 1 (enumerate i9 secrets on-box) and Task 2 (stand up Connect) first; they gate
+  the rest.
+
 ## File Structure
 
 | Path | Responsibility | Task |
