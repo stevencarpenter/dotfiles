@@ -63,12 +63,14 @@ in
     # repo_root ~/.local/share/chezmoi for symlinking personal skills, so we
     # MUST pass --repo-root "$HOME/.dotfiles" or those symlinks dangle.
     #
-    # ORDERING: the agenix-decrypted work skills (modules/home/secrets.nix)
-    # must be written to ~/.claude/skills BEFORE this runs — sync-skills GCs
-    # only entries it recorded, so as long as the decrypted dirs land first it
-    # never removes them. agenix's secret installation runs before the
-    # writeBoundary-ordered user activation entries; keep it that way if the
-    # secrets module's ordering is ever revisited.
+    # SAFETY vs agenix work skills: there is NO ordering guarantee that the
+    # agenix-decrypted work skills (modules/home/secrets.nix) are on disk before
+    # this runs — on darwin agenix decrypts via an async launchd agent, not a
+    # writeBoundary-ordered activation entry (see secrets.nix for the full note
+    # and the pinned-rev verification). What keeps this safe is that sync-skills
+    # GCs ONLY the entries it recorded in its own manifest; the decrypted
+    # work-skill dirs are never in that manifest, so it never removes them even
+    # if they land after this hook. Rely on the scoped GC, not on ordering.
     skillsSync = lib.mkIf caps.skills (
       lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         (

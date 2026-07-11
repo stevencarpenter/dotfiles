@@ -58,7 +58,10 @@ uv run --project aws_config_gen aws-config-gen
 `token-auditor` (the auditor behind the `codax`/`claade`/`opencade` wrappers) now lives in its own
 repo: <https://github.com/stevencarpenter/token-auditor>. Lint/type/test run there, not here. The
 dotfiles pin it in the `TOKEN_AUDITOR_VERSION` variable at the top of the `Justfile` (set to
-`"latest"` to track `main`) and install it via `just sync` (gated by the `token_auditor` capability).
+`"latest"` to track `main`) and install it via `just sync`. NOTE: the install is currently
+**unconditional** — `just sync` does not read the `token_auditor` capability, so the cap is defined
+in `lib/machines.nix` but not yet wired to an opt-out. Both aarch64 machines set it `true`, so
+there is no behavioral gap today; wire the `sync` recipe to the cap (or drop the cap) to close it.
 
 ```bash
 uv tool install git+https://github.com/stevencarpenter/token-auditor   # manual install / upgrade
@@ -178,7 +181,9 @@ in `README.md`. Where each capability is enforced:
 - **`agents`** — the `agentsInstall` hook (`sync-hooks.nix`) + `just sync` (SSH clone of the
   registry); the `emit-routing-context.sh` SessionStart hook is unioned in `ai-stack.nix`.
 - **`token_auditor`** — installed via `just sync` (pin in the Justfile's `TOKEN_AUDITOR_VERSION`);
-  public https repo, installs everywhere, the cap just lets a machine opt out.
+  public https repo, installs **unconditionally** on every machine. The capability is currently an
+  orphan: `just sync` does not consume it, so it grants no opt-out yet. Wire the recipe to the cap
+  or remove the cap to resolve.
 
 Identity-flavored splits (personal/work/lab shell profiles, hippo, homelab-over-Tailscale for
 `!= "work"`) live in `modules/home/dotfiles.nix` and `modules/home/secrets.nix` as

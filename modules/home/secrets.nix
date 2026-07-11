@@ -15,18 +15,23 @@
 # `builtins.readFile` on a decrypted value anywhere in this repo — that would bake plaintext
 # into a derivation and thus into the public store/binary cache.
 #
-# Ordering vs skillsSync (contract requirement): agenix's home-manager module registers its
-# activation scripts (agenixInstall / agenixNewGeneration in the upstream module) as
-# `lib.hm.dag.entryBefore [ "writeBoundary" ]`, i.e. they run BEFORE the writeBoundary
-# checkpoint. This repo's own activation hooks (mcpSync, skillsSync, awsConfigGen,
-# agentsInstall — see modules/home/sync-hooks.nix / ai-stack.nix, contract "Hooks" section) are
-# specified as running "after writeBoundary", i.e. `entryAfter [ "writeBoundary" ]`. Since
-# entryBefore-writeBoundary always executes ahead of entryAfter-writeBoundary in the same
-# activation run, every decrypted skill file under ~/.claude/skills/ is guaranteed to already
-# exist on disk by the time skillsSync's activation script runs. I could not run `nix` on this
-# machine to confirm this against the installed agenix version — this note is based on the
-# well-established agenix home-manager module source shape (entryBefore "writeBoundary" for its
-# two activation scripts); re-verify against the pinned agenix rev during the review pass.
+# Interaction with skillsSync — there is NO activation ordering guarantee, and we do not rely on
+# one. An earlier draft of this comment claimed agenix registers its installer as
+# `lib.hm.dag.entryBefore [ "writeBoundary" ]` so decrypted work skills would land before
+# skillsSync (entryAfter "writeBoundary") runs. That is FALSE for the pinned agenix rev
+# (flake.lock: ryantm/agenix b027ee29…): its home-manager module (modules/age-home.nix) contains
+# no `home.activation` / `writeBoundary` / `entryBefore` at all. On darwin it decrypts via an
+# ASYNCHRONOUS `launchd.agents.activate-agenix` job (RunAtLoad = true); on linux via a
+# `systemd.user.services.agenix` oneshot. Neither is ordered relative to home-manager's
+# writeBoundary DAG, so a decrypted work-skill dir may not exist on disk when skillsSync
+# (sync-hooks.nix, entryAfter "writeBoundary") runs — especially on a first switch.
+#
+# Why this is still safe: skillsSync (mcp_sync `sync-skills`) GCs ONLY the entries it recorded in
+# its own manifest, and the agenix-decrypted work-skill dirs are never in that manifest — so it
+# will not delete them even if they are absent when it runs. The failure mode is therefore
+# transient first-switch absence (skills appear once the launchd agent finishes), not deletion.
+# The safety property is the record-scoped GC, NOT ordering. Do not reintroduce an ordering claim
+# without re-verifying it against the pinned agenix rev.
 {
   config,
   lib,
