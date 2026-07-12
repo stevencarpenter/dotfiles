@@ -11,8 +11,11 @@ RENDER="$here/home/.local/bin/op-render"
 fails=0
 run() { local name="$1"; shift; if "$@"; then echo "ok   - $name"; else echo "FAIL - $name"; fails=$((fails + 1)); fi; }
 
-# Portable permission read: BSD stat (macOS) then GNU stat (Linux CI).
-perm() { stat -f '%Lp' "$1" 2>/dev/null || stat -c '%a' "$1"; }
+# Portable permission read: GNU stat (Linux CI) then BSD stat (macOS).
+# Order matters — GNU `stat -f` means --file-system and exits 0 with garbage
+# (never triggering the fallback), whereas BSD `stat -c` fails cleanly, so the
+# GNU-first / BSD-fallback direction is the only one that works on both.
+perm() { stat -c '%a' "$1" 2>/dev/null || stat -f '%Lp' "$1"; }
 
 make_mock() {
   cat > "$work/op" <<'EOF'
