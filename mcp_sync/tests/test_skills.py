@@ -38,22 +38,21 @@ def test_parse_duration_rejects_garbage():
         parse_duration("soon")
 
 
-def test_work_and_lab_overlays_disable_all_git_sourced_skills():
+def test_work_overlay_disables_all_git_sourced_skills():
     repo = Path(__file__).resolve().parents[2]
     manifest = load_skills_manifest(
-        repo / "dot_config" / "skills" / "skills-master.json"
+        repo / "home" / ".config" / "skills" / "skills-master.json"
     )
     git_skills = {
         name
         for name, entry in manifest["skills"].items()
         if entry is not False and manifest["sources"][entry["source"]]["type"] == "git"
     }
-    for overlay_name in ("work.json", "lab.json"):
-        overlay = json.loads(
-            (repo / "dot_config" / "skills" / "machine" / overlay_name).read_text()
-        )
-        disabled = {name for name, value in overlay["skills"].items() if value is False}
-        assert disabled == git_skills
+    overlay = json.loads(
+        (repo / "home" / ".config" / "skills" / "machine" / "work.json").read_text()
+    )
+    disabled = {name for name, value in overlay["skills"].items() if value is False}
+    assert disabled == git_skills
 
 
 def test_load_skills_manifest_reads_sources_and_skills(tmp_path):

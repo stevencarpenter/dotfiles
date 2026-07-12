@@ -7,7 +7,7 @@
 # `sudo darwin-rebuild switch --flake ~/.dotfiles#<host>`, and a transitional
 # `ca()` shim that warns the old chezmoi verb is gone and forwards to it.
 
-# Map this machine to its flake configuration name (personal-mac/work-mac/lab-mac).
+# Map this machine to its flake configuration name (personal-mac/work-mac).
 # Resolution order:
 #   1. $DOTFILES_HOST, if set (explicit override — always wins).
 #   2. `scutil --get LocalHostName`, matched against the patterns below.
@@ -27,7 +27,6 @@ function _rebuild_detect_host() {
 
   case "${local_host:l}" in
     *work*)     print -r -- "work-mac" ;;
-    *lab*)      print -r -- "lab-mac" ;;
     *personal*) print -r -- "personal-mac" ;;
     *) return 1 ;;
   esac
@@ -42,15 +41,15 @@ function rebuild() {
   if ! host="$(_rebuild_detect_host)"; then
     print -r -- "rebuild: could not determine the flake host for this machine." >&2
     print -r -- "  LocalHostName = '$(scutil --get LocalHostName 2>/dev/null)'" >&2
-    print -r -- "  Set DOTFILES_HOST to one of: personal-mac, work-mac, lab-mac" >&2
+    print -r -- "  Set DOTFILES_HOST to one of: personal-mac, work-mac" >&2
     print -r -- "  e.g.  DOTFILES_HOST=personal-mac rebuild" >&2
     return 1
   fi
 
   case "${host}" in
-    personal-mac|work-mac|lab-mac) ;;
+    personal-mac|work-mac) ;;
     *)
-      print -r -- "rebuild: '${host}' is not a known flake host (personal-mac|work-mac|lab-mac)." >&2
+      print -r -- "rebuild: '${host}' is not a known flake host (personal-mac|work-mac)." >&2
       return 1
       ;;
   esac

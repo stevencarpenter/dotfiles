@@ -63,7 +63,7 @@ z4h source xs5871/p10k-jj-status/p10k-jj-status.plugin.zsh
 
 # === 1. Homebrew Setup (must be early, other tools depend on it) ===
 # Apple Silicon installs to /opt/homebrew, Intel to /usr/local. Probe both so
-# this works on lab-mac (2019 i9) without diverging the dotfiles.
+# the same dotfiles work on either arch without diverging.
 if [[ $(uname) == "Darwin" ]]; then
   for brew_bin in /opt/homebrew/bin/brew /usr/local/bin/brew; do
     if [[ -x $brew_bin ]]; then

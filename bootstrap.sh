@@ -11,7 +11,6 @@ detect_host() {
   case "$(scutil --get LocalHostName 2>/dev/null || true)" in
     personal-mac) echo personal-mac ;;
     work-mac) echo work-mac ;;
-    lab-mac) echo lab-mac ;;
     *) return 1 ;;
   esac
 }
@@ -68,7 +67,7 @@ fi
 HOST="${1:-$(detect_host || true)}"
 if [ -z "${HOST:-}" ]; then
   echo "Could not auto-detect host from LocalHostName."
-  read -r -p "Enter host config (personal-mac / work-mac / lab-mac): " HOST
+  read -r -p "Enter host config (personal-mac / work-mac): " HOST
 fi
 echo "==> Using host config: $HOST"
 
