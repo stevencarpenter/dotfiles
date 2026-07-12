@@ -55,6 +55,12 @@
             {
               home-manager.useGlobalPkgs = true;
               home-manager.useUserPackages = true;
+              # First switch on a machine still running chezmoi collides on every
+              # target home-manager wants to symlink (chezmoi already deployed a
+              # file there). Back the pre-existing file up to <name>.chezmoi-bak
+              # instead of aborting activation; these backups double as rollback
+              # material for the m5 trial cutover.
+              home-manager.backupFileExtension = "chezmoi-bak";
               home-manager.extraSpecialArgs = args;
               home-manager.users.${host.user} = import ./modules/home;
             }
