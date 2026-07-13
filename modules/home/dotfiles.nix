@@ -32,7 +32,7 @@ let
   mkLinks = paths: lib.genAttrs paths (p: { source = link p; });
 
   # Machine-type overlay filename shared by mcp + skills (files are named
-  # personal.json / work.json / lab.json; identity is personal / work / lab).
+  # personal.json / work.json; identity is personal / work).
   overlay = "${identity}.json";
 in
 {
@@ -92,12 +92,7 @@ in
       ".config/zsh/profile.d/work-secrets.zsh"
     ]))
 
-    # ---- identity: lab ----------------------------------------------------
-    (lib.optionalAttrs (identity == "lab") (mkLinks [
-      ".config/zsh/profile.d/lab-shell-functions.zsh"
-    ]))
-
-    # ---- NOT work (homelab access over Tailscale: personal + lab) ---------
+    # ---- NOT work (homelab access over Tailscale: personal only) ---------
     (lib.optionalAttrs (identity != "work") (mkLinks [
       ".config/zsh/profile.d/tailscale.zsh"
     ]))

@@ -16,9 +16,8 @@ in
     (lib.mkIf caps.tiling {
       # aerospace.toml.tmpl had 3 identity-gated blocks (structural diff, not
       # scalar) — materialized as two full static files at port time; select
-      # by identity here instead of templating. Lab never reaches this
-      # (caps.tiling = false on lab-mac), so identity is always "personal"
-      # or "work" whenever this branch evaluates.
+      # by identity here instead of templating. Only "personal" and "work"
+      # identities exist, so those are the only files this branch selects.
       ".config/aerospace/aerospace.toml".source =
         mkLink ".config/aerospace/aerospace.${identity}.toml";
 

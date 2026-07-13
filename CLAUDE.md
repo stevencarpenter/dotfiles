@@ -10,7 +10,7 @@ A personal macOS dotfiles repository built as a **nix-darwin + home-manager flak
 wrapper" shape: nix owns packages, macOS defaults, capability gating, and orchestration, while the
 raw config files live under `home/` (real dotted names) and are symlinked into place **out of the
 nix store** through `~/.dotfiles` — so editing a raw config is live immediately, no rebuild needed.
-One flake drives three machine types (`personal-mac`, `work-mac`, `lab-mac`) from a single
+One flake drives two machine types (`personal-mac`, `work-mac`) from a single
 capability table (`lib/machines.nix`); modules gate on caps/identity, never on hostname. Secrets
 are age-encrypted via [agenix](https://github.com/ryantm/agenix) against the existing age identity
 (key sourced from 1Password at bootstrap). The repo also vendors two small Python tools

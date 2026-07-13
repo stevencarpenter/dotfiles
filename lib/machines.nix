@@ -29,21 +29,18 @@
 #            ~/.claude/skills/ from vendored + personal skills. Off on machines
 #            that don't run Claude Code skills.
 #   gui    — install GUI applications + display fonts. On for any machine with a
-#            usable display, including lab-mac while reached via macOS Screen
-#            Share. CLI tools that ship as a cask (e.g. 1password-cli) stay
-#            outside this gate.
+#            usable display. CLI tools that ship as a cask (e.g. 1password-cli)
+#            stay outside this gate.
 #   dev    — machine does language / web / mobile development. Gates the
 #            dev-only language-LSP plugins, dev-flavored Brewfile entries, and
-#            copilot trusted folders. Off on work (own dev curation) and lab
-#            (home server, not a dev box).
+#            copilot trusted folders. Off on work (own dev curation).
 #   aws_sso — machine runs the AWS SSO profile generator (aws_config_gen/) via
 #            the post-apply hook. Work-only today; scoped narrower than a
 #            generic `aws` capability.
 #   infra  — install infrastructure / cluster-ops tooling via mise: Kubernetes
 #            (kubectl, helm, k9s, kustomize), corporate access (teleport-ent),
 #            ops databases (mysql, duckdb). IaC + build tooling live in the
-#            global mise block and are not gated here. Work-only today; lab
-#            flips it on once homelab cluster-ops moves there.
+#            global mise block and are not gated here. Work-only today.
 #   agent_journal — deploy the personal Obsidian agent-journal beta config,
 #            CLI wrappers, and Claude lifecycle hook. Personal-only until the
 #            workflow proves itself.
@@ -99,30 +96,6 @@
       dev = false;
       aws_sso = true;
       infra = true;
-      agent_journal = false;
-      agents = false;
-      token_auditor = true;
-    };
-  };
-
-  lab-mac = {
-    system = "x86_64-darwin";
-    user = "carpenter";
-    identity = "lab";
-    # 2019 i9 Intel MacBook Pro, accessed via macOS Screen Share. Home-server
-    # de facto (adguard + Tailscale + self-hosted atuin sync server, so atuin
-    # is also true here as a client). Claude Code + MCP fan-out on so the
-    # assistant has local context. Flip `infra`/`gui` as stand-up completes.
-    caps = {
-      tiling = false;
-      sketchybar_workspace_badges = false;
-      atuin = true;
-      mcp = true;
-      skills = true;
-      gui = true;
-      dev = false;
-      aws_sso = false;
-      infra = false;
       agent_journal = false;
       agents = false;
       token_auditor = true;

@@ -6,7 +6,7 @@ shape modeled on [kunchenguid/dotfiles](https://github.com/kunchenguid/dotfiles)
 under [`home/`](home/) with their real dotted names and are symlinked into place **out of the nix
 store** (through `~/.dotfiles`). Editing a raw config is live immediately — no rebuild required.
 
-One flake drives three machine types — `personal-mac`, `work-mac`, and `lab-mac` — from a single
+One flake drives two machine types — `personal-mac` and `work-mac` — from a single
 capability table ([`lib/machines.nix`](lib/machines.nix)), so the same checkout produces a
 different environment on each host with no hostname checks inside any module.
 
@@ -24,7 +24,7 @@ every switch.
 ```
 flake.nix                 # inputs + one-screen mkHost fold (darwinConfigurations.<host>)
 lib/machines.nix          # capability table — the single source of per-host variance
-hosts/                    # {personal,work,lab}-mac.nix — thin shims; host-scoped decls only
+hosts/                    # {personal,work}-mac.nix — thin shims; host-scoped decls only
 modules/
   darwin/                 # system scope (specialArgs): core, macos-defaults, homebrew
   home/                   # home scope (extraSpecialArgs): dotfiles, shell, packages,
@@ -43,7 +43,7 @@ Justfile                  # nix + python + sync task runner
   payload — `{ inherit inputs hostName; user; caps; identity; }` — for both the darwin modules
   (`specialArgs`) and home-manager (`extraSpecialArgs`). Adding a machine stays a one-row edit.
 - **`lib/machines.nix`** — the capability table: each machine maps to `system`, `user`, an
-  `identity` string (`personal`/`work`/`lab`, replacing the old `hasPrefix` gates), and a `caps`
+  `identity` string (`personal`/`work`, replacing the old `hasPrefix` gates), and a `caps`
   set of booleans. Modules gate on `caps.<x>` / `identity` — never on hostname.
 - **`hosts/*.nix`** — deliberately thin. They import `modules/darwin` and hold only genuinely
   host-scoped declarations. All real variance flows from the caps table.
@@ -66,25 +66,25 @@ Justfile                  # nix + python + sync task runner
 Every gate keys off a capability boolean in `lib/machines.nix` (threaded in via specialArgs), so
 adding a machine is a one-row change and no gate site needs editing.
 
-| Capability | personal | work | lab | Gates |
-|------------|:--:|:--:|:--:|-------|
-| `tiling` | yes | yes | no | AeroSpace + SketchyBar + borders (WM stack) |
-| `sketchybar_workspace_badges` | no | yes | no | SketchyBar dock-badge queries via `lsappinfo` |
-| `atuin` | yes | no | yes | atuin client → self-hosted sync server |
-| `mcp` | yes | yes | yes | MCP master config + per-tool sync hook |
-| `skills` | yes | yes | yes | Claude skills manifest + sync hook |
-| `gui` | yes | yes | yes | GUI apps + display fonts |
-| `dev` | yes | no | no | language-LSP plugins + dev Brewfile/fonts block |
-| `aws_sso` | no | yes | no | AWS SSO profile generator |
-| `infra` | no | yes | no | Kubernetes / cluster-ops tooling via mise |
-| `agent_journal` | yes | no | no | Obsidian agent-journal config, CLI wrappers, Claude hook |
-| `agents` | yes | no | no | personal agent-registry clone + fan-out installer |
-| `token_auditor` | yes | yes | yes | standalone token-auditor uv tool (codax/claade wrappers) |
+| Capability | personal | work | Gates |
+|------------|:--:|:--:|-------|
+| `tiling` | yes | yes | AeroSpace + SketchyBar + borders (WM stack) |
+| `sketchybar_workspace_badges` | no | yes | SketchyBar dock-badge queries via `lsappinfo` |
+| `atuin` | yes | no | atuin client → self-hosted sync server |
+| `mcp` | yes | yes | MCP master config + per-tool sync hook |
+| `skills` | yes | yes | Claude skills manifest + sync hook |
+| `gui` | yes | yes | GUI apps + display fonts |
+| `dev` | yes | no | language-LSP plugins + dev Brewfile/fonts block |
+| `aws_sso` | no | yes | AWS SSO profile generator |
+| `infra` | no | yes | Kubernetes / cluster-ops tooling via mise |
+| `agent_journal` | yes | no | Obsidian agent-journal config, CLI wrappers, Claude hook |
+| `agents` | yes | no | personal agent-registry clone + fan-out installer |
+| `token_auditor` | yes | yes | standalone token-auditor uv tool (codax/claade wrappers) |
 
-`identity` (`personal`/`work`/`lab`) additionally splits ownership-flavored gates — personal-only
+`identity` (`personal`/`work`) additionally splits ownership-flavored gates — personal-only
 shell profiles + hippo, work-only shell/AWS profiles, homelab-over-Tailscale (`!= "work"`) SSH +
-`tailscale.zsh`. `work` is corporate-curated (`dev`/`atuin` off, its own dev tooling); `lab` is a
-2019 i9 Intel MacBook Pro reached over macOS Screen Share, and is the **only x86_64-darwin host**.
+`tailscale.zsh`. `work` is corporate-curated (`dev`/`atuin` off, its own dev tooling); `personal`
+is the daily driver. Both current machines are `aarch64-darwin`.
 
 **Adding a machine:** copy a row in `lib/machines.nix`, rename it, flip the caps you don't want,
 and add the name to the `detect_host` map in `bootstrap.sh` / `rebuild.sh`.
@@ -171,7 +171,7 @@ was re-encrypted for the port**: each is byte-identical ciphertext moved from it
 and agenix decrypts it regardless of how it was produced.
 
 Which secrets a host decrypts is driven entirely by `identity` / `caps.skills` in
-`modules/home/secrets.nix` (common env everywhere; SSH config on personal+lab; personal/work env
+`modules/home/secrets.nix` (common env everywhere; SSH config on personal (`!= "work"`); personal/work env
 splits; work-only AWS overrides + the 25 gated Claude-skill blobs). There is no per-host secrets
 file to edit. To add or rotate a secret, or to rekey recipients, see
 [`secrets/README.md`](secrets/README.md).
@@ -198,12 +198,6 @@ packages that aren't listed in the module. This is intentional during the cutove
 inventory is still being audited: the first switch on an existing machine won't rip out anything the
 Brewfile port might have missed. Graduate to `"uninstall"` once the lists are confirmed complete.
 **Never** use `"zap"` (it deletes app data/config, not just the app).
-
-## Platform note
-
-`lab-mac` is `x86_64-darwin`. Intel darwin support in nixpkgs ends with the **26.05** channel; when
-this flake rolls past 26.05, lab-mac's `system` will need to move to Apple Silicon (or the host be
-retired). See `docs/nix-migration.md`.
 
 ## Vendored Python tools
 

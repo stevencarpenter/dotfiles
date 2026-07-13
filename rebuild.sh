@@ -17,14 +17,13 @@ detect_host() {
   case "$(scutil --get LocalHostName 2>/dev/null || true)" in
     personal-mac) echo personal-mac ;;
     work-mac) echo work-mac ;;
-    lab-mac) echo lab-mac ;;
     *) return 1 ;;
   esac
 }
 
 HOST="${1:-$(detect_host || true)}"
 if [ -z "${HOST:-}" ]; then
-  echo "unknown host; pass explicitly: rebuild.sh <personal-mac|work-mac|lab-mac>" >&2
+  echo "unknown host; pass explicitly: rebuild.sh <personal-mac|work-mac>" >&2
   exit 1
 fi
 

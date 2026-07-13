@@ -20,7 +20,8 @@ in
     enable = true;
     user = user;
     # Manage an Intel (x86) brew prefix alongside the native one only on Apple
-    # Silicon; meaningless (and rejected) on an x86_64 host like lab-mac.
+    # Silicon; meaningless (and rejected) on a native x86_64 host. Both current
+    # machines are aarch64, so this is a defensive guard for any future Intel box.
     enableRosetta = isAarch64;
     # Adopt an existing Homebrew install rather than failing if one is present.
     autoMigrate = true;
@@ -68,7 +69,7 @@ in
         # (gui cask below) ships the docker CLI + its shell completions.
       ]
       # mactop is a macOS-native (Apple Silicon) power monitor — only builds/
-      # makes sense on aarch64; omitted on the Intel lab-mac.
+      # makes sense on aarch64 (guard is defensive; both current hosts qualify).
       ++ lib.optionals isAarch64 [ "mactop" ]
       ++ lib.optionals caps.tiling [
         "sketchybar"
