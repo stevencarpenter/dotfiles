@@ -31,7 +31,7 @@
 |---|---|
 | `home/.local/bin/op-render` | Extend: add interactive-op mode between Connect-mode and skip. |
 | `scripts/test-op-render.sh` | Extend: cover interactive-available render + no-auth skip. |
-| `home/.config/zsh/.personal.env.tpl` | NEW — `op://Homelab/*` template for personal API tokens. |
+| `home/.config/zsh/.personal.env.tpl` | NEW — `op://Private/*` template for personal API tokens. |
 | `home/.config/zsh/.env.tpl` *(conditional)* | NEW **iff** `.env` holds a real secret; else `.env` becomes a plain committed file. |
 | `home/.ssh/config.tpl` | NEW — ssh config with sensitive fields as `op://` refs. |
 | `home/.config/op/render-manifest` | NEW — `template:target` lines the renderer consumes. |
@@ -48,7 +48,7 @@
 - Create: `docs/superpowers/plans/ws1-m5-secret-map.md` (names + `op://` refs only)
 
 **Interfaces:**
-- Produces: the authoritative env-var-name → `op://Homelab/<item>/<field>` map every later template consumes. Also classifies each of the 3 files as *secret* (template) or *non-secret* (plain committed file).
+- Produces: the authoritative env-var-name → `op://<vault>/<item>/<field>` map every later template consumes. Also classifies each of the 3 files as *secret* (template) or *non-secret* (plain committed file).
 
 - [ ] **Step 1: Decrypt the three files locally, names-only**
 
