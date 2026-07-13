@@ -1,0 +1,7 @@
+# markdownlint config for Neovim, passed to markdownlint-cli2 via --config from
+# lua/plugins/markdown.lua. markdownlint-cli2 has no --disable flag and only
+# auto-discovers configs from the invocation dir downward (never up to $HOME),
+# and nvim-lint feeds it over stdin — so editor linting needs the config passed
+# explicitly. Long lines are fine here → disable MD013 (line-length).
+default: true
+MD013: false

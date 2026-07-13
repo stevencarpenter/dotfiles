@@ -154,12 +154,17 @@ in
           (if .model == null then .model = "opusplan" else . end)
           | (if .effortLevel == null then .effortLevel = "xhigh" else . end)')"
 
-        # Ensure ~/.cache/pre-commit stays sandbox-writable (append-if-absent so
-        # /sandbox additions survive; allowWrite normalized to an array first).
-        merged="$(printf '%s\n' "$merged" | ${jq} --arg p "$HOME/.cache/pre-commit" '
-          (.sandbox.filesystem.allowWrite // [] | if type == "array" then . else [] end) as $aw
-          | if ($aw | index($p)) then .
-            else .sandbox.filesystem.allowWrite = ($aw + [$p]) end')"
+        # Ensure ~/.cache/pre-commit stays sandbox-writable, and ~/projects/agents
+        # too so jj/uv/git writes under the agents registry working copy run inside
+        # the sandbox (append-if-absent so /sandbox additions survive; allowWrite
+        # normalized to an array first).
+        merged="$(printf '%s\n' "$merged" | ${jq} \
+          --arg p1 "$HOME/.cache/pre-commit" \
+          --arg p2 "$HOME/projects/agents" '
+          reduce ($p1, $p2) as $p (.;
+            (.sandbox.filesystem.allowWrite // [] | if type == "array" then . else [] end) as $aw
+            | if ($aw | index($p)) then .
+              else .sandbox.filesystem.allowWrite = ($aw + [$p]) end)')"
       ${stripBlock}
         mkdir -p "$(dirname "$SETTINGS")"
         printf '%s\n' "$merged" > "$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"
