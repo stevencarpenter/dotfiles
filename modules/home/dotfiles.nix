@@ -47,6 +47,7 @@ in
       ".config/zsh/.p10k.zsh"
       ".config/zsh/lib" # rebuild.zsh (replaces the retired chezmoi-apply lib)
       ".config/zsh/profile.d/worktrunk-aliases.zsh"
+      ".config/zsh/profile.d/common-env.zsh" # non-secret flags (was the agenix zsh-env secret; WS1)
 
       # Editor / TUI / terminal configs.
       ".config/nvim" # stock LazyVim tree; LazyVim rewrites lazy-lock.json in place
@@ -81,7 +82,8 @@ in
     # ---- identity: personal ----------------------------------------------
     (lib.optionalAttrs (identity == "personal") (mkLinks [
       ".config/zsh/profile.d/personal-shell-functions.zsh"
-      ".config/zsh/profile.d/personal-secrets.zsh"
+      ".config/zsh/profile.d/personal-secrets.zsh" # sources ~/.config/zsh/.personal.env (op-rendered)
+      ".config/op/render-manifest" # op-render reads this at its default path (WS1)
       ".config/hippo" # local LM brain client config (config.toml + redact.toml)
     ]))
 

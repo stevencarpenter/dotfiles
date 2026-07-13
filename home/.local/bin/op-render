@@ -46,7 +46,10 @@ while IFS=: read -r tpl target; do
 
   tmp="$(mktemp "$dir/.op-render.XXXXXX")" || { log "mktemp failed for $target"; rc=1; continue; }
 
-  if ! "$OP_BIN" inject -i "$tpl" -o "$tmp" 2>/dev/null; then
+  # --force: mktemp already created $tmp, and `op inject -o <existing>` aborts
+  # asking for confirmation without it. $tmp is our own 0600 tmpfile, so
+  # overwriting it is intended.
+  if ! "$OP_BIN" inject --force -i "$tpl" -o "$tmp" 2>/dev/null; then
     log "op inject failed for $tpl (keeping existing $target)"
     rm -f "$tmp"; rc=1; continue
   fi

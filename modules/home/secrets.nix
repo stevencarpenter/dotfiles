@@ -110,26 +110,18 @@ in
   age.identityPaths = [ "${home}/.config/chezmoi/key.txt" ];
 
   age.secrets =
-    # Common: present on every host regardless of identity/capability.
-    { "zsh-env" = {
-        file = secretsDir + "/common/zsh-env.age";
-        path = "${home}/.config/zsh/.env";
-        mode = "0600";
-      };
-    }
-    # ssh config: personal + lab only, NOT work (contract: identity != "work").
-    // lib.optionalAttrs (identity != "work") {
+    # WS1 (SNUG-386) migrated the common + personal secrets off agenix:
+    #   - zsh-env (~/.config/zsh/.env): its only content was the non-secret flag
+    #     ENABLE_TOOL_SEARCH, now a plain profile.d fragment (common-env.zsh).
+    #   - zsh-personal-env (~/.config/zsh/.personal.env): now rendered from op://
+    #     templates by the opRender activation (see sync-hooks.nix).
+    # ssh-config stays on agenix for now — it holds only low-sensitivity homelab
+    # topology (no real secrets), and its public-vs-op disposition is a pending
+    # decision, so it was deliberately deferred from WS1.
+    lib.optionalAttrs (identity != "work") {
       "ssh-config" = {
         file = secretsDir + "/common/ssh-config.age";
         path = "${home}/.ssh/config";
-        mode = "0600";
-      };
-    }
-    # Personal-only env.
-    // lib.optionalAttrs (identity == "personal") {
-      "zsh-personal-env" = {
-        file = secretsDir + "/personal/zsh-personal-env.age";
-        path = "${home}/.config/zsh/.personal.env";
         mode = "0600";
       };
     }
