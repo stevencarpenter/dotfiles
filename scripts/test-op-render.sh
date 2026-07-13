@@ -22,6 +22,9 @@ make_mock() {
 #!/usr/bin/env bash
 # mock op: supports only `op inject -i <tpl> -o <out>`; behavior via $OP_MOCK_MODE.
 out=""
+case "$1" in
+  account) case "${OP_MOCK_AUTH:-none}" in ok) echo '[{"url":"my.1password.com"}]'; exit 0 ;; *) exit 1 ;; esac ;;
+esac
 while [ $# -gt 0 ]; do case "$1" in -o) out="$2"; shift 2 ;; *) shift ;; esac; done
 case "${OP_MOCK_MODE:-ok}" in
   ok)    printf 'export FOO=bar\n' > "$out"; exit 0 ;;
@@ -66,10 +69,26 @@ t_empty_output_preserves() {
   [ "$(cat "$target")" = "GOOD" ]
 }
 
+t_interactive_renders() {
+  setup; : > "$target"
+  ( unset OP_CONNECT_HOST OP_CONNECT_TOKEN
+    OP_MOCK_MODE=ok OP_MOCK_AUTH=ok "$RENDER" >/dev/null 2>&1 )
+  [ "$(cat "$target")" = "export FOO=bar" ] && [ "$(perm "$target")" = "600" ]
+}
+
+t_no_auth_skips() {
+  setup; printf 'PRE\n' > "$target"
+  ( unset OP_CONNECT_HOST OP_CONNECT_TOKEN
+    OP_MOCK_MODE=ok OP_MOCK_AUTH=none "$RENDER" >/dev/null 2>&1 )
+  [ "$(cat "$target")" = "PRE" ]
+}
+
 run "happy path renders 0600"          t_happy
 run "absent creds skip, keep file"     t_creds_absent_skips
 run "inject failure preserves target"  t_inject_fail_preserves
 run "empty output preserves target"    t_empty_output_preserves
+run "interactive op renders 0600"      t_interactive_renders
+run "no auth (no connect, no session)" t_no_auth_skips
 
 [ "$fails" -eq 0 ] || { echo "$fails test(s) failed"; exit 1; }
 echo "all op-render tests passed"

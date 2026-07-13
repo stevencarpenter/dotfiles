@@ -7,9 +7,12 @@
 # in place: a Connect/Tailscale outage must leave the previous good file intact,
 # not truncate it (this box may only be reachable over the ssh config it renders).
 #
-# Auth: expects OP_CONNECT_HOST + OP_CONNECT_TOKEN (Connect mode). If unset, it
-# skips with exit 0 (leaves existing files untouched) rather than failing a boot
-# or a nix activation. bash 3.2 safe (macOS default shell).
+# Auth: renders if EITHER OP_CONNECT_HOST + OP_CONNECT_TOKEN are set (Connect
+# mode, e.g. i9) OR an interactive `op` desktop-app session is available (e.g.
+# m5), checked via `op account list`. Connect creds take precedence when both
+# are present. If neither is available, it skips with exit 0 (leaves existing
+# files untouched) rather than failing a boot or a nix activation. bash 3.2
+# safe (macOS default shell).
 #
 # Env overrides: OP_BIN (default `op`), OP_RENDER_MANIFEST
 # (default ~/.config/op/render-manifest).
@@ -20,8 +23,12 @@ MANIFEST="${OP_RENDER_MANIFEST:-$HOME/.config/op/render-manifest}"
 
 log() { printf 'op-render: %s\n' "$*" >&2; }
 
-if [ -z "${OP_CONNECT_HOST:-}" ] || [ -z "${OP_CONNECT_TOKEN:-}" ]; then
-  log "Connect creds not set; skipping (existing secret files left intact)."
+if [ -n "${OP_CONNECT_HOST:-}" ] && [ -n "${OP_CONNECT_TOKEN:-}" ]; then
+  :  # Connect mode (headless, e.g. i9)
+elif "$OP_BIN" account list >/dev/null 2>&1; then
+  :  # interactive desktop-app session (e.g. m5)
+else
+  log "no op auth (no Connect creds, no interactive session); skipping (files left intact)."
   exit 0
 fi
 
