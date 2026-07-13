@@ -2,9 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Render personal-mac (m5)'s common + personal secret files from `op://Homelab/*` templates via `op inject`, removing their agenix `age.secrets` entries — proving the `op` pattern in-band before work extraction relies on it.
+**Goal:** Render personal-mac (m5)'s common + personal secret files from `op://` templates via `op inject`, removing their agenix `age.secrets` entries — proving the `op` pattern in-band before work extraction relies on it.
 
 **Architecture:** m5 has the 1Password **desktop app** (biometric), so it renders via **desktop-app `op inject`** — **no Connect server or token** (that is i9/WS3's path). The existing `home/.local/bin/op-render` (fail-safe render-to-tmp → validate non-empty → atomic `mv` over `0600`) is extended with an "interactive op available" mode. A `home.activation` entry runs it warn-not-fail after `writeBoundary`. Common+personal `age.secrets.*` are deleted; the **work** block and the shared age key stay (removed in WS2/WS4).
+
+> **Vault decision (2026-07-12 — authoritative; supersedes the illustrative `op://Homelab/*` examples further down).** The 14 personal dev secrets reference the **Private** vault (`op://Private/<item>/<field>`) — most already live there (OpenAI, OpenRouter, Context7, Clerk, nugs); the desktop app reads any vault, so no migration. A dedicated "Dev" vault was considered and **abandoned/deleted**. The **exception** is the ssh-config's i9 host fields, which are genuine **homelab infra** and stay in the **Homelab** vault (`op://Homelab/I9/*`). So the split is: **personal dev secrets → Private, homelab infra → Homelab.** Enumeration is already done — the concrete var list is in Linear SNUG-386.
 
 **Tech Stack:** nix-darwin + home-manager, agenix (being partially retired), 1Password CLI (`op`), plain-shell tests (no bats), `op inject` templates.
 
@@ -15,7 +17,7 @@
 - **Deviation from spec (approved in-plan):** m5 uses desktop-app `op`, NOT Connect. Connect (SNUG-384) is only a WS3/i9 dependency; WS1's Linear block on SNUG-384 is dropped.
 - **Never render in place.** `op inject -o <target>` directly is forbidden — a failed/empty inject would truncate the file. Always render-to-tmp in the target's dir → validate → atomic `mv`.
 - **Fail-safe is sacred.** If `op` cannot authenticate or inject fails/returns empty, the existing target file MUST be left byte-for-byte intact and the switch MUST NOT fail (`|| true`, warn-not-fail — matches `modules/home/sync-hooks.nix`).
-- **Zero secret values in the repo, ever.** Templates contain only `op://Homelab/<item>/<field>` refs. No plaintext secret in any `.tpl`, doc, commit message, or this plan. gitleaks (pre-commit) must pass.
+- **Zero secret values in the repo, ever.** Templates contain only `op://<vault>/<item>/<field>` refs (Private for personal dev secrets, Homelab for the i9 infra fields — see the Vault decision above). No plaintext secret in any `.tpl`, doc, commit message, or this plan. gitleaks (pre-commit) must pass.
 - **Names-only enumeration.** When listing secret env vars, record variable NAMES and `op://` refs only — never values. Do not paste decrypted content into any file, commit, or transcript.
 - **Scope = m5 (identity `personal`) common + personal only.** Do NOT touch the `identity == "work"` block in `secrets.nix` (WS2) or delete the age key / `secrets/` blobs (WS4).
 - **Sandbox:** `op`, `uv`, `git push` calls run with the sandbox disabled (repo convention; see the sandbox-preflight skill). `op` writes/reads use the desktop-app session.
@@ -66,15 +68,18 @@ Expected: a list of VARIABLE NAMES (e.g. `OPENAI_API_KEY`, `OPENROUTER_TOKEN`, `
 
 For every name, decide: real secret (→ `op://` ref) or non-secret config (e.g. `ENABLE_LSP_TOOL=1`, `ENABLE_TOOL_SEARCH`). Per the design §5, `common/zsh-env` on m5 may be ONLY a non-secret flag — if so, `.env` becomes a plain committed file (Task 3), NOT a template, and drops out of the secret surface entirely.
 
-- [ ] **Step 3: Ensure each real secret exists in the Homelab vault**
+- [ ] **Step 3: Ensure each real secret exists in the Private vault (create only the missing ones)**
 
-For each secret var, confirm (or create) a Homelab item/field holding its value:
+Most of the 14 already live in **Private** (OpenAI, OpenRouter, Context7, Clerk, nugs) — reference them in place, no move needed. For each secret var, confirm its item/field:
 ```bash
-op item list --vault Homelab | rg -i '<candidate item>'
-# create if missing (value entered interactively, NOT from the decrypted file on the CLI):
-# op item create --vault Homelab --category 'API Credential' --title '<Item>' 'credential[password]=...'
+op item list --vault Private | rg -i '<candidate item>'
+op item get '<Item>' --vault Private --format json | jq '[.fields[].label]'   # confirm field label
 ```
-Prefer reusing existing items (e.g. `OpenAI`, `OpenRouter`, `context7` already seen in Private/Homelab — move to Homelab per the vault-consolidation task if still in Private).
+Only ~6 need creating (`CLAUDE_CODE_OAUTH_TOKEN`, `LLM_API_KEY`, `STRIX_LLM`, `AUTH_JWKS_URL`, `E2E_TEST_USER_*`):
+```bash
+# op item create --vault Private --category 'API Credential' --title '<Item>' 'credential=...'
+```
+The ssh-config's i9 host fields are **homelab infra** — reference/confirm those in the **Homelab** vault (`op item get I9 --vault Homelab`), not Private.
 
 - [ ] **Step 4: Write the mapping doc (names + refs only)**
 
@@ -84,8 +89,8 @@ Create `docs/superpowers/plans/ws1-m5-secret-map.md`:
 
 | var / field | file | classification | op:// ref |
 |---|---|---|---|
-| OPENAI_API_KEY | .personal.env | secret | op://Homelab/OpenAI/api_key |
-| OPENROUTER_TOKEN | .personal.env | secret | op://Homelab/OpenRouter/token |
+| OPENAI_API_KEY | .personal.env | secret | op://Private/OpenAI/api_key |
+| OPENROUTER_TOKEN | .personal.env | secret | op://Private/OpenRouter/token |
 | ENABLE_LSP_TOOL | .env | non-secret | (plain committed) |
 | Host homelab / HostName | ~/.ssh/config | secret | op://Homelab/I9/tailscale_ip |
 | ... | ... | ... | ... |
@@ -204,8 +209,8 @@ git commit -m "feat: op-render interactive-op mode (desktop app, no Connect)"
 One line per secret from the map, values quoted to survive whitespace:
 ```bash
 # home/.config/zsh/.personal.env.tpl  (fill refs from ws1-m5-secret-map.md)
-export OPENAI_API_KEY="{{ op://Homelab/OpenAI/api_key }}"
-export OPENROUTER_TOKEN="{{ op://Homelab/OpenRouter/token }}"
+export OPENAI_API_KEY="{{ op://Private/OpenAI/api_key }}"
+export OPENROUTER_TOKEN="{{ op://Private/OpenRouter/token }}"
 # ...every secret var from the map...
 ```
 
@@ -358,6 +363,6 @@ Expected: PR opens against `m5`; CI `nix-flake-check` + hygiene green.
 
 **Spec coverage:** §3 (templates + renderer) → Tasks 2–4. §4.4 fail-safe → Task 2 (preserved) + Task 3 Step 5 + Task 5. §4.5 nix activation trigger → Task 4 Step 1. §5 inventory + "known gap" enumeration → Task 1. §6 phase 3 (m5) → this whole plan (i9 phase 2 deferred to WS3; deviation: m5-first is fine because op-render is deploy-agnostic and m5 is in-hand). §8 testing (fail-safe, happy path, no-plaintext guard, idempotency) → Tasks 2, 3.5, 5.2. **Deferred by design:** §4.6 Connect token, §4.1 Connect server (WS3/SNUG-384); §6 phase 4 age retirement (WS4/SNUG-389); work secrets (WS2/SNUG-387).
 
-**Placeholder scan:** Refs shown as illustrative (`op://Homelab/OpenAI/api_key`) are filled concretely from Task 1's enumeration — Task 1 is the explicit "author against the real list" step, not a placeholder. No "TBD"/"handle edge cases".
+**Placeholder scan:** Refs shown as illustrative (`op://Private/OpenAI/api_key`) are filled concretely from Task 1's enumeration — Task 1 is the explicit "author against the real list" step, not a placeholder. No "TBD"/"handle edge cases".
 
 **Type consistency:** `op-render` env contract (`OP_BIN`, `OP_RENDER_MANIFEST`, `OP_CONNECT_*`, new `op account list` probe / `OP_MOCK_AUTH` mock) is consistent across Tasks 2, 3, 4. Manifest format (`template:target`, `~` expansion) matches op-render's existing parser (`sed 's/~/$HOME/'` at lines 35-36).
