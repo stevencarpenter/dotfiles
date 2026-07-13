@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Shell(ls)"
+    ],
+    "deny": []
+  },
+  "version": 1,
+  "editor": {
+    "vimMode": false
+  },
+  "notifications": true,
+  "hints": true,
+  "rewind": false,
+  "suggestNextPrompt": false,
+  "hasChangedDefaultModel": false,
+  "privacyCache": {
+    "ghostMode": true,
+    "privacyMode": 2,
+    "updatedAt": 1781248305014
+  },
+  "network": {
+    "useHttp1ForAgent": false
+  },
+  "approvalMode": "allowlist",
+  "sandbox": {
+    "mode": "disabled",
+    "networkAccess": "user_config_with_defaults"
+  },
+  "runEverythingSettingsPromptStreak": 0,
+  "attribution": {
+    "attributeCommitsToAgent": false,
+    "attributePRsToAgent": false
+  }
+}
