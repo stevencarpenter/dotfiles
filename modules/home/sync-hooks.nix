@@ -35,6 +35,24 @@ let
 in
 {
   home.activation = {
+    # --- op-render: materialize op:// secret templates (identity: personal) --
+    # Renders ~/.config/zsh/.personal.env from op:// templates via the desktop
+    # app on m5 (no Connect). Fail-safe: a broken/absent op leaves existing
+    # secret files byte-for-byte intact and NEVER fails the switch. No-op where
+    # no manifest exists. See docs/superpowers/plans/2026-07-12-ws1-m5-secrets-op-inject.md.
+    opRender = lib.mkIf (identity == "personal") (
+      lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        (
+          set -u
+          MANIFEST="$HOME/.config/op/render-manifest"
+          RENDER="${repoRoot}/home/.local/bin/op-render"
+          [ -f "$MANIFEST" ] || exit 0
+          OP_RENDER_MANIFEST="$MANIFEST" "$RENDER" \
+            || echo "op-render: warned (secrets left intact)." >&2
+        ) || true
+      ''
+    );
+
     # --- MCP fan-out (caps.mcp) --------------------------------------------
     mcpSync = lib.mkIf caps.mcp (
       lib.hm.dag.entryAfter [ "writeBoundary" ] ''
