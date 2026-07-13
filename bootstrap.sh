@@ -25,12 +25,14 @@ if ! xcode-select -p >/dev/null 2>&1; then
 fi
 sudo xcodebuild -license accept 2>/dev/null || true
 
-# ── 1. Determinate Nix ───────────────────────────────────────────────────
-# nix.enable = false in modules/darwin/core.nix — Determinate manages the daemon.
+# ── 1. Lix ───────────────────────────────────────────────────────────────
+# nix.enable = true + nix.package = pkgs.lix in modules/darwin/core.nix —
+# nix-darwin manages the daemon, Lix is the interpreter. The nix-darwin
+# prerequisites recommend the Lix installer because it ships an uninstaller
+# (`/nix/nix-installer uninstall`); the upstream installer does not.
 if ! command -v nix >/dev/null 2>&1; then
-  echo "==> Installing Determinate Nix ..."
-  curl --proto '=https' --tlsv1.2 -sSf -L \
-    https://install.determinate.systems/nix | sh -s -- install --determinate
+  echo "==> Installing Lix ..."
+  curl -sSf -L https://install.lix.systems/lix | sh -s -- install
   # Load nix into THIS shell so the first switch below can run.
   if [ -e /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh ]; then
     # shellcheck disable=SC1091
@@ -74,7 +76,11 @@ echo "==> Using host config: $HOST"
 # ── 5. First switch ──────────────────────────────────────────────────────
 # darwin-rebuild is not on PATH yet, so run it straight from the flake input.
 echo "==> Building initial configuration #$HOST ..."
+# --extra-experimental-features so this first switch does not depend on the
+# Lix installer's default nix.conf having flakes enabled; nix-darwin pins them
+# in nix.settings from here on.
 sudo nix run \
+  --extra-experimental-features "nix-command flakes" \
   github:nix-darwin/nix-darwin/nix-darwin-26.05#darwin-rebuild -- \
   switch --flake "$HOME/.dotfiles#${HOST}"
 

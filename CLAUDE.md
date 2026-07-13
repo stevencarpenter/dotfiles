@@ -76,7 +76,7 @@ token-auditor --help                                                   # or `cod
 just rebuild              # Same, via the task runner
 nix flake check --no-build   # Evaluate every output without building (fast structural check)
 just check                   # Alias for the above
-./bootstrap.sh            # Fresh-machine setup (Determinate Nix, age key, first switch, rustup)
+./bootstrap.sh            # Fresh-machine setup (Lix, age key, first switch, rustup)
 just sync                 # Network/SSH side channels: git externals + token-auditor install
 ```
 

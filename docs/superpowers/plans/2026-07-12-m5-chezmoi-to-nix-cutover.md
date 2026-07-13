@@ -43,7 +43,7 @@
   (The age key at `~/.config/chezmoi/key.txt`, sourced from `op://Private/chezmoi-age-key` by
   `bootstrap.sh`, is now only needed if any `age.secrets` remain — personal declares none, so it is
   vestigial on m5.)
-- [ ] **Determinate Nix installed** (or let `bootstrap.sh` install it).
+- [ ] **Lix installed** (or let `bootstrap.sh` install it — it runs the Lix installer).
 - [ ] **Record current state for diffing/rollback.** From the chezmoi checkout
   (`~/.local/share/chezmoi`): `chezmoi managed > ~/chezmoi-managed-2026-07-12.txt`. Optionally
   confirm a Time Machine / backup ran. (Belt-and-suspenders; `main` already is the source backup.)
@@ -112,8 +112,8 @@ Run immediately, then actually live on it for a few days before deciding.
   `launchctl bootout gui/$(id -u)/<label>` and remove the plist (chezmoi installs its own).
 - [ ] **Homebrew:** `cleanup = "none"` meant nix uninstalled nothing; any casks/brews nix *added*
   remain. Leave them, or `brew uninstall` individually.
-- [ ] **Full nix removal (optional, clean slate):** `/nix/nix-installer uninstall` (Determinate
-  uninstaller). Heavy — only if you want zero nix footprint.
+- [ ] **Full nix removal (optional, clean slate):** `/nix/nix-installer uninstall` (the Lix
+  installer's uninstaller). Heavy — only if you want zero nix footprint.
 
 **Why rollback is low-risk:** `main` is untouched, `cleanup=none` prevents brew destruction, and
 home-manager backed up every file it replaced. The only genuinely one-way changes are cosmetic
