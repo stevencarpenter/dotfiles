@@ -2,3 +2,4 @@
 # Read by home/.local/bin/op-render (default path ~/.config/op/render-manifest).
 # Rendered files are 0600 secrets; only the *.tpl templates are committed.
 ~/.dotfiles/home/.config/zsh/.personal.env.tpl:~/.config/zsh/.personal.env
+~/.dotfiles/home/.ssh/config.tpl:~/.ssh/config

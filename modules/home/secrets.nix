@@ -110,23 +110,16 @@ in
   age.identityPaths = [ "${home}/.config/chezmoi/key.txt" ];
 
   age.secrets =
-    # WS1 (SNUG-386) migrated the common + personal secrets off agenix:
-    #   - zsh-env (~/.config/zsh/.env): its only content was the non-secret flag
+    # WS1 (SNUG-386) migrated ALL common + personal secrets off agenix to
+    # op-render (op:// templates, see modules/home/sync-hooks.nix opRender):
+    #   - zsh-env (~/.config/zsh/.env): only content was the non-secret flag
     #     ENABLE_TOOL_SEARCH, now a plain profile.d fragment (common-env.zsh).
-    #   - zsh-personal-env (~/.config/zsh/.personal.env): now rendered from op://
-    #     templates by the opRender activation (see sync-hooks.nix).
-    # ssh-config stays on agenix for now — it holds only low-sensitivity homelab
-    # topology (no real secrets), and its public-vs-op disposition is a pending
-    # decision, so it was deliberately deferred from WS1.
-    lib.optionalAttrs (identity != "work") {
-      "ssh-config" = {
-        file = secretsDir + "/common/ssh-config.age";
-        path = "${home}/.ssh/config";
-        mode = "0600";
-      };
-    }
-    # Work-only env + AWS overrides + the 25 gated Claude skill blobs.
-    // lib.optionalAttrs (identity == "work") (
+    #   - zsh-personal-env (~/.config/zsh/.personal.env): op:// template.
+    #   - ssh-config (~/.ssh/config): op:// template — the i9 tailnet host comes
+    #     from op://Homelab/I9/tailnet_hostname so it never lands in this public
+    #     repo. Fully op-managed; the age blob is retired in WS4.
+    # The personal identity now declares ZERO age.secrets; work is unchanged.
+    lib.optionalAttrs (identity == "work") (
       {
         "zsh-work-env" = {
           file = secretsDir + "/work/zsh-work-env.age";
