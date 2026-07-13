@@ -4,10 +4,22 @@
 # login-shell pin, and the maxfiles launchd agent. Everything per-machine
 # flows in through specialArgs (user); no hostname checks live here.
 {
-  # Determinate Nix owns and manages the nix daemon on these machines, so the
-  # nix-darwin module must NOT try to manage nix itself (installing profiles,
-  # rewriting nix.conf, restarting the daemon).
-  nix.enable = false;
+  # nix-darwin owns and manages the nix daemon (the standard model): it installs
+  # the nix package into the system profile, writes /etc/nix/nix.conf from
+  # `nix.settings`, and manages the launchd daemon. We run Lix as the interpreter
+  # — the nix-darwin prerequisites recommend the Lix installer (it ships an
+  # uninstaller; the upstream installer does not) and `nix.package = pkgs.lix` as
+  # the supported way to select it. Unlike Determinate (which required
+  # `nix.enable = false` and owned nix.conf itself), this hands nix.conf back to
+  # nix-darwin, so the `nix.settings.*` options below are once again authoritative.
+  nix.enable = true;
+  nix.package = pkgs.lix;
+
+  # nix-darwin does NOT enable flakes by default (only the Determinate installer
+  # did). The whole repo is a flake and `darwin-rebuild switch --flake` needs both
+  # features, so pin them here. Once nix-darwin owns /etc/nix/nix.conf this is the
+  # durable source of truth, replacing whatever the Lix installer wrote at bootstrap.
+  nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
   # Unfree needed for GUI casks' companion packages and some fonts
   # (vscode, obsidian, 1password, raycast, codex, …).

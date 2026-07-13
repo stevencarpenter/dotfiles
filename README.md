@@ -97,8 +97,9 @@ the owning module on `caps.<capability>`.
 
 1. Installs **Xcode Command Line Tools** (nix-darwin has no option for CLT; native builds need
    them first).
-2. Installs **Determinate Nix** if `nix` isn't on PATH. (`nix.enable = false` in
-   `modules/darwin/core.nix` — Determinate owns the daemon; nix-darwin must not manage it.)
+2. Installs **Lix** if `nix` isn't on PATH, via the Lix installer. (`nix.enable = true` with
+   `nix.package = pkgs.lix` in `modules/darwin/core.nix` — nix-darwin manages the daemon and
+   runs Lix as the interpreter.)
 3. Fetches the **age identity key from 1Password** into `~/.config/chezmoi/key.txt` (the path name
    is a chezmoi holdover, kept verbatim):
 
@@ -184,7 +185,7 @@ Justfile instead:
 
 - **`just sync`** — clone/refresh the git externals (tpm over https, the personal `agent-registry`
   over SSH) and install the pinned `token-auditor` uv tool. Safe to re-run; `bootstrap.sh` calls it.
-- **`just bootstrap`** — the full fresh-machine flow (`bootstrap.sh`): Determinate Nix, the age
+- **`just bootstrap`** — the full fresh-machine flow (`bootstrap.sh`): Lix, the age
   key, first switch, rustup.
 
 The rule ("bucket rule" in `docs/nix-migration.md`): declarative or offline+fast+idempotent work
