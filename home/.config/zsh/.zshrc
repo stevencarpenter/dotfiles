@@ -98,14 +98,12 @@ export ENABLE_LSP_TOOL=1
 # the current session and any tmux panes opened before a reboot).
 ulimit -n 65536
 
-# === 4. Source Encrypted/Local Files ===
-# Base secrets (always loaded on all machines)
+# === 4. Source Local Files ===
 z4h source ~/.env.zsh
-if [[ -r "$XDG_CONFIG_HOME/zsh/.env" ]]; then
-  set -a
-  source -- "$XDG_CONFIG_HOME/zsh/.env"
-  set +a
-fi
+# NOTE: the former ~/.config/zsh/.env source was removed in WS1 — its only
+# content (ENABLE_TOOL_SEARCH) now loads from profile.d/common-env.zsh, and
+# ~/.config/zsh/.personal.env loads from profile.d/personal-secrets.zsh (both
+# sourced by the profile.d loop later in this file).
 
 # === 5. Aliases ===
 # Git aliases
