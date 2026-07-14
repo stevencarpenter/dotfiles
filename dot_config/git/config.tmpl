@@ -3,7 +3,13 @@
 
 [user]
     name = Steven Carpenter
+{{ if hasPrefix "work" .machine }}
+    email = scarpenter@lumindigital.com
+	signingkey = key::ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEBS/3kDhKUaZXHtMsWI/D1hfWeKnaAP3epo6OP0ePJ1
+{{ else }}
     email = 13987584+stevencarpenter@users.noreply.github.com
+	signingkey = key::ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFx34s6bitFSG40NeMDON+T3vGzkKNeYJYinM+kFyIms
+{{ end }}
 
 [core]
     excludesfile = ~/.config/git/.gitignore_global
@@ -35,3 +41,17 @@
     lswt = worktree list
     mkwt = "!f() { git worktree add \"$(git rev-parse --show-toplevel)+$@\"; }; f"
     rmwt = "!f() { git worktree remove \"$(git rev-parse --show-toplevel)+$@\"; }; f"
+
+[gpg]
+    format = ssh
+
+[gpg "ssh"]
+    program = /Applications/1Password.app/Contents/MacOS/op-ssh-sign
+
+[commit]
+    gpgsign = true
+
+{{ if hasPrefix "work" .machine }}
+[includeIf "gitdir:~/.local/share/chezmoi/"]
+    path = ~/.config/git/personal
+{{ end }}

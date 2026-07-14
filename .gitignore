@@ -72,3 +72,6 @@ private_dot_claude.json
 .understand-anything/intermediate/
 .understand-anything/tmp/
 .codegraph/
+.agents/
+.*dot_ssh.*
+.*dot_ssh\/.*
