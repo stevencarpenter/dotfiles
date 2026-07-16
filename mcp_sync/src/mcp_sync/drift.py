@@ -93,7 +93,7 @@ def _semantic_drift(spec: PatchSpec, master: JsonDict, home: Path) -> DriftEntry
     """
     try:
         rendered = render_patch_with_source(spec, master, home)
-    except (OSError, json.JSONDecodeError) as exc:
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
         return DriftEntry(
             spec.name,
             spec.path,

@@ -25,6 +25,7 @@ from typing import Any
 from mcp_sync.sync import (
     _build_targets,
     _load_json,
+    _load_json_object,
     _patch_owned_config,
     _write_json,
     deep_merge,
@@ -179,7 +180,7 @@ def _expected_and_deployed(
                 )
             return (
                 target.build(master, home=home),
-                _load_json(target.destination),
+                _load_json_object(target.destination),
                 target.override_key or target.name,
                 lambda t=target: t.build(master, home=home),
             )
