@@ -96,3 +96,6 @@ jobs:
 
       - name: Validate op-render fail-safe renderer
         run: scripts/test-op-render.sh
+
+      - name: Validate Claude settings hook preservation
+        run: scripts/test-claude-hooks-preservation.sh

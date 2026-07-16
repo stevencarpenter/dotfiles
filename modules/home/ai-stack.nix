@@ -18,10 +18,12 @@
 #                                       of the template: the 7 conditional plugin
 #                                       flags + the conditional SessionStart hooks.
 #   activation jq                     — base * variant = managed; then
-#                                       existing * managed, seed model/effort,
-#                                       ensure ~/.cache/pre-commit sandbox-write,
-#                                       and (when a SessionStart capability is
-#                                       off) strip its stale hook entry.
+#                                       existing * managed with preserve-unknown
+#                                       hook semantics (foreign self-registered
+#                                       hooks survive; managed/marker/capability-
+#                                       off hooks are re-added or swept), seed
+#                                       model/effort, ensure ~/.cache/pre-commit +
+#                                       ~/projects/agents sandbox-write.
 #
 # BOUNDARY: this module owns ONLY the settings.json merge. The raw dotfiles it
 # depends on are declared elsewhere:
@@ -89,33 +91,6 @@ let
   variantJson = builtins.toJSON variant;
 
   jq = "${pkgs.jq}/bin/jq";
-
-  # Per-capability jq clauses for the strip pass (only rendered when at least
-  # one capability is off — mirrors `{{- if or (not $hippo) (not $agents) }}`).
-  hippoClause = if hippo then "true" else ''(contains("/hippo-brain/") | not)'';
-  agentsClause = if agents then "true" else ''(contains("/emit-routing-context.sh") | not)'';
-
-  stripBlock = lib.optionalString (!hippo || !agents) ''
-    # A SessionStart capability is off; remove any previously-injected hook for
-    # it by command substring (recursive merge alone cannot delete keys absent
-    # from the managed block). Only touches the off capability's own hook, so a
-    # hippo-off / agents-on host keeps the routing hook and vice versa.
-    merged="$(printf '%s\n' "$merged" | ${jq} '
-      if (.hooks.SessionStart // null) then
-        .hooks.SessionStart |= (
-          map(.hooks |= map(select(
-            (.command // "") | (
-              ${hippoClause}
-            ) and (
-              ${agentsClause}
-            )
-          )))
-          | map(select((.hooks // []) | length > 0))
-        )
-        | (if (.hooks.SessionStart // [] | length) == 0 then del(.hooks.SessionStart) else . end)
-        | (if (.hooks // {} | keys | length) == 0 then del(.hooks) else . end)
-      else . end')"
-  '';
 in
 {
   # Runs after writeBoundary so the hook scripts + statusline symlinked by
@@ -144,8 +119,66 @@ in
         [ -f "$SETTINGS" ] && existing="$(cat "$SETTINGS")"
         [ -z "$existing" ] && existing="{}"
 
-        # Recursive merge preserves live-only keys (theme, editorMode, ...).
-        merged="$(printf '%s\n' "$existing" | ${jq} --argjson managed "$managed" '. * $managed')" \
+        # Recursive merge (existing * managed) preserves live-only keys (theme,
+        # editorMode, …) but replaces arrays WHOLESALE — which would wipe hooks a
+        # tool self-registers into the live file (e.g. an agent-state hook) under
+        # ANY event. Preserve-unknown semantics (ported from the pre-nix
+        # dot_claude/modify_settings.json.tmpl, PR #120): after the merge, rebuild
+        # .hooks so each event = managed entries first, then live hooks we don't
+        # own re-appended. A live handler is "ours" (dropped — $managed already
+        # re-added the current one) when it is byte-identical to a managed handler
+        # OR its command matches an ownership marker. Markers sweep stale spellings,
+        # capability-off hooks, and retired chezmoi hooks that are no longer present
+        # in the managed block. Non-command handler types are preserved by object
+        # identity instead of being discarded for lacking `.command`.
+        # $owned_command_markers MUST cover every command family managed here or in
+        # settings-base.json, plus deliberate migration tombstones. The program is
+        # fenced by sentinels so scripts/test-claude-hooks-preservation.sh extracts
+        # and tests this exact jq (single source of truth).
+        merged="$(printf '%s\n' "$existing" | ${jq} --argjson managed "$managed" '
+          # hooks-merge-jq:begin
+          [
+            "/hippo-brain/",
+            "/emit-routing-context.sh",
+            "/agent-journal-stop.sh",
+            "/wt-create.sh",
+            "/wt-remove.sh",
+            "encrypted_* via",
+            "chezmoi execute-template"
+          ] as $owned_command_markers
+          | . as $live
+          | ($live * $managed)
+          | (($live.hooks // {}) | if type == "object" then . else {} end) as $lh
+          | if ($lh | keys | length) > 0 then
+              .hooks = (
+                reduce ($lh | keys[]) as $k (.hooks // {};
+                  (($managed.hooks[$k] // []) ) as $m
+                  | ($m | [.[].hooks[]?]) as $managed_handlers
+                  | .[$k] = ($m + (
+                      ($lh[$k] | if type == "array" then . else [] end)
+                      | map(select(type == "object"))
+                      | map(.hooks = ((.hooks // []) | map(select(
+                          . as $handler
+                          | (($managed_handlers | index($handler)) == null)
+                            and (
+                              ($handler.command? // null) as $command
+                              | if ($command | type) == "string" then
+                                  (($owned_command_markers
+                                    | map(. as $marker | $command | contains($marker))
+                                    | any) | not)
+                                else true
+                                end
+                            )
+                        ))))
+                      | map(select((.hooks | length) > 0))
+                    ))
+                )
+                | with_entries(select((.value | length) > 0))
+              )
+              | (if ((.hooks // {}) | keys | length) == 0 then del(.hooks) else . end)
+            else . end
+          # hooks-merge-jq:end
+          ')" \
           || { echo "Warning: Claude settings merge failed." >&2; exit 0; }
 
         # Seed cross-machine defaults for model + effort ONLY when unset, so an
@@ -165,7 +198,6 @@ in
             (.sandbox.filesystem.allowWrite // [] | if type == "array" then . else [] end) as $aw
             | if ($aw | index($p)) then .
               else .sandbox.filesystem.allowWrite = ($aw + [$p]) end)')"
-      ${stripBlock}
         mkdir -p "$(dirname "$SETTINGS")"
         printf '%s\n' "$merged" > "$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"
       ) || true
