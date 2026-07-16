@@ -72,3 +72,4 @@ private_dot_claude.json
 .understand-anything/intermediate/
 .understand-anything/tmp/
 .codegraph/
+.agents/
