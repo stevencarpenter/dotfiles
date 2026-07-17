@@ -93,6 +93,10 @@ in
       lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         (
           set -u
+          # sync-skills fetches pinned Git sources through subprocess. Home
+          # Manager activation does not inherit the interactive user PATH, so
+          # provide Git explicitly instead of relying on a new login shell.
+          export PATH="${lib.makeBinPath [ pkgs.git pkgs.openssh ]}:$PATH"
           export UV_PYTHON="${py}"
           export UV_PYTHON_DOWNLOADS=never
           PROJECT="${mcpSyncProject}"
