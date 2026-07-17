@@ -58,7 +58,9 @@ in
 
       # Dev tooling configs (mise config itself is generated in dev-tools.nix).
       ".config/git" # config (renamed from config.tmpl by dev-tools) + .gitignore_global
-      ".config/jj"
+      # Link only the config: jj writes mutable repository metadata beneath
+      # ~/.config/jj/repos, which must not land in the dotfiles checkout.
+      ".config/jj/config.toml"
       ".config/worktrunk"
       ".config/dev-container"
       ".config/nushell/config.nu" # link the file, not the dir (nushell writes history/env.nu there)
