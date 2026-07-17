@@ -72,8 +72,18 @@ in
       # makes sense on aarch64 (guard is defensive; both current hosts qualify).
       ++ lib.optionals isAarch64 [ "mactop" ]
       ++ lib.optionals caps.tiling [
-        "sketchybar"
-        "borders"
+        # Homebrew 6 requires explicit trust for third-party tap code. Keep
+        # this scoped to the two formulae we install rather than trusting the
+        # entire FelixKratz tap. Fully-qualified names are required for
+        # formula-level `trusted = true` to take effect in Brewfile evaluation.
+        {
+          name = "felixkratz/formulae/sketchybar";
+          trusted = true;
+        }
+        {
+          name = "felixkratz/formulae/borders";
+          trusted = true;
+        }
       ]
       ++ lib.optionals caps.dev [
         # railway CLI: fast-moving vendor tool, nixpkgs lags — kept brew.
@@ -131,4 +141,17 @@ in
         "font-inconsolata-go-nerd-font"
       ];
   };
+
+  # nix-homebrew replaces Homebrew's mutable repository with a nix-store
+  # source. Its first auto-migration can leave the old core `_brew` completion
+  # symlink pointing at the removed `/opt/homebrew/completions` directory.
+  # Re-anchor that link to the pinned Homebrew source on every activation.
+  system.activationScripts.postActivation.text = lib.mkAfter ''
+    _brew_completion_dir="/opt/homebrew/share/zsh/site-functions"
+    if [ -d "$_brew_completion_dir" ]; then
+      ln -sfn \
+        "${config.nix-homebrew.package}/completions/zsh/_brew" \
+        "$_brew_completion_dir/_brew"
+    fi
+  '';
 }

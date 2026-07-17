@@ -54,6 +54,10 @@ in
   home.activation.startTilingStack = lib.mkIf caps.tiling (
     lib.hm.dag.entryAfter [ "writeBoundary" ] ''
       ( set -uo pipefail
+        brew="/opt/homebrew/bin/brew"
+        sketchybar="/opt/homebrew/bin/sketchybar"
+        aerospace="/Applications/AeroSpace.app/Contents/MacOS/AeroSpace"
+
         # Fresh machines may not have run `brew bundle` yet — skip quietly
         # instead of failing the whole activation; the next switch after
         # `brew bundle` starts the stack.
@@ -62,11 +66,11 @@ in
         # Managed via Homebrew services; the LaunchAgent is created by brew
         # services. If already running, restart to pick up config changes
         # this switch just wrote.
-        if command -v sketchybar > /dev/null 2>&1; then
-          if brew services list | ${pkgs.ripgrep}/bin/rg -q '^sketchybar.*started'; then
-            brew services restart sketchybar
+        if [ -x "$sketchybar" ] && [ -x "$brew" ]; then
+          if "$brew" services list | ${pkgs.ripgrep}/bin/rg -q '^sketchybar.*started'; then
+            "$brew" services restart sketchybar
           else
-            brew services start sketchybar
+            "$brew" services start sketchybar
           fi
         else
           echo "tiling-stack: sketchybar not installed yet — skipping" >&2
@@ -77,9 +81,9 @@ in
         # don't manage it. start-at-login = true in aerospace.toml registers
         # the macOS login item, but only after the app has run at least
         # once. Open it here if not running.
-        if command -v aerospace > /dev/null 2>&1; then
+        if [ -x "$aerospace" ]; then
           if pgrep -x "AeroSpace" > /dev/null 2>&1; then
-            aerospace reload-config
+            "$aerospace" reload-config
           else
             open -a AeroSpace
           fi

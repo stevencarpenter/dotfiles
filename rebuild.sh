@@ -5,11 +5,12 @@
 #   ./rebuild.sh work-mac     # force a specific host config
 set -euo pipefail
 
-# Keep the out-of-store symlink root fresh (harmless if already correct) so
-# raw home/* dotfiles resolve after the repo moves.
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [ "$(readlink "$HOME/.dotfiles" 2>/dev/null || true)" != "$REPO_ROOT" ]; then
-  ln -sfn "$REPO_ROOT" "$HOME/.dotfiles"
+# Resolve the physical checkout path. Lix 2.94 rejects a symlink as a flake
+# root, even though ~/.dotfiles remains the stable path for out-of-store links.
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+if [ "$(realpath "$HOME/.dotfiles" 2>/dev/null || true)" != "$REPO_ROOT" ]; then
+  echo "error: $HOME/.dotfiles does not resolve to $REPO_ROOT; run bootstrap.sh to repair it" >&2
+  exit 1
 fi
 
 # Map LocalHostName to a flake config name. Tune the matchers per box.
@@ -27,4 +28,4 @@ if [ -z "${HOST:-}" ]; then
   exit 1
 fi
 
-exec sudo darwin-rebuild switch --flake "$HOME/.dotfiles#${HOST}"
+exec sudo darwin-rebuild switch --flake "$REPO_ROOT#${HOST}"

@@ -3,7 +3,10 @@
 # Idempotent: safe to re-run. First run only — routine rebuilds use rebuild.sh.
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Resolve the physical checkout path. When bootstrap is invoked through the
+# ~/.dotfiles symlink, plain `pwd` preserves that logical path and can otherwise
+# replace the link with a self-reference (`~/.dotfiles -> ~/.dotfiles`).
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 
 # Map the machine's LocalHostName to a flake config name. Tune the matchers per
 # box as machines are added to lib/machines.nix.
@@ -60,7 +63,10 @@ else
 fi
 
 # ── 3. ~/.dotfiles symlink (out-of-store root for raw dotfiles) ───────────
-if [ "$(readlink "$HOME/.dotfiles" 2>/dev/null || true)" != "$REPO_ROOT" ]; then
+if [ "$REPO_ROOT" = "$HOME/.dotfiles" ]; then
+  # The repository itself is already checked out at the canonical location.
+  :
+elif [ "$(readlink "$HOME/.dotfiles" 2>/dev/null || true)" != "$REPO_ROOT" ]; then
   echo "==> Linking $HOME/.dotfiles -> $REPO_ROOT"
   ln -sfn "$REPO_ROOT" "$HOME/.dotfiles"
 fi
@@ -82,7 +88,7 @@ echo "==> Building initial configuration #$HOST ..."
 sudo nix run \
   --extra-experimental-features "nix-command flakes" \
   github:nix-darwin/nix-darwin/nix-darwin-26.05#darwin-rebuild -- \
-  switch --flake "$HOME/.dotfiles#${HOST}"
+  switch --flake "$REPO_ROOT#${HOST}"
 
 # ── 6. rustup (dev toolchain) ────────────────────────────────────────────
 # Kept as an imperative bootstrap rather than a nixpkgs toolchain: rustup's
