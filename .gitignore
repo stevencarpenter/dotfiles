@@ -71,6 +71,7 @@ build/
 .understand-anything/intermediate/
 .understand-anything/tmp/
 .codegraph/
+.agents/
 
 # Nix build artifacts
 # `result` symlinks left by `nix build` / `darwin-rebuild build`, and the

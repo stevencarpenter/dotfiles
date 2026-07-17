@@ -509,14 +509,14 @@ def run_skills_sync(
         to deploy.
     """
     home_path = home or Path.home()
-    repo = repo_root or home_path / ".local" / "share" / "chezmoi"
+    repo = repo_root or home_path / ".dotfiles"
     now_ts = now if now is not None else time.time()
     manifest_file = (
         manifest_path or home_path / ".config" / "skills" / "skills-master.json"
     )
     if not manifest_file.is_file():
         log_error(f"Skills manifest not found at {manifest_file}")
-        log_info("Run 'chezmoi apply' to deploy dotfiles first")
+        log_info("Run 'darwin-rebuild switch' to deploy dotfiles first")
         return 1
 
     log_info("Syncing Claude skills from manifest...")

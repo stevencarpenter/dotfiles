@@ -57,6 +57,7 @@ in
         brew="/opt/homebrew/bin/brew"
         sketchybar="/opt/homebrew/bin/sketchybar"
         aerospace="/Applications/AeroSpace.app/Contents/MacOS/AeroSpace"
+        aerospace_cli="/opt/homebrew/bin/aerospace"
 
         # Fresh machines may not have run `brew bundle` yet — skip quietly
         # instead of failing the whole activation; the next switch after
@@ -82,10 +83,10 @@ in
         # the macOS login item, but only after the app has run at least
         # once. Open it here if not running.
         if [ -x "$aerospace" ]; then
-          if pgrep -x "AeroSpace" > /dev/null 2>&1; then
-            "$aerospace" reload-config
+          if /usr/bin/pgrep -x "AeroSpace" > /dev/null 2>&1; then
+            "$aerospace_cli" reload-config
           else
-            open -a AeroSpace
+            /usr/bin/open -a AeroSpace
           fi
         else
           echo "tiling-stack: aerospace not installed yet — skipping" >&2

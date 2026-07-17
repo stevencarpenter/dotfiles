@@ -3,6 +3,13 @@
 
 # ─── General ─────────────────────────────────────────────────────────────────
 
+config-version = 2
+
+# config-version 2 no longer infers persistent workspaces from keybindings —
+# without this list, empty workspaces 1-9 would disappear when their last
+# window closes.
+persistent-workspaces = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
+
 start-at-login = true
 after-startup-command = [
     'exec-and-forget sketchybar',

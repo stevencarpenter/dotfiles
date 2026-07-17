@@ -77,7 +77,7 @@ convention) and `disabled: true|false` (foreign-schema compat) — see `_is_serv
 ## Manual Sync
 
 ```bash
-uv run --project ~/.local/share/chezmoi/mcp_sync sync-mcp-configs
+uv run --project ~/.dotfiles/mcp_sync sync-mcp-configs
 ```
 
 ## Authentication / Credentials

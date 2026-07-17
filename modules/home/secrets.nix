@@ -1,10 +1,11 @@
-# Secrets: agenix wired to the EXISTING chezmoi age identity.
+# Secrets: agenix wired to the existing age identity.
 #
 # Design (see phase1-results.json smes[1] for the full rationale): agenix is the carry-verbatim
 # bridge for the nix port. It decrypts each ciphertext blob under secrets/ at home-manager
-# activation time using the identity at ~/.config/chezmoi/key.txt — the exact key chezmoi's
-# `[age]` config already points at (itself sourced into place from 1Password by bootstrap.sh
-# before the first `darwin-rebuild switch`). No blob was re-encrypted to get here: every
+# activation time using the identity at ~/.config/age/keys.txt. The ciphertext
+# was carried verbatim from chezmoi, but the live identity no longer lives in a
+# chezmoi-owned directory. bootstrap.sh sources it from 1Password before the
+# first `darwin-rebuild switch`. No blob was re-encrypted to get here: every
 # secrets/**/*.age file is byte-identical ciphertext moved from its old dot_ chezmoi path, so
 # this module MUST NOT run `age -e` or otherwise touch plaintext.
 #
@@ -104,10 +105,10 @@ in
 {
   imports = [ inputs.agenix.homeManagerModules.default ];
 
-  # Existing chezmoi age identity — sourced into place by bootstrap.sh (`op read ... >
-  # ~/.config/chezmoi/key.txt`) before the first `darwin-rebuild switch`. Must exist before
+  # Existing age identity — sourced into place by bootstrap.sh (`op read ... >
+  # ~/.config/age/keys.txt`) before the first `darwin-rebuild switch`. Must exist before
   # activation or every age.secrets decrypt below fails.
-  age.identityPaths = [ "${home}/.config/chezmoi/key.txt" ];
+  age.identityPaths = [ "${home}/.config/age/keys.txt" ];
 
   age.secrets =
     # WS1 (SNUG-386) migrated ALL common + personal secrets off agenix to

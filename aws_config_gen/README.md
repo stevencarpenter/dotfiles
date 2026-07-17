@@ -311,7 +311,7 @@ machines, and the hook runs automatically after `chezmoi apply` via `.chezmoiscr
 To update profiles manually:
 
 ```bash
-uv run --project ~/.local/share/chezmoi/aws_config_gen aws-config-gen
+uv run --project ~/.dotfiles/aws_config_gen aws-config-gen
 ```
 
 ## License

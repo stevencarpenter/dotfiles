@@ -8,12 +8,13 @@
 #   .chezmoiscripts/run_after_sync-agents.sh.tmpl   -> agentsInstall
 #   .chezmoitemplates/sync-hook-body.sh             -> shared preamble below
 #
-# The vendored mcp_sync + aws_config_gen uv projects have NO runtime deps and
-# target Python 3.14+, so `uv run` is fully offline when handed a nix-provided
-# interpreter. Every entry:
+# The vendored mcp_sync + aws_config_gen projects have NO runtime deps and
+# target Python 3.14+, so activation invokes their modules directly with the
+# nix-provided interpreter and an explicit PYTHONPATH. This deliberately avoids
+# uv editable environments: their .pth files embed the checkout path and break
+# after a worktree move. Every entry:
 #   - runs after writeBoundary (so home.file symlinks + agenix secrets exist),
-#   - uses the nix-store uv (${pkgs.uv}) and exports UV_PYTHON so uv never
-#     downloads an interpreter at switch time,
+#   - uses the nix-store Python directly with user site-packages disabled,
 #   - is wrapped in a subshell ending `|| true` so a failure warns but NEVER
 #     fails the switch (parity with the chezmoi fail_or_warn default; setting
 #     MCP_SYNC_STRICT had no persistent analog — activation must not abort).
@@ -25,8 +26,7 @@
 let
   uv = "${pkgs.uv}/bin/uv";
   # python314 must match the interpreter in modules/home/packages.nix and
-  # satisfy the tools' requires-python >= 3.14; UV_PYTHON_DOWNLOADS=never turns
-  # an interpreter miss into a warn instead of a silent network download.
+  # satisfy the vendored tools' requires-python >= 3.14.
   py = "${pkgs.python314}/bin/python3";
 
   repoRoot = "$HOME/.dotfiles";
@@ -58,15 +58,15 @@ in
       lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         (
           set -u
-          export UV_PYTHON="${py}"
-          export UV_PYTHON_DOWNLOADS=never
           PROJECT="${mcpSyncProject}"
+          export PYTHONNOUSERSITE=1
+          export PYTHONPATH="$PROJECT/src"
           OVERLAY="$HOME/.config/mcp/machine/${identity}.json"
           if [ ! -f "$PROJECT/pyproject.toml" ]; then
             echo "Warning: MCP sync project not found at $PROJECT; skipping." >&2
             exit 0
           fi
-          cmd=( "${uv}" run --project "$PROJECT" sync-mcp-configs )
+          cmd=( "${py}" -m mcp_sync )
           [ -f "$OVERLAY" ] && cmd+=( --machine-config "$OVERLAY" )
           if ! "''${cmd[@]}"; then
             echo "Warning: MCP sync failed." >&2
@@ -77,9 +77,8 @@ in
     );
 
     # --- Skills fan-out (caps.skills) --------------------------------------
-    # sync-skills is an entry point of the SAME mcp_sync project. It hardcodes
-    # repo_root ~/.local/share/chezmoi for symlinking personal skills, so we
-    # MUST pass --repo-root "$HOME/.dotfiles" or those symlinks dangle.
+    # sync-skills is an entry point of the SAME mcp_sync project. Pass the
+    # canonical repo root explicitly so personal skill links remain stable.
     #
     # SAFETY vs agenix work skills: there is NO ordering guarantee that the
     # agenix-decrypted work skills (modules/home/secrets.nix) are on disk before
@@ -97,15 +96,15 @@ in
           # Manager activation does not inherit the interactive user PATH, so
           # provide Git explicitly instead of relying on a new login shell.
           export PATH="${lib.makeBinPath [ pkgs.git pkgs.openssh ]}:$PATH"
-          export UV_PYTHON="${py}"
-          export UV_PYTHON_DOWNLOADS=never
           PROJECT="${mcpSyncProject}"
+          export PYTHONNOUSERSITE=1
+          export PYTHONPATH="$PROJECT/src"
           OVERLAY="$HOME/.config/skills/machine/${identity}.json"
           if [ ! -f "$PROJECT/pyproject.toml" ]; then
             echo "Warning: skill sync project not found at $PROJECT; skipping." >&2
             exit 0
           fi
-          cmd=( "${uv}" run --project "$PROJECT" sync-skills --repo-root "${repoRoot}" )
+          cmd=( "${py}" -m mcp_sync.skills_cli --repo-root "${repoRoot}" )
           [ -f "$OVERLAY" ] && cmd+=( --machine-config "$OVERLAY" )
           if ! "''${cmd[@]}"; then
             echo "Warning: skill sync failed." >&2
@@ -120,14 +119,14 @@ in
       lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         (
           set -u
-          export UV_PYTHON="${py}"
-          export UV_PYTHON_DOWNLOADS=never
           PROJECT="${awsProject}"
+          export PYTHONNOUSERSITE=1
+          export PYTHONPATH="$PROJECT/src"
           if [ ! -f "$PROJECT/pyproject.toml" ]; then
             echo "Warning: AWS config gen project not found at $PROJECT; skipping." >&2
             exit 0
           fi
-          if ! "${uv}" run --project "$PROJECT" aws-config-gen; then
+          if ! "${py}" -m aws_config_gen; then
             echo "Warning: AWS config gen failed." >&2
             exit 0
           fi

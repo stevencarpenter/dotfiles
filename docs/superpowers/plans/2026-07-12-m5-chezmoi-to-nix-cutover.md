@@ -1,17 +1,17 @@
-# m5: chezmoi → nix trial cutover (runbook)
+# m5: live Nix cutover and promotion runbook
 
-> A **reversible, m5-only** cutover from the live chezmoi setup to the nix prototype on branch
-> `m5`, with an explicit yes/no decision gate. work (m3) and i9 are untouched by this cutover —
-> they keep running chezmoi from `main` for now (i9 leaves separately, to homelab/stow, via
-> SNUG-388; work migrates to nix as its own sub-project). Nothing here merges to `main`.
+> `personal-mac` runs the Nix shape from branch `m5`. The canonical checkout is `~/.dotfiles`;
+> the old local chezmoi checkout and deployed backups are retired after the live verification gate.
+> `main` remains the remote archive candidate until the Nix shape has soaked long enough to make a
+> deliberate promotion decision.
 
 **Date:** 2026-07-12 · **Branch:** `m5` · **Host config:** `personal-mac`
 
 ## 0. Invariants (do not violate)
 
 - **Only m5.** Deploy this branch on m5 alone. Do **not** merge `m5` → `main`, and do **not** push
-  to `main`. work/lab resolve their config from `main` (chezmoi) and must stay that way.
-- **work m3 + lab i9 are frozen on chezmoi-`main`.** This cutover changes nothing on them. The
+  to `main`. The work Mac still resolves its config from chezmoi `main`.
+- **work m3 + i9 are outside this cutover.** This cutover changes nothing on them. The
   tradeoff (accepted): while m5 is on nix, config edits you make on m5 land in this branch's
   `home/` and do **not** reach m3/i9 until they migrate or you backport. Don't camp here long.
 - **Secrets at first switch now use `op-render`, not agenix (updated post-WS1).** WS1 (SNUG-386,
@@ -19,34 +19,31 @@
   and `~/.ssh/config` render from `op://` templates via the `opRender` activation, and
   `ENABLE_TOOL_SEARCH` is now a plain `profile.d/common-env.zsh`. **The personal identity declares
   zero `age.secrets`, so the age key is vestigial on m5.** What the first switch DOES need is the
-  **1Password desktop app unlocked** — `opRender` calls `op inject` and will prompt for
-  Touch ID/unlock during activation. (i9's Connect migration, SNUG-384, is still separate.)
+  **1Password CLI authenticated** — `opRender` checks `op whoami` and skips without blocking when
+  signed out. Existing rendered files remain intact.
 - **`main` is your backup.** The chezmoi source of truth is untouched on `main`; nothing is
   destroyed by this trial. Rollback re-asserts it.
 
 ## 1. Pre-flight (before any switch)
 
 - [ ] **Confirm isolation.** `git branch --show-current` → `m5`. m3/i9 not touched.
-- [ ] **Add the collision guard (REQUIRED — verified not set).** Without it the first switch
-  aborts the instant home-manager wants to symlink a path chezmoi already owns
-  (e.g. `~/.config/zsh/.zshrc`). Add to `flake.nix` in the home-manager block (currently lines
-  54–59, beside `useGlobalPkgs`):
+- [x] **Collision guard installed.** The first switch used this Home Manager setting to back up
+  pre-existing chezmoi targets instead of aborting:
 
   ```nix
   home-manager.backupFileExtension = "chezmoi-bak";
   ```
 
-  With this, home-manager renames each colliding file to `<name>.chezmoi-bak` instead of erroring —
-  and those `.chezmoi-bak` files become part of your rollback material. Commit on branch `m5`.
-- [ ] **1Password desktop app installed + unlocked.** REQUIRED — `opRender` renders
-  `.personal.env` + `~/.ssh/config` via `op inject` during activation and will prompt for unlock.
-  (The age key at `~/.config/chezmoi/key.txt`, sourced from `op://Private/chezmoi-age-key` by
+  The backups are removed only after the live verification gate passes.
+- [ ] **1Password CLI authenticated when refreshing secrets.** `opRender` renders
+  `.personal.env` + `~/.ssh/config` via `op inject`; when signed out it skips without blocking and
+  preserves the last known-good files.
+  (The age key at `~/.config/age/keys.txt`, sourced from `op://Private/chezmoi-age-key` by
   `bootstrap.sh`, is now only needed if any `age.secrets` remain — personal declares none, so it is
   vestigial on m5.)
 - [ ] **Lix installed** (or let `bootstrap.sh` install it — it runs the Lix installer).
-- [ ] **Record current state for diffing/rollback.** From the chezmoi checkout
-  (`~/.local/share/chezmoi`): `chezmoi managed > ~/chezmoi-managed-2026-07-12.txt`. Optionally
-  confirm a Time Machine / backup ran. (Belt-and-suspenders; `main` already is the source backup.)
+- [x] **Rollback source retained remotely.** Current chezmoi `main` remains on GitHub until the
+  promotion decision; the active local checkout is no longer required after verification.
 
 ## 2. Cutover (on m5)
 
@@ -60,9 +57,9 @@
   `darwin-rebuild switch --flake ~/.dotfiles#personal-mac`.
 - [ ] **Expect during activation:** chezmoi-owned files backed up to `*.chezmoi-bak`; out-of-store
   symlinks created; **`opRender` renders `~/.config/zsh/.personal.env` + `~/.ssh/config` from
-  `op://` (a Touch ID / 1Password unlock prompt appears here)**; activation runs the sync hooks
+  `op://` when the CLI is authenticated**; activation runs the sync hooks
   (mcp/skills) + tiling restart. Homebrew runs with `cleanup = "none"` → it uninstalls nothing.
-  (If 1Password is locked, `opRender` warns and leaves any existing secret files intact — the
+  (If 1Password is locked, `opRender` skips and leaves any existing secret files intact — the
   switch does not fail — but `.personal.env`/`~/.ssh/config` won't be (re)rendered until you rerun
   the switch with it unlocked.)
 - [ ] **`just sync`** (git externals + token-auditor — the network/SSH side channels).
@@ -100,7 +97,7 @@ Run immediately, then actually live on it for a few days before deciding.
 ## 5. Rollback (honest asymmetry)
 
 **Userland — fully reversible:**
-- [ ] Re-assert chezmoi from `main`: in `~/.local/share/chezmoi`, run `chezmoi apply`. This
+- [ ] Fresh-clone the archived chezmoi `main`, then run `chezmoi apply`. This
   overwrites nix's out-of-store symlinks with chezmoi's files. (The `*.chezmoi-bak` backups are
   also on disk if you prefer a manual restore of any specific file.)
 - [ ] Stop using nix on m5: don't run `rebuild` / `darwin-rebuild` again.
@@ -123,6 +120,7 @@ macOS defaults and any nix-added brew casks — both harmless to leave.
 
 - ✅ **Remote rename — DONE.** `origin` now has only `refs/heads/m5`; the old
   `full-nix-darwin-dotfile-shape` branch is deleted.
-- ✅ **Worktree directory rename — DONE.** This checkout is already at
-  `~/.local/share/chezmoi-m5` (the old chezmoi checkout remains at `~/.local/share/chezmoi` on
-  `main` as the rollback source).
+- ✅ **Canonical checkout — DONE.** The live standalone checkout is `~/.dotfiles`.
+- **Promotion, only after the soak decision:** preserve current remote `main` as a dated
+  `archive/chezmoi-main-*` ref, then promote `m5` to `main`. Do not resolve the architectural
+  conflict set by merging old chezmoi paths into the Nix tree.

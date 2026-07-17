@@ -20,12 +20,14 @@ perm() { stat -c '%a' "$1" 2>/dev/null || stat -f '%Lp' "$1"; }
 make_mock() {
   cat > "$work/op" <<'EOF'
 #!/usr/bin/env bash
-# mock op: supports `op account list` (auth probe via $OP_MOCK_AUTH) and
+# mock op: supports `op whoami` (auth probe via $OP_MOCK_AUTH) and deliberately
+# lets `op account list` succeed even while signed out, matching the real CLI.
 # `op inject -i <tpl> -o <out> [--force]` (behavior via $OP_MOCK_MODE).
 # Mirrors real `op inject`: it ABORTS on an existing -o file without --force,
 # so op-render (which mktemps its tmpfile first) must pass --force.
 case "$1" in
-  account) case "${OP_MOCK_AUTH:-none}" in ok) echo '[{"url":"my.1password.com"}]'; exit 0 ;; *) exit 1 ;; esac ;;
+  account) echo '[{"url":"my.1password.com"}]'; exit 0 ;;
+  whoami) case "${OP_MOCK_AUTH:-none}" in ok) echo '{"url":"my.1password.com"}'; exit 0 ;; *) exit 1 ;; esac ;;
 esac
 out=""; force=0
 for a in "$@"; do case "$a" in -f|--force) force=1 ;; esac; done

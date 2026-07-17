@@ -100,12 +100,12 @@ the owning module on `caps.<capability>`.
 2. Installs **Lix** if `nix` isn't on PATH, via the Lix installer. (`nix.enable = true` with
    `nix.package = pkgs.lix` in `modules/darwin/core.nix` — nix-darwin manages the daemon and
    runs Lix as the interpreter.)
-3. Fetches the **age identity key from 1Password** into `~/.config/chezmoi/key.txt` (the path name
-   is a chezmoi holdover, kept verbatim):
+3. Fetches the existing **age identity key from 1Password** into
+   `~/.config/age/keys.txt`:
 
    ```bash
-   op read "op://Private/chezmoi-age-key/key.txt" > ~/.config/chezmoi/key.txt
-   chmod 600 ~/.config/chezmoi/key.txt
+   op read "op://Private/chezmoi-age-key/key.txt" > ~/.config/age/keys.txt
+   chmod 600 ~/.config/age/keys.txt
    ```
 
    This must exist before the first switch or every agenix decrypt fails during activation.
@@ -159,7 +159,7 @@ nix flake check --no-build   # or: just check
 an undefined capability surfaces as a hard evaluation error — **without** realizing the full darwin
 system closures. (The flake ships no formatter, so there's no `nix fmt --check` step.)
 
-> Full evaluation of all three `darwinConfigurations.<host>.system` derivations was verified in a
+> Full evaluation of both `darwinConfigurations.<host>.system` derivations was verified in a
 > Linux `nixos/nix` container. Nix *evaluation* is platform-independent — only *building* a darwin
 > closure requires a Mac — so an all-hosts eval on Linux is a valid structural gate. This runs in
 > CI on `macos-latest` (`.github/workflows/nix-flake-check.yml`).
@@ -167,7 +167,7 @@ system closures. (The flake ships no formatter, so there's no `nix fmt --check` 
 ## Secrets
 
 agenix decrypts every `secrets/**/*.age` blob at activation time using the identity at
-`~/.config/chezmoi/key.txt` — the same key chezmoi's `[age]` config already pointed at. **No blob
+`~/.config/age/keys.txt` — the same age identity, moved out of the retired chezmoi root. **No blob
 was re-encrypted for the port**: each is byte-identical ciphertext moved from its old chezmoi path,
 and agenix decrypts it regardless of how it was produced.
 

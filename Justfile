@@ -17,6 +17,10 @@ default:
 rebuild *HOST:
     ./rebuild.sh {{ HOST }}
 
+# Verify the running personal-mac generation and all live cutover roots.
+verify-live:
+    scripts/verify-live-deployment.sh
+
 # Evaluate the flake without building (fast structural check).
 check:
     nix flake check --no-build

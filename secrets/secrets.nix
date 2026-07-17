@@ -15,8 +15,8 @@
 # (common, personal, and work alike) is encrypted to this single key, so every entry below
 # lists the same recipient set.
 let
-  # The existing chezmoi age recipient's public key. Corresponds to the identity kept at
-  # ~/.config/chezmoi/key.txt (sourced from 1Password by bootstrap.sh). Do not change this
+  # The existing age recipient's public key. Corresponds to the identity kept at
+  # ~/.config/age/keys.txt (sourced from 1Password by bootstrap.sh). Do not change this
   # value without also re-encrypting every blob under secrets/ to the new key(s) — see
   # secrets/README.md "Rotating a secret's recipients".
   carpenter = "age1462h0ed4ufkjrq0wu326l30c8hay9uewlsaudk89mgqjc5540vrqacejsz";

@@ -48,7 +48,7 @@ fi
 # ── 2. age identity key from 1Password ───────────────────────────────────
 # The existing chezmoi age identity; agenix (modules/home/secrets.nix) reads it
 # to decrypt secrets/**.age. Must exist before the first darwin-rebuild switch.
-KEY_DEST="$HOME/.config/chezmoi/key.txt"
+KEY_DEST="$HOME/.config/age/keys.txt"
 if [ ! -s "$KEY_DEST" ]; then
   echo "==> Fetching age identity key from 1Password ..."
   if ! command -v op >/dev/null 2>&1; then

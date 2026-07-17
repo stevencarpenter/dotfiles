@@ -15,7 +15,7 @@ fixing anything this skill flags.
 
 ## Run order
 
-Run from the repo root (`/Users/carpenter/.local/share/chezmoi`). All commands are
+Run from the repo root (`/Users/carpenter/.dotfiles`). All commands are
 non-destructive — none of them write to `~/.codex/`, `~/.claude.json`, `~/.cursor/`, etc.
 
 ### 1. Lint

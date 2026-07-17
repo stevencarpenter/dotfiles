@@ -32,7 +32,7 @@ The shape is modeled on [kunchenguid/dotfiles](https://github.com/kunchenguid/do
 | `.chezmoiexternal.toml.tmpl` (agent-registry SSH clone, tpm) | `just sync` (bucket **C**; needs network/SSH) |
 | `~/Library/LaunchAgents/com.user.maxfiles.plist` | `launchd.user.agents.maxfiles` in `modules/darwin/core.nix` |
 | `dot_config/homebrew/Brewfile.tmpl` | `modules/darwin/homebrew.nix` (nix-homebrew + nix-darwin `homebrew` module), caps-gated; pure CLI tools moved to `home.packages` |
-| age encryption (chezmoi `encrypted_` + `[age]` key) | **agenix, carry-verbatim** — same identity at `~/.config/chezmoi/key.txt`, same ciphertext blobs, `modules/home/secrets.nix` |
+| age encryption (chezmoi `encrypted_` + `[age]` key) | **agenix, carry-verbatim** — same identity moved to `~/.config/age/keys.txt`, same ciphertext blobs, `modules/home/secrets.nix` |
 
 ### The hook bucket rule
 
@@ -86,22 +86,17 @@ Every `run_` hook was sorted into one of three buckets:
 - **Rebuild needs `sudo`.** `chezmoi apply` ran as the user; `darwin-rebuild switch` needs root to
   write system state. Routine config edits still need no rebuild, but any package/defaults change is
   now a privileged operation.
-- **Activation ordering is subtle.** home-manager activation is a DAG around `writeBoundary`. The
-  port relies on agenix's secret installation (`entryBefore "writeBoundary"`) landing decrypted work
-  skills *before* `skillsSync` (`entryAfter "writeBoundary"`) GCs the skills dir. This ordering is
-  documented in `secrets.nix` / `sync-hooks.nix` but is a real invariant a future edit could break.
+- **Activation ordering is subtle.** On Darwin, agenix decrypts through an asynchronous launchd
+  agent rather than Home Manager's `writeBoundary` DAG. `skillsSync` is safe because it garbage
+  collects only entries recorded in its own state; it never owns the agenix work-skill paths.
 - **Nix learning curve.** The repo is now Nix expressions, specialArgs threading, and the
   home-manager/nix-darwin option surface — a steeper on-ramp than chezmoi's prefix conventions for
   anyone (including future-owner) making changes.
-- **x86_64-darwin sunset.** `lab-mac` is Intel. nixpkgs ends Intel-darwin support with the **26.05**
-  channel this flake pins. When the flake rolls past 26.05, lab-mac's `system` must move to Apple
-  Silicon or the host be retired.
 - **Secrets are plaintext-on-disk after decrypt.** agenix decrypts to a user-owned path outside the
   store and symlinks to the target — the *store* stays safe (only ciphertext enters it), but the
   decrypted secret sits on disk mode 0400/0600, same as chezmoi's decrypted output. A single
-  long-lived age identity is shared by all three machines including the weaker-posture lab-mac; this
-  is an accepted limitation of the agenix bridge, not something the port solved (see
-  `secrets/README.md`).
+  long-lived age identity is shared by the personal and work configurations; this is an accepted
+  limitation of the agenix bridge, not something the port solved (see `secrets/README.md`).
 
 ## (d) Deferred work
 
@@ -116,49 +111,32 @@ Explicitly scoped OUT of the port; none blocks a switch today.
 3. **Homebrew cleanup graduation.** `modules/darwin/homebrew.nix` runs `cleanup = "none"` so the
    first switch won't uninstall un-listed brew packages while the inventory is audited. Graduate to
    `"uninstall"` once the brew lists are confirmed complete. Never `"zap"`.
-4. **First real switch is untested on hardware.** Only Linux-container *evaluation* was run (see
-   below) — no darwin closure has actually been built or activated on a Mac yet. The macos-defaults
-   and homebrew modules carry reviewer NOTEs for keys that need on-hardware verification against the
-   pinned nix-darwin release (e.g. `menuExtraClock.ShowDate` int-vs-string, trackpad four-finger
-   gesture keys, unmanaged-user `shell` pin).
-5. **Repo-level Claude skills are still chezmoi-flavored.** `.claude/skills/` in this repo (e.g.
-   `chezmoi-verify`, `machine-capability-audit`, `dotfiles-secret-authoring`) still describe chezmoi
-   mechanics and target `.chezmoi*` paths. They need a nix-flavored rewrite (or retirement). The
-   chezmoi-native `machine-capability-audit` pre-commit hook was already dropped;
-   `.pre-commit-config.yaml` notes the deferred nix-flavored successor.
-
 ## (e) Verification evidence
 
-- **All three `darwinConfigurations` evaluate.** `darwinConfigurations.{personal-mac,work-mac,
-  lab-mac}.system.drvPath` were forced on a `nixos/nix` container. Nix evaluation is
+- **Both `darwinConfigurations` evaluate.** `darwinConfigurations.{personal-mac,work-mac}.
+  system.drvPath` were forced during flake evaluation. Nix evaluation is
   platform-independent (only *building* a darwin closure needs a Mac), so an all-hosts eval on Linux
-  is a valid structural gate — it exercises every module, option, and gate, including lab-mac's
-  x86_64-darwin row.
+  is a valid structural gate — it exercises every module, option, and gate.
 - **`flake.lock` is committed.** Inputs are pinned; `nix flake check --no-build` in CI
   (`.github/workflows/nix-flake-check.yml`, `macos-latest`) re-evaluates every output on each change.
 - **One fix applied during the port.** The Dock hot-corner `wvous-*-modifier` keys are not typed
   nix-darwin options; they were moved from the `dock` submodule (which rejected them) into
   `system.defaults.CustomUserPreferences."com.apple.dock"` in `macos-defaults.nix`, matching the
   original script's `modifier = 0` (none).
+- **personal-mac is activated on hardware.** The running closure, out-of-store links, login shell,
+  macOS defaults, Homebrew trust, MCP drift, skill state, rendered secrets, and tiling processes are
+  checked by `scripts/verify-live-deployment.sh`.
 
 ## (f) Path to first switch
 
 Tracked in Linear as [SNUG-362](https://linear.app/snugmarina/issue/SNUG-362) (label: `dotfiles`).
 
-The port is complete *as a shape*: all 293 tracked files are accounted for (140 raw dotfiles →
-`home/`, 30 age blobs → `secrets/`, 12 `.tmpl` templates resolved, 10 hooks ported, machinery
-deleted), and every host evaluates. The honest gap is that **evaluates cleanly ≠ switches
-cleanly** — evaluation type-checks the whole module tree but cannot exercise Homebrew activation,
-launchd, macOS `defaults` acceptance, or agenix's runtime decrypt. Rollout order:
+The port is complete as a shape and is live on `personal-mac`. Evaluation type-checks the whole
+module tree but does not replace the on-hardware `scripts/verify-live-deployment.sh` gate.
+Rollout order:
 
-1. **personal-mac first** — it is the machine that can be babysat. `./bootstrap.sh`, then walk the
-   on-hardware checklist in SNUG-362 (defaults edge-case keys, unmanaged-user shell pin, homebrew
-   activation with `cleanup = "none"`, agenix decrypt, the four sync-hook activations, tiling
-   restart), then `just sync`.
+1. **personal-mac first — live.** `./rebuild.sh personal-mac`, `just sync`, then
+   `scripts/verify-live-deployment.sh`.
 2. **work-mac** once personal-mac proves out.
-3. **lab-mac last, pending a decision**: nixpkgs 26.05 is the last release supporting
-   x86_64-darwin, so the Intel lab machine's runway under this paradigm is finite — stay pinned,
-   move it to Linux/NixOS, or keep it on chezmoi.
 
-Until step 1 has run, treat every reviewer `NOTE:` comment in `modules/darwin/` as an open
-question, and do not merge this branch to main.
+The retired Intel lab host is no longer a flake output; its ownership moved to the homelab lane.

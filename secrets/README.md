@@ -39,17 +39,17 @@ driven entirely by `identity` and `caps.skills`, both threaded in via `specialAr
 
 ## Bootstrap: getting the age identity in place
 
-Every secret above decrypts against a single existing age identity — the same one chezmoi's
-`[age]` config already pointed at — kept at `~/.config/chezmoi/key.txt` (the path name is a
-holdover from chezmoi; it is not moved or renamed as part of this port). `age.identityPaths` in
+Every secret above decrypts against a single existing age identity — the same key used before
+the Nix migration, now kept at `~/.config/age/keys.txt`. `age.identityPaths` in
 `modules/home/secrets.nix` points straight at it. This is a chicken-and-egg root of trust: the
 key itself is **not** stored in this repo (public repo — see `docs/superpowers/plans/
 2026-07-02-work-decoupling-and-1password-secret-migration.md` for why), so it must be placed on
 disk once, by hand, before the very first `darwin-rebuild switch` on a new machine:
 
 ```bash
-op read "op://Private/chezmoi-age-key/key.txt" > ~/.config/chezmoi/key.txt
-chmod 600 ~/.config/chezmoi/key.txt
+mkdir -p ~/.config/age
+op read "op://Private/chezmoi-age-key/key.txt" > ~/.config/age/keys.txt
+chmod 600 ~/.config/age/keys.txt
 
 # only now is it safe to run the first activation:
 darwin-rebuild switch --flake ~/.dotfiles#<host>
@@ -102,7 +102,7 @@ later, on-demand work. Neither blocks `darwin-rebuild switch` today.
    ```bash
    # conceptual — decrypt with the existing identity, then let agenix re-encrypt via -e
    for f in $(find secrets -name '*.age'); do
-     age -d -i ~/.config/chezmoi/key.txt "$f" > /tmp/plain
+     age -d -i ~/.config/age/keys.txt "$f" > /tmp/plain
      agenix -e "$f" <<< "$(cat /tmp/plain)"   # or open $EDITOR and paste
      shred -u /tmp/plain
    done

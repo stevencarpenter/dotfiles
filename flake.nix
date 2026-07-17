@@ -53,6 +53,7 @@
             nix-homebrew.darwinModules.nix-homebrew
             home-manager.darwinModules.home-manager
             {
+              system.configurationRevision = self.rev or self.dirtyRev or null;
               home-manager.useGlobalPkgs = true;
               home-manager.useUserPackages = true;
               # First switch on a machine still running chezmoi collides on every

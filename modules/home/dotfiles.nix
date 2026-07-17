@@ -27,6 +27,11 @@ let
   # Repo path == home-relative target path (the home/ tree mirrors ~), so a
   # single relative path names both the link source and its home.file key.
   link = path: config.lib.file.mkOutOfStoreSymlink "${dotfiles}/home/${path}";
+  repoLink = path: config.lib.file.mkOutOfStoreSymlink "${dotfiles}/${path}";
+  forcedRepoLink = path: {
+    source = repoLink path;
+    force = true;
+  };
 
   # Turn a list of relative paths into { "<path>".source = link "<path>"; ... }.
   mkLinks = paths: lib.genAttrs paths (p: { source = link p; });
@@ -166,6 +171,28 @@ in
       ".config/skills/skills-master.json"
       ".config/skills/machine/${overlay}"
     ]))
+    # Personal skill links previously pointed into the retired chezmoi source
+    # tree. Own each tool-native link explicitly so deleting that checkout does
+    # not strand Codex, Cursor, Copilot, OpenCode, or Junie.
+    (lib.optionalAttrs (caps.skills && identity == "personal") {
+      ".config/opencode/skills/use-railway" = forcedRepoLink "skills/personal/use-railway";
+      ".codex/skills/playwright" = forcedRepoLink "skills/personal/playwright";
+      ".codex/skills/use-railway" = forcedRepoLink "skills/personal/use-railway";
+      ".cursor/skills/use-railway" = forcedRepoLink "skills/personal/use-railway";
+      ".copilot/skills/use-railway" = forcedRepoLink "skills/personal/use-railway";
+      ".junie/skills/clerk" = forcedRepoLink "skills/personal/clerk";
+      ".junie/skills/clerk-testing" = forcedRepoLink "skills/personal/clerk-testing";
+      ".junie/skills/clerk-webhooks" = forcedRepoLink "skills/personal/clerk-webhooks";
+      ".junie/skills/design-an-interface" = forcedRepoLink "skills/personal/design-an-interface";
+      ".junie/skills/domain-model" = forcedRepoLink "skills/personal/domain-model";
+      ".junie/skills/find-skills" = forcedRepoLink "skills/personal/find-skills";
+      ".junie/skills/gh-axi" = forcedRepoLink "skills/personal/gh-axi";
+      ".junie/skills/github-triage" = forcedRepoLink "skills/personal/github-triage";
+      ".junie/skills/qa" = forcedRepoLink "skills/personal/qa";
+      ".junie/skills/request-refactor-plan" = forcedRepoLink "skills/personal/request-refactor-plan";
+      ".junie/skills/triage-issue" = forcedRepoLink "skills/personal/triage-issue";
+      ".junie/skills/ubiquitous-language" = forcedRepoLink "skills/personal/ubiquitous-language";
+    })
 
     # ---- caps.agent_journal ----------------------------------------------
     (lib.optionalAttrs caps.agent_journal (mkLinks [

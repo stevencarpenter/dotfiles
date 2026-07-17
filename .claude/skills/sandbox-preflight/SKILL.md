@@ -36,7 +36,6 @@ decision mechanical.
 | `ssh` with ControlMaster, or any new control socket | **DISABLE** | binds `~/.ssh/cm-*` socket |
 | `mktemp`/`mkdtemp` targeting `/tmp` or `/var` (not `$TMPDIR`) | **DISABLE** | write outside allowlist |
 | plain `git status`/`diff`/`log`/`add`/`commit`/`switch`/`checkout` | OK | local `.git` writes are inside `.` |
-| `chezmoi execute-template` / `diff` / `cat` | OK | reads + `$TMPDIR` only |
 | anything writing only to `$TMPDIR` or `~/.cache/pre-commit` | OK | already allowlisted |
 
 When unsure, run the classifier:
@@ -65,10 +64,9 @@ calls on their own, sandbox disabled.
 
 ## Structural cure (do this once, not per-command)
 
-The `uv`-cache slice — the largest sub-cluster — can be killed at the source by extending
-the same pre-seed that already handles pre-commit. In `dot_claude/modify_settings.json.tmpl`,
-add `{{ .chezmoi.homeDir }}/.cache/uv` to the `sandbox.filesystem.allowWrite` merge exactly
-as `~/.cache/pre-commit` is added. That removes every `uv`-cache failure without per-command
+The `uv`-cache slice is handled by the generated Claude settings merge in
+`modules/home/ai-stack.nix`, which allowlists both `~/.cache/pre-commit` and `~/.cache/uv`.
+That removes uv-cache failures without per-command
 judgment. The irreducible classes remain (gh `OSStatus -26276` is a keychain cert-path
 problem, not a writable-dir problem; `.git/config` and `~/.ssh` writes) — those always need
 the flag, which is why this skill stays useful even after the pre-seed.
@@ -77,8 +75,6 @@ the flag, which is why this skill stays useful even after the pre-seed.
 
 - Plain local git (`status`, `diff`, `log`, `add`, `commit`, `switch`) — sandbox-safe; do
   not reflexively disable the sandbox for everything (that defeats its purpose).
-- `chezmoi execute-template` / `chezmoi diff` — reads plus `$TMPDIR`, sandbox-safe. See
-  [chezmoi-verify](../chezmoi-verify/SKILL.md).
 - Commands writing only to `$TMPDIR` or `~/.cache/pre-commit`.
 
 ## Common failure modes
@@ -92,6 +88,6 @@ the flag, which is why this skill stays useful even after the pre-seed.
 
 ## Reference
 
-- `dot_claude/modify_settings.json.tmpl` — the `allowWrite` pre-seed (currently `~/.cache/pre-commit` only).
+- `modules/home/ai-stack.nix` — the generated Claude sandbox allowWrite merge.
 - `scripts/classify_command.sh` — deterministic SANDBOX_OK / DISABLE_SANDBOX classifier.
 - CLAUDE.md § *Command sandbox* — the prose rule this skill operationalizes.
