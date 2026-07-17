@@ -2,23 +2,15 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-script="${repo_root}/dot_claude/executable_statusline-command.sh"
+# Under nix the statusline is a raw out-of-store symlink (dotfiles.nix,
+# mkOutOfStoreSymlink) — no chezmoi source-path resolution to assert. Just
+# exercise the source file directly for its rendering behavior.
+script="${repo_root}/home/.claude/statusline-command.sh"
 workdir="$(mktemp -d "${TMPDIR:-/tmp}/claude-statusline.XXXXXX")"
-confdir="$(mktemp -d "${TMPDIR:-/tmp}/claude-statusline-conf.XXXXXX")"
-trap 'rm -rf "${workdir}" "${confdir}"' EXIT
+trap 'rm -rf "${workdir}"' EXIT
 
-# Synthetic chezmoi config: the source state (.chezmoiignore) needs .machine
-# to render, and CI runners have no local chezmoi config. Any machine works —
-# the statusline re-include is unconditional.
-printf '[data]\n    machine = "personal-mac"\n' > "${confdir}/chezmoi.toml"
-
-managed_source="$(chezmoi --config "${confdir}/chezmoi.toml" --source "${repo_root}" source-path "$HOME/.claude/statusline-command.sh" 2>/dev/null || true)"
-if [[ "${managed_source}" != "${script}" ]]; then
-  {
-    echo "~/.claude/statusline-command.sh is not managed by the expected source"
-    echo "expected: ${script}"
-    echo "actual: ${managed_source:-<not managed>}"
-  } >&2
+if [[ ! -f "${script}" ]]; then
+  echo "statusline source not found at ${script}" >&2
   exit 1
 fi
 

@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
-# verify_encrypted.sh — assert every encrypted_*-prefixed chezmoi source is real age
-# ciphertext (begins with the AGE header). Catches a sensitive file accidentally tracked
-# as plaintext. Exits non-zero if any encrypted_* source is not ciphertext.
+# verify_encrypted.sh — assert every agenix source is real age ciphertext.
 set -euo pipefail
 
 root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
@@ -14,11 +12,11 @@ while IFS= read -r f; do
     printf 'PLAINTEXT? %s\n' "$f"
     fail=1
   fi
-done < <(find "$root" -type f -name 'encrypted_*' -not -path '*/.git/*')
+done < <(find "$root/secrets" -type f -name '*.age' -not -path '*/.git/*')
 
 if [ "$found" -eq 0 ]; then
-  echo "No encrypted_* sources found under $root."
+  echo "No .age sources found under $root/secrets."
 elif [ "$fail" -eq 0 ]; then
-  echo "OK: all encrypted_* sources begin with the AGE header."
+  echo "OK: all secrets/*.age sources begin with the AGE header."
 fi
 exit "$fail"

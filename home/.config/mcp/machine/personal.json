@@ -1,0 +1,21 @@
+{
+  "$schema": "https://modelcontextprotocol.io/schema/config.json",
+  "servers": {
+    "hippo": {
+      "type": "stdio",
+      "command": "uv",
+      "args": [
+        "run",
+        "--project",
+        "/Users/carpenter/projects/hippo/brain",
+        "hippo-mcp"
+      ],
+      "autoApprove": [
+        "ask",
+        "search_knowledge",
+        "search_events",
+        "get_entities"
+      ]
+    }
+  }
+}

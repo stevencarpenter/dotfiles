@@ -38,7 +38,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--repo-root",
         type=Path,
         default=None,
-        help="Override the chezmoi repo root (defaults to ~/.local/share/chezmoi).",
+        help="Override the dotfiles repo root (defaults to ~/.dotfiles).",
     )
     return parser
 

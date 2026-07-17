@@ -1,0 +1,29 @@
+machine = "personal-mac"
+context = "personal"
+standup_hour = 8
+
+[vault]
+path = "/Users/carpenter/projects/obsidian"
+daily_dir = "Daily"
+daily_note_path_format = "%Y/%m/%d-%a"
+workstreams_dir = "Workstreams"
+sessions_dir = "Agent Sessions"
+projects_dir = "Projects"
+work_log_header = "## Work Log (Fast, Timestamped)"
+agent_notes_header = "## Agent Notes"
+todo_tag = "#agent-todo"
+
+[state]
+dir = "/Users/carpenter/.local/state/agent-journal"
+
+[adapters]
+enabled = ["codex", "claude_code"]
+
+[adapters.codex]
+sessions_glob = "/Users/carpenter/.codex/sessions/*/*/*/*.jsonl"
+
+[adapters.claude_code]
+projects_dir = "/Users/carpenter/.claude/projects"
+
+[redaction]
+extra_patterns = []

@@ -495,6 +495,24 @@ def _load_json(path: Path) -> JsonDict:
         return json.load(handle)
 
 
+def _load_json_object(path: Path) -> JsonDict:
+    """Load a JSON document and require an object at its root.
+
+    Args:
+        path: JSON file to load.
+
+    Returns:
+        The parsed JSON object.
+
+    Raises:
+        ValueError: When the document is valid JSON but its root is not an object.
+    """
+    payload = _load_json(path)
+    if not isinstance(payload, dict):
+        raise ValueError(f"{path} must contain a JSON object at the document root")
+    return payload
+
+
 def _write_json(path: Path, payload: JsonDict, *, sort_keys: bool = True) -> None:
     """Write JSON to ``path`` atomically via a tempfile + rename.
 
@@ -546,7 +564,11 @@ def _render_patched_owned_config(
     if not path.is_file():
         return None
     return _patch_owned_config(
-        master, home, _load_json(path), override_key=override_key, server_map=server_map
+        master,
+        home,
+        _load_json_object(path),
+        override_key=override_key,
+        server_map=server_map,
     )
 
 
@@ -752,7 +774,7 @@ def render_patch_with_source(
     """
     if not spec.path.is_file():
         return None
-    deployed = _load_json(spec.path)
+    deployed = _load_json_object(spec.path)
     expected = _patch_owned_config(
         master,
         home,

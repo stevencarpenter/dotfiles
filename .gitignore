@@ -53,13 +53,12 @@ build/
 
 # Repo-local / machine-specific (defensive, files don't currently exist)
 .envrc
-private_dot_claude.json
 *threat-model*.md
 
-# All CLAUDE.md files except root and dot_claude/ (tracked) — explicit allowlist
+# All CLAUDE.md files except root and home/.claude/ (tracked) — explicit allowlist
 **/CLAUDE.md
 !/CLAUDE.md
-!/dot_claude/CLAUDE.md
+!/home/.claude/CLAUDE.md
 
 # Serena MCP cache
 .serena/
@@ -73,3 +72,11 @@ private_dot_claude.json
 .understand-anything/tmp/
 .codegraph/
 .agents/
+
+# Nix build artifacts
+# `result` symlinks left by `nix build` / `darwin-rebuild build`, and the
+# per-directory direnv cache (`use flake`). flake.lock stays tracked.
+result
+result-*
+.direnv/
+.direnv

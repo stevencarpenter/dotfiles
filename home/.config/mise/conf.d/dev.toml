@@ -1,0 +1,7 @@
+[tools]
+# dev-capability tool block (symlinked in only on hosts with caps.dev).
+# LSP servers for dev machines — matches the dev-gated plugins typescript-lsp and
+# lua-lsp (swift-lsp's sourcekit-lsp ships with Xcode, so no install needed here).
+"npm:typescript-language-server" = "latest"
+"npm:typescript" = "latest"               # tsserver — required by typescript-language-server
+lua-language-server = "latest"

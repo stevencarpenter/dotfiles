@@ -4,20 +4,20 @@ on:
   push:
     paths:
       - "mcp_sync/**"
-      - "dot_config/skills/**"
+      - "home/.config/skills/**"
+      - "home/.config/mcp/**"
       - "skills/**"
-      - ".chezmoidata/machines.toml"
-      - ".chezmoiignore"
-      - ".chezmoiscripts/run_after_sync-skills.sh.tmpl"
+      - "lib/machines.nix"
+      - "modules/home/sync-hooks.nix"
       - ".github/workflows/mcp-sync-ci.yml"
   pull_request:
     paths:
       - "mcp_sync/**"
-      - "dot_config/skills/**"
+      - "home/.config/skills/**"
+      - "home/.config/mcp/**"
       - "skills/**"
-      - ".chezmoidata/machines.toml"
-      - ".chezmoiignore"
-      - ".chezmoiscripts/run_after_sync-skills.sh.tmpl"
+      - "lib/machines.nix"
+      - "modules/home/sync-hooks.nix"
       - ".github/workflows/mcp-sync-ci.yml"
 
 jobs:

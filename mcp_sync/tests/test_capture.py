@@ -259,6 +259,20 @@ def test_capture_malformed_json_reports_error_not_crash(
     assert "not valid JSON" in capsys.readouterr().out
 
 
+def test_capture_non_object_json_reports_error_not_crash(
+    temp_home, monkeypatch_home, master_config_file, capsys
+):
+    """A valid JSON document with the wrong root shape exits cleanly."""
+    run_sync(home=temp_home)
+    cursor_path = temp_home / ".cursor" / "mcp.json"
+    cursor_path.write_text("[]\n", encoding="utf-8")
+
+    exit_code = run_capture("cursor", master_path=master_config_file, home=temp_home)
+
+    assert exit_code == 1
+    assert "must contain a JSON object" in capsys.readouterr().out
+
+
 def test_capture_master_missing_exits_1(temp_home, monkeypatch_home):
     """--capture with a nonexistent master config exits 1."""
     exit_code = run_capture(

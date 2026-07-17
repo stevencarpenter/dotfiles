@@ -2,6 +2,10 @@
 name: machine-capability-audit
 description: Audit chezmoi machine-capability gating. USE THIS SKILL whenever the user adds a capability to `.chezmoidata/machines.toml`, adds a new machine row, migrates a `hasPrefix` gate to the capability table, or asks any of "is this capability used?", "are there orphan capabilities?", "verify capability gating", "what gates does X have?", "audit capabilities", "find prefix gates I should migrate", "did I forget to wire this up?". Triggers on edits to `machines.toml`, on PRs that add `(index .machines .machine).<cap>` references, and any time the user is reasoning about whether a chezmoi gate is consistent across the repo. Bias toward triggering: a 30-second audit is cheap; shipping a defined-but-unwired capability is a silent bug.
 ---
+> **DEPRECATED (nix port):** this skill targets the retired chezmoi machinery.
+> The repo is now a nix-darwin + home-manager flake — use `nix flake check --no-build`
+> / `just check` and `lib/machines.nix` instead. Kept for reference on main.
+
 
 # Machine capability audit
 

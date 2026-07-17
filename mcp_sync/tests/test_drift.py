@@ -76,6 +76,20 @@ def test_malformed_claude_json_reports_drift_not_crash(
     assert "not valid JSON" in entries["claude"].diff
 
 
+def test_non_object_claude_json_reports_drift_not_crash(
+    temp_home, monkeypatch_home, master_config_file
+):
+    """A valid non-object Claude document is reported instead of crashing."""
+    claude_path = temp_home / ".claude.json"
+    claude_path.write_text("[]\n", encoding="utf-8")
+
+    master = load_master_config(master_config_file)
+    entries = _entries_by_name(drift_report(master, temp_home))
+
+    assert entries["claude"].status == "drift"
+    assert "must contain a JSON object" in entries["claude"].diff
+
+
 def test_check_exits_1_on_malformed_claude_json(
     temp_home, monkeypatch_home, master_config_file
 ):

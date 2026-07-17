@@ -53,7 +53,7 @@ stated.
 | **token_auditor** | None | None | High — cross-tool (Claude/Codex/OpenCode) cost auditing is genuinely wanted | Public repo, `uv tool install git+https`; PyPI later |
 | **aws_config_gen** | None | Work-only overrides (gitignored) | Low–med — crowded space (`aws-sso-util`, `granted`) | Extract only if you'll maintain it; else leave vendored |
 | **mcp_sync → MCP fan-out** | Low | None (config is in dotfiles) | Med — many people juggle MCP configs across tools | Public repo after splitting skills out |
-| **mcp_sync → skills sync** | **High** (`skills.py:512` hardcodes `~/.local/share/chezmoi`) | Yes (`skills/personal/`) | Low — it's chezmoi/dotfiles glue | Keep as dotfiles glue, or fold into a skills registry |
+| **mcp_sync → skills sync** | **High** (`skills.py` defaults to `~/.dotfiles`) | Yes (`skills/personal/`) | Low — it's dotfiles glue | Keep as dotfiles glue, or fold into a skills registry |
 
 `token_auditor` is the standout first move: zero coupling, 100% coverage gate, its own
 README, no post-apply hook, and no personal data — it's consumed only by the `codax`/`claade`/

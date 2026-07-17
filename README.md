@@ -1,168 +1,219 @@
 # Dotfiles
 
-Personal macOS dotfiles managed with [chezmoi](https://www.chezmoi.io/). Secrets are age-encrypted,
-with the key sourced from 1Password. The repo also vendors two small Python tools that regenerate
-machine-specific configuration after every apply.
+Personal macOS dotfiles built as a **nix-darwin + home-manager flake**, in the "thin wrapper"
+shape modeled on [kunchenguid/dotfiles](https://github.com/kunchenguid/dotfiles): nix owns
+*packages*, macOS defaults, capability gating, and orchestration, while the raw config files live
+under [`home/`](home/) with their real dotted names and are symlinked into place **out of the nix
+store** (through `~/.dotfiles`). Editing a raw config is live immediately — no rebuild required.
 
-One source tree drives three machine types — `personal-mac`, `work-mac`, and `lab-mac` — gated by a
-capability table, so the same checkout produces a different environment on each.
+One flake drives two machine types — `personal-mac` and `work-mac` — from a single
+capability table ([`lib/machines.nix`](lib/machines.nix)), so the same checkout produces a
+different environment on each host with no hostname checks inside any module.
 
-## What's configured
+Secrets are age-encrypted (via [agenix](https://github.com/ryantm/agenix)) against the existing
+age identity, whose key is sourced from 1Password at bootstrap. The repo also vendors two small
+Python tools (`mcp_sync/`, `aws_config_gen/`) that regenerate machine-specific AI-tool config after
+every switch.
 
-| Area | Tools |
-|------|-------|
-| Shell | zsh, nushell, atuin (shell history), mise (runtime/tool versions) |
-| Editor | Neovim (LazyVim), IdeaVim |
-| Terminal | Ghostty, tmux |
-| Window management | AeroSpace, SketchyBar, borders (tiling stack) |
-| Files & git | yazi, git, worktrunk (git worktrees) |
-| Packages | Homebrew (Brewfile) |
-| AI tooling | Claude Code, GitHub Copilot, MCP, Claude skills |
-| Other | DuckDB, SSH config, dev-container profiles, hippo (local knowledge-base client) |
+> **Migrating from the old chezmoi layout?** See [`docs/nix-migration.md`](docs/nix-migration.md)
+> for the full mechanism-by-mechanism mapping (dot\_ prefixes → `home/`, `.chezmoiignore` gates →
+> `mkIf`, `run_` hooks → activation vs `just sync`, age → agenix).
 
-Most areas deploy only where the relevant capability is enabled (see
-[Machine types and capabilities](#machine-types-and-capabilities)).
+## Repo tour
 
-## Installation
-
-Requirements: Homebrew, plus Python 3.14+ and `uv` (used by the post-apply hooks and vendored tools).
-
-### 1. Prerequisites (fresh machine)
-
-```shell
-ssh-keygen -t ed25519 -C "$USER macbook @ $EPOCHSECONDS"
-mkdir -p ~/projects ~/programs
-
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-brew install chezmoi age
+```
+flake.nix                 # inputs + one-screen mkHost fold (darwinConfigurations.<host>)
+lib/machines.nix          # capability table — the single source of per-host variance
+hosts/                    # {personal,work}-mac.nix — thin shims; host-scoped decls only
+modules/
+  darwin/                 # system scope (specialArgs): core, macos-defaults, homebrew
+  home/                   # home scope (extraSpecialArgs): dotfiles, shell, packages,
+                          #   tiling, dev-tools, ai-stack, secrets, sync-hooks
+home/                     # raw dotfiles (live, symlinked out-of-store through ~/.dotfiles)
+secrets/                  # age ciphertext + secrets.nix recipients (see secrets/README.md)
+mcp_sync/                 # vendored uv tool — MCP + skills fan-out
+aws_config_gen/           # vendored uv tool — AWS SSO profile generator
+bootstrap.sh  rebuild.sh  # fresh-machine setup / routine switch (host auto-detect)
+Justfile                  # nix + python + sync task runner
 ```
 
-### 2. Age encryption key
+- **`flake.nix`** — pins `nixpkgs`/`nix-darwin`/`home-manager` to the **26.05** stable darwin line
+  (plus `nix-homebrew` and `agenix`), then folds `lib/machines.nix` into
+  `darwinConfigurations.<host>` via a `mkHost` helper. Every host receives the same specialArgs
+  payload — `{ inherit inputs hostName; user; caps; identity; }` — for both the darwin modules
+  (`specialArgs`) and home-manager (`extraSpecialArgs`). Adding a machine stays a one-row edit.
+- **`lib/machines.nix`** — the capability table: each machine maps to `system`, `user`, an
+  `identity` string (`personal`/`work`, replacing the old `hasPrefix` gates), and a `caps`
+  set of booleans. Modules gate on `caps.<x>` / `identity` — never on hostname.
+- **`hosts/*.nix`** — deliberately thin. They import `modules/darwin` and hold only genuinely
+  host-scoped declarations. All real variance flows from the caps table.
+- **`modules/darwin/`** — system scope. `core.nix` (nix-daemon ownership, unfree policy, login
+  shell pin, `maxfiles` launchd agent, `stateVersion`), `macos-defaults.nix` (declarative
+  `system.defaults.*`), `homebrew.nix` (nix-homebrew taps/brews/casks, gated per caps).
+- **`modules/home/`** — home scope. `dotfiles.nix` is the heart of the thin wrapper (out-of-store
+  symlinks); the rest own shell, packages, tiling, dev tooling, the AI stack, agenix secrets, and
+  the post-switch sync hooks. Each self-gates on caps/identity.
+- **`home/`** — the actual dotfiles, mirroring `~` (e.g. `home/.config/nvim`,
+  `home/.config/zsh/.zshrc`, `home/.claude/hooks/…`). Symlinked live; safe to edit in place.
+- **`secrets/`** — byte-identical age ciphertext carried over from chezmoi, plus `secrets.nix`
+  (agenix recipients). Nothing here is decrypted or edited by hand. See
+  [`secrets/README.md`](secrets/README.md).
+- **`mcp_sync/`, `aws_config_gen/`** — isolated `uv` projects (Python 3.14+, no runtime deps) that
+  fan config out to per-tool formats after each switch. Run standalone or via the activation hooks.
 
-Restore the key from the `dotfiles-age-key` 1Password note before initializing:
+## Machines and capability gating
 
-```shell
-mkdir -p ~/.config/chezmoi
-cat > ~/.config/chezmoi/key.txt << 'EOF'
-# public key: age1462h0ed4ufkjrq0wu326l30c8hay9uewlsaudk89mgqjc5540vrqacejsz
-AGE-SECRET-KEY-<your-secret-key>
-EOF
-chmod 600 ~/.config/chezmoi/key.txt
+Every gate keys off a capability boolean in `lib/machines.nix` (threaded in via specialArgs), so
+adding a machine is a one-row change and no gate site needs editing.
+
+| Capability | personal | work | Gates |
+|------------|:--:|:--:|-------|
+| `tiling` | yes | yes | AeroSpace + SketchyBar + borders (WM stack) |
+| `sketchybar_workspace_badges` | no | yes | SketchyBar dock-badge queries via `lsappinfo` |
+| `atuin` | yes | no | atuin client → self-hosted sync server |
+| `mcp` | yes | yes | MCP master config + per-tool sync hook |
+| `skills` | yes | yes | Claude skills manifest + sync hook |
+| `gui` | yes | yes | GUI apps + display fonts |
+| `dev` | yes | no | language-LSP plugins + dev Brewfile/fonts block |
+| `aws_sso` | no | yes | AWS SSO profile generator |
+| `infra` | no | yes | Kubernetes / cluster-ops tooling via mise |
+| `agent_journal` | yes | no | Obsidian agent-journal config, CLI wrappers, Claude hook |
+| `agents` | yes | no | personal agent-registry clone + fan-out installer |
+| `token_auditor` | yes | yes | standalone token-auditor uv tool (codax/claade wrappers) |
+
+`identity` (`personal`/`work`) additionally splits ownership-flavored gates — personal-only
+shell profiles + hippo, work-only shell/AWS profiles, homelab-over-Tailscale (`!= "work"`) SSH +
+`tailscale.zsh`. `work` is corporate-curated (`dev`/`atuin` off, its own dev tooling); `personal`
+is the daily driver. Both current machines are `aarch64-darwin`.
+
+**Adding a machine:** copy a row in `lib/machines.nix`, rename it, flip the caps you don't want,
+and add the name to the `detect_host` map in `bootstrap.sh` / `rebuild.sh`.
+**Adding a capability:** add the key to *every* row (`flake.nix` asserts the row shape) and gate
+the owning module on `caps.<capability>`.
+
+## Fresh-machine setup
+
+`bootstrap.sh` is idempotent — safe to re-run. It:
+
+1. Installs **Xcode Command Line Tools** (nix-darwin has no option for CLT; native builds need
+   them first).
+2. Installs **Lix** if `nix` isn't on PATH, via the Lix installer. (`nix.enable = true` with
+   `nix.package = pkgs.lix` in `modules/darwin/core.nix` — nix-darwin manages the daemon and
+   runs Lix as the interpreter.)
+3. Fetches the existing **age identity key from 1Password** into
+   `~/.config/age/keys.txt`:
+
+   ```bash
+   op read "op://Private/chezmoi-age-key/key.txt" > ~/.config/age/keys.txt
+   chmod 600 ~/.config/age/keys.txt
+   ```
+
+   This must exist before the first switch or every agenix decrypt fails during activation.
+4. Links `~/.dotfiles → <repo>` (the out-of-store root the raw symlinks resolve through).
+5. Resolves the host config (arg → `scutil --get LocalHostName` map → prompt) and runs the
+   **first switch** straight from the flake input (`darwin-rebuild` isn't on PATH yet):
+
+   ```bash
+   sudo nix run github:nix-darwin/nix-darwin/nix-darwin-26.05#darwin-rebuild -- \
+     switch --flake "$HOME/.dotfiles#<host>"
+   ```
+
+6. Installs **rustup** (kept imperative on purpose — see `docs/nix-migration.md`).
+7. Runs **`just sync`** for the network/SSH side channels (git externals + token-auditor).
+
+Then run it:
+
+```bash
+./bootstrap.sh              # auto-detect host from LocalHostName
+./bootstrap.sh work-mac     # or force a host config
+# equivalently: just bootstrap
 ```
 
-### 3. Initialize and apply
+A handful of TCC-protected first-run steps can't be scripted (Reduce Transparency, Caps-Lock
+remap, granting AeroSpace/SketchyBar Accessibility) — `bootstrap.sh` prints them at the end.
 
-```shell
-chezmoi init git@github.com:stevencarpenter/dotfiles.git
-chezmoi diff      # preview
-chezmoi apply     # apply, then run the sync hooks
-exec zsh
+## Daily use
+
+```bash
+./rebuild.sh                # auto-detect host, sudo darwin-rebuild switch
+./rebuild.sh work-mac       # force a host config
+just rebuild                # same, via the task runner
 ```
 
-`chezmoi init` prompts once for the machine type (`personal-mac`, `work-mac`, `lab-mac`), caching
-it in `~/.config/chezmoi/chezmoi.toml`. On a work machine, point git at the right SSH key:
+`rebuild.sh` re-links `~/.dotfiles` (harmless if correct), maps `LocalHostName` to a flake config,
+and `exec`s `sudo darwin-rebuild switch --flake ~/.dotfiles#<host>`. There's also a `rebuild`/`ca`
+shell function in `home/.config/zsh/lib/rebuild.zsh` for use from any directory.
 
-```shell
-git -C ~/.local/share/chezmoi config --local \
-  core.sshCommand 'ssh -i ~/.ssh/id_ed25519_personal -o IdentitiesOnly=yes'
+**Editing raw configs needs no rebuild.** Everything under `home/` is an out-of-store symlink, so a
+change to `~/.config/nvim/…` or `~/.config/zsh/.zshrc` is live the moment you save. A rebuild is
+only needed when you change *packages*, *macOS defaults*, *gating*, or a *secret/hook declaration*
+— anything nix actually owns.
+
+## Validate without applying
+
+```bash
+nix flake check --no-build   # or: just check
 ```
 
-## Machine types and capabilities
+`--no-build` evaluates every flake output — so a broken module, a bad option, or a gate referencing
+an undefined capability surfaces as a hard evaluation error — **without** realizing the full darwin
+system closures. (The flake ships no formatter, so there's no `nix fmt --check` step.)
 
-Every gate keys off a capability boolean in
-[`.chezmoidata/machines.toml`](.chezmoidata/machines.toml) rather than a hostname, so adding a
-machine is a one-row change. Templates and `.chezmoiignore` read
-`(index .machines .machine).<capability>`.
-
-| Capability | personal | work | lab | Gates |
-|------------|:--:|:--:|:--:|-------|
-| `tiling`  | yes | yes | no  | AeroSpace + SketchyBar + borders |
-| `sketchybar_workspace_badges` | no | yes | no | SketchyBar dock-notification badges via lsappinfo |
-| `atuin`   | yes | no  | yes | atuin client pointed at the self-hosted sync server |
-| `mcp`     | yes | yes | yes | MCP master config + per-tool sync hook |
-| `skills`  | yes | yes | yes | Claude skills manifest + sync hook |
-| `gui`     | yes | yes | yes | GUI apps + display fonts |
-| `dev`     | yes | no  | no  | language LSP plugins + dev Brewfile block |
-| `aws_sso` | no  | yes | no  | AWS SSO profile generator |
-| `infra`   | no  | yes | no  | Kubernetes / cluster-ops tooling via mise |
-| `agent_journal` | yes | no | no | Obsidian agent-journal config, CLI wrappers, Claude hook |
-| `agents`  | yes | no  | no  | personal agent-registry clone + fan-out installer |
-| `token_auditor` | yes | yes | yes | standalone token-auditor uv tool (codax/claade wrappers) |
-
-`work` is corporate-curated (`dev` and `atuin` off); `lab` is a 2019 i9 home server reached over
-macOS Screen Share.
-
-## Dynamic configuration for AI agents
-
-Four post-apply hooks regenerate machine-specific config so a single source tree fans out to
-whatever tools a given machine runs. Each hook is a no-op where its capability is off, warns rather
-than fails on missing `uv` so first boot can continue, and fails fast when `MCP_SYNC_STRICT=1`.
-
-- **MCP sync** (`mcp_sync/`, `mcp` capability) — merges a master config, a per-machine overlay, and
-  per-tool overrides, then writes native configs for Copilot, Cursor, VS Code, Junie, LM Studio,
-  Codex, Claude Code, and OpenCode. See [docs/ai-tools/mcp-setup.md](docs/ai-tools/mcp-setup.md).
-  GitHub tooling is intentionally **not** wired in: the `github@claude-plugins-official` plugin
-  (which ships a remote GitHub MCP server) is pinned `false` in `dot_claude/modify_settings.json.tmpl`
-  so it stays disabled on every machine — `gh-axi` is used for GitHub instead.
-- **Skills sync** (`sync-skills`, `skills` capability) — populates `~/.claude/skills/` from vendored
-  upstream skills and personal skills, with per-machine overlays.
-- **Agent registry sync** (`agents` capability) — clones `stevencarpenter/agents` into
-  `~/.local/share/agent-registry`, then installs its generated Claude, Codex, OpenCode, and Copilot
-  agents. After landing registry changes, refresh the external clone with
-  `MCP_SYNC_STRICT=1 chezmoi apply --refresh-externals` so live `~/.claude/agents` is updated.
-- **AWS SSO config** (`aws_config_gen/`, `aws_sso` capability) — generates `~/.aws/config` from SSO
-  profiles (work only).
-
-Run any of them by hand:
-
-```shell
-uv run --project ~/.local/share/chezmoi/mcp_sync sync-mcp-configs
-uv run --project ~/.local/share/chezmoi/mcp_sync sync-skills
-uv run --directory ~/.local/share/agent-registry python -m agent_registry.cli install
-uv run --project ~/.local/share/chezmoi/aws_config_gen aws-config-gen
-```
+> Full evaluation of both `darwinConfigurations.<host>.system` derivations was verified in a
+> Linux `nixos/nix` container. Nix *evaluation* is platform-independent — only *building* a darwin
+> closure requires a Mac — so an all-hosts eval on Linux is a valid structural gate. This runs in
+> CI on `macos-latest` (`.github/workflows/nix-flake-check.yml`).
 
 ## Secrets
 
-Secrets are age-encrypted in the source tree and decrypted on apply. The `encrypted_` filename
-prefix marks a file for decryption; `private_` forces 0600 on the target.
+agenix decrypts every `secrets/**/*.age` blob at activation time using the identity at
+`~/.config/age/keys.txt` — the same age identity, moved out of the retired chezmoi root. **No blob
+was re-encrypted for the port**: each is byte-identical ciphertext moved from its old chezmoi path,
+and agenix decrypts it regardless of how it was produced.
 
-Environment variables live in `dot_config/zsh/encrypted_dot_env.age` and decrypt to `~/.config/zsh/.env`.
-To update them:
+Which secrets a host decrypts is driven entirely by `identity` / `caps.skills` in
+`modules/home/secrets.nix` (common env everywhere; SSH config on personal (`!= "work"`); personal/work env
+splits; work-only AWS overrides + the 25 gated Claude-skill blobs). There is no per-host secrets
+file to edit. To add or rotate a secret, or to rekey recipients, see
+[`secrets/README.md`](secrets/README.md).
 
-```shell
-nvim ~/.config/zsh/.env
-chezmoi add --encrypt ~/.config/zsh/.env
-head -3 ~/.local/share/chezmoi/dot_config/zsh/encrypted_dot_env.age   # expect: -----BEGIN AGE ENCRYPTED FILE-----
-```
+## Side channels (`just sync` / `just bootstrap`)
 
-GitHub access uses the `gh` keychain token from `gh auth login`, not an encrypted variable.
+Some provisioning is deliberately kept **out of `darwin-rebuild switch`** because it needs the
+network, SSH auth, or `sudo` — things a `switch` should not silently depend on. Those live in the
+Justfile instead:
 
-## Common commands
+- **`just sync`** — clone/refresh the git externals (tpm over https, the personal `agent-registry`
+  over SSH) and install the pinned `token-auditor` uv tool. Safe to re-run; `bootstrap.sh` calls it.
+- **`just bootstrap`** — the full fresh-machine flow (`bootstrap.sh`): Lix, the age
+  key, first switch, rustup.
 
-```shell
-chezmoi diff                       # preview pending changes
-chezmoi apply -v                   # apply (runs the sync hooks)
-chezmoi edit ~/.config/zsh/.zshrc  # edit source, apply on save
-chezmoi add ~/.config/tool/config  # track a new file
-chezmoi add --encrypt <file>       # track an encrypted file
-chezmoi update                     # pull + apply
-chezmoi managed                    # list managed targets
-```
+The rule ("bucket rule" in `docs/nix-migration.md`): declarative or offline+fast+idempotent work
+goes in the switch (as `home.activation` hooks); anything touching network/SSH/sudo goes in
+`just sync` / `just bootstrap`. This keeps a switch reproducible and offline-safe.
+
+## First-switch caution: `homebrew.onActivation.cleanup = "none"`
+
+`modules/darwin/homebrew.nix` sets `cleanup = "none"` — nix-darwin will **not** uninstall brew
+packages that aren't listed in the module. This is intentional during the cutover, while the brew
+inventory is still being audited: the first switch on an existing machine won't rip out anything the
+Brewfile port might have missed. Graduate to `"uninstall"` once the lists are confirmed complete.
+**Never** use `"zap"` (it deletes app data/config, not just the app).
 
 ## Vendored Python tools
 
-Each is an isolated `uv` project (Python 3.14+, no runtime dependencies). See
-[CLAUDE.md](CLAUDE.md) for the full lint/type-check/test matrix.
+Each is an isolated `uv` project (Python 3.14+, no runtime deps). See [CLAUDE.md](CLAUDE.md) for
+the full lint/test matrix.
 
-- `mcp_sync/` — MCP and skills fan-out
-- `aws_config_gen/` — AWS SSO profile generator
+- `mcp_sync/` — MCP + skills fan-out (the `sync-mcp-configs` / `sync-skills` entry points).
+- `aws_config_gen/` — AWS SSO profile generator.
 
-`token-auditor` (the `codax`/`claade`/`opencade` auditor) was extracted to
-[its own repo](https://github.com/stevencarpenter/token-auditor) and installs as a standalone uv
-tool; it is no longer vendored here.
-
-```shell
+```bash
+just test                                                    # lint+test both tools
 uv run --project mcp_sync --group dev pytest mcp_sync/tests
 uv run --project aws_config_gen --group dev pytest aws_config_gen/tests
 ```
+
+`token-auditor` (behind the `codax`/`claade`/`opencade` wrappers) was extracted to
+[its own repo](https://github.com/stevencarpenter/token-auditor) and installs as a standalone uv
+tool via `just sync` (pin in the Justfile's `TOKEN_AUDITOR_VERSION`).
