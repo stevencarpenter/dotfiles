@@ -16,7 +16,7 @@ fi
 # Map LocalHostName to a flake config name. Tune the matchers per box.
 detect_host() {
 	case "$(scutil --get LocalHostName 2>/dev/null || true)" in
-	personal-mac) echo personal-mac ;;
+	personal-mac | Stevens-MacBook-Pro) echo personal-mac ;;
 	work-mac) echo work-mac ;;
 	*) return 1 ;;
 	esac

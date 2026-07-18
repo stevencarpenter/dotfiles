@@ -48,7 +48,7 @@ disk once, by hand, before the very first `darwin-rebuild switch` on a new machi
 
 ```bash
 mkdir -p ~/.config/age
-op read "op://Private/chezmoi-age-key/key.txt" > ~/.config/age/keys.txt
+op read "op://Private/dotfiles-age-key/notesPlain" > ~/.config/age/keys.txt
 chmod 600 ~/.config/age/keys.txt
 
 # only now is it safe to run the first activation:
