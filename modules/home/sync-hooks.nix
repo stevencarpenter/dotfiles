@@ -67,7 +67,11 @@ in
             exit 0
           fi
           cmd=( "${py}" -m mcp_sync )
-          [ -f "$OVERLAY" ] && cmd+=( --machine-config "$OVERLAY" )
+          if [ -f "$OVERLAY" ]; then
+            cmd+=( --machine-config "$OVERLAY" )
+          else
+            echo "Warning: no machine overlay at $OVERLAY; syncing master config only." >&2
+          fi
           if ! "''${cmd[@]}"; then
             echo "Warning: MCP sync failed." >&2
             exit 0
@@ -105,7 +109,11 @@ in
             exit 0
           fi
           cmd=( "${py}" -m mcp_sync.skills_cli --repo-root "${repoRoot}" )
-          [ -f "$OVERLAY" ] && cmd+=( --machine-config "$OVERLAY" )
+          if [ -f "$OVERLAY" ]; then
+            cmd+=( --machine-config "$OVERLAY" )
+          else
+            echo "Warning: no machine overlay at $OVERLAY; syncing master config only." >&2
+          fi
           if ! "''${cmd[@]}"; then
             echo "Warning: skill sync failed." >&2
             exit 0
