@@ -13,6 +13,7 @@
     inputs.agenix.homeManagerModules.default
 
     ./dotfiles.nix # out-of-store raw-dotfile symlinks (mkOutOfStoreSymlink)
+    ./raw-dotfiles.nix # reusable out-of-store symlink machinery (homeModules.rawDotfiles)
     ./shell.nix # zsh/z4h ownership (programs.zsh.enable = false), atuin
     ./packages.nix # home.packages (core CLI + fonts)
     ./tiling.nix # aerospace + sketchybar + borders (caps.tiling)

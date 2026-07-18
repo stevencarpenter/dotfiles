@@ -69,7 +69,6 @@ in
       ".config/worktrunk"
       ".config/dev-container"
       ".config/nushell/config.nu" # link the file, not the dir (nushell writes history/env.nu there)
-      ".duckdbrc"
 
       # Copilot IntelliJ instructions (single file; copilot writes runtime state in the dir).
       ".config/github-copilot/intellij/global-copilot-instructions.md"
@@ -200,5 +199,14 @@ in
       ".local/bin/agent-journal"
       ".local/bin/agent-note"
     ]))
+  ];
+
+  # One link deliberately routed through the public rawDotfiles API so the
+  # in-repo build exercises the same code path external wrappers use.
+  rawDotfiles.trees = [
+    {
+      root = "${dotfiles}/home";
+      paths = [ ".duckdbrc" ];
+    }
   ];
 }
