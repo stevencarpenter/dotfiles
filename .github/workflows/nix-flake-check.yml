@@ -9,6 +9,7 @@ on:
       - "hosts/**"
       - "modules/**"
       - "scripts/test-external-overlay-contract.sh"
+      - "scripts/test-nix-review-regressions.sh"
       - "secrets/secrets.nix"
       - ".github/workflows/nix-flake-check.yml"
   pull_request:
@@ -19,6 +20,7 @@ on:
       - "hosts/**"
       - "modules/**"
       - "scripts/test-external-overlay-contract.sh"
+      - "scripts/test-nix-review-regressions.sh"
       - "secrets/secrets.nix"
       - ".github/workflows/nix-flake-check.yml"
 
@@ -44,3 +46,8 @@ jobs:
       # Home Manager files derivation, so --no-build evaluation cannot catch it.
       - name: Build external-overlay contract fixture
         run: scripts/test-external-overlay-contract.sh
+
+      # These assertions inspect emitted activation behavior rather than merely
+      # proving that the module graph evaluates.
+      - name: Validate review regression contracts
+        run: scripts/test-nix-review-regressions.sh

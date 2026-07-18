@@ -105,3 +105,12 @@ jobs:
 
       - name: Validate Claude settings hook preservation
         run: scripts/test-claude-hooks-preservation.sh
+
+      - name: Validate fresh-bootstrap CLT gate
+        run: scripts/test-bootstrap-clt-gate.sh
+
+      - name: Validate sync capability boundary
+        run: scripts/test-sync-capability-gating.sh
+
+      - name: Validate Railway psql failure propagation
+        run: scripts/test-railway-psql-errors.sh
