@@ -148,7 +148,6 @@ in
     # (sync globs overrides/*.json, so .keep is ignored).
     (lib.optionalAttrs caps.mcp (mkLinks [
       ".config/mcp/mcp-master.json"
-      ".config/mcp/machine/${overlay}"
 
       # AI CLI tool configs gated with the MCP fan-out (matches .chezmoiignore:
       # these are dropped on machines without the mcp cap). Each tool writes its
@@ -162,14 +161,19 @@ in
     ]))
     (lib.optionalAttrs caps.mcp {
       ".config/mcp/overrides/.keep".text = "";
+      # mkDefault: an external overlay repo may take ownership of this
+      # machine's overlay (LOCKED contract — declared seam).
+      ".config/mcp/machine/${overlay}".source = lib.mkDefault (link ".config/mcp/machine/${overlay}");
     })
 
     # ---- caps.skills ------------------------------------------------------
     # Manifest + this machine's overlay; sync-skills (sync-hooks.nix) reads them.
     (lib.optionalAttrs caps.skills (mkLinks [
       ".config/skills/skills-master.json"
-      ".config/skills/machine/${overlay}"
     ]))
+    (lib.optionalAttrs caps.skills {
+      ".config/skills/machine/${overlay}".source = lib.mkDefault (link ".config/skills/machine/${overlay}");
+    })
     # Personal skill links previously pointed into the retired chezmoi source
     # tree. Own each tool-native link explicitly so deleting that checkout does
     # not strand Codex, Cursor, Copilot, OpenCode, or Junie.
