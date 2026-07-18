@@ -17,7 +17,8 @@ REAL_HOME="${HOME}"
 SANDBOX="$(mktemp -d -t mcp-sync-verify.XXXXXX)"
 trap 'rm -rf "$SANDBOX"' EXIT
 
-# Optional machine overlay arg. If omitted, auto-detect like the chezmoi hook does.
+# Optional machine overlay arg. If omitted, auto-detect from the deployed
+# overlay (the mcpSync activation hook passes it by identity at rebuild time).
 MACHINE_ARG=()
 if [[ $# -ge 1 ]]; then
   MACHINE_ARG=(--machine-config "$1")
@@ -32,9 +33,9 @@ fi
 
 # Seed the sandbox with the master + per-tool override sources from the repo.
 mkdir -p "$SANDBOX/.config/mcp/overrides"
-cp "$REPO_ROOT/dot_config/mcp/mcp-master.json" "$SANDBOX/.config/mcp/mcp-master.json"
-if [[ -d "$REPO_ROOT/dot_config/mcp/overrides" ]]; then
-  cp -R "$REPO_ROOT/dot_config/mcp/overrides/." "$SANDBOX/.config/mcp/overrides/"
+cp "$REPO_ROOT/home/.config/mcp/mcp-master.json" "$SANDBOX/.config/mcp/mcp-master.json"
+if [[ -d "$REPO_ROOT/home/.config/mcp/overrides" ]]; then
+  cp -R "$REPO_ROOT/home/.config/mcp/overrides/." "$SANDBOX/.config/mcp/overrides/"
 fi
 
 # Mirror the deployed Claude/Copilot/Codex files so the in-place patchers have
@@ -115,5 +116,5 @@ echo
 if [[ $DIFFS -eq 0 ]]; then
   echo "==> All deployed configs match what mcp_sync would generate. Nothing to apply."
 else
-  echo "==> $DIFFS file(s) would change. Run 'chezmoi apply' to deploy (or sync-mcp-configs)."
+  echo "==> $DIFFS file(s) would change. Run 'just mcp-sync' (or sync-mcp-configs) to deploy."
 fi
