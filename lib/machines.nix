@@ -7,8 +7,9 @@
 #
 # Adding a machine: copy a row, rename, flip the capabilities you don't want,
 # then add its name to the prompt hint in bootstrap.sh's detect map.
-# Adding a capability: add the key to EVERY row below (flake.nix asserts the
-# row shape) and gate the owning module on `caps.<capability>`.
+# Adding a capability: add the key to EVERY row below (flake.nix asserts each
+# row carries at least the canonical key set, all booleans — external wrapper
+# rows may add extra caps) and gate the owning module on `caps.<capability>`.
 #
 # Capabilities
 #   tiling — install/configure aerospace + sketchybar + borders (the tiling

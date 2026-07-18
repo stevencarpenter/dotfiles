@@ -31,23 +31,25 @@
     let
       machines = import ./lib/machines.nix;
 
-      # Every row must declare the same capability keys, all booleans. A dropped
-      # or misspelled cap should fail here with one clear message, not deep
-      # inside whichever module first dereferences the missing attribute.
-      capKeys = builtins.attrNames (builtins.head (builtins.attrValues machines)).caps;
-      rowShapeOk = builtins.all (
-        host:
-        builtins.attrNames host.caps == capKeys
-        && builtins.all (k: builtins.isBool host.caps.${k}) capKeys
-      ) (builtins.attrValues machines);
+      # Canonical capability keys, defined by this repo's own rows. External
+      # host rows (wrapper flakes calling lib.mkHost) must carry AT LEAST
+      # these keys, all booleans — they MAY add caps their own modules gate
+      # on (superset contract; validating extra caps is the wrapper's job).
+      canonicalCapKeys = builtins.attrNames machines.personal-mac.caps;
+      capsOk =
+        caps:
+        builtins.all (k: caps ? ${k} && builtins.isBool caps.${k}) canonicalCapKeys
+        && builtins.all (k: builtins.isBool caps.${k}) (builtins.attrNames caps);
 
       # One host = one row of the capability table. All per-host variance flows
       # from `caps`/`identity` through specialArgs + extraSpecialArgs — modules
-      # never branch on hostName. Adding a machine stays a one-row edit.
+      # never branch on hostName. External wrappers compose via the optional
+      # extraDarwinModules / extraHomeModules row attrs (LOCKED contract,
+      # docs/external-overlays.md).
       mkHost =
         hostName: host:
         assert host ? system && host ? user && host ? identity && host ? caps;
-        assert rowShapeOk;
+        assert capsOk host.caps;
         let
           # Identical payload for darwin (specialArgs) and home-manager
           # (extraSpecialArgs) modules — the locked specialArgs contract.
@@ -55,12 +57,17 @@
             inherit inputs hostName;
             inherit (host) user caps identity;
           };
+          extraDarwin = host.extraDarwinModules or [ ];
+          extraHome = host.extraHomeModules or [ ];
         in
         nix-darwin.lib.darwinSystem {
           system = host.system;
           specialArgs = args;
           modules = [
-            ./hosts/${hostName}.nix
+            # hosts/${hostName}.nix only exists for in-repo hosts — an external
+            # wrapper's host row references its own shim, so fall back to the
+            # darwin module set directly when no in-repo shim exists.
+            (if builtins.pathExists ./hosts/${hostName}.nix then ./hosts/${hostName}.nix else { imports = [ ./modules/darwin ]; })
             nix-homebrew.darwinModules.nix-homebrew
             home-manager.darwinModules.home-manager
             {
@@ -74,12 +81,24 @@
               # material for the m5 trial cutover.
               home-manager.backupFileExtension = "chezmoi-bak";
               home-manager.extraSpecialArgs = args;
+              home-manager.sharedModules = extraHome;
               home-manager.users.${host.user} = import ./modules/home;
             }
-          ];
+          ]
+          ++ extraDarwin;
         };
     in
     {
       darwinConfigurations = builtins.mapAttrs mkHost machines;
+
+      # ── Public library surface (LOCKED contract v1.0) ──────────────────
+      lib = { inherit mkHost canonicalCapKeys; };
+      darwinModules.default = import ./modules/darwin;
+      homeModules = {
+        default = import ./modules/home;
+        rawDotfiles = import ./modules/home/raw-dotfiles.nix;
+      };
+      # Alias: some consumers spell it homeManagerModules.
+      homeManagerModules = self.homeModules;
     };
 }
