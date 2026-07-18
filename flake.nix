@@ -59,6 +59,7 @@
           };
           extraDarwin = host.extraDarwinModules or [ ];
           extraHome = host.extraHomeModules or [ ];
+          configurationRevision = host.configurationRevision or (self.rev or self.dirtyRev or null);
         in
         nix-darwin.lib.darwinSystem {
           system = host.system;
@@ -71,7 +72,10 @@
             nix-homebrew.darwinModules.nix-homebrew
             home-manager.darwinModules.home-manager
             {
-              system.configurationRevision = self.rev or self.dirtyRev or null;
+              # Internal hosts inherit this repo's revision. External wrappers
+              # pass their own revision in the host row; mkDefault also lets an
+              # extra Darwin module supply it without an option conflict.
+              system.configurationRevision = nixpkgs.lib.mkDefault configurationRevision;
               home-manager.useGlobalPkgs = true;
               home-manager.useUserPackages = true;
               # First switch on a machine still running chezmoi collides on every

@@ -23,6 +23,7 @@ exec_scripts=(
   home/.config/sketchybar/plugins/wifi.sh
   home/.config/aerospace/layouts/workspace-8-comms.sh
   home/.config/tmux/scripts/claude-pane-monitor.sh
+  scripts/test-external-overlay-contract.sh
 )
 
 failures=0

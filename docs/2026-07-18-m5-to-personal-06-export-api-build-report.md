@@ -8,8 +8,9 @@ org side can build against reality, not against the original draft.
 # m5 → personal 06 — export-API build report
 
 The m5 export-API build (checklist items 1–5 in `docs/external-overlays.md`)
-is complete and gated green. This is the build report promised at the end of
-round-5 ack (`-05-round5-ack-negotiation-closed.md`).
+is complete and gated green. The sanitized consensus history and final
+migration plan are preserved in
+[`external-overlays-decision-record.md`](external-overlays-decision-record.md).
 
 ## What shipped, per task
 
@@ -31,8 +32,8 @@ round-5 ack (`-05-round5-ack-negotiation-closed.md`).
    added, no behavior change.)
 4. **ssh/git/tmux extension seams** — `c21a722`. Native layering seams:
    ssh `Include ~/.ssh/config.d/*` (top-placed, above all `Host` blocks), git
-   `conf.d/extra.inc` + `conf.d/work.inc` fixed-filename includes, tmux
-   `conf.d/*.conf` `source-file -q` glob.
+   isolated `external-overlays/git/{extra,work}.inc` fixed-filename includes,
+   and the `external-overlays/tmux/*.conf` `source-file -q` glob.
 5. **Claude settings fragment hook** — `f25348c`. Activation-time jq merge
    in `ai-stack.nix`: fragments dropped in `~/.claude/settings.d/*.json`
    deep-merge over the managed base+variant settings.
@@ -41,29 +42,27 @@ Step 6 (extraction — moving org files/overlays/secrets out and deleting the
 work module here) remains explicitly out of scope for this build; it happens
 after an external repo exists to receive them.
 
-## Two review-caught deviations from the original draft
+## Review-caught deviations and corrections
 
 Both matter to a wrapper author building against this contract — the letter
 of the original seam table undersells the actual mechanism:
 
-1. **`home.file`-under-symlinked-directory collision → repo-tracked `.keep`.**
-   The original plan assumed every seam dir would be a plain `home.file`
-   entry. That breaks for git and tmux: `~/.config/git` and `~/.config/tmux`
-   are already whole-directory out-of-store symlinks, and a `home.file` path
-   *inside* an already-symlinked directory collides with home-manager
-   ("outside $HOME"). A Task 4 review caught this before it shipped. The
-   fix: `home/.config/git/conf.d/.keep` and `home/.config/tmux/conf.d/.keep`
-   are real, repo-tracked files that ride their parent directory's existing
-   symlink for free — not `home.file` entries. ssh and Claude settings don't
-   have this problem (`~/.ssh` and `~/.claude` are *not* whole-directory
-   symlinked — only specific files inside them are managed), so
-   `.ssh/config.d/.keep` and `.claude/settings.d/.keep` remain ordinary
-   `home.file` entries.
+1. **`home.file`-under-symlinked-directory collision → isolated overlay dirs.**
+   An initial workaround placed git/tmux `.keep` files inside their existing
+   whole-directory out-of-store symlinks. That made the include paths exist but
+   did not let an external Home Manager module own a nested fragment: building
+   such a consumer failed with "outside $HOME". The corrected model preserves
+   the base directory links and moves externally owned fragments to the real
+   `~/.config/external-overlays/{git,tmux}` tree. No live-state migration or
+   parent-link mutation is required.
 2. **Fragment-merge commit-on-success hardening.** A Task 5 review catch:
    the Claude settings fragment merge now only commits its jq output to the
    real settings file on successful, well-formed output. Without that guard
    a malformed fragment (bad JSON, a `jq` error) could have overwritten the
    managed base with an empty or partial merge result during activation.
+3. **Declared overrides must be executable contracts.** The Worktrunk seam is
+   now `mkDefault`, and the external-consumer regression build exercises git,
+   tmux, Worktrunk, and wrapper revision composition together.
 
 ## Hostname collision rule (new — flag for wrapper authors)
 
@@ -85,21 +84,23 @@ Wrapper authors must pick a `hostName` distinct from every file under
 - `pre-commit run --all-files` — all hooks passed.
 - `git ls-files '*.sh' | xargs -n1 bash -n` — all scripts parse.
 - `scripts/test-exec-bits.sh` — OK, all exec'd scripts 100755.
+- `scripts/test-external-overlay-contract.sh` — wrapper revision, isolated git
+  and tmux fragments, and Worktrunk takeover build together.
 - `nix build '.#darwinConfigurations.<host>.config.home-manager.users.carpenter.home.activationPackage' --no-link`
   — succeeded for both `personal-mac` and `work-mac`.
 
 ### Final baseline-diff proof
 
-Re-evaluated `home.file` for both hosts against the Task-0 baselines. Exact
-delta, both hosts, nothing else:
+Re-evaluated `home.file` for both hosts against the Task-0 baselines. The
+intended structural delta is:
 
 - `+ .ssh/config.d/.keep`
 - `+ .claude/settings.d/.keep`
+- `+ .config/external-overlays/git/.keep`
+- `+ .config/external-overlays/tmux/.keep`
 
-(`git/conf.d/.keep` and `tmux/conf.d/.keep` don't appear in this diff by
-design — they're repo-tracked files riding their parents' pre-existing
-whole-directory symlinks, not new `home.file` keys, per the deviation
-above.) No removals, no other additions, on either host.
+The existing git, tmux, and Worktrunk targets remain present; Worktrunk now uses
+a lower-priority default definition.
 
 ## Pending
 
@@ -115,8 +116,7 @@ above.) No removals, no other additions, on either host.
 ## For the wrapper
 
 The export API above is real and gated as of this build. A wrapper flake may
-now be built against this repo pinned at **m5 HEAD `f25348c`** (the commit
-this build report's own docs commit lands on top of) — `lib.mkHost`,
+be built against a revision containing this report and its review remediation — `lib.mkHost`,
 `darwinModules.default`, `homeModules.default` / `homeManagerModules`,
 `homeModules.rawDotfiles`, and `lib.canonicalCapKeys` are all present and
 building for both host types. Build against the two deviations above, not

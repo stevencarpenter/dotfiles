@@ -66,7 +66,6 @@ in
       # Link only the config: jj writes mutable repository metadata beneath
       # ~/.config/jj/repos, which must not land in the dotfiles checkout.
       ".config/jj/config.toml"
-      ".config/worktrunk"
       ".config/dev-container"
       ".config/nushell/config.nu" # link the file, not the dir (nushell writes history/env.nu there)
 
@@ -141,6 +140,12 @@ in
       ".config/atuin/config.toml"
     ]))
 
+    # Whole-file override seam for tools without native include support.
+    # An external module's ordinary source definition outranks this default.
+    {
+      ".config/worktrunk".source = lib.mkDefault (link ".config/worktrunk");
+    }
+
     # ---- caps.mcp ---------------------------------------------------------
     # Master config + this machine's overlay. sync-mcp-configs (sync-hooks.nix)
     # reads these at activation time and also consults ~/.config/mcp/overrides/
@@ -207,15 +212,11 @@ in
 
     # ---- extension seam dirs (all machines) --------------------------------
     {
-      # ~/.ssh is not dir-linked (only ~/.ssh/config is materialized, by
-      # secrets.nix), so its config.d seam dir must exist via a real home.file
-      # entry. The git and tmux conf.d seam dirs, by contrast, live *inside*
-      # ".config/git" / ".config/tmux" whole-directory symlinks above — a
-      # home.file entry for a path under an already-symlinked directory
-      # collides with home-manager ("outside $HOME"). Those two ride their
-      # parents' symlink for free and exist as real .keep files in the repo
-      # tree instead (home/.config/git/conf.d/.keep, home/.config/tmux/conf.d/.keep).
+      # Real, neutral overlay roots avoid nesting external home.file entries
+      # beneath the out-of-store .config/git and .config/tmux parent symlinks.
       ".ssh/config.d/.keep".text = "";
+      ".config/external-overlays/git/.keep".text = "";
+      ".config/external-overlays/tmux/.keep".text = "";
 
       # ~/.claude/settings.d is the fragment seam for the Claude settings
       # merge (ai-stack.nix's claudeSettingsMerge activation): external

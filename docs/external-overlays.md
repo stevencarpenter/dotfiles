@@ -1,9 +1,9 @@
 # External overlay repos — extension contract (LOCKED v1.0)
 
-> Status: **locked 2026-07-18** after a three-round review (see
-> `docs/external-overlays-spec-review.md`, `-round2-response.md`,
-> `-round3-signoff.md` — frozen negotiation record). Changes require a new
-> negotiation round, not silent edits. Describes the seam this repo exposes on
+> Status: **locked 2026-07-18** after a multi-round adversarial review. The
+> sanitized consensus history, decision rationale, and migration plan are in
+> [`external-overlays-decision-record.md`](external-overlays-decision-record.md).
+> Changes require an explicit new review round, not silent edits. Describes the seam this repo exposes on
 > the `m5` branch so an external repo (e.g. an employer's dotfiles) can extend
 > it. Nothing here names or assumes any specific organization; that is a
 > design requirement, not an accident.
@@ -59,8 +59,8 @@ work config needs to edit a file this repo owns, that is a contract violation
 | Seam | Mechanism | Status |
 |---|---|---|
 | `~/.ssh/config.d/*` | native `Include`, placed **above all `Host` blocks** | exists |
-| `~/.config/git/conf.d/*` | native `[includeIf "gitdir:..."]` / `hasconfig:remote.*.url` | exists |
-| `~/.config/tmux/conf.d/*.conf` | native `source-file -q` glob | exists |
+| `~/.config/external-overlays/git/{extra,work}.inc` | native `[include]` / `[includeIf "gitdir:..."]` | exists |
+| `~/.config/external-overlays/tmux/*.conf` | native `source-file -q` glob | exists |
 | `~/.config/zsh/profile.d/*.zsh` | sourced loop | exists |
 | `~/.config/mcp/machine/<identity>.json` | mcp_sync overlay merge (master → machine → overrides) | exists; ownership yields via `mkDefault` |
 | `~/.config/skills/machine/<identity>.json` | skills overlay merge | exists; ownership yields via `mkDefault` |
@@ -75,16 +75,15 @@ Mechanism as shipped, per seam (deviations from the original draft called out):
   (`modules/home/dotfiles.nix`): `~/.ssh` itself is not directory-linked (only
   `~/.ssh/config` is materialized, by `secrets.nix`), so the seam dir needs its
   own home-manager-owned entry to exist pre-fragment.
-- **git `conf.d/`** — fixed include filenames, not a glob:
-  `~/.config/git/config` sources `conf.d/extra.inc` and `conf.d/work.inc`
-  explicitly. The seam dir rides the existing whole-directory symlink of
-  `~/.config/git`, so `home/.config/git/conf.d/.keep` is a real
-  **repo-tracked file**, not a `home.file` entry — a `home.file` path *inside*
-  an already-symlinked directory collides with home-manager ("outside
-  $HOME"), which a Task 4 review caught before it shipped.
-- **tmux `conf.d/`** — same repo-tracked-`.keep`-under-existing-symlink
-  mechanism as git, for the same collision reason
-  (`home/.config/tmux/conf.d/.keep`).
+- **git overlay tree** — fixed include filenames, not a glob:
+  `~/.config/git/config` sources
+  `~/.config/external-overlays/git/extra.inc` and `work.inc` explicitly. The
+  neutral overlay tree is a real Home Manager-owned directory; it is not nested
+  below the existing out-of-store `~/.config/git` parent link.
+- **tmux overlay tree** — fragments live at
+  `~/.config/external-overlays/tmux/*.conf`. This has the same isolated-owner
+  shape as git while preserving the existing base tmux directory and runtime
+  plugin behavior.
 - **Claude settings fragment** — `~/.claude/settings.d/.keep` is a real
   `home.file` entry (parallels ssh: `.claude` is not whole-directory-linked
   either). The activation-time merge hardened its commit to only fire on
@@ -119,7 +118,10 @@ placement is base-file design and is owned by this repo.
 ## Flake API this repo will export (m5)
 
 - `lib.mkHost` — accepts a host row `{ system, user, identity, caps,
-  extraDarwinModules ? [], extraHomeModules ? [] }`.
+  configurationRevision ?, extraDarwinModules ? [], extraHomeModules ? [] }`.
+  External wrappers should pass their own `self.rev or self.dirtyRev or null`;
+  the base revision is only the default and an extra Darwin module may also
+  override it without `mkForce`.
 - `darwinModules.default` / `homeModules.default` — the module sets, importable
   without forking.
 - `homeModules.rawDotfiles` — the out-of-store symlink machinery from
@@ -198,7 +200,7 @@ seam is for genuinely machine-global behavior only.
 2. **Done.** Generalize `dotfiles.nix` symlinking into `homeModules.rawDotfiles`.
 3. **Done (mkDefault only).** Identity-selected symlinks are `mkDefault`ed; gate-site consolidation deferred to step 6/extraction, where those sites are deleted outright.
 4. **Done.** Add the missing native seams: ssh `Include config.d/*`
-   (top-placed), git `conf.d/` + `includeIf`, tmux `conf.d/` glob.
+   (top-placed), isolated git includes, and the isolated tmux fragment glob.
 5. **Done.** Add the Claude settings fragment hook to `ai-stack.nix`.
 6. Extraction (separate, after the external repo exists): move work files,
    overlays, and secrets out; delete the work module here. **Operational

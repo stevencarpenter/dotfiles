@@ -8,6 +8,7 @@ on:
       - "lib/**"
       - "hosts/**"
       - "modules/**"
+      - "scripts/test-external-overlay-contract.sh"
       - "secrets/secrets.nix"
       - ".github/workflows/nix-flake-check.yml"
   pull_request:
@@ -17,6 +18,7 @@ on:
       - "lib/**"
       - "hosts/**"
       - "modules/**"
+      - "scripts/test-external-overlay-contract.sh"
       - "secrets/secrets.nix"
       - ".github/workflows/nix-flake-check.yml"
 
@@ -37,3 +39,8 @@ jobs:
       # formatter (formatter.<system> is unset), so there is nothing to check.
       - name: nix flake check
         run: nix flake check --no-build
+
+      # The parent/child target collision this guards occurs while realizing the
+      # Home Manager files derivation, so --no-build evaluation cannot catch it.
+      - name: Build external-overlay contract fixture
+        run: scripts/test-external-overlay-contract.sh

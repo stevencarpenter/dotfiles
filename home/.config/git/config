@@ -38,10 +38,11 @@
 
 # Extension seams (LOCKED contract). git include has NO glob support, so the
 # seam is two fixed filenames; git silently skips missing include files.
-# Paths resolve relative to this file's directory.
+# Paths resolve relative to this file's directory. Fragments live in a neutral
+# Home Manager-owned tree because ~/.config/git itself is an out-of-store link.
 [include]
-    path = conf.d/extra.inc
+    path = ../external-overlays/git/extra.inc
 
 # Self-scoping work identity: active only inside ~/work/ checkouts.
 [includeIf "gitdir:~/work/"]
-    path = conf.d/work.inc
+    path = ../external-overlays/git/work.inc
