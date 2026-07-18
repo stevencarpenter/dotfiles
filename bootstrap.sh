@@ -12,7 +12,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 # box as machines are added to lib/machines.nix.
 detect_host() {
   case "$(scutil --get LocalHostName 2>/dev/null || true)" in
-    personal-mac) echo personal-mac ;;
+    personal-mac | Stevens-MacBook-Pro) echo personal-mac ;;
     work-mac) echo work-mac ;;
     *) return 1 ;;
   esac
@@ -46,8 +46,9 @@ else
 fi
 
 # ── 2. age identity key from 1Password ───────────────────────────────────
-# The existing chezmoi age identity; agenix (modules/home/secrets.nix) reads it
+# The dotfiles age identity; agenix (modules/home/secrets.nix) reads it
 # to decrypt secrets/**.age. Must exist before the first darwin-rebuild switch.
+# Stored as the notesPlain field of the "dotfiles-age-key" secure note.
 KEY_DEST="$HOME/.config/age/keys.txt"
 if [ ! -s "$KEY_DEST" ]; then
   echo "==> Fetching age identity key from 1Password ..."
@@ -56,7 +57,7 @@ if [ ! -s "$KEY_DEST" ]; then
     exit 1
   fi
   mkdir -p "$(dirname "$KEY_DEST")"
-  op read "op://Private/chezmoi-age-key/key.txt" >"$KEY_DEST"
+  op read "op://Private/dotfiles-age-key/notesPlain" >"$KEY_DEST"
   chmod 600 "$KEY_DEST"
 else
   echo "==> age key already present at $KEY_DEST"
