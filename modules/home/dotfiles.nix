@@ -172,6 +172,7 @@ in
       ".config/skills/skills-master.json"
     ]))
     (lib.optionalAttrs caps.skills {
+      # mkDefault: an external overlay repo may take ownership (LOCKED contract — declared seam).
       ".config/skills/machine/${overlay}".source = lib.mkDefault (link ".config/skills/machine/${overlay}");
     })
     # Personal skill links previously pointed into the retired chezmoi source
