@@ -182,8 +182,9 @@ Some provisioning is deliberately kept **out of `darwin-rebuild switch`** becaus
 network, SSH auth, or `sudo` — things a `switch` should not silently depend on. Those live in the
 Justfile instead:
 
-- **`just sync`** — clone/refresh the git externals (tpm over https, the personal `agent-registry`
-  over SSH) and install the pinned `token-auditor` uv tool. Safe to re-run; `bootstrap.sh` calls it.
+- **`just sync`** — clone/refresh tpm over HTTPS, clone the personal `agent-registry` over SSH
+  only when the selected host's canonical `agents` capability is enabled, and install the pinned
+  `token-auditor` uv tool. Safe to re-run; `bootstrap.sh` passes its resolved host explicitly.
 - **`just bootstrap`** — the full fresh-machine flow (`bootstrap.sh`): Lix, the age
   key, first switch, rustup.
 

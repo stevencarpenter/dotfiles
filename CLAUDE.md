@@ -178,8 +178,9 @@ in `README.md`. Where each capability is enforced:
 - **`aws_sso`** — `modules/home/secrets.nix` (AWS overrides secret) + the `awsConfigGen` hook.
 - **`infra`** — `modules/home/dev-tools.nix` (mise `conf.d/infra.toml`).
 - **`agent_journal`** — `modules/home/dotfiles.nix` (config + `~/.local/bin/{agent-journal,agent-note}`).
-- **`agents`** — the `agentsInstall` hook (`sync-hooks.nix`) + `just sync` (SSH clone of the
-  registry); the `emit-routing-context.sh` SessionStart hook is unioned in `ai-stack.nix`.
+- **`agents`** — the `agentsInstall` hook (`sync-hooks.nix`) + the capability-aware personal
+  registry clone in `just sync`; the `emit-routing-context.sh` SessionStart hook is unioned in
+  `ai-stack.nix`. A work-host sync never contacts the personal registry remote.
 - token-auditor is **not capability-gated**: `just sync` installs it unconditionally (pin in the
   Justfile's `TOKEN_AUDITOR_VERSION`; public https repo). The former orphan `token_auditor` cap
   was dropped 2026-07-17.

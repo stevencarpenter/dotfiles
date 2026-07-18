@@ -25,6 +25,7 @@ if ! xcode-select -p >/dev/null 2>&1; then
   echo "==> Installing Xcode Command Line Tools ..."
   xcode-select --install || true
   echo "    Finish the GUI installer, then re-run ./bootstrap.sh."
+  exit 0
 fi
 sudo xcodebuild -license accept 2>/dev/null || true
 
@@ -104,7 +105,8 @@ fi
 # ── 7. Network/SSH side channels ─────────────────────────────────────────
 echo "==> Running 'just sync' for git externals + token-auditor ..."
 if command -v just >/dev/null 2>&1; then
-  just sync || echo "    (just sync had warnings; re-run later once online/authed)"
+  DOTFILES_HOST="$HOST" just sync \
+    || echo "    (just sync had warnings; re-run later once online/authed)"
 else
   echo "    'just' not on PATH yet; run 'just sync' after the switch completes."
 fi
