@@ -35,6 +35,9 @@ jobs:
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@main
 
+      - name: Install contract test dependencies
+        run: brew install ripgrep
+
       # --no-build keeps this fast: it evaluates every flake output (so a broken
       # module or a bad option surfaces as a hard error) without realizing the
       # full darwin system closures. No `nix fmt -- --check`: this flake ships no
