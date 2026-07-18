@@ -203,6 +203,19 @@ in
       ".local/bin/agent-journal"
       ".local/bin/agent-note"
     ]))
+
+    # ---- extension seam dirs (all machines) --------------------------------
+    {
+      # ~/.ssh is not dir-linked (only ~/.ssh/config is materialized, by
+      # secrets.nix), so its config.d seam dir must exist via a real home.file
+      # entry. The git and tmux conf.d seam dirs, by contrast, live *inside*
+      # ".config/git" / ".config/tmux" whole-directory symlinks above — a
+      # home.file entry for a path under an already-symlinked directory
+      # collides with home-manager ("outside $HOME"). Those two ride their
+      # parents' symlink for free and exist as real .keep files in the repo
+      # tree instead (home/.config/git/conf.d/.keep, home/.config/tmux/conf.d/.keep).
+      ".ssh/config.d/.keep".text = "";
+    }
   ];
 
   # One link deliberately routed through the public rawDotfiles API so the

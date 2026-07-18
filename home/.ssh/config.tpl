@@ -10,6 +10,11 @@
 # OrbStack: 'orb' SSH host for Linux machines. Must stay before any Host blocks.
 Include ~/.orbstack/ssh/config
 
+# Extension seam (LOCKED contract): external overlay fragments. MUST stay
+# above every Host block — ssh_config is first-match-wins, so a fragment's
+# specific Host stanzas can never win from below `Host *`. Empty glob is fine.
+Include ~/.ssh/config.d/*
+
 # i9 — 2019 Intel MacBook Pro home server, via Tailscale MagicDNS.
 # `ssh i9` for one-off / scp; the `i9` shell alias wraps this in mosh + tmux.
 Host i9
