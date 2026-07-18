@@ -13,7 +13,8 @@
 # nix-provided interpreter and an explicit PYTHONPATH. This deliberately avoids
 # uv editable environments: their .pth files embed the checkout path and break
 # after a worktree move. Every entry:
-#   - runs after writeBoundary (so home.file symlinks + agenix secrets exist),
+#   - runs after writeBoundary (so home.file symlinks exist),
+#   - depends on synchronous agenixDecrypt when consuming work secrets,
 #   - uses the nix-store Python directly with user site-packages disabled,
 #   - is wrapped in a subshell ending `|| true` so a failure warns but NEVER
 #     fails the switch (parity with the chezmoi fail_or_warn default; setting
@@ -84,16 +85,13 @@ in
     # sync-skills is an entry point of the SAME mcp_sync project. Pass the
     # canonical repo root explicitly so personal skill links remain stable.
     #
-    # SAFETY vs agenix work skills: there is NO ordering guarantee that the
-    # agenix-decrypted work skills (modules/home/secrets.nix) are on disk before
-    # this runs — on darwin agenix decrypts via an async launchd agent, not a
-    # writeBoundary-ordered activation entry (see secrets.nix for the full note
-    # and the pinned-rev verification). What keeps this safe is that sync-skills
-    # GCs ONLY the entries it recorded in its own manifest; the decrypted
-    # work-skill dirs are never in that manifest, so it never removes them even
-    # if they land after this hook. Rely on the scoped GC, not on ordering.
+    # Work skills are agenix-decrypted, so work activation depends on the
+    # synchronous agenixDecrypt node. Personal has no age secrets and retains
+    # the ordinary writeBoundary dependency.
     skillsSync = lib.mkIf caps.skills (
-      lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      lib.hm.dag.entryAfter (
+        [ "writeBoundary" ] ++ lib.optional (identity == "work") "agenixDecrypt"
+      ) ''
         (
           set -u
           # sync-skills fetches pinned Git sources through subprocess. Home
@@ -124,7 +122,7 @@ in
 
     # --- AWS SSO profile generation (caps.aws_sso) -------------------------
     awsConfigGen = lib.mkIf caps.aws_sso (
-      lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      lib.hm.dag.entryAfter [ "agenixDecrypt" ] ''
         (
           set -u
           PROJECT="${awsProject}"

@@ -16,27 +16,17 @@
 # `builtins.readFile` on a decrypted value anywhere in this repo — that would bake plaintext
 # into a derivation and thus into the public store/binary cache.
 #
-# Interaction with skillsSync — there is NO activation ordering guarantee, and we do not rely on
-# one. An earlier draft of this comment claimed agenix registers its installer as
-# `lib.hm.dag.entryBefore [ "writeBoundary" ]` so decrypted work skills would land before
-# skillsSync (entryAfter "writeBoundary") runs. That is FALSE for the pinned agenix rev
-# (flake.lock: ryantm/agenix b027ee29…): its home-manager module (modules/age-home.nix) contains
-# no `home.activation` / `writeBoundary` / `entryBefore` at all. On darwin it decrypts via an
-# ASYNCHRONOUS `launchd.agents.activate-agenix` job (RunAtLoad = true); on linux via a
-# `systemd.user.services.agenix` oneshot. Neither is ordered relative to home-manager's
-# writeBoundary DAG, so a decrypted work-skill dir may not exist on disk when skillsSync
-# (sync-hooks.nix, entryAfter "writeBoundary") runs — especially on a first switch.
-#
-# Why this is still safe: skillsSync (mcp_sync `sync-skills`) GCs ONLY the entries it recorded in
-# its own manifest, and the agenix-decrypted work-skill dirs are never in that manifest — so it
-# will not delete them even if they are absent when it runs. The failure mode is therefore
-# transient first-switch absence (skills appear once the launchd agent finishes), not deletion.
-# The safety property is the record-scoped GC, NOT ordering. Do not reintroduce an ordering claim
-# without re-verifying it against the pinned agenix rev.
+# Darwin ordering: the pinned agenix Home Manager module normally decrypts via
+# an asynchronous RunAtLoad launchd agent. That cannot safely feed activation
+# consumers: on a first switch or ciphertext rotation they can observe missing
+# or stale files. For the work identity below, the async agent is disabled and
+# its exact generated mounting script runs synchronously as the `agenixDecrypt`
+# Home Manager activation node. Consumers depend on that node in sync-hooks.nix.
 {
   config,
   lib,
   inputs,
+  pkgs,
   identity,
   caps,
   ...
@@ -101,6 +91,9 @@ let
       };
     }) claudeSkillFiles
   );
+
+  synchronousAgenix = identity == "work" && pkgs.stdenv.hostPlatform.isDarwin;
+  agenixMountingScript = builtins.head config.launchd.agents.activate-agenix.config.ProgramArguments;
 in
 {
   imports = [ inputs.agenix.homeManagerModules.default ];
@@ -109,6 +102,20 @@ in
   # ~/.config/age/keys.txt`) before the first `darwin-rebuild switch`. Must exist before
   # activation or every age.secrets decrypt below fails.
   age.identityPaths = [ "${home}/.config/age/keys.txt" ];
+
+  # Replace agenix's asynchronous Darwin job with the same generated script in
+  # the Home Manager activation DAG. Decryption failure is fatal: continuing
+  # would let dependent generators consume missing or stale secrets.
+  launchd.agents.activate-agenix.enable = lib.mkIf synchronousAgenix (lib.mkForce false);
+  home.activation.agenixDecrypt = lib.mkIf synchronousAgenix (
+    lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      echo "Decrypting agenix work secrets synchronously"
+      if ! ${agenixMountingScript}; then
+        echo "agenix work-secret decryption failed; refusing dependent activation hooks" >&2
+        exit 1
+      fi
+    ''
+  );
 
   age.secrets =
     # WS1 (SNUG-386) migrated ALL common + personal secrets off agenix to
