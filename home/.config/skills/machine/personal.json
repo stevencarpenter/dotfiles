@@ -1,5 +1,7 @@
 {
   "skills": {
+    "building-browser-extensions": { "source": "personal" },
+    "screenshot-bug-hunt": { "source": "personal" },
     "using-hippo-brain": { "source": "personal" },
     "monitoring-hippo": { "source": "personal" },
     "journaling": { "source": "personal" },
