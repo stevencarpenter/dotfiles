@@ -82,7 +82,7 @@ class ResolvedSkill:
         source_name: Name of the source this skill comes from.
         source_type: ``"git"`` or ``"local"``.
         subpath: For git sources, the skill directory within the cloned repo.
-            For local sources, the path relative to the chezmoi repo root.
+            For local sources, the path relative to the dotfiles repo root.
         mode: ``"copy"`` (git) or ``"symlink"`` (local).
     """
 
@@ -501,7 +501,7 @@ def run_skills_sync(
         manifest_path: Override for the master manifest path.
         machine_config_path: Optional machine overlay JSON path.
         home: Override for the home directory (testing).
-        repo_root: Override for the chezmoi repo root (testing).
+        repo_root: Override for the dotfiles repo root (testing).
         now: Override for the current time as epoch seconds (testing).
 
     Returns:

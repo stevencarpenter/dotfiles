@@ -1053,3 +1053,17 @@ def test_full_sync_does_not_propagate_master_schema_to_identity_tools(
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+def test_load_override_non_object_root_returns_empty(
+    temp_home, monkeypatch_home, capsys
+):
+    """A per-tool override with a non-object root is skipped with a log line."""
+    from mcp_sync.sync import _load_override
+
+    override_dir = temp_home / ".config" / "mcp" / "overrides"
+    override_dir.mkdir(parents=True, exist_ok=True)
+    (override_dir / "claude.json").write_text("[]\n", encoding="utf-8")
+
+    assert _load_override("claude", temp_home) == {}
+    assert "non-object root" in capsys.readouterr().out
