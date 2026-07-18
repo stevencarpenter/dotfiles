@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# Assert that every directly-exec'd script under home/ keeps its executable
+# bit in the git index (mode 100755).
+#
+# Why: the chezmoi port dropped the `executable_` filename convention, and the
+# sketchybar plugins silently lost their x-bit — sketchybar exec's plugin
+# scripts by path, so a 644 plugin fails with EACCES and every bar item
+# renders frozen/empty (found 2026-07-17). Sourced files (zsh profile.d,
+# sketchybar items/, icon_map.sh) do NOT need the bit and are not listed here.
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "${repo_root}"
+
+# Exec'd-by-path scripts: sketchybar plugins (spawned by the bar's update
+# loop), the aerospace exec-and-forget layout, and the tmux status #() monitor.
+exec_scripts=(
+  home/.config/sketchybar/plugins/aerospace.sh
+  home/.config/sketchybar/plugins/app_badge.sh
+  home/.config/sketchybar/plugins/battery.sh
+  home/.config/sketchybar/plugins/clock.sh
+  home/.config/sketchybar/plugins/volume.sh
+  home/.config/sketchybar/plugins/wifi.sh
+  home/.config/aerospace/layouts/workspace-8-comms.sh
+  home/.config/tmux/scripts/claude-pane-monitor.sh
+)
+
+failures=0
+for script in "${exec_scripts[@]}"; do
+  mode="$(git ls-files -s -- "${script}" | awk '{print $1}')"
+  if [[ -z "${mode}" ]]; then
+    echo "FAIL: ${script} is not tracked (moved/deleted? update this list)" >&2
+    failures=$((failures + 1))
+  elif [[ "${mode}" != "100755" ]]; then
+    echo "FAIL: ${script} has git mode ${mode}, expected 100755 (chmod +x it)" >&2
+    failures=$((failures + 1))
+  fi
+done
+
+# Catch NEW plugins added without the bit: every plugin except sourced-only
+# icon_map.sh must be 100755.
+while IFS=$'\t' read -r mode path; do
+  case "${path}" in
+  home/.config/sketchybar/plugins/icon_map.sh) continue ;;
+  esac
+  if [[ "${mode}" != "100755" ]]; then
+    echo "FAIL: ${path} has git mode ${mode}, expected 100755 (chmod +x it)" >&2
+    failures=$((failures + 1))
+  fi
+done < <(git ls-files -s -- 'home/.config/sketchybar/plugins/*.sh' | awk '{print $1 "\t" $4}')
+
+if [[ "${failures}" -gt 0 ]]; then
+  echo "test-exec-bits: ${failures} failure(s)" >&2
+  exit 1
+fi
+echo "test-exec-bits: OK (all exec'd scripts are 100755)"
