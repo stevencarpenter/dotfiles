@@ -215,6 +215,13 @@ in
       # parents' symlink for free and exist as real .keep files in the repo
       # tree instead (home/.config/git/conf.d/.keep, home/.config/tmux/conf.d/.keep).
       ".ssh/config.d/.keep".text = "";
+
+      # ~/.claude/settings.d is the fragment seam for the Claude settings
+      # merge (ai-stack.nix's claudeSettingsMerge activation): external
+      # overlay repos drop JSON fragments here that deep-merge over the
+      # managed block. Materialize the dir with a real .keep so it exists
+      # even with no fragments present yet.
+      ".claude/settings.d/.keep".text = "";
     }
   ];
 
