@@ -40,6 +40,17 @@ class TestLoadMachineConfig:
         captured = capsys.readouterr()
         assert "invalid JSON" in captured.out
 
+    def test_non_object_root_returns_empty(self, tmp_path, capsys):
+        """Return empty dict and log when the root is valid JSON but not an object."""
+        path = tmp_path / "list.json"
+        path.write_text("[]\n", encoding="utf-8")
+
+        result = load_machine_config(path)
+
+        assert result == {}
+        captured = capsys.readouterr()
+        assert "non-object root" in captured.out
+
 
 class TestMachineOverlayMerge:
     """Tests for deep_merge behavior with machine overlay data."""
