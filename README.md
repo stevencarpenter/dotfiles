@@ -79,7 +79,6 @@ adding a machine is a one-row change and no gate site needs editing.
 | `infra` | no | yes | Kubernetes / cluster-ops tooling via mise |
 | `agent_journal` | yes | no | Obsidian agent-journal config, CLI wrappers, Claude hook |
 | `agents` | yes | no | personal agent-registry clone + fan-out installer |
-| `token_auditor` | yes | yes | standalone token-auditor uv tool (codax/claade wrappers) |
 
 `identity` (`personal`/`work`) additionally splits ownership-flavored gates — personal-only
 shell profiles + hippo, work-only shell/AWS profiles, homelab-over-Tailscale (`!= "work"`) SSH +
