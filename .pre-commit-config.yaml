@@ -36,7 +36,7 @@ repos:
       # See docs/nix-migration.md for the deferred nix-flavored audit successor.
       - id: strip-claude-trailer
         name: Strip Co-Authored-By Claude trailer
-        description: Enforce the no-Claude-attribution rule from dot_claude/CLAUDE.md
+        description: Enforce the no-Claude-attribution rule from home/.claude/CLAUDE.md
         language: script
         entry: scripts/strip-claude-trailer.sh
         stages: [commit-msg]

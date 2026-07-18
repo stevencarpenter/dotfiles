@@ -1,6 +1,6 @@
 ---
 name: sandbox-preflight
-description: Pre-classify the command classes this repo's Claude Code sandbox blocks and run them with dangerouslyDisableSandbox on the FIRST attempt instead of looping on "Operation not permitted". USE THIS SKILL whenever a Bash command just failed with "Operation not permitted", "OSStatus -26276", "could not write config file .git/config", "Failed to initialize cache at `~/.cache/uv`", "Control socket connect ... Operation not permitted", or "mkdtemp/mktemp failed"; whenever you are ABOUT to run `uv`/`uvx`/`ruff`/`pytest`/`ty` in mcp_sync, aws_config_gen, or token_auditor; whenever you are about to run ANY `gh` API call or `git push`/`fetch`/`pull`/`remote set-url`/`config`/`branch -m` (anything that writes `.git/config` or hits the GitHub network); whenever you use git over ssh with ControlMaster; or whenever the user asks "should I disable the sandbox", "why does uv/gh/git keep failing", "the sandbox is blocking this". Bias toward triggering BEFORE the command: these failures are structural (only `~/.cache/pre-commit` and `$TMPDIR` are pre-allowed in `dot_claude/modify_settings.json.tmpl`; `~/.cache/uv`, `.git`, and `~/.ssh` are NOT), so a sandboxed first attempt is a guaranteed wasted round-trip. Also carries the rule to NOT co-batch a risky call with independent commands, since one sandbox failure cancels every sibling in a parallel batch.
+description: Pre-classify the command classes this repo's Claude Code sandbox blocks and run them with dangerouslyDisableSandbox on the FIRST attempt instead of looping on "Operation not permitted". USE THIS SKILL whenever a Bash command just failed with "Operation not permitted", "OSStatus -26276", "could not write config file .git/config", "Failed to initialize cache at `~/.cache/uv`", "Control socket connect ... Operation not permitted", or "mkdtemp/mktemp failed"; whenever you are ABOUT to run `uv`/`uvx`/`ruff`/`pytest`/`ty` in mcp_sync, aws_config_gen, or token_auditor; whenever you are about to run ANY `gh` API call or `git push`/`fetch`/`pull`/`remote set-url`/`config`/`branch -m` (anything that writes `.git/config` or hits the GitHub network); whenever you use git over ssh with ControlMaster; or whenever the user asks "should I disable the sandbox", "why does uv/gh/git keep failing", "the sandbox is blocking this". Bias toward triggering BEFORE the command: these failures are structural (only `~/.cache/pre-commit` and `$TMPDIR` are pre-allowed by the settings merge in `modules/home/ai-stack.nix`; `~/.cache/uv`, `.git`, and `~/.ssh` are NOT), so a sandboxed first attempt is a guaranteed wasted round-trip. Also carries the rule to NOT co-batch a risky call with independent commands, since one sandbox failure cancels every sibling in a parallel batch.
 ---
 
 # Sandbox preflight
@@ -12,7 +12,7 @@ always fail. This turns the repo's single largest failure class into zero wasted
 ## Why this skill exists
 
 The sandbox allows reads broadly but only permits writes to a small allowlist (`.`,
-`$TMPDIR`, and a few cache dirs). Verified against `dot_claude/modify_settings.json.tmpl`:
+`$TMPDIR`, and a few cache dirs). Verified against the settings merge in `modules/home/ai-stack.nix`:
 the only path pre-seeded into `sandbox.filesystem.allowWrite` is `~/.cache/pre-commit`.
 `~/.cache/uv`, `.git/config`, and `~/.ssh` are **not** allowlisted, and the GitHub network
 path fails certificate verification under the sandbox (`OSStatus -26276`). So `uv`, `gh`,
@@ -60,7 +60,7 @@ calls on their own, sandbox disabled.
 | `tls: failed to verify certificate ... OSStatus -26276` | `dangerouslyDisableSandbox: true` |
 | `could not write config file .git/config: Operation not permitted` | `dangerouslyDisableSandbox: true` |
 | `Control socket connect(... ): Operation not permitted` | `dangerouslyDisableSandbox: true` |
-| `PermissionError ... /Users/.../.cache/pre-commit` | already allowlisted — re-apply chezmoi (the pre-seed) or disable sandbox once |
+| `PermissionError ... /Users/.../.cache/pre-commit` | already allowlisted — re-run `just rebuild` (the settings merge re-seeds it) or disable sandbox once |
 
 ## Structural cure (do this once, not per-command)
 

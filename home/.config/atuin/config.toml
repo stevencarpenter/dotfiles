@@ -1,8 +1,8 @@
 # Self-hosted atuin sync target. Server lives on i9
 # (homelab repo: services/atuin/, fronted by Caddy at logbook.snugmarina.org).
 # Deployed only on machines where the `atuin` capability is true (see
-# .chezmoidata/machines.toml). Source filename is private_config.toml so
-# chezmoi deploys it as ~/.config/atuin/config.toml with mode 0600.
+# lib/machines.nix); modules/home/dotfiles.nix symlinks it to
+# ~/.config/atuin/config.toml.
 #
 # Verify the server is healthy from any tailnet device:
 #   curl -fsSL https://logbook.snugmarina.org   # → "goodbye and good luck"

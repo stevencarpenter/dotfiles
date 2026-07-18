@@ -2,7 +2,7 @@
 # Claude Code SessionStart hook: print the cached agent-routing context block.
 #
 # Generation is NOT done per-session. The routing block only changes when
-# the agents repo or machines.toml changes — both are chezmoi-apply-time
+# the agents repo or lib/machines.nix changes — both are rebuild-time
 # events, not session-start-time events. The cache is written by a step
 # appended to run_after_sync-agents.sh.tmpl (right after it fans agents out
 # to ~/.claude/agents), so this hook just cats a static file: sub-millisecond,

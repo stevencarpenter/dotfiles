@@ -92,4 +92,4 @@ emit the trailer.
 - `scripts/branch_preflight.sh` — default-branch detection + safe recovery recipe.
 - `~/.claude/skills/git-guardrails-claude-code/scripts/block-dangerous-git.sh` — what is blocked (note: `git commit` is not).
 - [sandbox-preflight](../sandbox-preflight/SKILL.md) — why `git push` / `gh pr create` need the sandbox disabled.
-- `scripts/strip-claude-trailer.sh`, `dot_config/zsh/dot_zshrc` (`gcam`/`gcamp`) — the commit-message enforcement this skill defers to.
+- `scripts/strip-claude-trailer.sh`, `home/.config/zsh/.zshrc` (`gcam`/`gcamp`) — the commit-message enforcement this skill defers to.
