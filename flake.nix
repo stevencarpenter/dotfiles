@@ -31,12 +31,23 @@
     let
       machines = import ./lib/machines.nix;
 
+      # Every row must declare the same capability keys, all booleans. A dropped
+      # or misspelled cap should fail here with one clear message, not deep
+      # inside whichever module first dereferences the missing attribute.
+      capKeys = builtins.attrNames (builtins.head (builtins.attrValues machines)).caps;
+      rowShapeOk = builtins.all (
+        host:
+        builtins.attrNames host.caps == capKeys
+        && builtins.all (k: builtins.isBool host.caps.${k}) capKeys
+      ) (builtins.attrValues machines);
+
       # One host = one row of the capability table. All per-host variance flows
       # from `caps`/`identity` through specialArgs + extraSpecialArgs — modules
       # never branch on hostName. Adding a machine stays a one-row edit.
       mkHost =
         hostName: host:
         assert host ? system && host ? user && host ? identity && host ? caps;
+        assert rowShapeOk;
         let
           # Identical payload for darwin (specialArgs) and home-manager
           # (extraSpecialArgs) modules — the locked specialArgs contract.
