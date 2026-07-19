@@ -8,6 +8,8 @@ on:
       - "lib/**"
       - "hosts/**"
       - "modules/**"
+      - "scripts/test-external-overlay-contract.sh"
+      - "scripts/test-nix-review-regressions.sh"
       - "secrets/secrets.nix"
       - ".github/workflows/nix-flake-check.yml"
   pull_request:
@@ -17,6 +19,8 @@ on:
       - "lib/**"
       - "hosts/**"
       - "modules/**"
+      - "scripts/test-external-overlay-contract.sh"
+      - "scripts/test-nix-review-regressions.sh"
       - "secrets/secrets.nix"
       - ".github/workflows/nix-flake-check.yml"
 
@@ -31,9 +35,22 @@ jobs:
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@main
 
+      - name: Install contract test dependencies
+        run: brew install ripgrep
+
       # --no-build keeps this fast: it evaluates every flake output (so a broken
       # module or a bad option surfaces as a hard error) without realizing the
       # full darwin system closures. No `nix fmt -- --check`: this flake ships no
       # formatter (formatter.<system> is unset), so there is nothing to check.
       - name: nix flake check
         run: nix flake check --no-build
+
+      # The parent/child target collision this guards occurs while realizing the
+      # Home Manager files derivation, so --no-build evaluation cannot catch it.
+      - name: Build external-overlay contract fixture
+        run: scripts/test-external-overlay-contract.sh
+
+      # These assertions inspect emitted activation behavior rather than merely
+      # proving that the module graph evaluates.
+      - name: Validate review regression contracts
+        run: scripts/test-nix-review-regressions.sh

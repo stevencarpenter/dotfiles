@@ -79,7 +79,6 @@ adding a machine is a one-row change and no gate site needs editing.
 | `infra` | no | yes | Kubernetes / cluster-ops tooling via mise |
 | `agent_journal` | yes | no | Obsidian agent-journal config, CLI wrappers, Claude hook |
 | `agents` | yes | no | personal agent-registry clone + fan-out installer |
-| `token_auditor` | yes | yes | standalone token-auditor uv tool (codax/claade wrappers) |
 
 `identity` (`personal`/`work`) additionally splits ownership-flavored gates — personal-only
 shell profiles + hippo, work-only shell/AWS profiles, homelab-over-Tailscale (`!= "work"`) SSH +
@@ -183,8 +182,9 @@ Some provisioning is deliberately kept **out of `darwin-rebuild switch`** becaus
 network, SSH auth, or `sudo` — things a `switch` should not silently depend on. Those live in the
 Justfile instead:
 
-- **`just sync`** — clone/refresh the git externals (tpm over https, the personal `agent-registry`
-  over SSH) and install the pinned `token-auditor` uv tool. Safe to re-run; `bootstrap.sh` calls it.
+- **`just sync`** — clone/refresh tpm over HTTPS, clone the personal `agent-registry` over SSH
+  only when the selected host's canonical `agents` capability is enabled, and install the pinned
+  `token-auditor` uv tool. Safe to re-run; `bootstrap.sh` passes its resolved host explicitly.
 - **`just bootstrap`** — the full fresh-machine flow (`bootstrap.sh`): Lix, the age
   key, first switch, rustup.
 

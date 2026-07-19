@@ -7,8 +7,9 @@
 #
 # Adding a machine: copy a row, rename, flip the capabilities you don't want,
 # then add its name to the prompt hint in bootstrap.sh's detect map.
-# Adding a capability: add the key to EVERY row below (flake.nix asserts the
-# row shape) and gate the owning module on `caps.<capability>`.
+# Adding a capability: add the key to EVERY row below (flake.nix asserts each
+# row carries at least the canonical key set, all booleans — external wrapper
+# rows may add extra caps) and gate the owning module on `caps.<capability>`.
 #
 # Capabilities
 #   tiling — install/configure aerospace + sketchybar + borders (the tiling
@@ -47,13 +48,12 @@
 #   agents — clone the personal agent-registry (SSH) and run its installer,
 #            which fans the canonical agents out to each tool's native format.
 #            Personal-only: registry + agents are personal content.
-#   token_auditor — install the standalone token-auditor uv tool (public repo)
-#            so token-auditor / codax land on PATH for the codax/claade/opencade
-#            shell wrappers. Public https repo. NOTE: this cap is currently an
-#            ORPHAN — `just sync` installs token-auditor unconditionally and does
-#            not read this flag, so it grants no opt-out yet. Either wire the
-#            `sync` recipe to gate on it or drop the key (kept for now as a
-#            reserved opt-out affordance across all rows).
+# Note on token-auditor: there is intentionally no `token_auditor` capability.
+# `just sync` installs the standalone token-auditor uv tool unconditionally on
+# every machine; a former placeholder cap was dropped (2026-07-17) because no
+# consumer read it. If a host ever needs an opt-out, re-add the cap and thread
+# it to the sync recipe via a generated env file (see tiling.nix's machine.env
+# pattern for the nix→shell precedent).
 #
 # Note on VPN: there is intentionally no `wireguard` capability. The home
 # network uses Tailscale (WireGuard under the hood); add the capability with a
@@ -78,7 +78,6 @@
       infra = false;
       agent_journal = true;
       agents = true;
-      token_auditor = true;
     };
   };
 
@@ -98,7 +97,6 @@
       infra = true;
       agent_journal = false;
       agents = false;
-      token_auditor = true;
     };
   };
 }

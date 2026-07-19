@@ -66,10 +66,8 @@ in
       # Link only the config: jj writes mutable repository metadata beneath
       # ~/.config/jj/repos, which must not land in the dotfiles checkout.
       ".config/jj/config.toml"
-      ".config/worktrunk"
       ".config/dev-container"
       ".config/nushell/config.nu" # link the file, not the dir (nushell writes history/env.nu there)
-      ".duckdbrc"
 
       # Copilot IntelliJ instructions (single file; copilot writes runtime state in the dir).
       ".config/github-copilot/intellij/global-copilot-instructions.md"
@@ -142,6 +140,12 @@ in
       ".config/atuin/config.toml"
     ]))
 
+    # Whole-file override seam for tools without native include support.
+    # An external module's ordinary source definition outranks this default.
+    {
+      ".config/worktrunk".source = lib.mkDefault (link ".config/worktrunk");
+    }
+
     # ---- caps.mcp ---------------------------------------------------------
     # Master config + this machine's overlay. sync-mcp-configs (sync-hooks.nix)
     # reads these at activation time and also consults ~/.config/mcp/overrides/
@@ -149,7 +153,6 @@ in
     # (sync globs overrides/*.json, so .keep is ignored).
     (lib.optionalAttrs caps.mcp (mkLinks [
       ".config/mcp/mcp-master.json"
-      ".config/mcp/machine/${overlay}"
 
       # AI CLI tool configs gated with the MCP fan-out (matches .chezmoiignore:
       # these are dropped on machines without the mcp cap). Each tool writes its
@@ -163,14 +166,20 @@ in
     ]))
     (lib.optionalAttrs caps.mcp {
       ".config/mcp/overrides/.keep".text = "";
+      # mkDefault: an external overlay repo may take ownership of this
+      # machine's overlay (LOCKED contract — declared seam).
+      ".config/mcp/machine/${overlay}".source = lib.mkDefault (link ".config/mcp/machine/${overlay}");
     })
 
     # ---- caps.skills ------------------------------------------------------
     # Manifest + this machine's overlay; sync-skills (sync-hooks.nix) reads them.
     (lib.optionalAttrs caps.skills (mkLinks [
       ".config/skills/skills-master.json"
-      ".config/skills/machine/${overlay}"
     ]))
+    (lib.optionalAttrs caps.skills {
+      # mkDefault: an external overlay repo may take ownership (LOCKED contract — declared seam).
+      ".config/skills/machine/${overlay}".source = lib.mkDefault (link ".config/skills/machine/${overlay}");
+    })
     # Personal skill links previously pointed into the retired chezmoi source
     # tree. Own each tool-native link explicitly so deleting that checkout does
     # not strand Codex, Cursor, Copilot, OpenCode, or Junie.
@@ -196,9 +205,34 @@ in
 
     # ---- caps.agent_journal ----------------------------------------------
     (lib.optionalAttrs caps.agent_journal (mkLinks [
-      ".config/agent-journal" # config.toml + workstreams.toml (rendered static by ai-stack)
+      ".config/agent-journal" # config.toml + workstreams.toml (plain out-of-store symlinks)
       ".local/bin/agent-journal"
       ".local/bin/agent-note"
     ]))
+
+    # ---- extension seam dirs (all machines) --------------------------------
+    {
+      # Real, neutral overlay roots avoid nesting external home.file entries
+      # beneath the out-of-store .config/git and .config/tmux parent symlinks.
+      ".ssh/config.d/.keep".text = "";
+      ".config/external-overlays/git/.keep".text = "";
+      ".config/external-overlays/tmux/.keep".text = "";
+
+      # ~/.claude/settings.d is the fragment seam for the Claude settings
+      # merge (ai-stack.nix's claudeSettingsMerge activation): external
+      # overlay repos drop JSON fragments here that deep-merge over the
+      # managed block. Materialize the dir with a real .keep so it exists
+      # even with no fragments present yet.
+      ".claude/settings.d/.keep".text = "";
+    }
+  ];
+
+  # One link deliberately routed through the public rawDotfiles API so the
+  # in-repo build exercises the same code path external wrappers use.
+  rawDotfiles.trees = [
+    {
+      root = "${dotfiles}/home";
+      paths = [ ".duckdbrc" ];
+    }
   ];
 }

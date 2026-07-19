@@ -55,10 +55,10 @@ Every `run_` hook was sorted into one of three buckets:
 | `run_after_sync-aws-config` | B | `sync-hooks.nix` `awsConfigGen` (`caps.aws_sso`) |
 | `run_after_sync-agents` | B | `sync-hooks.nix` `agentsInstall` (`caps.agents`; warns if clone missing → `just sync`) |
 | `configure-macos-defaults` | A | `macos-defaults.nix` |
-| `set-login-shell` | A | `core.nix` (`users.users.<user>.shell`) |
+| `set-login-shell` | A | `core.nix` idempotent postActivation `dscl` update (admin users are not `users.knownUsers`) |
 | `after_start-tiling-stack` | B | `tiling.nix` `startTilingStack` (`caps.tiling`) |
 | `install-token-auditor` | C | `Justfile` `sync` |
-| `.chezmoiexternal` (agent-registry, tpm) | C | `Justfile` `sync` |
+| `.chezmoiexternal` (agent-registry, tpm) | C | `Justfile` `sync`; personal registry clone gated by canonical `caps.agents` |
 | `setup-macos`, first switch, rustup | C | `bootstrap.sh` |
 
 ## (b) What got better

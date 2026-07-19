@@ -285,3 +285,26 @@ def test_check_master_missing_exits_1(temp_home, monkeypatch_home):
     """--check with a nonexistent master config exits 1."""
     exit_code = run_check(master_path=temp_home / "nonesuch.json", home=temp_home)
     assert exit_code == 1
+
+
+def test_capture_replaces_non_object_existing_override(
+    temp_home, monkeypatch_home, master_config_file, capsys
+):
+    """An existing override with a non-object root is replaced, not crashed on."""
+    run_sync(home=temp_home)
+    cursor_path = temp_home / ".cursor" / "mcp.json"
+    config = _read_json(cursor_path)
+    config["mcpServers"]["hand-added"] = {"command": "echo", "args": ["hi"]}
+    _write_json(cursor_path, config)
+
+    override_path = temp_home / ".config/mcp/overrides/cursor.json"
+    override_path.parent.mkdir(parents=True, exist_ok=True)
+    override_path.write_text("[]\n", encoding="utf-8")
+
+    master = load_master_config(master_config_file)
+    result = capture_target("cursor", master, temp_home)
+
+    assert result.verified
+    assert "Replacing override with non-object root" in capsys.readouterr().out
+    override = _read_json(override_path)
+    assert override["mcpServers"]["hand-added"]["command"] == "echo"

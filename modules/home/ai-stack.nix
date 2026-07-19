@@ -115,6 +115,20 @@ in
           --argjson variant ${lib.escapeShellArg variantJson} \
           '$base[0] * $variant')" || { echo "Warning: could not build managed Claude settings." >&2; exit 0; }
 
+        # Fragment seam (LOCKED contract): external overlay repos drop JSON
+        # files into ~/.claude/settings.d/; each deep-merges over the managed
+        # block in lexical order (later file wins). Merging here — BEFORE the
+        # existing-settings merge — keeps live-only keys and the hooks pass
+        # below out of the fragment path.
+        for frag in "$HOME"/.claude/settings.d/*.json; do
+          [ -f "$frag" ] || continue
+          if tmp="$(printf '%s\n' "$managed" | ${jq} --slurpfile f "$frag" '. * $f[0]')"; then
+            managed="$tmp"
+          else
+            echo "Warning: bad settings fragment $frag; skipping." >&2
+          fi
+        done
+
         existing="{}"
         [ -f "$SETTINGS" ] && existing="$(cat "$SETTINGS")"
         [ -z "$existing" ] && existing="{}"

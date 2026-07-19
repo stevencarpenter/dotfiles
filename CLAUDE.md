@@ -58,10 +58,10 @@ uv run --project aws_config_gen aws-config-gen
 `token-auditor` (the auditor behind the `codax`/`claade`/`opencade` wrappers) now lives in its own
 repo: <https://github.com/stevencarpenter/token-auditor>. Lint/type/test run there, not here. The
 dotfiles pin it in the `TOKEN_AUDITOR_VERSION` variable at the top of the `Justfile` (set to
-`"latest"` to track `main`) and install it via `just sync`. NOTE: the install is currently
-**unconditional** — `just sync` does not read the `token_auditor` capability, so the cap is defined
-in `lib/machines.nix` but not yet wired to an opt-out. Both aarch64 machines set it `true`, so
-there is no behavioral gap today; wire the `sync` recipe to the cap (or drop the cap) to close it.
+`"latest"` to track `main`) and install it via `just sync`. The install is **unconditional** on
+every machine by design; the former `token_auditor` capability was dropped (2026-07-17) because no
+consumer read it. Re-add the cap with real plumbing (see the machine.env pattern in `tiling.nix`)
+only if a host ever needs an opt-out.
 
 ```bash
 uv tool install git+https://github.com/stevencarpenter/token-auditor   # manual install / upgrade
@@ -178,12 +178,12 @@ in `README.md`. Where each capability is enforced:
 - **`aws_sso`** — `modules/home/secrets.nix` (AWS overrides secret) + the `awsConfigGen` hook.
 - **`infra`** — `modules/home/dev-tools.nix` (mise `conf.d/infra.toml`).
 - **`agent_journal`** — `modules/home/dotfiles.nix` (config + `~/.local/bin/{agent-journal,agent-note}`).
-- **`agents`** — the `agentsInstall` hook (`sync-hooks.nix`) + `just sync` (SSH clone of the
-  registry); the `emit-routing-context.sh` SessionStart hook is unioned in `ai-stack.nix`.
-- **`token_auditor`** — installed via `just sync` (pin in the Justfile's `TOKEN_AUDITOR_VERSION`);
-  public https repo, installs **unconditionally** on every machine. The capability is currently an
-  orphan: `just sync` does not consume it, so it grants no opt-out yet. Wire the recipe to the cap
-  or remove the cap to resolve.
+- **`agents`** — the `agentsInstall` hook (`sync-hooks.nix`) + the capability-aware personal
+  registry clone in `just sync`; the `emit-routing-context.sh` SessionStart hook is unioned in
+  `ai-stack.nix`. A work-host sync never contacts the personal registry remote.
+- token-auditor is **not capability-gated**: `just sync` installs it unconditionally (pin in the
+  Justfile's `TOKEN_AUDITOR_VERSION`; public https repo). The former orphan `token_auditor` cap
+  was dropped 2026-07-17.
 
 Identity-flavored splits (personal/work/lab shell profiles, hippo, homelab-over-Tailscale for
 `!= "work"`) live in `modules/home/dotfiles.nix` and `modules/home/secrets.nix` as

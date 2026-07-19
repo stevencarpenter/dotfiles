@@ -24,7 +24,6 @@ from typing import Any
 
 from mcp_sync.sync import (
     _build_targets,
-    _load_json,
     _load_json_object,
     _patch_owned_config,
     _write_json,
@@ -224,7 +223,12 @@ def capture_target(name: str, master: JsonDict, home: Path) -> CaptureResult:
         return CaptureResult(name, override_path, verified=True)
 
     if candidate:
-        existing = _load_json(override_path) if override_path.is_file() else {}
+        existing: JsonDict = {}
+        if override_path.is_file():
+            try:
+                existing = _load_json_object(override_path)
+            except ValueError:
+                log_info(f"Replacing override with non-object root: {override_path}")
         _write_json(override_path, deep_merge(existing, candidate))
 
     rebuilt = rebuild()

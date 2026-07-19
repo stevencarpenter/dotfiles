@@ -1,13 +1,13 @@
 ---
 name: mcp-sync-verify
-description: Verify the dotfiles MCP sync pipeline is healthy after editing master/overlay/override configs or sync code. USE THIS SKILL whenever the user edits anything under `dot_config/mcp/` (mcp-master.json, machine/work.json, machine/personal.json, machine/lab.json, overrides/*.json, templates), edits anything under `mcp_sync/` (sync.py, cli.py, templates/*.base.json|.toml, tests), or asks any of "sync MCP configs", "verify MCP", "did the MCP sync break", "did mcp-master change anything", "what changed in opencode/cursor/claude.json", "preview the MCP fan-out", "dry run mcp_sync", "I edited mcp/machine/*.json — does it still apply cleanly", "is codex/cursor/junie/lmstudio still in sync". Bias toward triggering after edits to the MCP source-of-truth files even if the user does not explicitly ask — this skill never writes to deployed paths, so the cost of an unnecessary trigger is one tmpdir.
+description: Verify the dotfiles MCP sync pipeline is healthy after editing master/overlay/override configs or sync code. USE THIS SKILL whenever the user edits anything under `home/.config/mcp/` (mcp-master.json, machine/work.json, machine/personal.json, machine/lab.json, overrides/*.json, templates), edits anything under `mcp_sync/` (sync.py, cli.py, templates/*.base.json|.toml, tests), or asks any of "sync MCP configs", "verify MCP", "did the MCP sync break", "did mcp-master change anything", "what changed in opencode/cursor/claude.json", "preview the MCP fan-out", "dry run mcp_sync", "I edited mcp/machine/*.json — does it still apply cleanly", "is codex/cursor/junie/lmstudio still in sync". Bias toward triggering after edits to the MCP source-of-truth files even if the user does not explicitly ask — this skill never writes to deployed paths, so the cost of an unnecessary trigger is one tmpdir.
 ---
 
 # MCP sync verify
 
 Lint, test, and dry-run the `mcp_sync` pipeline against a sandbox HOME, then diff the
 generated tool configs against the currently-deployed copies. Surfaces drift introduced
-by edits to `dot_config/mcp/mcp-master.json`, machine overlays, per-tool overrides,
+by edits to `home/.config/mcp/mcp-master.json`, machine overlays, per-tool overrides,
 templates, or `mcp_sync/src/`.
 
 Read the repo CLAUDE.md for the full master → machine → override merge order before
@@ -59,29 +59,29 @@ bash .claude/skills/mcp-sync-verify/scripts/dry_run_diff.sh
 What the script does:
 
 1. `mktemp -d` a sandbox HOME.
-2. Seed the sandbox with `dot_config/mcp/mcp-master.json` + `dot_config/mcp/overrides/*`
+2. Seed the sandbox with `home/.config/mcp/mcp-master.json` + `home/.config/mcp/overrides/*`
    from the repo (so `_load_override` finds them).
 3. Auto-detect the deployed machine overlay at `~/.config/mcp/machine/*.json` and pass
-   it via `--machine-config` (matching what `.chezmoiscripts/run_after_sync-mcp.sh.tmpl`
-   does at apply time). Override by passing a path: `bash .../dry_run_diff.sh /path/to/overlay.json`.
+   it via `--machine-config` (matching what the `mcpSync` activation hook in
+   `modules/home/sync-hooks.nix` does at rebuild time). Override by passing a path: `bash .../dry_run_diff.sh /path/to/overlay.json`.
 4. Mirror `~/.claude.json` and `~/.config/.copilot/config.json` into the sandbox so the
    in-place patchers have something to patch.
 5. Run `uv run --project mcp_sync sync-mcp-configs --home "$SANDBOX" --machine-config ...`.
 6. `diff -u` every generated path against the deployed copy under `$HOME`.
 
 A clean run prints `==> All deployed configs match what mcp_sync would generate.`
-Any diff output is what would change at the next `chezmoi apply`.
+Any diff output is what would change at the next `just mcp-sync` / rebuild.
 
 ### 5. (Optional) Apply for real
 
 Only after the diff looks correct:
 
 ```bash
-chezmoi apply
+just mcp-sync
 ```
 
-The post-apply hook `.chezmoiscripts/run_after_sync-mcp.sh.tmpl` re-runs
-`sync-mcp-configs` against the real `$HOME`.
+(Or `just rebuild` — the `mcpSync` activation hook in `modules/home/sync-hooks.nix`
+re-runs `sync-mcp-configs` against the real `$HOME` after every switch.)
 
 ## Reading the diff output
 
@@ -99,7 +99,7 @@ The post-apply hook `.chezmoiscripts/run_after_sync-mcp.sh.tmpl` re-runs
 ## Common drift sources
 
 - Forgot to set `enabled: false` on a server you wanted gated to one machine. Use the
-  machine overlay (`dot_config/mcp/machine/{work,personal,lab}.json`) instead of editing
+  machine overlay (`home/.config/mcp/machine/{work,personal,lab}.json`) instead of editing
   the master.
 - Added a server with both `command` and `url` — `transform_to_opencode_format` and
   `_render_codex_mcp_section` prefer `url` and silently drop `command`. Pick one.
@@ -111,7 +111,7 @@ The post-apply hook `.chezmoiscripts/run_after_sync-mcp.sh.tmpl` re-runs
 ## Not for
 
 - Editing the actual MCP master config — this skill is a *verifier*. To add a server,
-  edit `dot_config/mcp/mcp-master.json` (or the appropriate machine overlay) and then
+  edit `home/.config/mcp/mcp-master.json` (or the appropriate machine overlay) and then
   run this skill.
 - Authoring new tool templates — this skill diffs against existing targets; adding a
   new `SyncTarget` requires a code change in `mcp_sync/src/mcp_sync/sync.py`.

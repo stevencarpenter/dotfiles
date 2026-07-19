@@ -29,10 +29,11 @@
   # homebrew module know which user to act as.
   system.primaryUser = user;
 
-  # Login-shell pin (declarative replacement for the old imperative
-  # run_onchange_set-login-shell.sh chsh dance). nix-darwin writes the
-  # Directory Services UserShell, eliminating the bug class the script guarded
-  # against (a stale Homebrew-cellar zsh path bricking login on arch change).
+  # Login-shell pin. The primary account is a pre-existing macOS admin user,
+  # not a nix-darwin-owned user: the pinned nix-darwin release only applies
+  # users.users.* properties to users.knownUsers, and explicitly warns not to
+  # add the admin user there. postActivation below therefore owns the actual
+  # Directory Services update instead of pretending users.users.* is enough.
   #
   # The pin is the LITERAL /bin/zsh, not pkgs.zsh: the retired script existed
   # because a non-OS shell path (Homebrew cellar, and equally a nix store
@@ -40,37 +41,40 @@
   # shell Apple guarantees. Interactive shell richness comes from z4h config,
   # not the login-shell binary.
   #
-  # NOTE (reviewer): setting `shell` for a macOS-created (i.e. not
-  # nix-darwin-managed / knownUsers) account relies on newer nix-darwin driving
-  # `dscl … UserShell` during activation. If the pinned nix-darwin release
-  # refuses to touch an unmanaged user's shell, add `users.knownUsers` + a
-  # `uid` for this user, or fall back to a chsh activation snippet.
-  users.users.${user} = {
-    name = user;
-    home = "/Users/${user}";
-    shell = "/bin/zsh";
-  };
+  # Home metadata remains necessary because nix-darwin's Home Manager bridge
+  # reads it for system.primaryUser. This does not opt the admin account into
+  # users.knownUsers or claim nix-darwin manages its Directory Services fields.
+  users.users.${user}.home = "/Users/${user}";
 
   # /bin/zsh is already in /etc/shells; keep pkgs.zsh registered too so a
   # store zsh remains a valid `chsh` choice without being the login pin.
   environment.shells = [ pkgs.zsh "/bin/zsh" ];
 
-  # One-time migration cleanup carried over from the old login-shell script:
-  # clear any stale `launchctl setenv SHELL <path>` override (e.g. a versioned
-  # Homebrew Cellar path that vanishes on `brew upgrade zsh`) so the SHELL env
-  # var GUI-launched apps inherit tracks the declared login shell. Idempotent —
-  # no-ops once cleared. Runs in the primary user's GUI domain via
-  # `launchctl asuser`, since activation itself runs as root.
+  # Apply the login shell and clear any stale `launchctl setenv SHELL <path>`
+  # override (e.g. a versioned Homebrew Cellar path that vanishes on upgrade).
+  # Both operations are idempotent. Activation runs as root; launchctl work is
+  # explicitly routed into the primary user's GUI domain.
   system.activationScripts.postActivation.text = ''
-    # --- clear stale launchctl SHELL override (login-shell migration) ---
-    _login_shell="${pkgs.zsh}/bin/zsh"
-    _uid="$(id -u ${user} 2>/dev/null || true)"
-    if [ -n "$_uid" ]; then
-      _cur="$(launchctl asuser "$_uid" launchctl getenv SHELL 2>/dev/null || true)"
-      if [ -n "$_cur" ] && [ "$_cur" != "$_login_shell" ] && [ "$_cur" != "/bin/zsh" ]; then
-        echo "clearing stale launchctl SHELL override ($_cur)"
-        launchctl asuser "$_uid" launchctl unsetenv SHELL || true
-      fi
+    # --- enforce Directory Services UserShell (login-shell migration) ---
+    _login_shell="/bin/zsh"
+    _ds_user="/Users/${user}"
+    _uid="$(/usr/bin/id -u ${user} 2>/dev/null || true)"
+    if [ -z "$_uid" ]; then
+      echo "cannot enforce login shell: primary user ${user} does not exist" >&2
+      exit 1
+    fi
+    _current_shell="$(/usr/bin/dscl . -read "$_ds_user" UserShell 2>/dev/null || true)"
+    _current_shell="''${_current_shell#UserShell: }"
+    if [ "$_current_shell" != "$_login_shell" ]; then
+      echo "setting ${user} login shell: ''${_current_shell:-<unset>} -> $_login_shell"
+      /usr/bin/dscl . -create "$_ds_user" UserShell "$_login_shell"
+    fi
+
+    # --- clear stale launchctl SHELL override ---
+    _cur="$(/bin/launchctl asuser "$_uid" /bin/launchctl getenv SHELL 2>/dev/null || true)"
+    if [ -n "$_cur" ] && [ "$_cur" != "$_login_shell" ]; then
+      echo "clearing stale launchctl SHELL override ($_cur)"
+      /bin/launchctl asuser "$_uid" /bin/launchctl unsetenv SHELL || true
     fi
   '';
 

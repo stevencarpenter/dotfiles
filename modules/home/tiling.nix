@@ -19,7 +19,7 @@ in
       # by identity here instead of templating. Only "personal" and "work"
       # identities exist, so those are the only files this branch selects.
       ".config/aerospace/aerospace.toml".source =
-        mkLink ".config/aerospace/aerospace.${identity}.toml";
+        lib.mkDefault (mkLink ".config/aerospace/aerospace.${identity}.toml");
 
       ".config/sketchybar/sketchybarrc".source = mkLink ".config/sketchybar/sketchybarrc";
       ".config/sketchybar/items".source = mkLink ".config/sketchybar/items";

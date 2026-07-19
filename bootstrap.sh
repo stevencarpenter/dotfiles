@@ -12,7 +12,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 # box as machines are added to lib/machines.nix.
 detect_host() {
   case "$(scutil --get LocalHostName 2>/dev/null || true)" in
-    personal-mac) echo personal-mac ;;
+    personal-mac | Stevens-MacBook-Pro) echo personal-mac ;;
     work-mac) echo work-mac ;;
     *) return 1 ;;
   esac
@@ -25,6 +25,7 @@ if ! xcode-select -p >/dev/null 2>&1; then
   echo "==> Installing Xcode Command Line Tools ..."
   xcode-select --install || true
   echo "    Finish the GUI installer, then re-run ./bootstrap.sh."
+  exit 0
 fi
 sudo xcodebuild -license accept 2>/dev/null || true
 
@@ -46,8 +47,9 @@ else
 fi
 
 # ── 2. age identity key from 1Password ───────────────────────────────────
-# The existing chezmoi age identity; agenix (modules/home/secrets.nix) reads it
+# The dotfiles age identity; agenix (modules/home/secrets.nix) reads it
 # to decrypt secrets/**.age. Must exist before the first darwin-rebuild switch.
+# Stored as the notesPlain field of the "dotfiles-age-key" secure note.
 KEY_DEST="$HOME/.config/age/keys.txt"
 if [ ! -s "$KEY_DEST" ]; then
   echo "==> Fetching age identity key from 1Password ..."
@@ -56,7 +58,7 @@ if [ ! -s "$KEY_DEST" ]; then
     exit 1
   fi
   mkdir -p "$(dirname "$KEY_DEST")"
-  op read "op://Private/chezmoi-age-key/key.txt" >"$KEY_DEST"
+  op read "op://Private/dotfiles-age-key/notesPlain" >"$KEY_DEST"
   chmod 600 "$KEY_DEST"
 else
   echo "==> age key already present at $KEY_DEST"
@@ -103,7 +105,8 @@ fi
 # ── 7. Network/SSH side channels ─────────────────────────────────────────
 echo "==> Running 'just sync' for git externals + token-auditor ..."
 if command -v just >/dev/null 2>&1; then
-  just sync || echo "    (just sync had warnings; re-run later once online/authed)"
+  DOTFILES_HOST="$HOST" just sync \
+    || echo "    (just sync had warnings; re-run later once online/authed)"
 else
   echo "    'just' not on PATH yet; run 'just sync' after the switch completes."
 fi

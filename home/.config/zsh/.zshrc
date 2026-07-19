@@ -61,13 +61,18 @@ z4h source xs5871/p10k-jj-status/p10k-jj-status.plugin.zsh
 # POST-INIT CUSTOMIZATION (after z4h init)
 # ============================================================================
 
+# === 0. eval-cache helper (must precede any zcached call below) ===
+# Caches static `tool init` output to ~/.cache/zsh-eval-cache, invalidated on
+# binary mtime/size change. See lib/eval-cache.zsh for the mechanism.
+source "${XDG_CONFIG_HOME:-$HOME/.config}/zsh/lib/eval-cache.zsh"
+
 # === 1. Homebrew Setup (must be early, other tools depend on it) ===
 # Apple Silicon installs to /opt/homebrew, Intel to /usr/local. Probe both so
 # the same dotfiles work on either arch without diverging.
-if [[ $(uname) == "Darwin" ]]; then
+if [[ $OSTYPE == darwin* ]]; then
   for brew_bin in /opt/homebrew/bin/brew /usr/local/bin/brew; do
     if [[ -x $brew_bin ]]; then
-      eval "$($brew_bin shellenv)"
+      zcached brew-shellenv "$brew_bin" "$brew_bin" shellenv
       break
     fi
   done
@@ -466,7 +471,7 @@ function sip_holder() {
 # These tools need to be initialized after PATH is configured
 
 # zoxide (smart cd)
-eval "$(zoxide init --cmd cd zsh)"
+command -v zoxide >/dev/null 2>&1 && zcached zoxide-init "$(command -v zoxide)" zoxide init --cmd cd zsh
 
 # mise (polyglot runtime manager) - lazy load with hook prevention
 if command -v mise >/dev/null 2>&1; then
@@ -490,7 +495,7 @@ fi
 # Scrub a stale ATUIN_TMUX_POPUP a long-lived tmux server may have frozen in;
 # atuin's config.toml [tmux] block should be the only source of truth.
 unset ATUIN_TMUX_POPUP
-command -v atuin >/dev/null 2>&1 && eval "$(atuin init zsh)"
+command -v atuin >/dev/null 2>&1 && zcached atuin-init "$(command -v atuin)" atuin init zsh
 
 # === 9. Completions ===
 # Defer custom completion registration until after first prompt.
@@ -532,7 +537,7 @@ fi
 #[[ -f "$dev_env_file" ]] && source "$dev_env_file" || true
 
 # Worktrunk shell completions
-if command -v wt >/dev/null 2>&1; then eval "$(command wt config shell init zsh)"; fi
+if command -v wt >/dev/null 2>&1; then zcached wt-shell-init "$(command -v wt)" command wt config shell init zsh; fi
 
 # ============================================================================
 # Profiling output (uncomment if you enabled zprof at the top)

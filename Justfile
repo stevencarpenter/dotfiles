@@ -35,41 +35,7 @@ bootstrap *HOST:
 # These are the network+SSH steps intentionally kept OUT of `darwin-rebuild
 # switch` (see docs/nix-migration.md, hooks bucket rule). Safe to re-run.
 sync:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    # tpm (tmux plugin manager) — public https clone, weekly refresh upstream.
-    tpm_dir="$HOME/.config/tmux/plugins/tpm"
-    if [ -d "$tpm_dir/.git" ]; then
-        echo "==> Refreshing tpm"
-        git -C "$tpm_dir" pull --ff-only || echo "warning: tpm pull failed" >&2
-    else
-        echo "==> Cloning tpm"
-        git clone https://github.com/tmux-plugins/tpm.git "$tpm_dir"
-    fi
-    # Personal agent-registry — SSH clone, hourly-curated upstream. The
-    # agents capability gates the installer (modules/home/sync-hooks.nix);
-    # this recipe just guarantees the clone exists for it to run against.
-    reg_dir="$HOME/.local/share/agent-registry"
-    if [ -d "$reg_dir/.git" ]; then
-        echo "==> Refreshing agent-registry"
-        git -C "$reg_dir" pull --ff-only || echo "warning: agent-registry pull failed" >&2
-    else
-        echo "==> Cloning agent-registry (SSH)"
-        git clone git@github.com:stevencarpenter/agents.git "$reg_dir" \
-            || echo "warning: agent-registry clone failed (SSH key/network?)" >&2
-    fi
-    # token-auditor — standalone uv tool from its own public repo. --force
-    # makes re-install idempotent and upgrades in place on a version bump.
-    if command -v uv >/dev/null 2>&1; then
-        ref="git+https://github.com/stevencarpenter/token-auditor"
-        if [ "{{ TOKEN_AUDITOR_VERSION }}" != "latest" ]; then
-            ref="${ref}@{{ TOKEN_AUDITOR_VERSION }}"
-        fi
-        echo "==> Installing token-auditor (${ref})"
-        uv tool install --force "$ref" || echo "warning: token-auditor install failed" >&2
-    else
-        echo "warning: uv not found; skipping token-auditor install" >&2
-    fi
+    TOKEN_AUDITOR_VERSION="{{ TOKEN_AUDITOR_VERSION }}" scripts/sync-side-channels.sh
 
 # ── MCP Sync ─────────────────────────────────────────────
 

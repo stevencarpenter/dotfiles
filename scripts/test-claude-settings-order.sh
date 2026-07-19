@@ -88,3 +88,77 @@ printf '%s\n' "${merged}" | jq -e 'has("enabledPlugins") and has("extraKnownMark
 }
 
 echo "claude settings merge preserves existing key order and in-tool values"
+
+# Fragment seam (ai-stack.nix claudeSettingsMerge): a JSON file dropped at
+# ~/.claude/settings.d/*.json deep-merges over the managed block BEFORE the
+# existing-settings merge above. Replay that fragment loop against a temp
+# settings.d holding one fragment that both adds a new key and overrides a
+# base scalar key ("teammateMode"), then confirm the same existing*managed
+# merge still sees the fragment's values.
+fragdir="$(mktemp -d)"
+trap 'rm -rf "${fragdir}"' EXIT
+
+cat >"${fragdir}/01-test.json" <<'JSON'
+{
+  "testFragmentKey": true,
+  "teammateMode": "solo"
+}
+JSON
+
+managed_with_frag="$(cat "${base}")"
+for frag in "${fragdir}"/*.json; do
+  [ -f "${frag}" ] || continue
+  managed_with_frag="$(printf '%s\n' "${managed_with_frag}" | jq --slurpfile f "${frag}" '. * $f[0]')"
+done
+
+merged_with_frag="$(printf '%s\n' "${sample_settings}" | jq --argjson managed "${managed_with_frag}" '. * $managed')"
+
+printf '%s\n' "${merged_with_frag}" | jq -e '.testFragmentKey == true' >/dev/null || {
+  echo "settings.d fragment key did not survive the merge" >&2
+  exit 1
+}
+
+printf '%s\n' "${merged_with_frag}" | jq -e '.teammateMode == "solo"' >/dev/null || {
+  echo "settings.d fragment did not override the base's teammateMode value" >&2
+  exit 1
+}
+
+echo "claude settings.d fragment merges over the managed block and overrides base keys"
+
+# Malformed-fragment case: a bad fragment must be skipped cleanly (not abort
+# the pipeline, not clobber state built up from earlier-processed fragments).
+# Exercises the same commit-on-success loop as ai-stack.nix's claudeSettingsMerge:
+#   if tmp="$(... | jq ...)"; then managed="$tmp"; else warn; fi
+baddir="$(mktemp -d)"
+trap 'rm -rf "${fragdir}" "${baddir}"' EXIT
+
+cat >"${baddir}/01-good.json" <<'JSON'
+{
+  "goodFragmentKey": true
+}
+JSON
+printf '%s\n' '{not json' >"${baddir}/02-bad.json"
+
+managed_with_bad="$(cat "${base}")"
+for frag in "${baddir}"/*.json; do
+  [ -f "${frag}" ] || continue
+  if tmp="$(printf '%s\n' "${managed_with_bad}" | jq --slurpfile f "${frag}" '. * $f[0]')"; then
+    managed_with_bad="${tmp}"
+  else
+    echo "skipping bad fragment ${frag}" >&2
+  fi
+done
+
+merged_with_bad="$(printf '%s\n' "${sample_settings}" | jq --argjson managed "${managed_with_bad}" '. * $managed')"
+
+printf '%s\n' "${merged_with_bad}" | jq -e '.goodFragmentKey == true' >/dev/null || {
+  echo "valid fragment before a malformed one was not applied" >&2
+  exit 1
+}
+
+printf '%s\n' "${merged_with_bad}" | jq -e 'has("badFragmentKey") | not' >/dev/null || {
+  echo "malformed fragment should not have contributed any key" >&2
+  exit 1
+}
+
+echo "claude settings.d loop skips a malformed fragment and keeps prior fragment state"
