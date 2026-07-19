@@ -631,8 +631,18 @@ def get_recent_logs(service: str, lines: int = LOG_LINES_DEFAULT,
     retries once with longer timeout on failure,
     falls back to CLI (~27s for 100 lines).
     """
-    # Fast path: use API directly
-    if environment_id and service_id:
+    # Fast path: use API directly. The IDs come from local config / CLI args
+    # (not an external trust boundary), but they are interpolated into the
+    # GraphQL query string below, so validate them to a strict UUID-ish charset
+    # first — a stray quote or brace can then never break out of the literal.
+    _id_chars = set("0123456789abcdefABCDEF-")
+    ids_valid = (
+        environment_id
+        and service_id
+        and all(c in _id_chars for c in environment_id)
+        and all(c in _id_chars for c in service_id)
+    )
+    if ids_valid:
         script_dir = os.path.dirname(os.path.abspath(__file__))
         api_script = os.path.join(script_dir, "railway-api.sh")
 

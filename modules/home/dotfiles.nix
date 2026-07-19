@@ -184,6 +184,14 @@ in
     # tree. Own each tool-native link explicitly so deleting that checkout does
     # not strand Codex, Cursor, Copilot, OpenCode, or Junie.
     (lib.optionalAttrs (caps.skills && identity == "personal") {
+      # NOTE: use-railway is vendored as a STATIC local copy under
+      # skills/personal/use-railway and linked out-of-store below. Do NOT wire
+      # the upstream railwayapp/railway-skills repo in as a pinned git source in
+      # skills-master.json (the auto-refresh design discussed) until the upstream
+      # PR that restores the removed injection guards is addressed — a 2026-07
+      # `railway skills update --force` shipped a shell-injection (dal.py) and a
+      # SQL-injection (pg-extensions.py) regression, both reverted here. Keeping
+      # the copy static means no CLI/upstream refresh can silently overwrite it.
       ".config/opencode/skills/use-railway" = forcedRepoLink "skills/personal/use-railway";
       ".codex/skills/playwright" = forcedRepoLink "skills/personal/playwright";
       ".codex/skills/use-railway" = forcedRepoLink "skills/personal/use-railway";
@@ -194,12 +202,9 @@ in
       ".junie/skills/clerk-webhooks" = forcedRepoLink "skills/personal/clerk-webhooks";
       ".junie/skills/design-an-interface" = forcedRepoLink "skills/personal/design-an-interface";
       ".junie/skills/domain-model" = forcedRepoLink "skills/personal/domain-model";
-      ".junie/skills/find-skills" = forcedRepoLink "skills/personal/find-skills";
       ".junie/skills/gh-axi" = forcedRepoLink "skills/personal/gh-axi";
       ".junie/skills/github-triage" = forcedRepoLink "skills/personal/github-triage";
-      ".junie/skills/qa" = forcedRepoLink "skills/personal/qa";
       ".junie/skills/request-refactor-plan" = forcedRepoLink "skills/personal/request-refactor-plan";
-      ".junie/skills/triage-issue" = forcedRepoLink "skills/personal/triage-issue";
       ".junie/skills/ubiquitous-language" = forcedRepoLink "skills/personal/ubiquitous-language";
     })
 

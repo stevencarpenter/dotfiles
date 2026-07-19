@@ -2,10 +2,10 @@
 # Railway GraphQL API helper
 # Usage: railway-api.sh '<graphql-query>' ['<variables-json>']
 
-set -e
+set -euo pipefail
 
 SKILL_ID="use-railway"
-SKILL_VERSION="${RAILWAY_SKILL_VERSION:-1.2.1}"
+SKILL_VERSION="${RAILWAY_SKILL_VERSION:-1.2.3}"
 
 export RAILWAY_CALLER="${RAILWAY_CALLER:-skill:${SKILL_ID}@${SKILL_VERSION}}"
 export RAILWAY_AGENT_SESSION="${RAILWAY_AGENT_SESSION:-railway-skill-$(date +%s)-$$}"
@@ -29,13 +29,13 @@ if [[ -z "$TOKEN" || "$TOKEN" == "null" ]]; then
   exit 1
 fi
 
-if [[ -z "$1" ]]; then
+if [[ -z "${1:-}" ]]; then
   echo '{"error": "No query provided"}'
   exit 1
 fi
 
 # Build payload with query and optional variables
-if [[ -n "$2" ]]; then
+if [[ -n "${2:-}" ]]; then
   PAYLOAD=$(jq -n --arg q "$1" --argjson v "$2" '{query: $q, variables: $v}')
 else
   PAYLOAD=$(jq -n --arg q "$1" '{query: $q}')

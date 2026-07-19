@@ -2,6 +2,22 @@
 
 Create, link, and organize Railway projects, services, databases, and workspaces.
 
+## Account creation & first-time onboarding
+
+A brand-new user with no Railway account is onboarded through the same unified OAuth flow as sign-in — the backend detects fresh accounts and adapts the consent + landing pages. Pick the command by intent:
+
+- **Deploy from the current directory** → `railway up` (interactive) or `railway up -y` (skips the confirm prompt). When unauthenticated it opens a browser to sign in / sign up, then creates a project + service and deploys. Run it yourself; do not ask the user to `railway login` first.
+- **New project from cwd when already signed in** → `railway up --new` (`--name <name>` to override the project name).
+- **Sign up with a deployable app in cwd → `railway up`** (signs up *and* deploys — bare `up` works for a detected agent, even if the user only said "sign me up"; add `-y` to skip prompts / force it non-interactively). Sign in, or sign up with nothing to deploy → `railway login` (creates new accounts on the fly).
+
+`railway up` and `railway login` self-validate auth — don't run `railway whoami` before them.
+
+**Headless / SSH / CI**: the CLI auto-detects these and switches to the device-code flow (RFC 8628: sign-in link + short code) on its own. Do NOT pass `--browserless` just because you are an agent — if the human is at this machine, bare `railway login` opens their browser and completes far more reliably. Reserve the flag for machines with genuinely no browser that the auto-detection missed.
+
+**`railway up --json` / `--ci` do NOT auto-prompt** an unauthed user. `--json` emits a structured `{"error":"Not signed in.","code":"NOT_AUTHENTICATED", ...}` on stdout and exits non-zero — detect `NOT_AUTHENTICATED`, run `railway login`, then retry.
+
+**Fully unattended (no human)**: set `RAILWAY_API_TOKEN` (account-scoped) or `RAILWAY_TOKEN` (project-scoped) instead of logging in. There is no headless account-creation path — a brand-new user needs a human at the browser once.
+
 ## Projects
 
 ### List and discover
@@ -69,12 +85,18 @@ Prefer service IDs from JSON output when names may collide.
 ### Create a service
 
 ```bash
-railway add --service <service-name>          # empty service
-railway add --database postgres               # managed database (postgres, redis, mysql, mongodb)
-railway add                                   # interactive, prompts for type
+railway add --service <name> --json           # empty service
+railway add --database postgres --json        # managed database (postgres, redis, mysql, mongo)
+railway add                                   # interactive only — do not use non-interactively
 ```
 
-Before adding a database, check for existing database services to avoid duplicates. Run `railway environment config --json` and inspect `source.image` for each service:
+**Always pass `--json` to `railway add`.** Without it, a successful database create writes nothing to stdout — only a `> What do you need? Database` echo on stderr that looks identical to a stalled interactive prompt. Retrying based on "no stdout came back" silently provisions a second database. With `--json`, success prints `{"serviceId":"…","serviceName":"…"}` and failure exits non-zero.
+
+**`--database` is cumulative, not last-wins.** `railway add --database postgres --database redis` creates *both* in a single call. Don't repeat the flag — issue one `railway add` per database.
+
+**If `railway add` output looks ambiguous, never retry blind.** Run `railway service list --json` (or query `project.services` via [request.md](request.md)) first and compare against what you expected to exist. Treat the service list as the source of truth, not the CLI's stdout shape.
+
+Before adding a database — and before retrying any `railway add` whose output you can't interpret — list existing services to avoid duplicates. Run `railway service list --json` for a fast count, or `railway environment config --json` and inspect `source.image` per service when you need to identify the engine:
 
 | Image pattern | Database |
 |---|---|
@@ -106,6 +128,20 @@ Service names in variable references are case-sensitive and must match exactly. 
 
 When creating new service instances via JSON config patches, include `isCreated: true` in the service block to mark it as a new service.
 
+### Connect to a database shell
+
+Use `railway connect` when the user wants an interactive database shell (`psql`, `redis-cli`, `mysql`, or `mongosh`):
+
+```bash
+railway connect <database-service>
+railway connect <database-service> --environment production
+railway connect <database-service> --project <project-id> --environment production
+railway connect <database-service> --ssh
+railway connect <database-service> --no-ssh
+```
+
+The local database client must be installed. By default, `connect` uses a public TCP proxy when one exists and falls back to an SSH tunnel when no public proxy URL is available. Use `--ssh` to force the tunnel path, or `--no-ssh` to require a public TCP proxy.
+
 ### Delete a service
 
 Deleting a service removes it from the target environment. Confirm with the user before running it.
@@ -119,11 +155,12 @@ If 2FA is enabled and the command runs non-interactively, pass `--2fa-code <code
 
 ### Deploy from a template
 
-Templates provision pre-configured services with sensible defaults, faster than creating an empty service and configuring it manually:
+Templates provision pre-configured services with sensible defaults, faster than creating an empty service and configuring it manually. Use `templates search` for marketplace discovery and `deploy --template` for deployment:
 
 ```bash
 railway templates search postgres --verified true --json
-railway templates search --category database --limit 10 --json
+railway templates search --category Storage --limit 10 --json
+railway templates search postgres --limit 50 --after <cursor> --json
 railway deploy --template <template-code>
 ```
 
@@ -135,6 +172,20 @@ Template deployments typically create:
 - Environment variables (connection strings, secrets)
 - A volume for persistent data (databases)
 - A TCP proxy for external access (where applicable)
+
+Manage owned templates with:
+
+```bash
+railway templates list --json
+railway templates list --workspace <workspace> --json
+railway templates create --project <project> --environment production --json
+railway templates publish <template-id> --category Other --description "Deploy and Host My App with Railway" --readme-file README.md --json
+railway templates update <template-id> --category Other --description "Updated description" --readme-file README.md --json
+railway templates unpublish <template-id-or-code> --yes --json
+railway templates delete <template-id-or-code> --yes --json
+```
+
+Non-interactive `unpublish` and `delete` require `--yes`; pass `--2fa-code` when required by the current auth session.
 
 ### Bootstrap source for an empty service
 
@@ -303,10 +354,11 @@ When creating projects, Railway uses the default workspace unless `--workspace` 
 - **Not authenticated**: `railway login`
 - **Project not found**: verify with `railway project list --json`, check workspace context
 - **Service not found**: `railway service list --json` to list services in the current environment
+- **Database shell cannot connect**: install the local database client, use `railway connect <service> --ssh`, or create/check a TCP proxy
 - **Wrong workspace**: inspect `railway whoami --json`, re-run with explicit `--workspace`
 - **Permission denied**: check workspace role, mutations require member or admin access
 
 ## Validated against
 
-- Docs: [cli.md](https://docs.railway.com/cli), [init.md](https://docs.railway.com/cli/init), [add.md](https://docs.railway.com/cli/add), [link.md](https://docs.railway.com/cli/link), [project.md](https://docs.railway.com/cli/project), [service.md](https://docs.railway.com/cli/service), [templates.md](https://docs.railway.com/cli/templates), [list.md](https://docs.railway.com/cli/list), [whoami.md](https://docs.railway.com/cli/whoami)
-- CLI source: [init.rs](https://github.com/railwayapp/cli/blob/v4.58.0/src/commands/init.rs), [add.rs](https://github.com/railwayapp/cli/blob/v4.58.0/src/commands/add.rs), [project.rs](https://github.com/railwayapp/cli/blob/v4.58.0/src/commands/project.rs), [service.rs](https://github.com/railwayapp/cli/blob/v4.58.0/src/commands/service.rs), [templates.rs](https://github.com/railwayapp/cli/blob/v4.58.0/src/commands/templates.rs), [list.rs](https://github.com/railwayapp/cli/blob/v4.58.0/src/commands/list.rs), [bucket.rs](https://github.com/railwayapp/cli/blob/v4.58.0/src/commands/bucket.rs)
+- Docs: [cli.md](https://docs.railway.com/cli), [init.md](https://docs.railway.com/cli/init), [add.md](https://docs.railway.com/cli/add), [link.md](https://docs.railway.com/cli/link), [project.md](https://docs.railway.com/cli/project), [service.md](https://docs.railway.com/cli/service), [connect.md](https://docs.railway.com/cli/connect), [templates.md](https://docs.railway.com/cli/templates), [list.md](https://docs.railway.com/cli/list), [whoami.md](https://docs.railway.com/cli/whoami)
+- CLI source: [init.rs](https://github.com/railwayapp/cli/blob/v5.23.3/src/commands/init.rs), [add.rs](https://github.com/railwayapp/cli/blob/v5.23.3/src/commands/add.rs), [project.rs](https://github.com/railwayapp/cli/blob/v5.23.3/src/commands/project.rs), [service.rs](https://github.com/railwayapp/cli/blob/v5.23.3/src/commands/service.rs), [connect.rs](https://github.com/railwayapp/cli/blob/v5.23.3/src/commands/connect.rs), [templates.rs](https://github.com/railwayapp/cli/blob/v5.23.3/src/commands/templates.rs), [list.rs](https://github.com/railwayapp/cli/blob/v5.23.3/src/commands/list.rs), [bucket.rs](https://github.com/railwayapp/cli/blob/v5.23.3/src/commands/bucket.rs)

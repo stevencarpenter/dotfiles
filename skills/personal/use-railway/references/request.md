@@ -19,14 +19,17 @@ Common doc paths:
 
 | Topic | Path |
 |---|---|
-| Projects | `guides/projects` |
-| Deployments | `guides/deployments` |
-| Volumes | `guides/volumes` |
-| Variables | `guides/variables` |
-| CLI reference | `reference/cli-api` |
-| Pricing | `reference/pricing` |
+| Agent setup | `agents`, `ai/agent-skills`, `ai/mcp-server` |
+| CLI reference | `cli`, `cli/<command>` |
+| Projects | `projects` |
+| Deployments | `deployments` |
+| Volumes | `volumes` |
+| Variables | `variables` |
+| Infrastructure as Code | `infrastructure-as-code`, `infrastructure-as-code/reference` |
 | Public networking | `networking/public-networking` |
 | Private networking | `networking/private-networking` |
+| Domains, CDN, WAF | `networking/domains`, `networking/cdn`, `networking/waf` |
+| Outbound networking | `networking/outbound-networking`, `networking/static-outbound-ips` |
 
 Fetch official docs first for product behavior questions. Use Central Station only when you need community evidence, prior incidents, or implementation anecdotes.
 
@@ -176,11 +179,13 @@ Use the CLI for template search:
 
 ```bash
 railway templates search redis --verified true --json
-railway templates search --category database --limit 10 --json
+railway templates search --category Storage --limit 10 --json
 railway templates search --after <cursor> --json
+railway templates list --json
+railway templates create --project <project> --environment production --json
 ```
 
-The CLI search command doesn't require authentication and supports pagination with `pageInfo.endCursor`.
+The CLI search command doesn't require authentication and supports pagination with `pageInfo.endCursor`. Prefer CLI template commands for search, listing owned templates, creating drafts, publishing, unpublishing, and deleting. Use GraphQL only for template workflows the CLI cannot express.
 
 Use GraphQL only when the CLI output isn't enough for the workflow:
 
@@ -207,6 +212,15 @@ Deploy a found template via CLI:
 
 ```bash
 railway deploy --template <template-code>
+```
+
+Manage owned templates via CLI:
+
+```bash
+railway templates publish <template-id> --category Other --description "Deploy and Host My App with Railway" --readme-file README.md --json
+railway templates update <template-id> --category Other --description "Updated description" --readme-file README.md --json
+railway templates unpublish <template-id-or-code> --yes --json
+railway templates delete <template-id-or-code> --yes --json
 ```
 
 ### GraphQL template deployment
@@ -244,5 +258,5 @@ scripts/railway-api.sh \
 
 ## Validated against
 
-- Docs: [api docs](https://docs.railway.com/api/llms-docs.md), [community.md](https://docs.railway.com/community), [cli/docs.md](https://docs.railway.com/cli/docs), [templates.md](https://docs.railway.com/cli/templates), [metrics.md](https://docs.railway.com/cli/metrics)
-- CLI source: [docs.rs](https://github.com/railwayapp/cli/blob/v4.58.0/src/commands/docs.rs), [templates.rs](https://github.com/railwayapp/cli/blob/v4.58.0/src/commands/templates.rs), [metrics.rs](https://github.com/railwayapp/cli/blob/v4.58.0/src/commands/metrics.rs)
+- Docs: [api docs](https://docs.railway.com/api/llms-docs.md), [agents.md](https://docs.railway.com/agents), [community.md](https://docs.railway.com/community), [cli/docs.md](https://docs.railway.com/cli/docs), [templates.md](https://docs.railway.com/cli/templates), [metrics.md](https://docs.railway.com/cli/metrics)
+- CLI source: [docs.rs](https://github.com/railwayapp/cli/blob/v5.23.3/src/commands/docs.rs), [templates.rs](https://github.com/railwayapp/cli/blob/v5.23.3/src/commands/templates.rs), [metrics.rs](https://github.com/railwayapp/cli/blob/v5.23.3/src/commands/metrics.rs)

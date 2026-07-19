@@ -40,7 +40,6 @@ Use stdin for secrets or values that shouldn't appear in shell history:
 
 ```bash
 printf "%s" "$SECRET_VALUE" | railway variable set API_KEY --stdin --service <service>
-railway variable set FEATURE_FLAG=true --service <service> --skip-deploys
 railway variable set API_URL=https://api.example.com --project <project-id> --environment <env> --service <service>
 ```
 
@@ -230,29 +229,41 @@ railway service list --json
 
 ## Domains
 
-### Railway domain
+Use the `railway domain` command for domain lifecycle work. Avoid raw `environment edit` JSON patches for normal domain management.
 
-One Railway-provided domain per service, generated automatically:
-
-```bash
-railway domain --service <service> --json
-```
-
-### Custom domain
+### Create domains
 
 ```bash
-railway domain example.com --service <service> --json
-```
-
-This returns the DNS records you need to configure at your DNS provider. Multiple custom domains per service are supported.
-
-### Target port
-
-If the service listens on a non-default port:
-
-```bash
+railway domain --service <service> --json                  # generate a Railway domain
+railway domain example.com --service <service> --json      # add a custom domain
 railway domain example.com --service <service> --port 8080 --json
 ```
+
+One Railway-provided domain is allowed per service. Multiple custom domains are supported. Custom domain creation returns the DNS records to add at the DNS provider. Add both the routing record and ownership verification record exactly as returned.
+
+Requests to a custom domain can return `404` until Railway verifies the ownership `TXT` record. DNS can take up to 72 hours to propagate.
+
+### Inspect and update domains
+
+```bash
+railway domain list --service <service> --json
+railway domain status example.com --service <service> --json
+railway domain update example.com --port 8080 --service <service> --json
+railway domain update old-name.up.railway.app --domain new-name --service <service> --json
+railway domain certificate retry example.com --service <service> --json
+```
+
+Use `status` when DNS or certificate issuance is not healthy. Retry certificate issuance only after fixing DNS.
+
+### Delete domains
+
+```bash
+railway domain delete example.com --service <service> --yes --json
+```
+
+Domain deletion is destructive. Confirm the domain and service before running it.
+
+## Networking commands
 
 ### Private networking
 
@@ -262,48 +273,87 @@ For service-to-service traffic within a project, use private domain references i
 BACKEND_URL=http://${{api.RAILWAY_PRIVATE_DOMAIN}}:${{api.PORT}}
 ```
 
-### Read current domains
-
-Domain configuration lives in `config.services.<service-id>.networking` under `serviceDomains` (Railway-provided) and `customDomains`. Inspect with:
-
 ```bash
-railway environment config --json
+railway private-network status --service <service> --json
+railway private-network update api-internal --service <service> --json
 ```
 
-### Remove a domain
+When multiple private networks exist, pass `--network <name-or-id>`. Endpoint updates take the prefix only, without `.internal`.
 
-Remove domains via JSON config patch by setting the domain ID to `null`:
+### TCP proxies
 
-**Remove a custom domain:**
-
-```bash
-railway environment edit --json <<'JSON'
-{"services":{"<service-id>":{"networking":{"customDomains":{"<domain-id>":null}}}}}
-JSON
-```
-
-**Remove a Railway-provided domain:**
+Use TCP proxies to expose non-HTTP ports, such as database or game server ports, to the public internet. Only one TCP proxy is allowed per service instance.
 
 ```bash
-railway environment edit --json <<'JSON'
-{"services":{"<service-id>":{"networking":{"serviceDomains":{"<domain-id>":null}}}}}
-JSON
+railway tcp-proxy list --service <service> --json
+railway tcp-proxy create --service <service> --port 5432 --json
+railway tcp-proxy status <proxy-id-or-domain-or-port> --service <service> --json
+railway tcp-proxy delete <proxy-id-or-domain-or-port> --service <service> --yes --json
 ```
 
-Get the domain IDs from `railway environment config --json` under the service's `networking` object.
+TCP proxy creation updates service networking config. If the proxy does not become active, redeploy the service and check status.
+
+### Outbound networking
+
+Use outbound networking commands for Static Outbound IPs and outbound IPv6:
+
+```bash
+railway outbound-network status --service <service> --json
+railway outbound-network static-ip status --service <service> --json
+railway outbound-network static-ip enable --service <service> --json
+railway outbound-network static-ip disable --service <service> --json
+railway outbound-network ipv6 status --service <service> --json
+railway outbound-network ipv6 enable --service <service> --json
+railway outbound-network ipv6 disable --service <service> --json
+```
+
+Static Outbound IP changes are committed directly but require a redeploy before outbound traffic uses the new assignment. Outbound IPv6 changes are staged as environment config changes; commit staged changes with `railway environment edit` to trigger the redeploy.
+
+### CDN caching
+
+CDN caching is service-scoped and requires an applied public domain.
+
+```bash
+railway cdn status --service <service> --json
+railway cdn enable --service <service> --json
+railway cdn update --service <service> --html-caching force --default-ttl 4h --json
+railway cdn update --service <service> --no-swr --purge-on-deploy all --json
+railway cdn purge html --service <service> --json
+railway cdn purge all --service <service> --json
+railway cdn disable --service <service> --json
+```
+
+Use the response headers `x-cache` and `age` to verify cache behavior. Cache hits do not reach the service, so service logs and server-side metrics can undercount traffic after caching is enabled.
+
+### WAF Under Attack Mode
+
+Under Attack Mode is service-scoped, requires an applied public domain, and is intended for active bot floods or DDoS events.
+
+```bash
+railway waf under-attack status --service <service> --json
+railway waf under-attack enable --service <service> --duration 1h --json
+railway waf under-attack enable --service <service> --json
+railway waf under-attack disable --service <service> --json
+```
+
+While active, browser visitors must pass a check. Non-browser API clients and webhooks may receive `429` responses, so warn the user before enabling it on API-only domains.
 
 ## Troubleshoot configuration
 
 - **Invalid dot-path**: check field names and types in the config schema section above
 - **Wrong service key in JSON patch**: resolve service IDs from `railway service list --json`
 - **Variable change didn't take effect**: verify with `railway variable list`, changes trigger redeploy by default
-- **Domain returns errors**: verify the service has a healthy deployment and the target port is correct
-- **DNS propagation delay**: custom domains take time to propagate, this is normal
+- **Domain returns errors**: run `railway domain status`, verify the target port, then check HTTP logs
+- **DNS propagation delay**: custom domains can take up to 72 hours to propagate worldwide
 - **Cloudflare proxy issues**: align SSL/TLS mode per Railway's domain guidance
-- **Private networking failing**: verify the service is listening on the referenced port and that the private domain variable reference is correct
+- **Private networking failing**: run `railway private-network status`, verify the service is listening on the referenced port, and check network flow logs
+- **Outbound allowlist still sees old IPs**: redeploy after enabling/disabling Static Outbound IPs
+- **IPv6 still disabled**: commit the staged environment change and wait for redeploy
+- **CDN appears ineffective**: check `x-cache`, `age`, cache headers, `Set-Cookie`, `Authorization`, method, and response size
+- **WAF breaks API clients**: Under Attack Mode blocks non-browser traffic; disable it or scope protection to browser-facing services
 - **Multi-region patch ignored**: verify region names match the exact identifiers (`us-west2`, `us-east4-eqdc4a`, `europe-west4-drams3a`, `asia-southeast1-eqsg3a`)
 
 ## Validated against
 
-- Docs: [environment.md](https://docs.railway.com/cli/environment), [variable.md](https://docs.railway.com/cli/variable), [variables.md](https://docs.railway.com/variables), [domains.md](https://docs.railway.com/networking/domains), [public-networking.md](https://docs.railway.com/networking/public-networking), [private-networking.md](https://docs.railway.com/networking/private-networking)
-- CLI source: [environment/mod.rs](https://github.com/railwayapp/cli/blob/v4.58.0/src/commands/environment/mod.rs), [environment/edit.rs](https://github.com/railwayapp/cli/blob/v4.58.0/src/commands/environment/edit.rs), [variable.rs](https://github.com/railwayapp/cli/blob/v4.58.0/src/commands/variable.rs), [domain.rs](https://github.com/railwayapp/cli/blob/v4.58.0/src/commands/domain.rs), [controllers/config/patch.rs](https://github.com/railwayapp/cli/blob/v4.58.0/src/controllers/config/patch.rs)
+- Docs: [environment.md](https://docs.railway.com/cli/environment), [variable.md](https://docs.railway.com/cli/variable), [domain.md](https://docs.railway.com/cli/domain), [tcp-proxy.md](https://docs.railway.com/cli/tcp-proxy), [private-network.md](https://docs.railway.com/cli/private-network), [outbound-network.md](https://docs.railway.com/cli/outbound-network), [cdn.md](https://docs.railway.com/cli/cdn), [waf.md](https://docs.railway.com/cli/waf)
+- CLI source: [environment/mod.rs](https://github.com/railwayapp/cli/blob/v5.23.3/src/commands/environment/mod.rs), [environment/edit.rs](https://github.com/railwayapp/cli/blob/v5.23.3/src/commands/environment/edit.rs), [variable.rs](https://github.com/railwayapp/cli/blob/v5.23.3/src/commands/variable.rs), [domain.rs](https://github.com/railwayapp/cli/blob/v5.23.3/src/commands/domain.rs), [tcp_proxy.rs](https://github.com/railwayapp/cli/blob/v5.23.3/src/commands/tcp_proxy.rs), [private_network.rs](https://github.com/railwayapp/cli/blob/v5.23.3/src/commands/private_network.rs), [outbound_networking.rs](https://github.com/railwayapp/cli/blob/v5.23.3/src/commands/outbound_networking.rs), [cdn.rs](https://github.com/railwayapp/cli/blob/v5.23.3/src/commands/cdn.rs), [waf.rs](https://github.com/railwayapp/cli/blob/v5.23.3/src/commands/waf.rs)
