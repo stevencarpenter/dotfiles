@@ -11,7 +11,7 @@ input=$(cat)
 # Single jq pass for every field (this script runs on each render tick).
 # Fields are joined on the unit separator (\x1f): unlike tab, it is not IFS
 # whitespace, so empty fields don't collapse and columns stay aligned.
-IFS=$'\x1f' read -r cwd model used remaining total_input total_output \
+IFS=$'\x1f' read -r cwd model used remaining cost_usd duration_ms \
 	five_h seven_d worktree effort version pr_number pr_state agent \
 	session_name lines_added lines_removed < <(
 	echo "$input" | jq -r '[
@@ -19,8 +19,8 @@ IFS=$'\x1f' read -r cwd model used remaining total_input total_output \
 		(.model.display_name // ""),
 		(.context_window.used_percentage // ""),
 		(.context_window.remaining_percentage // ""),
-		(.context_window.total_input_tokens // ""),
-		(.context_window.total_output_tokens // ""),
+		(.cost.total_cost_usd // ""),
+		(.cost.total_duration_ms // ""),
 		(.rate_limits.five_hour.used_percentage // ""),
 		(.rate_limits.seven_day.used_percentage // ""),
 		(.worktree.branch // ""),
@@ -59,19 +59,20 @@ FG_GRAY=$'\033[38;2;211;198;170m'
 SEP_COLOR=$'\033[38;2;157;169;160m'
 SEP="${SEP_COLOR}  ${RESET}"
 
-format_count() {
-	local value="$1"
-
-	if [ -z "$value" ]; then
+format_duration() {
+	# Milliseconds → compact h/m/s. Echoes nothing for empty/non-integer input
+	# (caller normalizes via to_int first, so junk degrades to a skipped segment).
+	local ms="$1"
+	if [ -z "$ms" ]; then
 		return
 	fi
-
-	if [ "$value" -ge 1000000 ] 2>/dev/null; then
-		awk -v n="$value" 'BEGIN { printf "%.1fM", n / 1000000 }'
-	elif [ "$value" -ge 1000 ] 2>/dev/null; then
-		awk -v n="$value" 'BEGIN { printf "%.1fk", n / 1000 }'
+	local secs=$((ms / 1000))
+	if ((secs >= 3600)); then
+		printf '%dh%dm' $((secs / 3600)) $(((secs % 3600) / 60))
+	elif ((secs >= 60)); then
+		printf '%dm%ds' $((secs / 60)) $((secs % 60))
 	else
-		printf '%s' "$value"
+		printf '%ds' "$secs"
 	fi
 }
 
@@ -107,8 +108,7 @@ to_int() {
 # so one malformed value degrades to a skipped segment instead of a blank line.
 used="$(to_int "$used")"
 remaining="$(to_int "$remaining")"
-total_input="$(to_int "$total_input")"
-total_output="$(to_int "$total_output")"
+duration_ms="$(to_int "$duration_ms")"
 five_h="$(to_int "$five_h")"
 seven_d="$(to_int "$seven_d")"
 lines_added="$(to_int "$lines_added")"
@@ -197,13 +197,25 @@ if [ -n "$used" ]; then
 	ctx_part="${FG_GRAY} ctx:${remaining_int}% left ${bar_color}${bar}${RESET}"
 fi
 
-# ── Tokens ───────────────────────────────────────────────────
-tokens_part=""
-if [ -n "$total_input" ] || [ -n "$total_output" ]; then
-	total_input_int=${total_input:-0}
-	total_output_int=${total_output:-0}
-	total_tokens=$((total_input_int + total_output_int))
-	tokens_part="${FG_GRAY} tok:$(format_count "$total_tokens") in:$(format_count "$total_input_int") out:$(format_count "$total_output_int")${RESET}"
+# ── Session Cost Meter ───────────────────────────────────────
+# Claude Code exposes NO cumulative token count: as of v2.1.132 the
+# context_window.total_{input,output}_tokens fields are a per-turn snapshot
+# (output is the LAST response only), not a session total — so summing them
+# was semantically wrong. The genuinely cumulative session signals live under
+# `cost`: dollar spend + wall-clock. Show those instead.
+cost_part=""
+cost_bits=""
+# cost_usd is fractional dollars (not run through to_int); validate before awk
+# so a "NaN"/garbage value degrades to a skipped segment, not a "$nan" render.
+if [[ "$cost_usd" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+	cost_bits="$(awk -v c="$cost_usd" 'BEGIN { printf "$%.2f", c }')"
+fi
+dur_fmt="$(format_duration "$duration_ms")"
+if [ -n "$dur_fmt" ]; then
+	cost_bits="${cost_bits:+${cost_bits} }⧗${dur_fmt}"
+fi
+if [ -n "$cost_bits" ]; then
+	cost_part="${FG_GRAY} ${cost_bits}${RESET}"
 fi
 
 # ── Rate Limits ─────────────────────────────────────────────
@@ -274,7 +286,7 @@ parts=("$dir_display")
 [[ -n "$ctx_part" ]] && parts+=("$ctx_part")
 [[ -n "$limits_part" ]] && parts+=("$limits_part")
 [[ -n "$version_part" ]] && parts+=("$version_part")
-[[ -n "$tokens_part" ]] && parts+=("$tokens_part")
+[[ -n "$cost_part" ]] && parts+=("$cost_part")
 [[ -n "$agent_part" ]] && parts+=("$agent_part")
 [[ -n "$task_part" ]] && parts+=("$task_part")
 
