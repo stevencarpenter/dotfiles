@@ -56,8 +56,19 @@ in
       ( set -uo pipefail
         brew="/opt/homebrew/bin/brew"
         sketchybar="/opt/homebrew/bin/sketchybar"
+        borders="/opt/homebrew/bin/borders"
         aerospace="/Applications/AeroSpace.app/Contents/MacOS/AeroSpace"
         aerospace_cli="/opt/homebrew/bin/aerospace"
+
+        # `brew services` sniffs SUDO_* and, under `sudo darwin-rebuild`, falls
+        # back to the background user/<uid> launchd domain instead of gui/<uid>
+        # — wrong persistence domain for a status bar. Activation still runs as
+        # the user inside the Aqua session, so stripping the sudo markers is
+        # enough for brew to target gui/<uid> again.
+        brew_services() {
+          /usr/bin/env -u SUDO_USER -u SUDO_UID -u SUDO_GID -u SUDO_COMMAND \
+            "$brew" services "$@"
+        }
 
         # Fresh machines may not have run `brew bundle` yet — skip quietly
         # instead of failing the whole activation; the next switch after
@@ -68,13 +79,27 @@ in
         # services. If already running, restart to pick up config changes
         # this switch just wrote.
         if [ -x "$sketchybar" ] && [ -x "$brew" ]; then
-          if "$brew" services list | ${pkgs.ripgrep}/bin/rg -q '^sketchybar.*started'; then
-            "$brew" services restart sketchybar
+          if brew_services list | ${pkgs.ripgrep}/bin/rg -q '^sketchybar.*started'; then
+            brew_services restart sketchybar
           else
-            "$brew" services start sketchybar
+            brew_services start sketchybar
           fi
         else
           echo "tiling-stack: sketchybar not installed yet — skipping" >&2
+        fi
+
+        # ── borders ─────────────────────────────────────────────────────
+        # Same brew-services management as sketchybar; without this, borders
+        # config changes only apply after a manual restart and a fresh machine
+        # never registers the service at all.
+        if [ -x "$borders" ] && [ -x "$brew" ]; then
+          if brew_services list | ${pkgs.ripgrep}/bin/rg -q '^borders.*started'; then
+            brew_services restart borders
+          else
+            brew_services start borders
+          fi
+        else
+          echo "tiling-stack: borders not installed yet — skipping" >&2
         fi
 
         # ── aerospace ────────────────────────────────────────────────────

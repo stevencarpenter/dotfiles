@@ -34,6 +34,15 @@ in
     enable = true;
 
     onActivation = {
+      # autoUpdate/upgrade stay ON deliberately: rebuild-time brew churn exists
+      # to track fast-moving tools (codex, worktrunk, railway, 1password-cli).
+      # The slow-moving third-party WM tap stack is carved OUT of that firehose
+      # instead: sketchybar + borders are `brew pin`ed by the postActivation
+      # snippet below, so upgrading tap code is a deliberate
+      # `brew upgrade sketchybar borders` (after `brew unpin`), not a side
+      # effect of every switch. aerospace (tap *cask*) has no pin mechanism in
+      # Homebrew — it remains auto-upgraded; accepted residual supply-chain
+      # exposure, revisit if nikitabobko/tap ever changes hands.
       autoUpdate = true;
       upgrade = true;
       # GRADUATION: start conservative. "none" leaves anything not listed here
@@ -136,12 +145,39 @@ in
   # source. Its first auto-migration can leave the old core `_brew` completion
   # symlink pointing at the removed `/opt/homebrew/completions` directory.
   # Re-anchor that link to the pinned Homebrew source on every activation.
-  system.activationScripts.postActivation.text = lib.mkAfter ''
+  system.activationScripts.postActivation.text = lib.mkAfter (''
     _brew_completion_dir="/opt/homebrew/share/zsh/site-functions"
     if [ -d "$_brew_completion_dir" ]; then
       ln -sfn \
         "${config.nix-homebrew.package}/completions/zsh/_brew" \
         "$_brew_completion_dir/_brew"
     fi
-  '';
+  ''
+  + lib.optionalString caps.tiling ''
+    # Converge the third-party-tap pin policy (see onActivation comment).
+    # Pin state is imperative brew metadata; re-asserting it every switch means
+    # a fresh machine self-heals after its first bundle run. Homebrew activation
+    # and Home Manager activation can overlap on a first run, so wait briefly
+    # for each formula and pin them independently. Runs as root, and brew
+    # refuses root, so drop to the owning user. Warn-never-fail.
+    if [ -x /opt/homebrew/bin/brew ]; then
+      for _brew_formula in sketchybar borders; do
+        _brew_pinned=0
+        for _brew_attempt in 1 2 3 4 5; do
+          if /usr/bin/sudo -u ${user} /opt/homebrew/bin/brew list --formula "$_brew_formula" \
+            >/dev/null 2>&1; then
+            if /usr/bin/sudo -u ${user} /opt/homebrew/bin/brew pin "$_brew_formula" \
+              >/dev/null 2>&1; then
+              _brew_pinned=1
+            fi
+            break
+          fi
+          /bin/sleep 2
+        done
+        if [ "$_brew_pinned" -ne 1 ]; then
+          echo "warning: could not pin $_brew_formula (not installed yet?)" >&2
+        fi
+      done
+    fi
+  '');
 }
