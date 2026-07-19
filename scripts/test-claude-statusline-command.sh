@@ -224,4 +224,33 @@ if ! printf '%s' '{}' | bash "${script}" >/dev/null 2>&1; then
   exit 1
 fi
 
+# ── Regression: newline in a free-text field must not truncate the render ────
+# `read` consumes one line, so before the per-field gsub a newline in
+# session_name silently dropped every field ordered after it (the Δ tree count).
+newline_plain="$(
+  jq -n --arg cwd "${workdir}" \
+    '{cwd: $cwd, session_name: "one\ntwo", cost: {total_lines_added: 7, total_lines_removed: 3}}' \
+  | bash "${script}" | perl -pe 's/\e\[[0-9;]*m//g'
+)"
+if [[ "${newline_plain}" != *"task:one two"* ]]; then
+  echo "newline in session_name was not scrubbed: ${newline_plain}" >&2
+  exit 1
+fi
+if [[ "${newline_plain}" != *"Δ+7/-3"* ]]; then
+  echo "field ordered after a newline field was dropped: ${newline_plain}" >&2
+  exit 1
+fi
+
+# ── Regression: context bar renders from remaining_percentage alone ──────────
+# The segment used to be gated solely on used_percentage, so a payload carrying
+# only remaining_percentage rendered no context bar at all.
+remaining_plain="$(
+  jq -n --arg cwd "${workdir}" '{cwd: $cwd, context_window: {remaining_percentage: 73}}' \
+  | bash "${script}" | perl -pe 's/\e\[[0-9;]*m//g'
+)"
+if [[ "${remaining_plain}" != *"ctx:73% left"* ]]; then
+  echo "context bar vanished with a remaining-only payload: ${remaining_plain}" >&2
+  exit 1
+fi
+
 echo "claude statusline renders codex-parity segments"

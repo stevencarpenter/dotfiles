@@ -10,11 +10,15 @@ input=$(cat)
 
 # Single jq pass for every field (this script runs on each render tick).
 # Fields are joined on the unit separator (\x1f): unlike tab, it is not IFS
-# whitespace, so empty fields don't collapse and columns stay aligned.
+# whitespace, so empty fields don't collapse and columns stay aligned. The
+# per-field gsub strips CR/LF: `read` consumes a single line, so a newline in
+# any value (e.g. a user-set session_name) would otherwise truncate that field
+# and silently drop every field after it. `jq <<<` feeds stdin verbatim —
+# unlike `echo`, which can interpret backslashes under some shell settings.
 IFS=$'\x1f' read -r cwd model used remaining cost_usd duration_ms \
 	five_h seven_d worktree effort version pr_number pr_state agent \
 	session_name lines_added lines_removed < <(
-	echo "$input" | jq -r '[
+	jq -r '[
 		(.workspace.current_dir // .cwd // ""),
 		(.model.display_name // ""),
 		(.context_window.used_percentage // ""),
@@ -32,11 +36,23 @@ IFS=$'\x1f' read -r cwd model used remaining cost_usd duration_ms \
 		(.session_name // ""),
 		(.cost.total_lines_added // ""),
 		(.cost.total_lines_removed // "")
-	] | map(tostring) | join("\u001f")'
+	] | map(tostring | gsub("[\n\r]"; " ")) | join("\u001f")' <<<"$input"
 )
 
 # Shorten home directory to ~
 cwd="${cwd/#$HOME/~}"
+
+# Single git probe for the whole render: resolve repo root AND current branch in
+# ONE shell-out (rev-parse prints --show-toplevel then --abbrev-ref on separate
+# lines), reused by the branch and tree-state segments below. Was up to three
+# `git` invocations per tick; now two (this + the `status --porcelain` count).
+cwd_abs="${cwd/#\~/$HOME}"
+git_info=$(git -C "$cwd_abs" rev-parse --show-toplevel --abbrev-ref HEAD 2>/dev/null)
+git_root="${git_info%%$'\n'*}"
+git_branch=""
+if [ -n "$git_info" ]; then
+	git_branch="${git_info#*$'\n'}"
+fi
 
 # Everforest dark-hard truecolor palette. Using explicit RGB avoids Ghostty /
 # tmux mapping secondary text to ANSI bright-black, which is too dim here.
@@ -119,14 +135,12 @@ dir_display="${BOLD}${FG_BLUE} ${cwd}${RESET}"
 
 # ── Git Branch ───────────────────────────────────────────────
 git_part=""
-# Try worktree branch first, then fall back to git command
+# Prefer the worktree branch from the payload; otherwise use the branch resolved
+# by the single git probe above (no extra shell-out).
 if [ -n "$worktree" ]; then
 	git_part="${FG_MAGENTA} ${worktree}${RESET}"
-else
-	branch=$(git -C "${cwd/#\~/$HOME}" rev-parse --abbrev-ref HEAD 2>/dev/null)
-	if [ -n "$branch" ]; then
-		git_part="${FG_MAGENTA} ${branch}${RESET}"
-	fi
+elif [ -n "$git_branch" ]; then
+	git_part="${FG_MAGENTA} ${git_branch}${RESET}"
 fi
 
 # ── Model ────────────────────────────────────────────────────
@@ -175,10 +189,17 @@ fi
 
 # ── Context Progress Bar ─────────────────────────────────────
 ctx_part=""
-if [ -n "$used" ]; then
-	used_int=${used%.*}
+if [ -n "$used" ] || [ -n "$remaining" ]; then
+	# Both fields are already integers (to_int'd) or empty. Derive whichever the
+	# payload omitted so the bar still renders from a single field — the segment
+	# no longer vanishes if the schema ever drops `used_percentage`.
+	if [ -n "$used" ]; then
+		used_int="$used"
+	else
+		used_int=$((100 - remaining))
+	fi
 	if [ -n "$remaining" ]; then
-		remaining_int=$(printf '%.0f' "$remaining")
+		remaining_int="$remaining"
 	else
 		remaining_int=$((100 - used_int))
 	fi
@@ -222,14 +243,12 @@ fi
 limits_part=""
 limit_bits=""
 if [ -n "$five_h" ]; then
-	five_int=$(printf '%.0f' "$five_h")
-	lc="$(color_for_pct "$five_int")"
-	limit_bits="${lc}5h:${five_int}%${RESET}"
+	lc="$(color_for_pct "$five_h")"
+	limit_bits="${lc}5h:${five_h}%${RESET}"
 fi
 if [ -n "$seven_d" ]; then
-	seven_int=$(printf '%.0f' "$seven_d")
-	lc="$(color_for_pct "$seven_int")"
-	limit_bits="${limit_bits:+${limit_bits} }${lc}7d:${seven_int}%${RESET}"
+	lc="$(color_for_pct "$seven_d")"
+	limit_bits="${limit_bits:+${limit_bits} }${lc}7d:${seven_d}%${RESET}"
 fi
 if [ -n "$limit_bits" ]; then
 	limits_part="${FG_GRAY} ${limit_bits}"
@@ -264,7 +283,6 @@ removed_int=${lines_removed:-0}
 if [ "$added_int" -gt 0 ] || [ "$removed_int" -gt 0 ]; then
 	tree_part="${FG_YELLOW}Δ+${added_int}/-${removed_int}${RESET}"
 fi
-git_root=$(git -C "${cwd/#\~/$HOME}" rev-parse --show-toplevel 2>/dev/null)
 if [ -n "$git_root" ]; then
 	dirty=$(git -C "$git_root" status --porcelain 2>/dev/null | wc -l | tr -d ' ')
 	if [ "$dirty" -gt 0 ]; then
