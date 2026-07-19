@@ -34,8 +34,8 @@ in
     enable = true;
 
     onActivation = {
-      autoUpdate = false;
-      upgrade = false;
+      autoUpdate = true;
+      upgrade = true;
       # GRADUATION: start conservative. "none" leaves anything not listed here
       # in place (safe during the nix cutover while the brew inventory is still
       # being audited). Move to "uninstall" once the lists below are confirmed
@@ -99,10 +99,8 @@ in
         "1password-cli"
       ]
       ++ lib.optionals caps.gui [
-        "alt-tab"
         "ghostty"
         "raycast"
-        "visual-studio-code"
         "1password"
         "bbedit"
         "obsidian"
@@ -127,17 +125,9 @@ in
       # high-confidence subset moved to home.packages fonts. Together these two
       # sets cover every font from the Brewfile's dev block with none dropped.
       ++ lib.optionals caps.dev [
-        "font-anonymous-pro"
-        "font-bebas-neue"
-        "font-courier-prime"
-        "font-ia-writer-duo"
-        "font-ia-writer-mono"
-        "font-ia-writer-quattro"
         "font-input"
         "font-intel-one-mono"
         "font-iosevka"
-        "font-red-hat-mono"
-        "font-ubuntu-mono"
         "font-inconsolata-go-nerd-font"
       ];
   };
