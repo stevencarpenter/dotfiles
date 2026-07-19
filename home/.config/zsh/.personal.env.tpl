@@ -21,3 +21,4 @@ export CLERK_PUBLISHABLE_KEY="{{ op://Private/m5-dev-env/CLERK_PUBLISHABLE_KEY }
 export CLERK_SECRET_KEY="{{ op://Private/m5-dev-env/CLERK_SECRET_KEY }}"
 export E2E_TEST_USER_EMAIL="{{ op://Private/m5-dev-env/E2E_TEST_USER_EMAIL }}"
 export E2E_TEST_USER_PASSWORD="{{ op://Private/m5-dev-env/E2E_TEST_USER_PASSWORD }}"
+
