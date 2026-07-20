@@ -6,6 +6,10 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 fixture="$(mktemp -d)"
 trap 'rm -rf "$fixture"' EXIT
 
+# GNU stat uses -c; BSD/macOS stat uses -f. Try GNU first because GNU's -f
+# means "file system" and can otherwise exit successfully with unusable output.
+perm() { /usr/bin/stat -c '%a' "$1" 2>/dev/null || /usr/bin/stat -f '%Lp' "$1"; }
+
 mkdir -p "$fixture/bin" "$fixture/home"
 
 cat >"$fixture/bin/xcode-select" <<'EOF'
@@ -122,7 +126,7 @@ if ! rg -Fxq \
   echo "work bootstrap did not fetch the declared age identity" >&2
   exit 1
 fi
-if [ "$(/usr/bin/stat -f '%Lp' "$fixture/work-mac-home/.config/age/keys.txt")" != 600 ]; then
+if [ "$(perm "$fixture/work-mac-home/.config/age/keys.txt")" != 600 ]; then
   echo "work bootstrap age identity does not have mode 0600" >&2
   exit 1
 fi

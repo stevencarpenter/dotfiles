@@ -159,23 +159,47 @@ in
     # a fresh machine self-heals after its first bundle run. Homebrew activation
     # and Home Manager activation can overlap on a first run, so wait briefly
     # for each formula and pin them independently. Runs as root, and brew
-    # refuses root, so drop to the owning user. Warn-never-fail.
+    # refuses root, so drop to the owning user with a clean user environment.
+    # Warn-never-fail.
     if [ -x /opt/homebrew/bin/brew ]; then
+      _brew_as_user() {
+        /usr/bin/sudo -H -u ${user} \
+          /usr/bin/env -u SUDO_USER -u SUDO_UID -u SUDO_GID -u SUDO_COMMAND \
+          /opt/homebrew/bin/brew "$@"
+      }
+      _brew_pinned_dir="/opt/homebrew/var/homebrew/pinned"
+
       for _brew_formula in sketchybar borders; do
+        # `brew pin` is already converged when this symlink exists. Recognize
+        # that state directly so every later rebuild is quiet and idempotent.
+        if [ -L "$_brew_pinned_dir/$_brew_formula" ]; then
+          continue
+        fi
+
+        _brew_installed=0
         _brew_pinned=0
         for _brew_attempt in 1 2 3 4 5; do
-          if /usr/bin/sudo -u ${user} /opt/homebrew/bin/brew list --formula "$_brew_formula" \
-            >/dev/null 2>&1; then
-            if /usr/bin/sudo -u ${user} /opt/homebrew/bin/brew pin "$_brew_formula" \
-              >/dev/null 2>&1; then
+          if _brew_as_user list --formula "$_brew_formula" >/dev/null 2>&1; then
+            _brew_installed=1
+            if _brew_as_user pin "$_brew_formula" >/dev/null 2>&1; then
               _brew_pinned=1
             fi
             break
           fi
           /bin/sleep 2
         done
+
+        # Homebrew may report an already-converged pin as a warning. The
+        # filesystem link is the authoritative pin state either way.
+        if [ -L "$_brew_pinned_dir/$_brew_formula" ]; then
+          _brew_pinned=1
+        fi
         if [ "$_brew_pinned" -ne 1 ]; then
-          echo "warning: could not pin $_brew_formula (not installed yet?)" >&2
+          if [ "$_brew_installed" -eq 1 ]; then
+            echo "warning: $_brew_formula is installed but Homebrew could not pin it" >&2
+          else
+            echo "warning: $_brew_formula was not installed after Homebrew activation" >&2
+          fi
         fi
       done
     fi

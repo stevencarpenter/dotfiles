@@ -99,6 +99,8 @@ in
       ".config/zsh/profile.d/personal-shell-functions.zsh"
       ".config/zsh/profile.d/personal-secrets.zsh" # sources ~/.config/zsh/.personal.env (op-rendered)
       ".config/op/render-manifest" # op-render reads this at its default path (WS1)
+      ".config/op/adopt-policy.json" # exact allowlist for names-only reverse adoption
+      ".local/bin/op-adopt" # guarded live secret -> 1Password adoption; dry-run by default
       ".config/hippo" # local LM brain client config (config.toml + redact.toml)
     ]))
 

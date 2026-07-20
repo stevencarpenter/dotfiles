@@ -100,6 +100,9 @@ jobs:
       - name: Validate op-render fail-safe renderer
         run: scripts/test-op-render.sh
 
+      - name: Validate guarded 1Password reverse adoption
+        run: python scripts/test_op_adopt.py
+
       - name: Validate direct activation entry points
         run: scripts/test-sync-hook-runtime.sh
 

@@ -172,6 +172,11 @@ Personal machines declare zero `age.secrets`. `home/.local/bin/op-render` atomic
 references. It runs during personal Home Manager activation when the 1Password CLI is authenticated
 and preserves the last known-good targets on any failure.
 
+For reviewed edits made directly to `~/.config/zsh/.personal.env`, `just op-adopt` produces a
+names-only reverse-adoption plan and `just op-adopt --apply` updates only fields already pinned in
+`home/.config/op/adopt-policy.json`. It cannot import new variables, modify templates, or adopt SSH
+config; Login-item fields remain manual-only to avoid the 1Password CLI's passkey-loss hazard.
+
 Work currently decrypts its environment, AWS overrides, and 25 work-skill files through agenix
 using `~/.config/age/keys.txt`. That carry-verbatim bridge remains until the external work wrapper
 moves them to externally administered custody. See [`secrets/README.md`](secrets/README.md).

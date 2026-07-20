@@ -21,6 +21,10 @@ rebuild *HOST:
 verify-live:
     scripts/verify-live-deployment.sh
 
+# Show a names-only plan for adopting reviewed personal env changes into 1Password.
+op-adopt *FLAGS:
+    python3 home/.local/bin/op-adopt {{ FLAGS }}
+
 # Evaluate the flake without building (fast structural check).
 check:
     nix flake check --no-build

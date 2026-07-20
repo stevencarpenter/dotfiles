@@ -1,0 +1,111 @@
+{
+  "version": 1,
+  "sentinel": "~/.config/op/.last-render",
+  "files": {
+    "personal-env": {
+      "template": "~/.dotfiles/home/.config/zsh/.personal.env.tpl",
+      "target": "~/.config/zsh/.personal.env",
+      "format": "shell-env",
+      "adopt": true,
+      "items": {
+        "Private/OPENAI_API_KEY": {
+          "category": "API_CREDENTIAL",
+          "json_edit": true
+        },
+        "Private/OPENROUTER_TOKEN": {
+          "category": "API_CREDENTIAL",
+          "json_edit": true
+        },
+        "Private/m5-dev-env": {
+          "category": "SECURE_NOTE",
+          "json_edit": true
+        },
+        "Private/nugs.net": {
+          "category": "LOGIN",
+          "json_edit": false
+        }
+      },
+      "variables": {
+        "OPENAI_API_KEY": {
+          "reference": "op://Private/OPENAI_API_KEY/credential",
+          "item": "Private/OPENAI_API_KEY",
+          "field": "credential"
+        },
+        "OPENROUTER_TOKEN": {
+          "reference": "op://Private/OPENROUTER_TOKEN/credential",
+          "item": "Private/OPENROUTER_TOKEN",
+          "field": "credential"
+        },
+        "NUGS_EMAIL": {
+          "reference": "op://Private/nugs.net/username",
+          "item": "Private/nugs.net",
+          "field": "username"
+        },
+        "NUGS_PASSWORD": {
+          "reference": "op://Private/nugs.net/password",
+          "item": "Private/nugs.net",
+          "field": "password"
+        },
+        "CONTEXT7_API_KEY": {
+          "reference": "op://Private/m5-dev-env/CONTEXT7_API_KEY",
+          "item": "Private/m5-dev-env",
+          "field": "CONTEXT7_API_KEY"
+        },
+        "CLAUDE_CODE_OAUTH_TOKEN": {
+          "reference": "op://Private/m5-dev-env/CLAUDE_CODE_OAUTH_TOKEN",
+          "item": "Private/m5-dev-env",
+          "field": "CLAUDE_CODE_OAUTH_TOKEN"
+        },
+        "LLM_API_KEY": {
+          "reference": "op://Private/m5-dev-env/LLM_API_KEY",
+          "item": "Private/m5-dev-env",
+          "field": "LLM_API_KEY"
+        },
+        "STRIX_LLM": {
+          "reference": "op://Private/m5-dev-env/STRIX_LLM",
+          "item": "Private/m5-dev-env",
+          "field": "STRIX_LLM"
+        },
+        "AUTH_JWKS_URL": {
+          "reference": "op://Private/m5-dev-env/AUTH_JWKS_URL",
+          "item": "Private/m5-dev-env",
+          "field": "AUTH_JWKS_URL"
+        },
+        "CLERK_FRONTEND_API": {
+          "reference": "op://Private/m5-dev-env/CLERK_FRONTEND_API",
+          "item": "Private/m5-dev-env",
+          "field": "CLERK_FRONTEND_API"
+        },
+        "CLERK_PUBLISHABLE_KEY": {
+          "reference": "op://Private/m5-dev-env/CLERK_PUBLISHABLE_KEY",
+          "item": "Private/m5-dev-env",
+          "field": "CLERK_PUBLISHABLE_KEY"
+        },
+        "CLERK_SECRET_KEY": {
+          "reference": "op://Private/m5-dev-env/CLERK_SECRET_KEY",
+          "item": "Private/m5-dev-env",
+          "field": "CLERK_SECRET_KEY"
+        },
+        "E2E_TEST_USER_EMAIL": {
+          "reference": "op://Private/m5-dev-env/E2E_TEST_USER_EMAIL",
+          "item": "Private/m5-dev-env",
+          "field": "E2E_TEST_USER_EMAIL"
+        },
+        "E2E_TEST_USER_PASSWORD": {
+          "reference": "op://Private/m5-dev-env/E2E_TEST_USER_PASSWORD",
+          "item": "Private/m5-dev-env",
+          "field": "E2E_TEST_USER_PASSWORD"
+        }
+      }
+    },
+    "ssh-config": {
+      "template": "~/.dotfiles/home/.ssh/config.tpl",
+      "target": "~/.ssh/config",
+      "format": "render-only",
+      "adopt": false,
+      "allowed_references": [
+        "op://Homelab/I9/tailnet_hostname"
+      ]
+    }
+  }
+}

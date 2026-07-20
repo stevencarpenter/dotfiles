@@ -1,0 +1,758 @@
+#!/usr/bin/env python3
+"""Adopt reviewed live secret-file values back into approved 1Password fields.
+
+The command is intentionally narrow. It never edits a template, creates a
+field, deletes a field, or accepts an arbitrary source/target path. The
+checked-in policy defines every adoptable file, variable, item, field, and
+reference. Dry-run is the default; applying changes requires an interactive
+confirmation and passes values to ``op item edit`` through stdin, never argv.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import shutil
+import stat
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+from typing import Any
+
+
+ENV_TEMPLATE_RE = re.compile(
+    r'^export ([A-Z_][A-Z0-9_]*)="\{\{ (op://[^{}\s]+) \}\}"$'
+)
+LIVE_ASSIGNMENT_RE = re.compile(r'^export ([A-Z_][A-Z0-9_]*)="([^"\r\n]*)"$')
+REFERENCE_RE = re.compile(r"\{\{\s*(op://[^{}\s]+)\s*\}\}")
+ALLOWED_JSON_EDIT_CATEGORIES = {"API_CREDENTIAL", "PASSWORD", "SECURE_NOTE"}
+
+
+class PolicyError(RuntimeError):
+    """Raised when the checked-in adoption policy or a template is unsafe."""
+
+
+class AdoptionError(RuntimeError):
+    """Raised when a live file cannot be safely inspected or adopted."""
+
+
+def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments.
+
+    Returns:
+        Parsed command-line arguments.
+    """
+
+    parser = argparse.ArgumentParser(
+        description="Adopt approved live secret values back into 1Password."
+    )
+    parser.add_argument(
+        "file",
+        nargs="?",
+        default="personal-env",
+        help="Policy file key to inspect (default: personal-env).",
+    )
+    parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="Update approved 1Password fields after interactive confirmation.",
+    )
+    parser.add_argument(
+        "--check-policy",
+        action="store_true",
+        help="Validate templates, manifest, ignore rules, and tracked-file boundaries only.",
+    )
+    parser.add_argument(
+        "--policy",
+        type=Path,
+        help="Override the adoption policy path.",
+    )
+    parser.add_argument(
+        "--repo-root",
+        type=Path,
+        help="Repository root used by --check-policy.",
+    )
+    return parser.parse_args()
+
+
+def default_policy_path() -> Path:
+    """Resolve the deployed policy, falling back to this checkout.
+
+    Returns:
+        Existing policy path, preferring ``~/.config/op/adopt-policy.json``.
+    """
+
+    deployed = Path("~/.config/op/adopt-policy.json").expanduser()
+    if deployed.is_file():
+        return deployed
+    return Path(__file__).resolve().parents[3] / "home/.config/op/adopt-policy.json"
+
+
+def load_policy(path: Path) -> dict[str, Any]:
+    """Load the JSON adoption policy.
+
+    Args:
+        path: Policy path.
+
+    Returns:
+        Parsed policy object.
+
+    Raises:
+        PolicyError: If the policy is absent, malformed, or has an unsupported version.
+    """
+
+    try:
+        policy = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise PolicyError(f"cannot load adoption policy: {path}") from error
+    if not isinstance(policy, dict) or policy.get("version") != 1:
+        raise PolicyError("adoption policy must be a version 1 JSON object")
+    if policy.get("sentinel") != "~/.config/op/.last-render":
+        raise PolicyError("adoption policy must use the op-render freshness sentinel")
+    if not isinstance(policy.get("files"), dict) or not policy["files"]:
+        raise PolicyError("adoption policy must declare at least one file")
+    return policy
+
+
+def repo_path_for_template(template: str, repo_root: Path) -> Path:
+    """Translate a deployed ``~/.dotfiles`` template path into a checkout path.
+
+    Args:
+        template: Template path from policy.
+        repo_root: Physical repository root.
+
+    Returns:
+        Repository-local template path.
+
+    Raises:
+        PolicyError: If the template is outside the canonical checkout root.
+    """
+
+    prefix = "~/.dotfiles/"
+    if not template.startswith(prefix):
+        raise PolicyError(f"template path must start with {prefix}")
+    return repo_root / template.removeprefix(prefix)
+
+
+def target_repo_path(target: str) -> str:
+    """Return the repository mirror path for a rendered home target.
+
+    Args:
+        target: Home-relative deployed target from policy.
+
+    Returns:
+        Repository path below ``home/``.
+
+    Raises:
+        PolicyError: If the target is not rooted in the current user's home.
+    """
+
+    if not target.startswith("~/"):
+        raise PolicyError("rendered targets must use ~/ paths")
+    return f"home/{target.removeprefix('~/')}"
+
+
+def shell_template_assignments(text: str) -> dict[str, str]:
+    """Parse a shell-env template without evaluating shell syntax.
+
+    Only blank lines, comments, and exact ``export NAME=\"{{ op://... }}\"``
+    assignments are accepted. This deliberately rejects interpolation,
+    concatenation, command substitution, and literal assigned values.
+
+    Args:
+        text: Template content.
+
+    Returns:
+        Mapping from variable name to exact 1Password reference.
+
+    Raises:
+        PolicyError: If any executable or literal assignment syntax appears.
+    """
+
+    assignments: dict[str, str] = {}
+    for line_number, line in enumerate(text.splitlines(), start=1):
+        if not line or line.startswith("#"):
+            continue
+        match = ENV_TEMPLATE_RE.fullmatch(line)
+        if not match:
+            raise PolicyError(
+                f"shell-env template line {line_number} is not an exact approved injection"
+            )
+        name, reference = match.groups()
+        if name in assignments:
+            raise PolicyError(f"shell-env template repeats variable {name}")
+        assignments[name] = reference
+    return assignments
+
+
+def policy_references(file_policy: dict[str, Any]) -> set[str]:
+    """Collect every exact reference approved for a file.
+
+    Args:
+        file_policy: One file entry from the policy.
+
+    Returns:
+        Exact approved reference strings.
+
+    Raises:
+        PolicyError: If the file format or mapping is malformed.
+    """
+
+    file_format = file_policy.get("format")
+    if file_format == "shell-env":
+        variables = file_policy.get("variables")
+        if not isinstance(variables, dict) or not variables:
+            raise PolicyError("shell-env policy must declare variables")
+        references: set[str] = set()
+        for name, mapping in variables.items():
+            if not re.fullmatch(r"[A-Z_][A-Z0-9_]*", name):
+                raise PolicyError(f"invalid environment variable name in policy: {name}")
+            if not isinstance(mapping, dict):
+                raise PolicyError(f"mapping for {name} must be an object")
+            reference = mapping.get("reference")
+            item = mapping.get("item")
+            field = mapping.get("field")
+            if not all(isinstance(value, str) and value for value in (reference, item, field)):
+                raise PolicyError(f"mapping for {name} is incomplete")
+            if not reference.startswith("op://"):
+                raise PolicyError(f"mapping for {name} is not a 1Password reference")
+            if reference != f"op://{item}/{field}":
+                raise PolicyError(
+                    f"mapping for {name} does not exactly match its approved item and field"
+                )
+            if reference in references:
+                raise PolicyError(f"reference is reused by multiple variables: {reference}")
+            references.add(reference)
+        return references
+    if file_format == "render-only":
+        references = file_policy.get("allowed_references")
+        if not isinstance(references, list) or not references:
+            raise PolicyError("render-only policy must declare allowed_references")
+        if not all(isinstance(reference, str) and reference.startswith("op://") for reference in references):
+            raise PolicyError("render-only references must be non-empty 1Password references")
+        if len(set(references)) != len(references):
+            raise PolicyError("render-only policy repeats a reference")
+        return set(references)
+    raise PolicyError(f"unsupported secret-file format: {file_format}")
+
+
+def validate_file_policy(
+    file_name: str,
+    file_policy: dict[str, Any],
+    template_path: Path,
+) -> None:
+    """Validate one file's policy against its tracked template.
+
+    Args:
+        file_name: Stable policy key.
+        file_policy: File policy object.
+        template_path: Resolved tracked template path.
+
+    Raises:
+        PolicyError: If the template and policy differ or adoption is unsafe.
+    """
+
+    try:
+        text = template_path.read_text(encoding="utf-8")
+    except OSError as error:
+        raise PolicyError(f"cannot read template for {file_name}: {template_path}") from error
+    approved = policy_references(file_policy)
+    found = set(REFERENCE_RE.findall(text))
+    placeholder_count = text.count("{{")
+    if placeholder_count != len(REFERENCE_RE.findall(text)):
+        raise PolicyError(f"{file_name} contains a malformed or non-1Password placeholder")
+    if found != approved:
+        raise PolicyError(f"{file_name} template references differ from the exact policy allowlist")
+
+    if file_policy.get("format") == "shell-env":
+        assignments = shell_template_assignments(text)
+        expected = {
+            name: mapping["reference"]
+            for name, mapping in file_policy["variables"].items()
+        }
+        if assignments != expected:
+            raise PolicyError(f"{file_name} assignments differ from the exact policy mapping")
+        items = file_policy.get("items")
+        if not isinstance(items, dict) or not items:
+            raise PolicyError(f"{file_name} must declare item edit policy")
+        used_items = {mapping["item"] for mapping in file_policy["variables"].values()}
+        if used_items != set(items):
+            raise PolicyError(f"{file_name} item policy does not exactly cover its variables")
+        for item_name, item_policy in items.items():
+            if not isinstance(item_policy, dict):
+                raise PolicyError(f"item policy must be an object: {item_name}")
+            category = item_policy.get("category")
+            json_edit = item_policy.get("json_edit")
+            if not isinstance(category, str) or not isinstance(json_edit, bool):
+                raise PolicyError(f"item policy is incomplete: {item_name}")
+            if json_edit and category not in ALLOWED_JSON_EDIT_CATEGORIES:
+                raise PolicyError(
+                    f"item {item_name} enables JSON editing for passkey-risk category {category}"
+                )
+    if file_policy.get("adopt") and file_policy.get("format") != "shell-env":
+        raise PolicyError(f"{file_name} enables adoption for a non-shell-env file")
+
+
+def manifest_pairs(path: Path) -> list[tuple[str, str]]:
+    """Parse the renderer's template-to-target manifest.
+
+    Args:
+        path: Tracked render manifest.
+
+    Returns:
+        Ordered template and target pairs.
+
+    Raises:
+        PolicyError: If a non-comment line is malformed.
+    """
+
+    pairs: list[tuple[str, str]] = []
+    for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        if not line or line.startswith("#"):
+            continue
+        if line.count(":") != 1:
+            raise PolicyError(f"render manifest line {line_number} is malformed")
+        template, target = line.split(":", 1)
+        pairs.append((template, target))
+    return pairs
+
+
+def validate_repository_policy(policy: dict[str, Any], repo_root: Path) -> None:
+    """Validate every tracked secret boundary without contacting 1Password.
+
+    Args:
+        policy: Loaded adoption policy.
+        repo_root: Physical repository root.
+
+    Raises:
+        PolicyError: If templates, manifest, ignore rules, or tracked paths drift.
+    """
+
+    files = policy["files"]
+    expected_pairs: list[tuple[str, str]] = []
+    expected_ignores: set[str] = set()
+    target_paths: list[str] = []
+    for file_name, file_policy in files.items():
+        if not isinstance(file_policy, dict):
+            raise PolicyError(f"file policy must be an object: {file_name}")
+        template = file_policy.get("template")
+        target = file_policy.get("target")
+        if not isinstance(template, str) or not isinstance(target, str):
+            raise PolicyError(f"file policy paths are incomplete: {file_name}")
+        validate_file_policy(
+            file_name,
+            file_policy,
+            repo_path_for_template(template, repo_root),
+        )
+        expected_pairs.append((template, target))
+        repo_target = target_repo_path(target)
+        target_paths.append(repo_target)
+        expected_ignores.add(f"/{repo_target}")
+
+    actual_pairs = manifest_pairs(repo_root / "home/.config/op/render-manifest")
+    if actual_pairs != expected_pairs:
+        raise PolicyError("render manifest differs from the exact adoption policy file list")
+
+    ignore_lines = {
+        line.strip()
+        for line in (repo_root / ".gitignore").read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.startswith("#")
+    }
+    missing_ignores = expected_ignores - ignore_lines
+    if missing_ignores:
+        raise PolicyError(
+            "rendered targets lack exact .gitignore rules: " + ", ".join(sorted(missing_ignores))
+        )
+
+    result = subprocess.run(
+        ["git", "ls-files", "--", *target_paths],
+        cwd=repo_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise PolicyError("cannot inspect tracked rendered-target paths")
+    if result.stdout.strip():
+        raise PolicyError("a rendered 1Password target is tracked by Git")
+
+
+def parse_live_env(path: Path, expected_names: set[str]) -> dict[str, str]:
+    """Parse a rendered shell environment without executing it.
+
+    Comments and blank lines are ignored. Every other line must be one exact,
+    double-quoted exported assignment for an already-approved variable. The
+    value is captured as raw text between the quotes; no shell parser,
+    expansion, or command substitution is invoked.
+
+    Args:
+        path: Rendered environment file.
+        expected_names: Exact approved variable names.
+
+    Returns:
+        Mapping from variable name to literal parsed value.
+
+    Raises:
+        AdoptionError: If the file has unsafe syntax or structural drift.
+    """
+
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as error:
+        raise AdoptionError(f"cannot read live secret file: {path}") from error
+    values: dict[str, str] = {}
+    for line_number, line in enumerate(text.splitlines(), start=1):
+        if not line or line.startswith("#"):
+            continue
+        match = LIVE_ASSIGNMENT_RE.fullmatch(line)
+        if not match:
+            raise AdoptionError(f"live file line {line_number} is not an approved export")
+        name, value = match.groups()
+        if name not in expected_names:
+            raise AdoptionError(f"live file contains unapproved variable {name}")
+        if name in values:
+            raise AdoptionError(f"live file repeats variable {name}")
+        if not value:
+            raise AdoptionError(f"live value for {name} is empty")
+        if "\x00" in value:
+            raise AdoptionError(f"live value for {name} contains a NUL byte")
+        if "op://" in value or "{{" in value:
+            raise AdoptionError(f"live value for {name} contains an unresolved reference")
+        values[name] = value
+    if set(values) != expected_names:
+        missing = ", ".join(sorted(expected_names - set(values)))
+        raise AdoptionError(f"live file is missing approved variables: {missing}")
+    return values
+
+
+def validate_live_target(path: Path) -> None:
+    """Require a local, owned, regular 0600 rendered target.
+
+    Args:
+        path: Rendered target path.
+
+    Raises:
+        AdoptionError: If the path is missing, linked, insecure, or not owned by the user.
+    """
+
+    try:
+        metadata = path.lstat()
+    except OSError as error:
+        raise AdoptionError(f"live secret target is missing: {path}") from error
+    if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
+        raise AdoptionError("live secret target must be a regular file, not a symlink")
+    if metadata.st_uid != os.getuid():
+        raise AdoptionError("live secret target is not owned by the current user")
+    if stat.S_IMODE(metadata.st_mode) != 0o600:
+        raise AdoptionError("live secret target must have mode 0600")
+
+
+def find_op_binary() -> str:
+    """Locate the 1Password CLI without trusting an environment override.
+
+    Returns:
+        Executable path.
+
+    Raises:
+        AdoptionError: If no executable can be found.
+    """
+
+    for candidate in ("/opt/homebrew/bin/op", "/usr/local/bin/op"):
+        if Path(candidate).is_file() and os.access(candidate, os.X_OK):
+            return candidate
+    resolved = shutil.which("op")
+    if resolved:
+        return resolved
+    raise AdoptionError("1Password CLI is not installed or discoverable")
+
+
+def run_op(
+    op_binary: str,
+    arguments: list[str],
+    *,
+    input_text: str | None = None,
+    capture_stdout: bool = True,
+    operation: str,
+) -> subprocess.CompletedProcess[str]:
+    """Run one 1Password command without including values in argv or errors.
+
+    Args:
+        op_binary: Resolved 1Password CLI path.
+        arguments: Non-secret CLI arguments.
+        input_text: Optional sensitive JSON passed over stdin.
+        capture_stdout: Whether stdout must be retained in memory.
+        operation: Non-sensitive operation label for errors.
+
+    Returns:
+        Successful subprocess result.
+
+    Raises:
+        AdoptionError: If the CLI command fails.
+    """
+
+    result = subprocess.run(
+        [op_binary, *arguments],
+        check=False,
+        input=input_text,
+        stdout=subprocess.PIPE if capture_stdout else subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise AdoptionError(
+            f"1Password {operation} failed with exit status {result.returncode}"
+        )
+    return result
+
+
+def fetch_item(op_binary: str, item_key: str, expected_category: str) -> dict[str, Any]:
+    """Fetch one revealed item into memory and verify its non-secret identity.
+
+    Args:
+        op_binary: Resolved 1Password CLI path.
+        item_key: Policy key in ``vault/item`` form.
+        expected_category: Exact audited category.
+
+    Returns:
+        Revealed item JSON retained only in process memory.
+
+    Raises:
+        AdoptionError: If identity, category, or JSON shape differs from policy.
+    """
+
+    vault, item_name = item_key.split("/", 1)
+    result = run_op(
+        op_binary,
+        ["item", "get", item_name, "--vault", vault, "--format=json", "--reveal"],
+        operation=f"item read for {item_key}",
+    )
+    try:
+        item = json.loads(result.stdout)
+    except json.JSONDecodeError as error:
+        raise AdoptionError(f"1Password returned malformed JSON for {item_key}") from error
+    if item.get("title") != item_name or item.get("vault", {}).get("name") != vault:
+        raise AdoptionError(f"1Password identity differs from policy for {item_key}")
+    if item.get("category") != expected_category:
+        raise AdoptionError(f"1Password category differs from policy for {item_key}")
+    if not isinstance(item.get("fields"), list):
+        raise AdoptionError(f"1Password item has no field list: {item_key}")
+    return item
+
+
+def item_field(item: dict[str, Any], field_name: str, item_key: str) -> dict[str, Any]:
+    """Find exactly one existing item field by label or ID.
+
+    Args:
+        item: Revealed 1Password item JSON.
+        field_name: Approved field label or ID.
+        item_key: Non-secret item label for diagnostics.
+
+    Returns:
+        Mutable field object inside ``item``.
+
+    Raises:
+        AdoptionError: If the field is missing or ambiguous.
+    """
+
+    matches = [
+        field
+        for field in item["fields"]
+        if field.get("id") == field_name or field.get("label") == field_name
+    ]
+    if len(matches) != 1:
+        raise AdoptionError(f"expected one existing field {item_key}/{field_name}")
+    return matches[0]
+
+
+def verify_rendered_values(
+    op_binary: str,
+    template: Path,
+    expected_values: dict[str, str],
+) -> None:
+    """Render to a private temporary file and compare parsed values in memory.
+
+    Args:
+        op_binary: Resolved 1Password CLI path.
+        template: Approved source template.
+        expected_values: Values adopted from the live file.
+
+    Raises:
+        AdoptionError: If injection fails or the updated vault does not reproduce the live values.
+    """
+
+    descriptor, temporary_name = tempfile.mkstemp(prefix=".op-adopt-verify.")
+    os.close(descriptor)
+    temporary = Path(temporary_name)
+    try:
+        os.chmod(temporary, 0o600)
+        run_op(
+            op_binary,
+            ["inject", "--force", "-i", str(template), "-o", str(temporary)],
+            capture_stdout=False,
+            operation="verification render",
+        )
+        rendered_values = parse_live_env(temporary, set(expected_values))
+        if rendered_values != expected_values:
+            raise AdoptionError(
+                "post-edit render differs from the live file; live target was not overwritten"
+            )
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def update_render_sentinel(path: Path) -> None:
+    """Record a verified render without following a pre-existing symlink.
+
+    Args:
+        path: Shared op-render freshness sentinel path.
+
+    Raises:
+        AdoptionError: If the sentinel is linked or cannot be safely updated.
+    """
+
+    if path.is_symlink():
+        raise AdoptionError("refusing to update a symlinked render-freshness sentinel")
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.touch(mode=0o600, exist_ok=True)
+        os.chmod(path, 0o600)
+    except OSError as error:
+        raise AdoptionError("cannot update the render-freshness sentinel") from error
+
+
+def adopt(policy: dict[str, Any], file_name: str, *, apply: bool) -> None:
+    """Inspect or adopt one approved live secret file.
+
+    Args:
+        policy: Loaded adoption policy.
+        file_name: Stable file key from policy.
+        apply: Whether external 1Password mutations are authorized.
+
+    Raises:
+        PolicyError: If the selected file or its template violates policy.
+        AdoptionError: If live state or 1Password state cannot be handled safely.
+    """
+
+    file_policy = policy["files"].get(file_name)
+    if not isinstance(file_policy, dict):
+        raise PolicyError(f"unknown policy file: {file_name}")
+    if not file_policy.get("adopt"):
+        raise PolicyError(f"reverse adoption is disabled for {file_name}")
+
+    template = Path(file_policy["template"]).expanduser()
+    target = Path(file_policy["target"]).expanduser()
+    validate_file_policy(file_name, file_policy, template)
+    validate_live_target(target)
+    mappings = file_policy["variables"]
+    live_values = parse_live_env(target, set(mappings))
+
+    op_binary = find_op_binary()
+    run_op(op_binary, ["whoami"], capture_stdout=False, operation="authentication probe")
+
+    items: dict[str, dict[str, Any]] = {}
+    changes: list[tuple[str, str, bool]] = []
+    for variable, mapping in mappings.items():
+        item_key = mapping["item"]
+        item_policy = file_policy["items"][item_key]
+        if item_key not in items:
+            items[item_key] = fetch_item(op_binary, item_key, item_policy["category"])
+        field = item_field(items[item_key], mapping["field"], item_key)
+        if field.get("value", "") != live_values[variable]:
+            changes.append((variable, f"{item_key}/{mapping['field']}", item_policy["json_edit"]))
+
+    if not changes:
+        print(f"op-adopt: {file_name}: live values already match 1Password")
+        return
+
+    print(f"op-adopt: {file_name}: {len(changes)} changed field(s)")
+    for variable, destination, writable in changes:
+        disposition = "adoptable" if writable else "manual-only"
+        print(f"  {variable} -> {destination} [{disposition}]")
+
+    blocked = [variable for variable, _destination, writable in changes if not writable]
+    if blocked:
+        raise AdoptionError(
+            "Login-item JSON edits can overwrite passkeys; update these fields in "
+            "1Password manually, then rerun: " + ", ".join(blocked)
+        )
+    if not apply:
+        print("op-adopt: dry run only; rerun with --apply after reviewing this names-only plan")
+        return
+    if not sys.stdin.isatty():
+        raise AdoptionError("--apply requires an interactive terminal")
+    confirmation = input(f"Type {file_name} to update 1Password: ")
+    if confirmation != file_name:
+        raise AdoptionError("confirmation did not match; nothing was changed")
+
+    changed_items: set[str] = set()
+    changed_variables = {variable for variable, _destination, _writable in changes}
+    for variable in changed_variables:
+        mapping = mappings[variable]
+        item_key = mapping["item"]
+        field = item_field(items[item_key], mapping["field"], item_key)
+        field["value"] = live_values[variable]
+        changed_items.add(item_key)
+
+    sentinel = Path(policy["sentinel"]).expanduser()
+    if sentinel.is_symlink():
+        raise AdoptionError("refusing to update a symlinked render-freshness sentinel")
+    edited_items: list[str] = []
+    try:
+        for item_key in sorted(changed_items):
+            vault, item_name = item_key.split("/", 1)
+            run_op(
+                op_binary,
+                ["item", "edit", item_name, "--vault", vault],
+                input_text=json.dumps(items[item_key]),
+                capture_stdout=False,
+                operation=f"item edit for {item_key}",
+            )
+            edited_items.append(item_key)
+        verify_rendered_values(op_binary, template, live_values)
+        update_render_sentinel(sentinel)
+    except AdoptionError as error:
+        if edited_items:
+            raise AdoptionError(
+                f"{error}; {len(edited_items)} item(s) were already updated. "
+                "The live file is unchanged; use 1Password item history if rollback is needed."
+            ) from error
+        raise
+    print(
+        f"op-adopt: updated {len(changed_items)} item(s); a fresh render reproduces {file_name}"
+    )
+
+
+def main() -> int:
+    """Run policy validation or the guarded adoption workflow.
+
+    Returns:
+        Process exit code.
+    """
+
+    arguments = parse_args()
+    if arguments.policy and not arguments.check_policy:
+        print(
+            "op-adopt: ERROR: --policy is restricted to static --check-policy mode",
+            file=sys.stderr,
+        )
+        return 1
+    policy_path = (arguments.policy or default_policy_path()).expanduser()
+    try:
+        policy = load_policy(policy_path)
+        if arguments.check_policy:
+            repo_root = (arguments.repo_root or Path.cwd()).resolve()
+            validate_repository_policy(policy, repo_root)
+            print("op-adopt: policy, templates, manifest, ignore rules, and Git boundary are valid")
+        else:
+            adopt(policy, arguments.file, apply=arguments.apply)
+    except (PolicyError, AdoptionError) as error:
+        print(f"op-adopt: ERROR: {error}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

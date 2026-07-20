@@ -237,7 +237,10 @@ Personal and work secret authoring deliberately differ:
 - **Personal:** add an `op://` reference to the appropriate template under `home/`, keep the target
   in `home/.config/op/render-manifest`, run `op-render`, and verify mode `0600`, structural parity,
   no unresolved references, and a fresh `.last-render` sentinel. Personal declares zero
-  `age.secrets`.
+  `age.secrets`. For reviewed edits to the rendered `.personal.env`, run `just op-adopt` for a
+  names-only plan and let the user run `just op-adopt --apply` after review. Never run the apply
+  path on the user's behalf. Adoption is limited to exact mappings in
+  `home/.config/op/adopt-policy.json`; Login items and SSH config remain manual/render-only.
 - **Work:** the temporary bridge remains age ciphertext under `secrets/`, decrypted by agenix using
   the work-only identity at `~/.config/age/keys.txt`. Use `agenix -e`, update
   `modules/home/secrets.nix`, and rebuild until the external work wrapper replaces this custody.

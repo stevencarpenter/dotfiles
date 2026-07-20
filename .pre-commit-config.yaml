@@ -28,6 +28,14 @@ repos:
 
   - repo: local
     hooks:
+      - id: op-secret-policy
+        name: Validate 1Password secret source and rendered-target boundaries
+        description: Require exact approved references and forbid tracked rendered secret files
+        language: system
+        entry: python3 home/.local/bin/op-adopt --check-policy --policy home/.config/op/adopt-policy.json --repo-root .
+        pass_filenames: false
+        always_run: true
+
       # The chezmoi-native `machine-capability-audit` hook was dropped in the
       # nix port: its source of truth (.chezmoidata/machines.toml) and its
       # `.tmpl`/`.chezmoiignore` grep targets no longer exist. Capability gating

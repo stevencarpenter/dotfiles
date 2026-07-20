@@ -1,9 +1,10 @@
-# Personal dev secrets — rendered to ~/.config/zsh/.personal.env by op-render
-# (home/.local/bin/op-render) via 1Password inject. This template is
-# public-safe: it contains only 1Password references, never secret values. Do
-# NOT put literal secrets here. Vault mapping is authoritative in Linear
-# SNUG-386. (Never write a literal 1Password ref scheme in a comment — inject
-# scans the whole file and would try to resolve it.)
+# Source/render pair: this public-safe template contains only approved
+# 1Password references; op-render materializes ~/.config/zsh/.personal.env
+# with secret values. Edit this template only for structure and mappings. Edit
+# existing values in 1Password or adopt reviewed live-file changes with
+# op-adopt. The rendered target is plaintext, local-only, and mode 0600.
+# Vault mapping is authoritative in Linear SNUG-386. Never write a literal
+# 1Password ref scheme in a comment: inject scans the whole file.
 #
 # Refs live in the Private vault: 4 pre-existing canonical items + a
 # consolidated `m5-dev-env` item holding the rest.
