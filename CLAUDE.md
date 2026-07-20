@@ -11,9 +11,10 @@ wrapper" shape: nix owns packages, macOS defaults, capability gating, and orches
 raw config files live under `home/` (real dotted names) and are symlinked into place **out of the
 nix store** through `~/.dotfiles` — so editing a raw config is live immediately, no rebuild needed.
 One flake drives two machine types (`personal-mac`, `work-mac`) from a single
-capability table (`lib/machines.nix`); modules gate on caps/identity, never on hostname. Secrets
-are age-encrypted via [agenix](https://github.com/ryantm/agenix) against the existing age identity
-(key sourced from 1Password at bootstrap). The repo also vendors two small Python tools
+capability table (`lib/machines.nix`); modules gate on caps/identity, never on hostname. Personal
+secrets render directly from 1Password via `op-render`; work secrets temporarily remain
+age-encrypted through [agenix](https://github.com/ryantm/agenix) until the external work wrapper
+takes custody. The repo also vendors two small Python tools
 (`mcp_sync/`, `aws_config_gen/`). A third tool, `token-auditor`, was extracted to its own public
 repo (github.com/stevencarpenter/token-auditor) and installs as a standalone uv tool via `just
 sync`. This repo was ported from chezmoi; see `docs/nix-migration.md` for the full mechanism map.
@@ -76,7 +77,7 @@ token-auditor --help                                                   # or `cod
 just rebuild              # Same, via the task runner
 nix flake check --no-build   # Evaluate every output without building (fast structural check)
 just check                   # Alias for the above
-./bootstrap.sh            # Fresh-machine setup (Lix, age key, first switch, rustup)
+./bootstrap.sh            # Fresh-machine setup (Lix, work-only age key, first switch, rustup)
 just sync                 # Network/SSH side channels: git externals + token-auditor install
 ```
 
@@ -102,7 +103,7 @@ modules/darwin/*.nix      # system scope (specialArgs): core, macos-defaults, ho
 modules/home/*.nix        # home scope (extraSpecialArgs): dotfiles, shell, packages,
                           #   tiling, dev-tools, ai-stack, secrets, sync-hooks
 home/                     # raw dotfiles, real dotted names, symlinked out-of-store
-secrets/                  # age ciphertext + secrets.nix recipients
+secrets/                  # work-only age ciphertext + recipients
 ```
 
 Conventions:
@@ -207,7 +208,7 @@ and gate the owning module on `caps.<capability>`.
 - `home/` — raw dotfiles (real dotted names), symlinked out-of-store through `~/.dotfiles`
 - `home/.config/mcp/` — master MCP config + per-machine overlays (override layer wired in `sync.py`; no override files managed in-repo yet)
 - `home/.config/nvim/` — Neovim config (LazyVim)
-- `secrets/` — age ciphertext + `secrets.nix` recipients (decrypted by agenix at activation)
+- `secrets/` — work-only age ciphertext + `secrets.nix` recipients (decrypted by agenix at work activation)
 - `mcp_sync/` — MCP + skills fan-out tool (uv project, Python 3.14+, no runtime deps)
 - `aws_config_gen/` — AWS SSO profile generator (uv project, Python 3.14+)
 - `bootstrap.sh` / `rebuild.sh` — fresh-machine setup / routine switch (host auto-detect)
@@ -229,20 +230,23 @@ plugin) so the monitor has full control over `window-status-format` and
 Window names show `#{pane_title}` via `automatic-rename-format`, so tabs display Claude session
 names and state spinners instead of version numbers.
 
-### Encrypted Secrets
+### Secrets
 
-Secrets are age ciphertext under `secrets/`, decrypted by [agenix](https://github.com/ryantm/agenix)
-(`modules/home/secrets.nix`) at `darwin-rebuild switch` / home-manager activation time, using the
-existing age identity at `~/.config/age/keys.txt` (sourced
-from 1Password by `bootstrap.sh`). Every blob is byte-identical ciphertext carried over from the old
-chezmoi layout — none was re-encrypted for the port. Which blobs a host decrypts is gated on
-`identity` / `caps.skills` in `secrets.nix`.
+Personal and work secret authoring deliberately differ:
 
-To add or rotate a secret: use the `agenix -e <path>` CLI (reads `secrets/secrets.nix` recipients),
-declare/update the matching `age.secrets.<name>` entry in `modules/home/secrets.nix`, then
-`just rebuild`. Full flow (including the recipient key and the deferred re-encryption / opnix
-end-state) is in `secrets/README.md`. Do NOT `builtins.readFile` a decrypted value anywhere — it
-would bake plaintext into the public nix store.
+- **Personal:** add an `op://` reference to the appropriate template under `home/`, keep the target
+  in `home/.config/op/render-manifest`, run `op-render`, and verify mode `0600`, structural parity,
+  no unresolved references, and a fresh `.last-render` sentinel. Personal declares zero
+  `age.secrets`. For reviewed edits to the rendered `.personal.env`, run `just op-adopt` for a
+  names-only plan and let the user run `just op-adopt --apply` after review. Never run the apply
+  path on the user's behalf. Adoption is limited to exact mappings in
+  `home/.config/op/adopt-policy.json`; Login items and SSH config remain manual/render-only.
+- **Work:** the temporary bridge remains age ciphertext under `secrets/`, decrypted by agenix using
+  the work-only identity at `~/.config/age/keys.txt`. Use `agenix -e`, update
+  `modules/home/secrets.nix`, and rebuild until the external work wrapper replaces this custody.
+
+Do NOT `builtins.readFile` a decrypted value anywhere; that would bake plaintext into the public
+Nix store. Full workflows are in `secrets/README.md` and the project secret-authoring skill.
 
 ## CI
 

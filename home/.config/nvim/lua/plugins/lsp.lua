@@ -1,3 +1,27 @@
+local function dotfiles_host()
+    local configured = (vim.env.DOTFILES_HOST or ""):lower()
+    if configured:find("work", 1, true) then
+        return "work-mac"
+    end
+    if configured:find("personal", 1, true) then
+        return "personal-mac"
+    end
+
+    local local_hostname = vim.trim(vim.fn.system({ "scutil", "--get", "LocalHostName" })):lower()
+    if local_hostname:find("work", 1, true) then
+        return "work-mac"
+    end
+    return "personal-mac"
+end
+
+local dotfiles_flake = string.format("git+file://%s/.dotfiles", vim.env.HOME)
+local dotfiles_root = vim.uv.fs_realpath(vim.env.HOME .. "/.dotfiles")
+local darwin_config = string.format(
+    "(builtins.getFlake %q).darwinConfigurations.%q",
+    dotfiles_flake,
+    dotfiles_host()
+)
+
 return {
     -- Ensure mason and mason-lspconfig load in the correct order
     {
@@ -35,6 +59,33 @@ return {
             autoformat = true,
             servers = {
                 nil_ls = false,
+                nixd = vim.fn.executable("nixd") == 1 and {
+                    on_new_config = function(new_config, root_dir)
+                        if vim.uv.fs_realpath(root_dir) ~= dotfiles_root then
+                            return
+                        end
+
+                        new_config.settings.nixd.nixpkgs = {
+                            expr = darwin_config .. ".pkgs",
+                        }
+                        new_config.settings.nixd.options = {
+                            nix_darwin = {
+                                expr = darwin_config .. ".options",
+                            },
+                            home_manager = {
+                                expr = darwin_config
+                                    .. ".options.home-manager.users.type.getSubOptions []",
+                            },
+                        }
+                    end,
+                    settings = {
+                        nixd = {
+                            formatting = {
+                                command = { "nixfmt" },
+                            },
+                        },
+                    },
+                } or false,
                 pyright = {},
                 ruff = {},
                 ts_ls = {},

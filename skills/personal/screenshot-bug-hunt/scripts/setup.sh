@@ -8,9 +8,22 @@
 
 set -euo pipefail
 
-WORKDIR="${HIPPO_PW_WORKDIR:-/tmp/screenshot-bug-hunt-pw}"
+# Default to a per-user, mode-700 cache dir rather than a predictable /tmp path.
+# A world-writable /tmp/screenshot-bug-hunt-pw could be pre-created by another
+# local user/process, who could then plant a hostile package.json or
+# node_modules/playwright that this script installs against and shoot.mjs
+# require()s — arbitrary code execution as the invoking user.
+WORKDIR="${HIPPO_PW_WORKDIR:-${XDG_CACHE_HOME:-$HOME/Library/Caches}/screenshot-bug-hunt-pw}"
 
 mkdir -p "$WORKDIR"
+chmod 700 "$WORKDIR"
+
+# Refuse to run against a workdir we don't own (defends against a pre-planted dir).
+owner="$(stat -f '%u' "$WORKDIR" 2>/dev/null || stat -c '%u' "$WORKDIR" 2>/dev/null || echo -1)"
+if [[ "$owner" != "$(id -u)" ]]; then
+  echo "Error: $WORKDIR is not owned by the current user (owner uid=$owner). Refusing to use it." >&2
+  exit 1
+fi
 
 # Write a minimal package.json once. The pinned version matches what we tested
 # against; bump only when a new feature requires it.

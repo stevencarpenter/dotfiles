@@ -1,130 +1,136 @@
-# secrets/
+# Secret management
 
-Age ciphertext for this repo, decrypted at `darwin-rebuild switch` / home-manager activation
-time by [agenix](https://github.com/ryantm/agenix) (see `modules/home/secrets.nix`). Every
-`.age` file here is byte-identical ciphertext carried over from the old chezmoi layout
-(`dot_config/.../encrypted_*.age`, `dot_claude/skills/*/*.age`) — nothing was re-encrypted to
-land here, and nothing in this directory should ever be decrypted or edited by hand.
+Personal and work secrets intentionally use different custody paths.
 
-## Layout
+## Personal: 1Password templates
 
-```
-secrets/
-  secrets.nix                          # agenix-CLI recipients file (agenix -e only, see below)
-  common/
-    zsh-env.age                        -> ~/.config/zsh/.env                (all hosts)
-    ssh-config.age                     -> ~/.ssh/config                     (personal + lab, NOT work)
-  personal/
-    zsh-personal-env.age               -> ~/.config/zsh/.personal.env       (identity == personal)
-  work/
-    zsh-work-env.age                   -> ~/.config/zsh/.work.env           (identity == work)
-    aws-config-gen-overrides.json.age  -> ~/.config/aws-config-gen/overrides.json  (identity == work)
-    claude-skills/<skill>/**           -> ~/.claude/skills/<skill>/**        (identity == work AND caps.skills)
+`personal-mac` declares zero `age.secrets` and an empty `age.identityPaths` list. Personal values
+are stored in the personal 1Password account and rendered by `home/.local/bin/op-render` from
+public-safe templates:
+
+```text
+home/.config/zsh/.personal.env.tpl -> ~/.config/zsh/.personal.env
+home/.ssh/config.tpl               -> ~/.ssh/config
 ```
 
-The `claude-skills/` subtree holds 25 blobs across 5 work-only Claude skills
-(`databricks-tf-v1-v2-parity-mirror`, `kafka-connect-sink-log-triage`,
-`schema-drift-config-reconciler`, `spark-job-failure-forensics`, `terraform-precommit-gauntlet`),
-each with a `SKILL.md`, two `evals/*.json`, one `references/*.md`, and one executable
-`scripts/*.{sh,py}`. The gating and per-file mode (`0700` for `scripts/`, `0600` everywhere
-else) are declared explicitly in `modules/home/secrets.nix` — see that file's header comment
-for why an explicit list was used instead of folding over `builtins.readDir`, and for the
-agenix-vs-writeBoundary activation-ordering note that guarantees these land on disk before the
-`skillsSync` activation script runs.
+`home/.config/op/render-manifest` is the authoritative template-to-target map.
+`home/.config/op/adopt-policy.json` separately pins every allowed reference, variable, item,
+field, and reverse-adoption permission. Home Manager links both only for
+`identity == "personal"`; the personal-only `opRender` activation invokes the renderer after
+`writeBoundary`.
 
-Which `age.secrets` entries actually get declared (and thus decrypted) on a given host is
-driven entirely by `identity` and `caps.skills`, both threaded in via `specialArgs` from
-`lib/machines.nix` — there is no per-host secrets file to edit; `hosts/*.nix` doesn't reference
-`secrets/` directly.
+The renderer:
 
-## Bootstrap: getting the age identity in place
+- accepts an authenticated desktop-app CLI session or 1Password Connect credentials;
+- renders to a same-directory temporary file;
+- requires successful, nonempty output;
+- sets mode `0600`;
+- atomically replaces the target; and
+- touches `~/.config/op/.last-render` only after every manifest entry succeeds.
 
-Every secret above decrypts against a single existing age identity — the same key used before
-the Nix migration, now kept at `~/.config/age/keys.txt`. `age.identityPaths` in
-`modules/home/secrets.nix` points straight at it. This is a chicken-and-egg root of trust: the
-key itself is **not** stored in this repo (public repo — see `docs/superpowers/plans/
-2026-07-02-work-decoupling-and-1password-secret-migration.md` for why), so it must be placed on
-disk once, by hand, before the very first `darwin-rebuild switch` on a new machine:
+On auth, injection, or empty-output failure it preserves the last known-good file. A skip is not
+proof of freshness, so `scripts/verify-live-deployment.sh` also checks template/live variable-name
+parity, the SSH include seam, and the render sentinel.
+
+On each personal Mac, open and unlock 1Password, then enable **Settings > Developer > Integrate
+with 1Password CLI**. Without app integration (or explicit Connect credentials), activation safely
+keeps the last-good files but cannot refresh them.
+
+### Add or rotate a personal secret
+
+1. Add or update the field in the personal 1Password account.
+2. For a new mapping, add its exact reference and item/field metadata to
+   `home/.config/op/adopt-policy.json`.
+3. Add only that exact reference to the appropriate `*.tpl` file under `home/`.
+4. Add a manifest entry only when introducing a new template/target pair.
+5. Run `home/.local/bin/op-render` with an authenticated `op` session.
+6. Run the documented secret-policy, renderer, and live-deployment checks.
+
+Never commit the rendered target, copy a literal value into a template, or use agenix for a new
+personal secret.
+
+### Adopt a reviewed live personal-env change
+
+`op-adopt` provides a deliberately narrower reverse path for
+`~/.config/zsh/.personal.env`. It does not behave like a general dotfile importer:
+
+- the live target must be a current-user-owned regular file with mode `0600`;
+- every non-comment line must be one already-approved exported variable;
+- new, missing, duplicate, empty, or unresolved values are rejected;
+- the tracked template must contain only exact policy-approved injection assignments;
+- the tool never edits a template or creates/deletes a 1Password field;
+- dry-run and apply output variable, item, and field names only; and
+- sensitive update JSON is passed to `op item edit` over stdin, never command arguments.
+
+Start with the names-only plan:
 
 ```bash
-mkdir -p ~/.config/age
-op read "op://Private/dotfiles-age-key/notesPlain" > ~/.config/age/keys.txt
-chmod 600 ~/.config/age/keys.txt
-
-# only now is it safe to run the first activation:
-darwin-rebuild switch --flake ~/.dotfiles#<host>
+just op-adopt
 ```
 
-`bootstrap.sh` runs this step (see that script for the exact 1Password item reference). If the
-key is missing or unreadable, every `age.secrets.*` decrypt fails during activation — check for
-that first if a fresh machine's `darwin-rebuild switch` errors out on agenix.
+After reviewing it, explicitly apply and type `personal-env` at the prompt:
 
-## Adding or rotating a secret
-
-1. Encrypt (or re-encrypt) the plaintext with the `agenix` CLI, which reads `secrets/secrets.nix`
-   to know which recipient(s) to encrypt for:
-
-   ```bash
-   cd secrets
-   agenix -e work/some-new-secret.age
-   # opens $EDITOR on the decrypted plaintext; writes ciphertext back out on save
-   ```
-
-   For a brand-new secret, add its path to `secrets/secrets.nix` (`otherPaths` or
-   `claudeSkillFiles`, as appropriate) **before** running `agenix -e`, so the CLI knows the
-   recipient set to encrypt for.
-
-2. Declare (or update) the corresponding `age.secrets.<name>` entry in
-   `modules/home/secrets.nix` — `file` (ciphertext path, relative to `secrets/`), `path`
-   (decrypted destination), `mode`, and whatever `identity`/`caps` gate it belongs under.
-
-3. `chezmoi`-style diffing doesn't apply anymore — just `darwin-rebuild switch --flake
-   ~/.dotfiles#<host>` (or `just rebuild`) and confirm the new/rotated file lands at its
-   `path` with the right `mode`.
-
-Rotating recipients (e.g. adding a second key, or dropping one) means re-running `agenix -e`
-for every affected file after updating `secrets/secrets.nix`'s `publicKeys` list — agenix has no
-bulk "rekey everything" command; `agenix -e` opens each file, decrypts with the currently-valid
-identity, and re-encrypts for the recipients recorded in `secrets.nix` at that moment.
-
-## What's deferred (not part of this port)
-
-Two independent follow-ups were explicitly scoped OUT of the nix-darwin port and are left for
-later, on-demand work. Neither blocks `darwin-rebuild switch` today.
-
-1. **Optional: re-encrypt onto agenix-native recipients.** The blobs in this directory were
-   produced by plain `age -e -r <recipient>` (via chezmoi), not by the `agenix` CLI. They
-   decrypt identically either way — agenix doesn't care how ciphertext was produced, only that
-   the identity in `age.identityPaths` can open it — so this step is pure hygiene, not a
-   correctness requirement. It buys a working `agenix -e` edit loop without an external
-   decrypt/re-encrypt round-trip:
-
-   ```bash
-   # conceptual — decrypt with the existing identity, then let agenix re-encrypt via -e
-   for f in $(find secrets -name '*.age'); do
-     age -d -i ~/.config/age/keys.txt "$f" > /tmp/plain
-     agenix -e "$f" <<< "$(cat /tmp/plain)"   # or open $EDITOR and paste
-     shred -u /tmp/plain
-   done
-   ```
-
-   Until this runs, editing a secret still works fine via the `agenix -e` flow in the previous
-   section — there is no gap in capability, only in workflow polish.
-
-2. **Optional: migrate individual secrets to 1Password (`opnix` / `op://`), per the
-   2026-07-02 plan.** See `docs/superpowers/plans/
-   2026-07-02-work-decoupling-and-1password-secret-migration.md` (workstreams W3–W6) for the
-   full design: replacing an `age.secrets.<name>` entry with an `op read op://Vault/item/field`
-   activation step (or `opnix`), item-by-item, starting with a single low-risk personal secret
-   to prove the pattern before touching the 5 work skills. This is the plan's actual
-   blast-radius fix — a single long-lived age identity shared by all three machines (including
-   the weaker-posture `lab-mac`) is a known, accepted limitation of the agenix bridge, not
-   something this port attempts to solve. `agenix` and `op://`-sourced secrets can coexist
-   during the migration; delete each `age.secrets` entry (and its `.age` blob) only once its
-   `op://` replacement is proven working on the host(s) that need it.
-
-Recipient key reference (documented here for `agenix -e`, see `secrets/secrets.nix`):
-
+```bash
+just op-adopt --apply
 ```
+
+The tool renders to a private temporary file after the edit and requires the updated vault to
+reproduce every live value. It never overwrites the live source file. If multiple 1Password items
+are involved, those external edits are not transactional; a late failure reports how many items
+were already updated and leaves recovery to 1Password item history.
+
+Login items are `manual-only`. The installed 1Password CLI warns that whole-item JSON edits can
+overwrite passkeys, so changes to `NUGS_EMAIL` or `NUGS_PASSWORD` must be made in 1Password first;
+rerun the dry-run afterward to prove parity. SSH config is render-only because it mixes static
+configuration with an injected value and is not safe to reverse-import.
+
+This is an accidental-leak and drift guard, not a hostile-maintainer boundary. A maintainer who
+can change the template, policy, checker, and CI together can bypass it. Exact allowlisting,
+rendered-target ignore rules, pre-commit policy validation, gitleaks, review, and 1Password item
+history provide layered protection without claiming that arbitrary strings can be proven
+non-secret.
+
+## Work: temporary agenix bridge
+
+The remaining age ciphertext is work-only and is decrypted at Home Manager activation by agenix:
+
+```text
+secrets/work/zsh-work-env.age
+  -> ~/.config/zsh/.work.env
+secrets/work/aws-config-gen-overrides.json.age
+  -> ~/.config/aws-config-gen/overrides.json
+secrets/work/claude-skills/<skill>/**
+  -> ~/.claude/skills/<skill>/**
+```
+
+The skills subtree contains 25 blobs across five work-only skills. Script targets are mode `0700`;
+other work secret targets are mode `0600`. `modules/home/secrets.nix` declares them only for
+`identity == "work"`, and work activation decrypts synchronously before dependent AWS/skills hooks.
+
+`bootstrap.sh work-mac` obtains the temporary work age identity from
+`op://Private/dotfiles-age-key/notesPlain` at `~/.config/age/keys.txt`. Personal bootstrap does not
+fetch or require this key.
+
+### Add or rotate a work-bridge secret
+
+1. Add its path and recipient to `secrets/secrets.nix`.
+2. Run `agenix -e <work/path.age>` from `secrets/`.
+3. Declare or update its `age.secrets.<name>` entry in `modules/home/secrets.nix`.
+4. Run the work configuration build/verification before switching.
+
+Do not use `builtins.readFile` on decrypted data. Ciphertext may enter the public Nix store;
+plaintext must not.
+
+## Required end state
+
+The age bridge is rollback material, not the final work-secret design. The external work wrapper
+must move each work consumer to externally administered custody without using the personal age
+recipient or a single employee's key. Retain the old ciphertext until the replacement consumer,
+rollback, and one normal update cycle are verified; then delete the retired declarations, blobs,
+recipient entries, and local work key.
+
+Current bridge recipient (for `agenix -e` only):
+
+```text
 age1462h0ed4ufkjrq0wu326l30c8hay9uewlsaudk89mgqjc5540vrqacejsz
 ```

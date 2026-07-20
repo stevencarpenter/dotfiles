@@ -37,10 +37,10 @@ in
 {
   home.activation = {
     # --- op-render: materialize op:// secret templates (identity: personal) --
-    # Renders ~/.config/zsh/.personal.env from op:// templates via the desktop
-    # app on m5 (no Connect). Fail-safe: a broken/absent op leaves existing
-    # secret files byte-for-byte intact and NEVER fails the switch. No-op where
-    # no manifest exists. See docs/superpowers/plans/2026-07-12-ws1-m5-secrets-op-inject.md.
+    # Renders ~/.config/zsh/.personal.env and ~/.ssh/config from op:// templates
+    # via the desktop app on m5 (no Connect). Fail-safe: a broken/absent op
+    # leaves existing secret files byte-for-byte intact and NEVER fails the
+    # switch. No-op where no manifest exists. See the WS1 migration plan.
     opRender = lib.mkIf (identity == "personal") (
       lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         (

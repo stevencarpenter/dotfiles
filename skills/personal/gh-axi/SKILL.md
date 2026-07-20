@@ -13,8 +13,14 @@ metadata:
 
 Agent ergonomic wrapper around Github CLI. Prefer this over `gh` and other methods for Github operations.
 
-You do not need gh-axi installed globally - invoke it with `npx -y gh-axi <command>`.
-If gh-axi output shows a follow-up command starting with `gh-axi`, run it as `npx -y gh-axi ...` instead.
+You do not need gh-axi installed globally - invoke it with `npx -y gh-axi@0.1.23 <command>`.
+If gh-axi output shows a follow-up command starting with `gh-axi`, run it as `npx -y gh-axi@0.1.23 ...` instead.
+
+The version is pinned deliberately: gh-axi runs with the user's authenticated `gh`
+credential (full GitHub write access) in scope, so an unpinned `npx -y gh-axi`
+would execute whatever the latest published release happens to be. Bump the pin
+only after reviewing the release. Do not run the `update` command below to jump
+to `latest` — change the pin here instead.
 
 gh-axi requires the [`gh`](https://cli.github.com/) CLI installed and authenticated (`gh auth login`). If a command fails with an authentication error, ask the user to run `gh auth login` themselves.
 
@@ -24,9 +30,9 @@ Use gh-axi whenever a task touches GitHub: listing, filing, or editing issues; v
 
 ## Workflow
 
-1. Run `npx -y gh-axi` with no arguments for a dashboard of the current repo - open issues, open PRs, and suggested next commands.
+1. Run `npx -y gh-axi@0.1.23` with no arguments for a dashboard of the current repo - open issues, open PRs, and suggested next commands.
 2. Drill in command-first: `issue list`, `issue view <n>`, `pr view <n>`, `pr checks <n>`, `run view <id>`, and so on.
-3. Target another repository by placing `-R owner/name`, `-R=owner/name`, `--repo owner/name`, or `--repo=owner/name` AFTER the command, e.g. `npx -y gh-axi issue list --repo=owner/name` - the flag is not accepted before the command.
+3. Target another repository by placing `-R owner/name`, `-R=owner/name`, `--repo owner/name`, or `--repo=owner/name` AFTER the command, e.g. `npx -y gh-axi@0.1.23 issue list --repo=owner/name` - the flag is not accepted before the command.
 4. Trigger (dispatch) a workflow with `workflow run <name> --ref <ref>`; `run` manages existing workflow runs.
 5. Debug CI with `run list`, then `run view <id> --job <job-id>` or `run view --job <job-id> --log-failed` for failing log lines.
    Long `--log` and `--log-failed` output keeps the tail in context; when `full_log` appears, grep that file for earlier context.
@@ -41,9 +47,9 @@ commands[13]:
 
 Installed copies also inherit the SDK built-in `update` command.
 Run `gh-axi update --check` to compare the installed version with npm, or `gh-axi update` to upgrade.
-When using `npx -y gh-axi`, npx already resolves the package on demand.
+When using `npx -y gh-axi@0.1.23`, npx already resolves the package on demand.
 
-Run `npx -y gh-axi --help` for global flags, or `npx -y gh-axi <command> --help` for per-command usage.
+Run `npx -y gh-axi@0.1.23 --help` for global flags, or `npx -y gh-axi@0.1.23 <command> --help` for per-command usage.
 
 ## Tips
 
@@ -51,8 +57,8 @@ Run `npx -y gh-axi --help` for global flags, or `npx -y gh-axi <command> --help`
 - Truncated workflow logs keep the final 20,000 characters and may include a temp `full_log` path for targeted grep searches.
 - Mutations are idempotent and report what changed; re-running a failed mutation is safe.
 - For multi-line markdown bodies, comments, or release notes, write the text to a UTF-8 file and pass `--body-file <path>` or the release `--notes-file <path>` alias on commands that support file-backed text.
-- Secret values are stdin-only: `echo -n "<value>" | npx -y gh-axi secret set <name>`.
+- Secret values are stdin-only: `echo -n "<value>" | npx -y gh-axi@0.1.23 secret set <name>`.
 - Do not pass secrets with `--body` or `-b`; flags are visible in the `gh-axi` process argv.
 - Variable values may use `--body`/`-b` or stdin because Actions variables are not secret.
-- For multi-line variable values, pipe stdin to `npx -y gh-axi variable set <name>`; `--body`/`-b` is for inline values only.
-- Use `api` for anything the dedicated commands do not cover, e.g. `npx -y gh-axi api repos/{owner}/{repo}/topics`.
+- For multi-line variable values, pipe stdin to `npx -y gh-axi@0.1.23 variable set <name>`; `--body`/`-b` is for inline values only.
+- Use `api` for anything the dedicated commands do not cover, e.g. `npx -y gh-axi@0.1.23 api repos/{owner}/{repo}/topics`.

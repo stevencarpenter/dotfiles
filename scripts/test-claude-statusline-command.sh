@@ -40,6 +40,8 @@ input="$(
       }
     },
     cost: {
+      total_cost_usd: 0.42,
+      total_duration_ms: 138000,
       total_lines_added: 156,
       total_lines_removed: 23
     },
@@ -155,9 +157,8 @@ assert_contains "ctx:92% left"
 assert_contains "5h:24%"
 assert_contains "7d:41%"
 assert_contains "v2.1.90"
-assert_contains "tok:16.7k"
-assert_contains "in:15.5k"
-assert_contains "out:1.2k"
+assert_contains '$0.42'
+assert_contains "⧗2m18s"
 assert_contains "Δ+156/-23"
 assert_contains "±1"
 assert_contains "agent:builder"
@@ -175,7 +176,7 @@ everforest_yellow=$'\033[38;2;219;188;127m'
 
 assert_raw_contains "${everforest_fg} ctx:92% left"
 assert_raw_contains "${everforest_fg} v2.1.90"
-assert_raw_contains "${everforest_fg} tok:16.7k"
+assert_raw_contains "${everforest_fg} \$0.42"
 assert_raw_contains "${everforest_fg} task:ship-statusline"
 assert_raw_contains "${everforest_teal} ${workdir}"
 assert_raw_contains "${everforest_yellow} "$'\033[1m'"Opus 4.8"
@@ -207,9 +208,11 @@ render_dir_survives() {
 render_dir_survives "non-numeric used_percentage" \
   "$(jq -n --arg cwd "${workdir}" '{cwd: $cwd, context_window: {used_percentage: "NaN"}}')"
 
-# Fractional token total: was "arithmetic syntax error" in $((input + output)).
-render_dir_survives "fractional token total" \
-  "$(jq -n --arg cwd "${workdir}" '{cwd: $cwd, context_window: {total_input_tokens: 15500, total_output_tokens: 1200.5}}')"
+# Malformed cost fields: a non-numeric dollar value must skip the cost segment
+# (the awk guard), and a non-integer duration must degrade via to_int — neither
+# may abort the render under set -u.
+render_dir_survives "malformed cost fields" \
+  "$(jq -n --arg cwd "${workdir}" '{cwd: $cwd, cost: {total_cost_usd: "NaN", total_duration_ms: "oops"}}')"
 
 # Sparse object: every numeric field absent — must still render the dir prefix.
 render_dir_survives "sparse object" \
@@ -218,6 +221,35 @@ render_dir_survives "sparse object" \
 # Empty object on stdin must not crash the shell.
 if ! printf '%s' '{}' | bash "${script}" >/dev/null 2>&1; then
   echo "statusline aborted on empty object stdin" >&2
+  exit 1
+fi
+
+# ── Regression: newline in a free-text field must not truncate the render ────
+# `read` consumes one line, so before the per-field gsub a newline in
+# session_name silently dropped every field ordered after it (the Δ tree count).
+newline_plain="$(
+  jq -n --arg cwd "${workdir}" \
+    '{cwd: $cwd, session_name: "one\ntwo", cost: {total_lines_added: 7, total_lines_removed: 3}}' \
+  | bash "${script}" | perl -pe 's/\e\[[0-9;]*m//g'
+)"
+if [[ "${newline_plain}" != *"task:one two"* ]]; then
+  echo "newline in session_name was not scrubbed: ${newline_plain}" >&2
+  exit 1
+fi
+if [[ "${newline_plain}" != *"Δ+7/-3"* ]]; then
+  echo "field ordered after a newline field was dropped: ${newline_plain}" >&2
+  exit 1
+fi
+
+# ── Regression: context bar renders from remaining_percentage alone ──────────
+# The segment used to be gated solely on used_percentage, so a payload carrying
+# only remaining_percentage rendered no context bar at all.
+remaining_plain="$(
+  jq -n --arg cwd "${workdir}" '{cwd: $cwd, context_window: {remaining_percentage: 73}}' \
+  | bash "${script}" | perl -pe 's/\e\[[0-9;]*m//g'
+)"
+if [[ "${remaining_plain}" != *"ctx:73% left"* ]]; then
+  echo "context bar vanished with a remaining-only payload: ${remaining_plain}" >&2
   exit 1
 fi
 

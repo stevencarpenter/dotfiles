@@ -16,4 +16,6 @@ This directory contains documentation for integrating AI-powered development too
 
 ## Environment Variables
 
-API keys and tokens live in `~/.config/zsh/.env` (encrypted via chezmoi). See the main [README](../../README.md) for the encryption workflow.
+Personal API keys and tokens live in `~/.config/zsh/.personal.env`, rendered from 1Password
+references by `op-render`. See the main [README](../../README.md) for the split personal/work secret
+workflow.

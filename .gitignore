@@ -80,3 +80,8 @@ result
 result-*
 .direnv/
 .direnv
+
+# Rendered 1Password targets must never enter the repository. Only their
+# adjacent *.tpl sources and the exact-reference policy are tracked.
+/home/.config/zsh/.personal.env
+/home/.ssh/config

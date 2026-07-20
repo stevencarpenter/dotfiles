@@ -14,6 +14,18 @@ if ! rg -Fq 'UserShell' <<<"$login_activation" || ! rg -Fq '/bin/zsh' <<<"$login
   exit 1
 fi
 
+for pin_contract in \
+  '/opt/homebrew/var/homebrew/pinned' \
+  '/usr/bin/sudo -H -u carpenter' \
+  '/usr/bin/env -u SUDO_USER -u SUDO_UID -u SUDO_GID -u SUDO_COMMAND' \
+  'is installed but Homebrew could not pin it' \
+  'was not installed after Homebrew activation'; do
+  if ! rg -Fq "$pin_contract" <<<"$login_activation"; then
+    echo "emitted system activation lacks Homebrew pin contract: $pin_contract" >&2
+    exit 1
+  fi
+done
+
 agenix_launchd_enabled="$(
   nix eval --json \
     '.#darwinConfigurations.work-mac.config.home-manager.users.carpenter.launchd.agents.activate-agenix.enable'
@@ -48,4 +60,4 @@ if ! jq -e 'index("agenixDecrypt") != null' <<<"$skills_after" >/dev/null; then
   exit 1
 fi
 
-echo "login-shell and agenix/AWS activation ordering contracts are emitted"
+echo "login-shell, Homebrew pin, and agenix/AWS activation ordering contracts are emitted"

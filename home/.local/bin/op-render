@@ -22,8 +22,21 @@ set -uo pipefail
 
 OP_BIN="${OP_BIN:-op}"
 MANIFEST="${OP_RENDER_MANIFEST:-$HOME/.config/op/render-manifest}"
+# Staleness sentinel: touched after a fully successful render. Lets the skip
+# path below distinguish "skipped once" from "skipping for weeks" — without it
+# a broken op integration decays secrets silently behind a one-line warning.
+SENTINEL="$(dirname "$MANIFEST")/.last-render"
+STALE_DAYS="${OP_RENDER_STALE_DAYS:-7}"
 
 log() { printf 'op-render: %s\n' "$*" >&2; }
+
+warn_if_stale() {
+  if [ ! -e "$SENTINEL" ]; then
+    log "WARNING: no successful render on record; rendered secrets may be arbitrarily stale."
+  elif [ -n "$(find "$SENTINEL" -mtime "+$STALE_DAYS" 2>/dev/null)" ]; then
+    log "WARNING: last successful render was $(stat -f '%Sm' "$SENTINEL") (>$STALE_DAYS days ago); rendered secrets are going stale. Fix op auth and re-run op-render."
+  fi
+}
 
 if [ -n "${OP_CONNECT_HOST:-}" ] && [ -n "${OP_CONNECT_TOKEN:-}" ]; then
   :  # Connect mode (headless, e.g. i9)
@@ -31,6 +44,7 @@ elif "$OP_BIN" whoami >/dev/null 2>&1; then
   :  # interactive desktop-app session (e.g. m5)
 else
   log "no op auth (no Connect creds, no interactive session); skipping (files left intact)."
+  warn_if_stale
   exit 0
 fi
 
@@ -51,7 +65,7 @@ while IFS=: read -r tpl target; do
   # --force: mktemp already created $tmp, and `op inject -o <existing>` aborts
   # asking for confirmation without it. $tmp is our own 0600 tmpfile, so
   # overwriting it is intended.
-  if ! "$OP_BIN" inject --force -i "$tpl" -o "$tmp" 2>/dev/null; then
+  if ! "$OP_BIN" inject --force -i "$tpl" -o "$tmp" >/dev/null 2>&1; then
     log "op inject failed for $tpl (keeping existing $target)"
     rm -f "$tmp"; rc=1; continue
   fi
@@ -65,4 +79,9 @@ while IFS=: read -r tpl target; do
   log "rendered $target"
 done < "$MANIFEST"
 
+if [ "$rc" -eq 0 ]; then
+  touch "$SENTINEL"
+else
+  warn_if_stale
+fi
 exit "$rc"

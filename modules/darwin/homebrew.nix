@@ -34,8 +34,17 @@ in
     enable = true;
 
     onActivation = {
-      autoUpdate = false;
-      upgrade = false;
+      # autoUpdate/upgrade stay ON deliberately: rebuild-time brew churn exists
+      # to track fast-moving tools (codex, worktrunk, railway, 1password-cli).
+      # The slow-moving third-party WM tap stack is carved OUT of that firehose
+      # instead: sketchybar + borders are `brew pin`ed by the postActivation
+      # snippet below, so upgrading tap code is a deliberate
+      # `brew upgrade sketchybar borders` (after `brew unpin`), not a side
+      # effect of every switch. aerospace (tap *cask*) has no pin mechanism in
+      # Homebrew — it remains auto-upgraded; accepted residual supply-chain
+      # exposure, revisit if nikitabobko/tap ever changes hands.
+      autoUpdate = true;
+      upgrade = true;
       # GRADUATION: start conservative. "none" leaves anything not listed here
       # in place (safe during the nix cutover while the brew inventory is still
       # being audited). Move to "uninstall" once the lists below are confirmed
@@ -99,10 +108,8 @@ in
         "1password-cli"
       ]
       ++ lib.optionals caps.gui [
-        "alt-tab"
         "ghostty"
         "raycast"
-        "visual-studio-code"
         "1password"
         "bbedit"
         "obsidian"
@@ -127,17 +134,9 @@ in
       # high-confidence subset moved to home.packages fonts. Together these two
       # sets cover every font from the Brewfile's dev block with none dropped.
       ++ lib.optionals caps.dev [
-        "font-anonymous-pro"
-        "font-bebas-neue"
-        "font-courier-prime"
-        "font-ia-writer-duo"
-        "font-ia-writer-mono"
-        "font-ia-writer-quattro"
         "font-input"
         "font-intel-one-mono"
         "font-iosevka"
-        "font-red-hat-mono"
-        "font-ubuntu-mono"
         "font-inconsolata-go-nerd-font"
       ];
   };
@@ -146,12 +145,63 @@ in
   # source. Its first auto-migration can leave the old core `_brew` completion
   # symlink pointing at the removed `/opt/homebrew/completions` directory.
   # Re-anchor that link to the pinned Homebrew source on every activation.
-  system.activationScripts.postActivation.text = lib.mkAfter ''
+  system.activationScripts.postActivation.text = lib.mkAfter (''
     _brew_completion_dir="/opt/homebrew/share/zsh/site-functions"
     if [ -d "$_brew_completion_dir" ]; then
       ln -sfn \
         "${config.nix-homebrew.package}/completions/zsh/_brew" \
         "$_brew_completion_dir/_brew"
     fi
-  '';
+  ''
+  + lib.optionalString caps.tiling ''
+    # Converge the third-party-tap pin policy (see onActivation comment).
+    # Pin state is imperative brew metadata; re-asserting it every switch means
+    # a fresh machine self-heals after its first bundle run. Homebrew activation
+    # and Home Manager activation can overlap on a first run, so wait briefly
+    # for each formula and pin them independently. Runs as root, and brew
+    # refuses root, so drop to the owning user with a clean user environment.
+    # Warn-never-fail.
+    if [ -x /opt/homebrew/bin/brew ]; then
+      _brew_as_user() {
+        /usr/bin/sudo -H -u ${user} \
+          /usr/bin/env -u SUDO_USER -u SUDO_UID -u SUDO_GID -u SUDO_COMMAND \
+          /opt/homebrew/bin/brew "$@"
+      }
+      _brew_pinned_dir="/opt/homebrew/var/homebrew/pinned"
+
+      for _brew_formula in sketchybar borders; do
+        # `brew pin` is already converged when this symlink exists. Recognize
+        # that state directly so every later rebuild is quiet and idempotent.
+        if [ -L "$_brew_pinned_dir/$_brew_formula" ]; then
+          continue
+        fi
+
+        _brew_installed=0
+        _brew_pinned=0
+        for _brew_attempt in 1 2 3 4 5; do
+          if _brew_as_user list --formula "$_brew_formula" >/dev/null 2>&1; then
+            _brew_installed=1
+            if _brew_as_user pin "$_brew_formula" >/dev/null 2>&1; then
+              _brew_pinned=1
+            fi
+            break
+          fi
+          /bin/sleep 2
+        done
+
+        # Homebrew may report an already-converged pin as a warning. The
+        # filesystem link is the authoritative pin state either way.
+        if [ -L "$_brew_pinned_dir/$_brew_formula" ]; then
+          _brew_pinned=1
+        fi
+        if [ "$_brew_pinned" -ne 1 ]; then
+          if [ "$_brew_installed" -eq 1 ]; then
+            echo "warning: $_brew_formula is installed but Homebrew could not pin it" >&2
+          else
+            echo "warning: $_brew_formula was not installed after Homebrew activation" >&2
+          fi
+        fi
+      done
+    fi
+  '');
 }

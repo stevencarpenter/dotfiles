@@ -32,7 +32,7 @@ The shape is modeled on [kunchenguid/dotfiles](https://github.com/kunchenguid/do
 | `.chezmoiexternal.toml.tmpl` (agent-registry SSH clone, tpm) | `just sync` (bucket **C**; needs network/SSH) |
 | `~/Library/LaunchAgents/com.user.maxfiles.plist` | `launchd.user.agents.maxfiles` in `modules/darwin/core.nix` |
 | `dot_config/homebrew/Brewfile.tmpl` | `modules/darwin/homebrew.nix` (nix-homebrew + nix-darwin `homebrew` module), caps-gated; pure CLI tools moved to `home.packages` |
-| age encryption (chezmoi `encrypted_` + `[age]` key) | **agenix, carry-verbatim** — same identity moved to `~/.config/age/keys.txt`, same ciphertext blobs, `modules/home/secrets.nix` |
+| age encryption (chezmoi `encrypted_` + `[age]` key) | **Split custody** — personal values render from 1Password templates via `op-render`; only the temporary work bridge remains carry-verbatim agenix under `secrets/` |
 
 ### The hook bucket rule
 
@@ -92,11 +92,11 @@ Every `run_` hook was sorted into one of three buckets:
 - **Nix learning curve.** The repo is now Nix expressions, specialArgs threading, and the
   home-manager/nix-darwin option surface — a steeper on-ramp than chezmoi's prefix conventions for
   anyone (including future-owner) making changes.
-- **Secrets are plaintext-on-disk after decrypt.** agenix decrypts to a user-owned path outside the
+- **Work secrets are plaintext-on-disk after decrypt.** agenix decrypts to a user-owned path outside the
   store and symlinks to the target — the *store* stays safe (only ciphertext enters it), but the
-  decrypted secret sits on disk mode 0400/0600, same as chezmoi's decrypted output. A single
-  long-lived age identity is shared by the personal and work configurations; this is an accepted
-  limitation of the agenix bridge, not something the port solved (see `secrets/README.md`).
+  decrypted secret sits on disk mode 0400/0600, same as chezmoi's decrypted output. Personal
+  secrets have already moved to 1Password rendering; the age bridge remains only for work until
+  the external wrapper assumes custody (see `secrets/README.md`).
 
 ## (d) Deferred work
 
@@ -105,9 +105,9 @@ Explicitly scoped OUT of the port; none blocks a switch today.
 1. **One-time re-encryption to agenix-native recipients (hygiene only).** Blobs were produced by
    plain `age -e -r` via chezmoi, not the `agenix` CLI. They decrypt identically; re-encrypting via
    `agenix -e` just buys a clean edit loop. See `secrets/README.md`.
-2. **opnix / `op://` end-state (the actual blast-radius fix).** Replace `age.secrets.<name>` entries
-   with `op read op://…` (or opnix) item-by-item, per the 2026-07-02 work-decoupling plan, starting
-   with one low-risk personal secret. agenix and `op://` secrets can coexist during migration.
+2. **External work-secret custody.** Personal migration to `op://` templates is complete. Move the
+   remaining work environment, AWS overrides, and work skills from the personal age recipient to
+   the externally administered wrapper, one consumer at a time.
 3. **Homebrew cleanup graduation.** `modules/darwin/homebrew.nix` runs `cleanup = "none"` so the
    first switch won't uninstall un-listed brew packages while the inventory is audited. Graduate to
    `"uninstall"` once the brew lists are confirmed complete. Never `"zap"`.
@@ -137,6 +137,9 @@ Rollout order:
 
 1. **personal-mac first — live.** `./rebuild.sh personal-mac`, `just sync`, then
    `scripts/verify-live-deployment.sh`.
-2. **work-mac** once personal-mac proves out.
+2. **work-mac** once personal-mac proves out. Follow
+   [`work-mac-nix-cutover.md`](work-mac-nix-cutover.md): build the base host as a canary, compose
+   the external wrapper, then make one live switch directly to the wrapper before retiring
+   chezmoi.
 
 The retired Intel lab host is no longer a flake output; its ownership moved to the homelab lane.

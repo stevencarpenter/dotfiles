@@ -57,7 +57,9 @@ setup() {
 t_happy() {
   setup
   OP_MOCK_MODE=ok OP_CONNECT_HOST=h OP_CONNECT_TOKEN=t "$RENDER" >/dev/null 2>&1
-  [ "$(cat "$target")" = "export FOO=bar" ] && [ "$(perm "$target")" = "600" ]
+  [ "$(cat "$target")" = "export FOO=bar" ] \
+    && [ "$(perm "$target")" = "600" ] \
+    && [ -f "$work/.last-render" ]
 }
 
 t_creds_absent_skips() {
@@ -92,7 +94,7 @@ t_no_auth_skips() {
   [ "$(cat "$target")" = "PRE" ]
 }
 
-run "happy path renders 0600"          t_happy
+run "happy path renders 0600 + sentinel" t_happy
 run "absent creds skip, keep file"     t_creds_absent_skips
 run "inject failure preserves target"  t_inject_fail_preserves
 run "empty output preserves target"    t_empty_output_preserves

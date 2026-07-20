@@ -10,10 +10,10 @@ One flake drives two machine types — `personal-mac` and `work-mac` — from a 
 capability table ([`lib/machines.nix`](lib/machines.nix)), so the same checkout produces a
 different environment on each host with no hostname checks inside any module.
 
-Secrets are age-encrypted (via [agenix](https://github.com/ryantm/agenix)) against the existing
-age identity, whose key is sourced from 1Password at bootstrap. The repo also vendors two small
-Python tools (`mcp_sync/`, `aws_config_gen/`) that regenerate machine-specific AI-tool config after
-every switch.
+Personal secrets render directly from 1Password references via `op-render`; work secrets still use
+the temporary [agenix](https://github.com/ryantm/agenix) bridge until the external work wrapper takes
+custody. The repo also vendors two small Python tools (`mcp_sync/`, `aws_config_gen/`) that
+regenerate machine-specific AI-tool config after every switch.
 
 > **Migrating from the old chezmoi layout?** See [`docs/nix-migration.md`](docs/nix-migration.md)
 > for the full mechanism-by-mechanism mapping (dot\_ prefixes → `home/`, `.chezmoiignore` gates →
@@ -55,8 +55,9 @@ Justfile                  # nix + python + sync task runner
   the post-switch sync hooks. Each self-gates on caps/identity.
 - **`home/`** — the actual dotfiles, mirroring `~` (e.g. `home/.config/nvim`,
   `home/.config/zsh/.zshrc`, `home/.claude/hooks/…`). Symlinked live; safe to edit in place.
-- **`secrets/`** — byte-identical age ciphertext carried over from chezmoi, plus `secrets.nix`
-  (agenix recipients). Nothing here is decrypted or edited by hand. See
+- **`secrets/`** — work-only age ciphertext carried over from chezmoi, plus `secrets.nix`
+  (agenix recipients). Personal templates live under `home/` and contain only `op://` references.
+  Nothing under `secrets/` is decrypted or edited by hand. See
   [`secrets/README.md`](secrets/README.md).
 - **`mcp_sync/`, `aws_config_gen/`** — isolated `uv` projects (Python 3.14+, no runtime deps) that
   fan config out to per-tool formats after each switch. Run standalone or via the activation hooks.
@@ -99,17 +100,18 @@ the owning module on `caps.<capability>`.
 2. Installs **Lix** if `nix` isn't on PATH, via the Lix installer. (`nix.enable = true` with
    `nix.package = pkgs.lix` in `modules/darwin/core.nix` — nix-darwin manages the daemon and
    runs Lix as the interpreter.)
-3. Fetches the existing **age identity key from 1Password** into
-   `~/.config/age/keys.txt`:
+3. Resolves the host config. On `work-mac` only, fetches the temporary work **age identity key from
+   1Password** into `~/.config/age/keys.txt`:
 
    ```bash
-   op read "op://Private/chezmoi-age-key/key.txt" > ~/.config/age/keys.txt
+   op read "op://Private/dotfiles-age-key/notesPlain" > ~/.config/age/keys.txt
    chmod 600 ~/.config/age/keys.txt
    ```
 
-   This must exist before the first switch or every agenix decrypt fails during activation.
+   Personal machines skip this step because their secret surface is fully 1Password-rendered and
+   evaluates to zero `age.secrets`.
 4. Links `~/.dotfiles → <repo>` (the out-of-store root the raw symlinks resolve through).
-5. Resolves the host config (arg → `scutil --get LocalHostName` map → prompt) and runs the
+5. Runs the
    **first switch** straight from the flake input (`darwin-rebuild` isn't on PATH yet):
 
    ```bash
@@ -165,16 +167,19 @@ system closures. (The flake ships no formatter, so there's no `nix fmt --check` 
 
 ## Secrets
 
-agenix decrypts every `secrets/**/*.age` blob at activation time using the identity at
-`~/.config/age/keys.txt` — the same age identity, moved out of the retired chezmoi root. **No blob
-was re-encrypted for the port**: each is byte-identical ciphertext moved from its old chezmoi path,
-and agenix decrypts it regardless of how it was produced.
+Personal machines declare zero `age.secrets`. `home/.local/bin/op-render` atomically renders
+`~/.config/zsh/.personal.env` and `~/.ssh/config` from public-safe templates containing `op://`
+references. It runs during personal Home Manager activation when the 1Password CLI is authenticated
+and preserves the last known-good targets on any failure.
 
-Which secrets a host decrypts is driven entirely by `identity` / `caps.skills` in
-`modules/home/secrets.nix` (common env everywhere; SSH config on personal (`!= "work"`); personal/work env
-splits; work-only AWS overrides + the 25 gated Claude-skill blobs). There is no per-host secrets
-file to edit. To add or rotate a secret, or to rekey recipients, see
-[`secrets/README.md`](secrets/README.md).
+For reviewed edits made directly to `~/.config/zsh/.personal.env`, `just op-adopt` produces a
+names-only reverse-adoption plan and `just op-adopt --apply` updates only fields already pinned in
+`home/.config/op/adopt-policy.json`. It cannot import new variables, modify templates, or adopt SSH
+config; Login-item fields remain manual-only to avoid the 1Password CLI's passkey-loss hazard.
+
+Work currently decrypts its environment, AWS overrides, and 25 work-skill files through agenix
+using `~/.config/age/keys.txt`. That carry-verbatim bridge remains until the external work wrapper
+moves them to externally administered custody. See [`secrets/README.md`](secrets/README.md).
 
 ## Side channels (`just sync` / `just bootstrap`)
 
@@ -185,8 +190,8 @@ Justfile instead:
 - **`just sync`** — clone/refresh tpm over HTTPS, clone the personal `agent-registry` over SSH
   only when the selected host's canonical `agents` capability is enabled, and install the pinned
   `token-auditor` uv tool. Safe to re-run; `bootstrap.sh` passes its resolved host explicitly.
-- **`just bootstrap`** — the full fresh-machine flow (`bootstrap.sh`): Lix, the age
-  key, first switch, rustup.
+- **`just bootstrap`** — the full fresh-machine flow (`bootstrap.sh`): Lix, the work-only age key
+  when applicable, first switch, rustup.
 
 The rule ("bucket rule" in `docs/nix-migration.md`): declarative or offline+fast+idempotent work
 goes in the switch (as `home.activation` hooks); anything touching network/SSH/sudo goes in

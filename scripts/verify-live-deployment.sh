@@ -83,19 +83,47 @@ else
 fi
 
 for secret in "$home_dir/.config/zsh/.personal.env" "$home_dir/.ssh/config"; do
-  if [ -s "$secret" ] && [ "$(stat -f '%Lp' "$secret" 2>/dev/null || true)" = "600" ] \
+  if [ -s "$secret" ] && [ "$(/usr/bin/stat -f '%Lp' "$secret" 2>/dev/null || true)" = "600" ] \
     && ! rg -q 'op://' "$secret"; then
-    pass "$secret is populated, mode 0600, and fully rendered"
+    pass "$secret is populated, mode 0600, and has no unresolved references"
   else
     fail "$secret is missing, insecure, empty, or contains unresolved op refs"
   fi
 done
 
-age_key="$home_dir/.config/age/keys.txt"
-if [ -s "$age_key" ] && [ "$(stat -f '%Lp' "$age_key" 2>/dev/null || true)" = "600" ]; then
-  pass "age identity is present outside the legacy chezmoi root"
+env_template="$repo_root/home/.config/zsh/.personal.env.tpl"
+live_env="$home_dir/.config/zsh/.personal.env"
+if /usr/bin/diff -q \
+  <(rg -o '^export [A-Z_][A-Z0-9_]*=' "$env_template" | /usr/bin/sed 's/^export //; s/=$//' | /usr/bin/sort) \
+  <(rg -o '^export [A-Z_][A-Z0-9_]*=' "$live_env" | /usr/bin/sed 's/^export //; s/=$//' | /usr/bin/sort) \
+  >/dev/null; then
+  pass "personal environment variable set matches the 1Password template"
 else
-  fail "age identity is missing or not mode 0600 at $age_key"
+  fail "personal environment variable set is stale or incomplete"
+fi
+
+ssh_config="$home_dir/.ssh/config"
+include_line="$(rg -n -m1 '^Include ~/.ssh/config.d/\*$' "$ssh_config" || true)"
+first_host_line="$(rg -n -m1 '^Host([[:space:]]|$)' "$ssh_config" || true)"
+include_line="${include_line%%:*}"
+first_host_line="${first_host_line%%:*}"
+if [ -n "$include_line" ] && [ -n "$first_host_line" ] \
+  && [ "$include_line" -lt "$first_host_line" ]; then
+  pass "SSH external-fragment include exists before every Host block"
+else
+  fail "SSH config is stale or the external-fragment include is misordered"
+fi
+
+last_render="$home_dir/.config/op/.last-render"
+if [ -f "$last_render" ]; then
+  last_render_age=$(( $(/bin/date +%s) - $(/usr/bin/stat -f '%m' "$last_render") ))
+  if [ "$last_render_age" -le $((7 * 24 * 60 * 60)) ]; then
+    pass "1Password render sentinel is present and fresh"
+  else
+    fail "1Password render sentinel is older than 7 days"
+  fi
+else
+  fail "1Password render sentinel is missing"
 fi
 
 if op whoami >/dev/null 2>&1; then

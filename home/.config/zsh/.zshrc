@@ -415,6 +415,7 @@ function codax() {
   _audit_token_usage codax codex 0
   return $rc
 }
+
 function claade() {
   # Claude Code writes "hooks": {} to settings.local.json when saving permissions,
   # which shadows global SessionStart hooks. Strip it before launch.
@@ -434,6 +435,7 @@ function claade() {
   _audit_token_usage claade claude 1
   return $rc
 }
+
 function opencade() {
   _with_project_venv opencode "$@"
   local rc=$?
@@ -472,22 +474,6 @@ function sip_holder() {
 
 # zoxide (smart cd)
 command -v zoxide >/dev/null 2>&1 && zcached zoxide-init "$(command -v zoxide)" zoxide init --cmd cd zsh
-
-# mise (polyglot runtime manager) - lazy load with hook prevention
-if command -v mise >/dev/null 2>&1; then
-  # Add shims to PATH
-  path=($HOME/.local/share/mise/shims $path)
-
-  # Create wrapper function that activates on first use
-  mise() {
-    if [[ -z "${MISE_SHELL-}" ]]; then
-      eval "$(command mise activate zsh)"
-      # Remove this wrapper after activation
-      unfunction mise 2>/dev/null || true
-    fi
-    command mise "$@"
-  }
-fi
 
 # atuin (shell history) - skip silently on machines without atuin installed
 [[ -f "$HOME/.local/bin/env" ]] && . "$HOME/.local/bin/env" || true
@@ -538,6 +524,22 @@ fi
 
 # Worktrunk shell completions
 if command -v wt >/dev/null 2>&1; then zcached wt-shell-init "$(command -v wt)" command wt config shell init zsh; fi
+
+# mise (polyglot runtime manager) - lazy load with hook prevention
+if command -v mise >/dev/null 2>&1; then
+  # Add shims to PATH
+  path=($HOME/.local/share/mise/shims $path)
+
+  # Create wrapper function that activates on first use
+  mise() {
+    if [[ -z "${MISE_SHELL-}" ]]; then
+      eval "$(command mise activate zsh)"
+      # Remove this wrapper after activation
+      unfunction mise 2>/dev/null || true
+    fi
+    command mise "$@"
+  }
+fi
 
 # ============================================================================
 # Profiling output (uncomment if you enabled zprof at the top)

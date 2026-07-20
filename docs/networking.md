@@ -13,22 +13,21 @@ mid-conversation, and the open work that still needs to land in this repo
 
 What this repo currently touches networking-wise:
 
-- `dot_config/atuin/private_config.toml` — points at
+- `home/.config/atuin/config.toml` — points at
   `https://logbook.snugmarina.org` for shell-history sync. Gated by the
   `atuin` capability.
-- `dot_config/zsh/profile.d/tailscale.zsh` — `tsexit` helpers for picking
+- `home/.config/zsh/profile.d/tailscale.zsh` — `tsexit` helpers for picking
   Tailscale exit nodes (homelab or Mullvad add-on). Sourced by zsh on any
   machine where `tailscale` is installed.
-- `dot_config/aerospace/`, `dot_config/sketchybar/` — local UI, not network.
+- `home/.config/aerospace/`, `home/.config/sketchybar/` — local UI, not network.
 - Tailscale itself is installed via Homebrew (cask); its config lives in
-  user libraries managed by the GUI app, not chezmoi.
-- `private_dot_ssh/encrypted_private_config.age` → `~/.ssh/config` — chezmoi-managed
-  ssh config, age-encrypted at rest and deployed mode 0600 (personal + lab; work
-  excluded for now). Carries `Host i9`
+  user libraries managed by the GUI app, not Nix.
+- `home/.ssh/config.tpl` → `~/.ssh/config` — personal-only `op-render` template, deployed mode
+  0600 from 1Password references. Carries `Host i9`
   (Tailscale MagicDNS) plus keepalive / `ControlMaster` defaults, and
   reproduces the OrbStack include + 1Password `IdentityAgent` those tools
   would otherwise auto-inject. Paired with the personal-only `i9` shell alias
-  (`mosh i9 -- tmux new -A -s main`) and `mosh` in the Brewfile, this is the
+  (`mosh i9 -- tmux new -A -s main`) and `mosh` in the package set, this is the
   primary "reach the i9 home server" path — it replaces leaving a macOS
   Screen Share session open.
 
@@ -44,7 +43,7 @@ repo today. Some of that should change; some should stay outside the repo.
   speaks WireGuard underneath, so adding raw WireGuard on top would be
   duplicative without a specific reason (devices that can't run Tailscale,
   contractual restrictions, etc.). There is intentionally no `wireguard`
-  capability in `.chezmoidata/machines.toml` — add it back if and when a
+  capability in `lib/machines.nix` — add it back if and when a
   real consumer lands.
 - **Mullvad, if and when it's worth it, rides Tailscale's exit-node
   add-on** rather than a parallel raw-WG setup. The `tsexit mullvad`
@@ -54,9 +53,9 @@ repo today. Some of that should change; some should stay outside the repo.
   dominant heat/fan source on the thermally-marginal 2019 i9 — it only runs
   while a session is connected. SSH + a long-lived tmux session is the daily
   path now; Screen Share stays *enabled* for the rare GUI need on i9's
-  unreliable display, just not left open. `~/.ssh/config` is chezmoi-managed
-  (personal + lab) to make this repeatable; work-mac is excluded until it
-  gets its own per-machine block.
+  unreliable display, just not left open. `~/.ssh/config` is rendered by the personal-only
+  1Password manifest to make this repeatable; work-mac is excluded until its external wrapper owns
+  the corresponding fragment.
 
 ## Recommendations
 

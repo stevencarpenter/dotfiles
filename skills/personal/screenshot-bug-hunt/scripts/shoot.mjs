@@ -5,7 +5,7 @@
 // page at four viewports plus a viewport-only "detail" capture for legible
 // inspection. Supports a JSON `--targets` override for partial / scrolled runs.
 //
-// The playwright dependency is loaded from a /tmp workdir so we don't pollute
+// The playwright dependency is loaded from a per-user cache workdir so we don't pollute
 // the user's project. See scripts/setup.sh.
 
 import { mkdirSync } from "node:fs";
@@ -20,7 +20,9 @@ function parseArgs(argv) {
   const args = {
     base: "http://127.0.0.1:4321",
     out: "/tmp/screenshot-bug-hunt-out",
-    workdir: "/tmp/screenshot-bug-hunt-pw",
+    workdir:
+      process.env.HIPPO_PW_WORKDIR ||
+      `${process.env.XDG_CACHE_HOME || `${process.env.HOME}/Library/Caches`}/screenshot-bug-hunt-pw`,
     targets: null,
     only: null,                 // viewport tag filter, e.g. "desktop"
     sitemapPath: "/sitemap-index.xml",
@@ -56,7 +58,7 @@ function printHelp() {
 Options:
   --base URL         Base URL of the running preview/dev server (default http://127.0.0.1:4321)
   --out DIR          Output directory for PNGs (default /tmp/screenshot-bug-hunt-out)
-  --workdir DIR      Where playwright is installed (default /tmp/screenshot-bug-hunt-pw)
+  --workdir DIR      Where playwright is installed (default ~/Library/Caches/screenshot-bug-hunt-pw)
   --targets FILE     JSON array overriding sitemap auto-discovery
   --only TAG         Only capture one viewport (desktop|tablet|narrow|mobile|detail)
   --sitemap PATH     Sitemap path (default /sitemap-index.xml)
