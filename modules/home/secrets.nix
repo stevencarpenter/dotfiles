@@ -1,13 +1,10 @@
-# Secrets: agenix wired to the existing age identity.
+# Work secrets: agenix wired to the carry-verbatim age identity.
 #
 # Design (see phase1-results.json smes[1] for the full rationale): agenix is the carry-verbatim
-# bridge for the nix port. It decrypts each ciphertext blob under secrets/ at home-manager
-# activation time using the identity at ~/.config/age/keys.txt. The ciphertext
-# was carried verbatim from chezmoi, but the live identity no longer lives in a
-# chezmoi-owned directory. bootstrap.sh sources it from 1Password before the
-# first `darwin-rebuild switch`. No blob was re-encrypted to get here: every
-# secrets/**/*.age file is byte-identical ciphertext moved from its old dot_ chezmoi path, so
-# this module MUST NOT run `age -e` or otherwise touch plaintext.
+# bridge for the Nix port. Only the work identity declares age secrets and an
+# identity path; personal secrets render directly from 1Password via op-render.
+# No work blob was re-encrypted during the port, so this module MUST NOT run
+# `age -e` or otherwise touch plaintext.
 #
 # Store-safety: age.secrets.<name>.file is a ciphertext path — it enters the (world-readable)
 # nix store safely because it stays encrypted there. agenix's activation script decrypts each
@@ -98,10 +95,10 @@ in
 {
   imports = [ inputs.agenix.homeManagerModules.default ];
 
-  # Existing age identity — sourced into place by bootstrap.sh (`op read ... >
-  # ~/.config/age/keys.txt`) before the first `darwin-rebuild switch`. Must exist before
-  # activation or every age.secrets decrypt below fails.
-  age.identityPaths = [ "${home}/.config/age/keys.txt" ];
+  # Existing work age identity — sourced into place by bootstrap.sh before a
+  # work-mac switch. Personal evaluates to an empty identity-path list.
+  age.identityPaths =
+    if identity == "work" then [ "${home}/.config/age/keys.txt" ] else lib.mkForce [ ];
 
   # Replace agenix's asynchronous Darwin job with the same generated script in
   # the Home Manager activation DAG. Decryption failure is fatal: continuing
@@ -125,7 +122,9 @@ in
     #   - zsh-personal-env (~/.config/zsh/.personal.env): op:// template.
     #   - ssh-config (~/.ssh/config): op:// template — the i9 tailnet host comes
     #     from op://Homelab/I9/tailnet_hostname so it never lands in this public
-    #     repo. Fully op-managed; the age blob is retired in WS4.
+    #     repo.
+    # The three superseded common/personal ciphertexts were deleted only after
+    # every value was verified against a successful 1Password render.
     # The personal identity now declares ZERO age.secrets; work is unchanged.
     lib.optionalAttrs (identity == "work") (
       {

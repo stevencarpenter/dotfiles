@@ -55,6 +55,9 @@
       gnused # gnu-sed
       shellcheck
       tmux # binary only; tmux config stays a raw symlinked dotfile
+      nixd # Nix LSP, including flake-provided nix-darwin/HM option sets
+      nixfmt # formatter used by LazyVim's Nix extra and nixd
+      statix # Nix linter used by LazyVim's Nix extra
 
       # ─── Language / secrets / runtime managers ──────────────────────────
       uv # was a brew formula; now nix (also drives the mcp_sync/aws hooks)

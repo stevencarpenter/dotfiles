@@ -46,25 +46,35 @@ else
   echo "==> Nix already installed: $(command -v nix)"
 fi
 
-# ── 2. age identity key from 1Password ───────────────────────────────────
-# The dotfiles age identity; agenix (modules/home/secrets.nix) reads it
-# to decrypt secrets/**.age. Must exist before the first darwin-rebuild switch.
-# Stored as the notesPlain field of the "dotfiles-age-key" secure note.
-KEY_DEST="$HOME/.config/age/keys.txt"
-if [ ! -s "$KEY_DEST" ]; then
-  echo "==> Fetching age identity key from 1Password ..."
-  if ! command -v op >/dev/null 2>&1; then
-    echo "ERROR: 1Password CLI (op) not found. Install it, sign in, then re-run." >&2
-    exit 1
+# ── 2. Resolve host config (arg > LocalHostName map > prompt) ─────────────
+HOST="${1:-$(detect_host || true)}"
+if [ -z "${HOST:-}" ]; then
+  echo "Could not auto-detect host from LocalHostName."
+  read -r -p "Enter host config (personal-mac / work-mac): " HOST
+fi
+echo "==> Using host config: $HOST"
+
+# ── 3. Work-only age identity key from 1Password ─────────────────────────
+# Personal secrets are rendered directly from 1Password and declare zero
+# age.secrets. The carry-verbatim age bridge remains work-only until the
+# external work wrapper takes custody of those secrets.
+if [ "$HOST" = "work-mac" ]; then
+  KEY_DEST="$HOME/.config/age/keys.txt"
+  if [ ! -s "$KEY_DEST" ]; then
+    echo "==> Fetching work age identity key from 1Password ..."
+    if ! command -v op >/dev/null 2>&1; then
+      echo "ERROR: 1Password CLI (op) not found. Install it, sign in, then re-run." >&2
+      exit 1
+    fi
+    mkdir -p "$(dirname "$KEY_DEST")"
+    op read "op://Private/dotfiles-age-key/notesPlain" >"$KEY_DEST"
+    chmod 600 "$KEY_DEST"
+  else
+    echo "==> work age key already present at $KEY_DEST"
   fi
-  mkdir -p "$(dirname "$KEY_DEST")"
-  op read "op://Private/dotfiles-age-key/notesPlain" >"$KEY_DEST"
-  chmod 600 "$KEY_DEST"
-else
-  echo "==> age key already present at $KEY_DEST"
 fi
 
-# ── 3. ~/.dotfiles symlink (out-of-store root for raw dotfiles) ───────────
+# ── 4. ~/.dotfiles symlink (out-of-store root for raw dotfiles) ───────────
 if [ "$REPO_ROOT" = "$HOME/.dotfiles" ]; then
   # The repository itself is already checked out at the canonical location.
   :
@@ -72,14 +82,6 @@ elif [ "$(readlink "$HOME/.dotfiles" 2>/dev/null || true)" != "$REPO_ROOT" ]; th
   echo "==> Linking $HOME/.dotfiles -> $REPO_ROOT"
   ln -sfn "$REPO_ROOT" "$HOME/.dotfiles"
 fi
-
-# ── 4. Resolve host config (arg > LocalHostName map > prompt) ─────────────
-HOST="${1:-$(detect_host || true)}"
-if [ -z "${HOST:-}" ]; then
-  echo "Could not auto-detect host from LocalHostName."
-  read -r -p "Enter host config (personal-mac / work-mac): " HOST
-fi
-echo "==> Using host config: $HOST"
 
 # ── 5. First switch ──────────────────────────────────────────────────────
 # darwin-rebuild is not on PATH yet, so run it straight from the flake input.

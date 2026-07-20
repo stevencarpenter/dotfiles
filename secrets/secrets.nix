@@ -9,11 +9,11 @@
 # not by agenix, and decrypts fine with no involvement from this file. This file only starts
 # mattering the day someone runs `agenix -e` for the first time in this repo.
 #
-# Today there is exactly one recipient in play — see docs/superpowers/plans/
+# Today there is exactly one work recipient in play — see docs/superpowers/plans/
 # 2026-07-02-work-decoupling-and-1password-secret-migration.md for the plan to eventually
-# split work secrets onto a distinct, vault-scoped recipient. Until that lands, every blob
-# (common, personal, and work alike) is encrypted to this single key, so every entry below
-# lists the same recipient set.
+# move work secrets onto a distinct, vault-scoped recipient. Personal and common ciphertexts
+# were removed after their 1Password-rendered replacements were proven byte-for-byte against
+# the old values; every remaining blob is work-only and uses this recipient set.
 let
   # The existing age recipient's public key. Corresponds to the identity kept at
   # ~/.config/age/keys.txt (sourced from 1Password by bootstrap.sh). Do not change this
@@ -59,9 +59,6 @@ let
   ];
 
   otherPaths = [
-    "common/zsh-env.age"
-    "common/ssh-config.age"
-    "personal/zsh-personal-env.age"
     "work/zsh-work-env.age"
     "work/aws-config-gen-overrides.json.age"
   ];

@@ -25,7 +25,7 @@ verify-live:
 check:
     nix flake check --no-build
 
-# First-time provisioning on a fresh Mac (Lix, age key, first switch).
+# First-time provisioning on a fresh Mac (Lix, work-only age key, first switch).
 bootstrap *HOST:
     ./bootstrap.sh {{ HOST }}
 
