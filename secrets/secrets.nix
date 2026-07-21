@@ -60,7 +60,6 @@ let
 
   otherPaths = [
     "work/zsh-work-env.age"
-    "work/aws-config-gen-overrides.json.age"
   ];
 
   skillPaths = map (f: "work/claude-skills/${f.skill}/${f.relpath}.age") claudeSkillFiles;

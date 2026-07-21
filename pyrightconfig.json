@@ -3,8 +3,7 @@
   "venvPath": "mcp_sync",
   "venv": ".venv",
   "extraPaths": [
-    "mcp_sync/src",
-    "aws_config_gen/src"
+    "mcp_sync/src"
   ],
   "exclude": [
     "**/.venv",

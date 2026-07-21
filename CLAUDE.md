@@ -14,10 +14,12 @@ One flake drives two machine types (`personal-mac`, `work-mac`) from a single
 capability table (`lib/machines.nix`); modules gate on caps/identity, never on hostname. Personal
 secrets render directly from 1Password via `op-render`; work secrets temporarily remain
 age-encrypted through [agenix](https://github.com/ryantm/agenix) until the external work wrapper
-takes custody. The repo also vendors two small Python tools
-(`mcp_sync/`, `aws_config_gen/`). A third tool, `token-auditor`, was extracted to its own public
-repo (github.com/stevencarpenter/token-auditor) and installs as a standalone uv tool via `just
-sync`. This repo was ported from chezmoi; see `docs/nix-migration.md` for the full mechanism map.
+takes custody. The repo also vendors one small Python tool
+(`mcp_sync/`). Two former tools were extracted to their own public repos and install as standalone
+uv tools: `token-auditor` (github.com/stevencarpenter/token-auditor, via `just sync`) and
+`aws_config_gen` (github.com/stevencarpenter/aws-config-generator; the external work wrapper now
+owns AWS profile generation, so this repo dropped it and the `aws_sso` capability). This repo was
+ported from chezmoi; see `docs/nix-migration.md` for the full mechanism map.
 
 ## Commands
 
@@ -38,20 +40,6 @@ uv run --project mcp_sync --group dev pytest mcp_sync/tests/test_sync_mcp_config
 
 # Run sync manually
 uv run --project mcp_sync sync-mcp-configs
-```
-
-### AWS Config Gen (`aws_config_gen/`)
-
-```bash
-# Lint
-uv run --project aws_config_gen --group dev ruff check aws_config_gen/src aws_config_gen/tests
-uv run --project aws_config_gen --group dev ruff format --check aws_config_gen/src aws_config_gen/tests
-
-# Test
-uv run --project aws_config_gen --group dev pytest aws_config_gen/tests --cov=aws_config_gen --cov-report=term-missing
-
-# Run
-uv run --project aws_config_gen aws-config-gen
 ```
 
 ### Token Auditor (external — `token-auditor` uv tool)
@@ -176,7 +164,6 @@ in `README.md`. Where each capability is enforced:
 - **`dev`** — `modules/home/dev-tools.nix` (mise `conf.d/dev.toml`), `modules/home/packages.nix`
   (dev fonts), `modules/darwin/homebrew.nix` (railway CLI + dev font casks), and
   `home/.claude/settings-base.json` variant (dev-only LSP plugins, resolved in `ai-stack.nix`).
-- **`aws_sso`** — `modules/home/secrets.nix` (AWS overrides secret) + the `awsConfigGen` hook.
 - **`infra`** — `modules/home/dev-tools.nix` (mise `conf.d/infra.toml`).
 - **`agent_journal`** — `modules/home/dotfiles.nix` (config + `~/.local/bin/{agent-journal,agent-note}`).
 - **`agents`** — the `agentsInstall` hook (`sync-hooks.nix`) + the capability-aware personal
@@ -210,7 +197,6 @@ and gate the owning module on `caps.<capability>`.
 - `home/.config/nvim/` — Neovim config (LazyVim)
 - `secrets/` — work-only age ciphertext + `secrets.nix` recipients (decrypted by agenix at work activation)
 - `mcp_sync/` — MCP + skills fan-out tool (uv project, Python 3.14+, no runtime deps)
-- `aws_config_gen/` — AWS SSO profile generator (uv project, Python 3.14+)
 - `bootstrap.sh` / `rebuild.sh` — fresh-machine setup / routine switch (host auto-detect)
 - `Justfile` — `TOKEN_AUDITOR_VERSION` pin + nix/python/sync recipes
 - `scripts/` — hygiene test scripts (statusline, sketchybar, claude-settings-order, mcp-sync) + `strip-claude-trailer.sh`
@@ -251,7 +237,7 @@ Nix store. Full workflows are in `secrets/README.md` and the project secret-auth
 ## CI
 
 GitHub Actions in `.github/workflows/`:
-- `mcp-sync-ci.yml`, `aws-config-gen-ci.yml` — lint + test for each vendored Python tool (token-auditor's CI lives in its own repo now)
+- `mcp-sync-ci.yml` — lint + test for the vendored `mcp_sync` tool (token-auditor and aws_config_gen CI live in their own repos now)
 - `nix-flake-check.yml` — `nix flake check --no-build` on `macos-latest` (DeterminateSystems/nix-installer-action); evaluates every flake output so a broken module or bad option is a hard error
 - `dotfiles-hygiene-ci.yml` — repo-wide hygiene: pre-commit, MCP master-config structure, shell `bash -n` syntax, and the statusline / sketchybar / claude-settings-order test scripts
 

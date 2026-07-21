@@ -83,7 +83,7 @@ uv run --project ~/.dotfiles/mcp_sync sync-mcp-configs
 ## Authentication / Credentials
 
 - **AWS CCAPI**: reads `${AWS_PROFILE}` (expanded by the MCP client at launch); SSO config comes
-  from `aws_config_gen`. No long-lived secret in the config.
+  from the external `aws-config-gen` tool (owned by the work wrapper). No long-lived secret in the config.
 - **hippo / grafana**: no credentials — local stdio servers talking to localhost.
 - **GitHub** (the plugin, not an MCP server here): authenticates via the Claude Code plugin /
   `gh` keychain token, not via this sync.

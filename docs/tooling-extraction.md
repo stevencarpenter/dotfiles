@@ -1,11 +1,13 @@
 # Extracting the vendored tools — shape, trade-offs, sequence
 
-> **Status (2026-07): decision made, step 1 shipped.** `token_auditor` was extracted to
+> **Status (2026-07): decision made, both clean tools extracted.** `token_auditor` was extracted to
 > [github.com/stevencarpenter/token-auditor](https://github.com/stevencarpenter/token-auditor)
-> (PR #104) and now installs via `.chezmoiscripts/run_onchange_install-token-auditor.sh.tmpl`,
-> pinned in `.chezmoidata/tools.toml`. The mcp_sync skills seam was NOT cut and
-> `aws_config_gen` remains vendored. Everything below is the pre-decision analysis,
-> kept as a historical record.
+> (PR #104) and installs as a standalone uv tool via `just sync`. `aws_config_gen` was extracted
+> (2026-07-21) to
+> [github.com/stevencarpenter/aws-config-generator](https://github.com/stevencarpenter/aws-config-generator);
+> the external work wrapper now owns AWS profile generation, so this repo dropped the vendored tool,
+> the `awsConfigGen` activation hook, and the `aws_sso` capability. The mcp_sync skills seam was NOT
+> cut. Everything below is the pre-decision analysis, kept as a historical record.
 
 Decision aid for moving the regularly-used vendored tools out of this dotfiles repo so
 others can use them. Adversarial on purpose: the goal is to find where the idea breaks,
@@ -51,7 +53,7 @@ stated.
 | Tool | Chezmoi coupling | Personal data? | Value to others | Cleanest target |
 |---|---|---|---|---|
 | **token_auditor** | None | None | High — cross-tool (Claude/Codex/OpenCode) cost auditing is genuinely wanted | Public repo, `uv tool install git+https`; PyPI later |
-| **aws_config_gen** | None | Work-only overrides (gitignored) | Low–med — crowded space (`aws-sso-util`, `granted`) | Extract only if you'll maintain it; else leave vendored |
+| **aws_config_gen** | None | Work-only overrides (gitignored) | Low–med — crowded space (`aws-sso-util`, `granted`) | **Extracted (2026-07-21)** to github.com/stevencarpenter/aws-config-generator; work wrapper owns it, `aws_sso` cap dropped |
 | **mcp_sync → MCP fan-out** | Low | None (config is in dotfiles) | Med — many people juggle MCP configs across tools | Public repo after splitting skills out |
 | **mcp_sync → skills sync** | **High** (`skills.py` defaults to `~/.dotfiles`) | Yes (`skills/personal/`) | Low — it's dotfiles glue | Keep as dotfiles glue, or fold into a skills registry |
 

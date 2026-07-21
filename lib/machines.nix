@@ -35,9 +35,6 @@
 #   dev    — machine does language / web / mobile development. Gates the
 #            dev-only language-LSP plugins, dev-flavored Brewfile entries, and
 #            copilot trusted folders. Off on work (own dev curation).
-#   aws_sso — machine runs the AWS SSO profile generator (aws_config_gen/) via
-#            the post-apply hook. Work-only today; scoped narrower than a
-#            generic `aws` capability.
 #   infra  — install infrastructure / cluster-ops tooling via mise: Kubernetes
 #            (kubectl, helm, k9s, kustomize), corporate access (teleport-ent),
 #            ops databases (mysql, duckdb). IaC + build tooling live in the
@@ -74,7 +71,6 @@
       skills = true;
       gui = true;
       dev = true;
-      aws_sso = false;
       infra = false;
       agent_journal = true;
       agents = true;
@@ -93,7 +89,6 @@
       skills = true;
       gui = true;
       dev = false;
-      aws_sso = true;
       infra = true;
       agent_journal = false;
       agents = false;

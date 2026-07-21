@@ -41,7 +41,7 @@ Every `run_` hook was sorted into one of three buckets:
 - **A — declarative.** State nix can express directly: macOS defaults, login shell, launchd agents.
   Becomes a `system.defaults.*` / `launchd.*` / `users.users.*` option. No script survives.
 - **B — offline + fast + idempotent.** Working-tree fan-out that must run every switch but needs no
-  network/sudo: MCP sync, skills sync, AWS config gen, agent installer, tiling-stack restart.
+  network/sudo: MCP sync, skills sync, agent installer, tiling-stack restart.
   Becomes a `home.activation` entry after `writeBoundary`, using the nix-store `uv`/`python314`,
   wrapped `|| true` so it warns-but-never-fails the switch.
 - **C — network / SSH / sudo / one-time.** Anything a reproducible switch must not silently depend
@@ -52,7 +52,7 @@ Every `run_` hook was sorted into one of three buckets:
 |---|---|---|
 | `run_after_sync-mcp` | B | `sync-hooks.nix` `mcpSync` (`caps.mcp`) |
 | `run_after_sync-skills` | B | `sync-hooks.nix` `skillsSync` (`caps.skills`, `--repo-root $HOME/.dotfiles`) |
-| `run_after_sync-aws-config` | B | `sync-hooks.nix` `awsConfigGen` (`caps.aws_sso`) |
+| `run_after_sync-aws-config` | B | removed — `aws_config_gen` was extracted to its own repo (github.com/stevencarpenter/aws-config-generator); the external work wrapper now owns it, so the hook and `aws_sso` cap were dropped |
 | `run_after_sync-agents` | B | `sync-hooks.nix` `agentsInstall` (`caps.agents`; warns if clone missing → `just sync`) |
 | `configure-macos-defaults` | A | `macos-defaults.nix` |
 | `set-login-shell` | A | `core.nix` idempotent postActivation `dscl` update (admin users are not `users.knownUsers`) |

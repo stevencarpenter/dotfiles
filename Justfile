@@ -60,35 +60,16 @@ mcp-fmt:
 mcp-sync:
     uv run --project mcp_sync sync-mcp-configs
 
-# ── AWS Config Gen ───────────────────────────────────────
-
-# Lint aws_config_gen
-aws-lint:
-    uv run --project aws_config_gen --group dev ruff check aws_config_gen/src aws_config_gen/tests
-    uv run --project aws_config_gen --group dev ruff format --check aws_config_gen/src aws_config_gen/tests
-
-# Test aws_config_gen
-aws-test *FLAGS:
-    uv run --project aws_config_gen --group dev pytest aws_config_gen/tests --cov=aws_config_gen --cov-report=term-missing {{ FLAGS }}
-
-# Format aws_config_gen
-aws-fmt:
-    uv run --project aws_config_gen --group dev ruff format aws_config_gen/src aws_config_gen/tests
-
-# Run aws config gen (dry-run)
-aws-gen:
-    uv run --project aws_config_gen aws-config-gen --dry-run
-
 # ── All Python projects ──────────────────────────────────
 
 # Lint all Python projects
-lint: mcp-lint aws-lint
+lint: mcp-lint
 
 # Test all Python projects
-test: mcp-test aws-test
+test: mcp-test
 
 # Format all Python projects
-fmt: mcp-fmt aws-fmt
+fmt: mcp-fmt
 
 # Run all Python checks (lint + test). Nix flake checks live under `just check`.
 py-check: lint test

@@ -97,15 +97,13 @@ The remaining age ciphertext is work-only and is decrypted at Home Manager activ
 ```text
 secrets/work/zsh-work-env.age
   -> ~/.config/zsh/.work.env
-secrets/work/aws-config-gen-overrides.json.age
-  -> ~/.config/aws-config-gen/overrides.json
 secrets/work/claude-skills/<skill>/**
   -> ~/.claude/skills/<skill>/**
 ```
 
 The skills subtree contains 25 blobs across five work-only skills. Script targets are mode `0700`;
 other work secret targets are mode `0600`. `modules/home/secrets.nix` declares them only for
-`identity == "work"`, and work activation decrypts synchronously before dependent AWS/skills hooks.
+`identity == "work"`, and work activation decrypts synchronously before dependent skills hooks.
 
 `bootstrap.sh work-mac` obtains the temporary work age identity from
 `op://Private/dotfiles-age-key/notesPlain` at `~/.config/age/keys.txt`. Personal bootstrap does not
