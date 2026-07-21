@@ -4,12 +4,11 @@
 # Ports the chezmoi post-apply hooks:
 #   .chezmoiscripts/run_after_sync-mcp.sh.tmpl      -> mcpSync
 #   .chezmoiscripts/run_after_sync-skills.sh.tmpl   -> skillsSync
-#   .chezmoiscripts/run_after_sync-aws-config.sh.tmpl -> awsConfigGen
 #   .chezmoiscripts/run_after_sync-agents.sh.tmpl   -> agentsInstall
 #   .chezmoitemplates/sync-hook-body.sh             -> shared preamble below
 #
-# The vendored mcp_sync + aws_config_gen projects have NO runtime deps and
-# target Python 3.14+, so activation invokes their modules directly with the
+# The vendored mcp_sync project has NO runtime deps and
+# targets Python 3.14+, so activation invokes its modules directly with the
 # nix-provided interpreter and an explicit PYTHONPATH. This deliberately avoids
 # uv editable environments: their .pth files embed the checkout path and break
 # after a worktree move. Every entry:
@@ -32,7 +31,6 @@ let
 
   repoRoot = "$HOME/.dotfiles";
   mcpSyncProject = "${repoRoot}/mcp_sync";
-  awsProject = "${repoRoot}/aws_config_gen";
 in
 {
   home.activation = {
@@ -114,26 +112,6 @@ in
           fi
           if ! "''${cmd[@]}"; then
             echo "Warning: skill sync failed." >&2
-            exit 0
-          fi
-        ) || true
-      ''
-    );
-
-    # --- AWS SSO profile generation (caps.aws_sso) -------------------------
-    awsConfigGen = lib.mkIf caps.aws_sso (
-      lib.hm.dag.entryAfter [ "agenixDecrypt" ] ''
-        (
-          set -u
-          PROJECT="${awsProject}"
-          export PYTHONNOUSERSITE=1
-          export PYTHONPATH="$PROJECT/src"
-          if [ ! -f "$PROJECT/pyproject.toml" ]; then
-            echo "Warning: AWS config gen project not found at $PROJECT; skipping." >&2
-            exit 0
-          fi
-          if ! "${py}" -m aws_config_gen; then
-            echo "Warning: AWS config gen failed." >&2
             exit 0
           fi
         ) || true

@@ -12,8 +12,8 @@ different environment on each host with no hostname checks inside any module.
 
 Personal secrets render directly from 1Password references via `op-render`; work secrets still use
 the temporary [agenix](https://github.com/ryantm/agenix) bridge until the external work wrapper takes
-custody. The repo also vendors two small Python tools (`mcp_sync/`, `aws_config_gen/`) that
-regenerate machine-specific AI-tool config after every switch.
+custody. The repo also vendors a small Python tool (`mcp_sync/`) that
+regenerates machine-specific AI-tool config after every switch.
 
 > **Migrating from the old chezmoi layout?** See [`docs/nix-migration.md`](docs/nix-migration.md)
 > for the full mechanism-by-mechanism mapping (dot\_ prefixes → `home/`, `.chezmoiignore` gates →
@@ -32,7 +32,6 @@ modules/
 home/                     # raw dotfiles (live, symlinked out-of-store through ~/.dotfiles)
 secrets/                  # age ciphertext + secrets.nix recipients (see secrets/README.md)
 mcp_sync/                 # vendored uv tool — MCP + skills fan-out
-aws_config_gen/           # vendored uv tool — AWS SSO profile generator
 bootstrap.sh  rebuild.sh  # fresh-machine setup / routine switch (host auto-detect)
 Justfile                  # nix + python + sync task runner
 ```
@@ -59,8 +58,8 @@ Justfile                  # nix + python + sync task runner
   (agenix recipients). Personal templates live under `home/` and contain only `op://` references.
   Nothing under `secrets/` is decrypted or edited by hand. See
   [`secrets/README.md`](secrets/README.md).
-- **`mcp_sync/`, `aws_config_gen/`** — isolated `uv` projects (Python 3.14+, no runtime deps) that
-  fan config out to per-tool formats after each switch. Run standalone or via the activation hooks.
+- **`mcp_sync/`** — isolated `uv` project (Python 3.14+, no runtime deps) that
+  fans config out to per-tool formats after each switch. Run standalone or via the activation hooks.
 
 ## Machines and capability gating
 
@@ -76,7 +75,6 @@ adding a machine is a one-row change and no gate site needs editing.
 | `skills` | yes | yes | Claude skills manifest + sync hook |
 | `gui` | yes | yes | GUI apps + display fonts |
 | `dev` | yes | no | language-LSP plugins + dev Brewfile/fonts block |
-| `aws_sso` | no | yes | AWS SSO profile generator |
 | `infra` | no | yes | Kubernetes / cluster-ops tooling via mise |
 | `agent_journal` | yes | no | Obsidian agent-journal config, CLI wrappers, Claude hook |
 | `agents` | yes | no | personal agent-registry clone + fan-out installer |
@@ -207,17 +205,19 @@ Brewfile port might have missed. Graduate to `"uninstall"` once the lists are co
 
 ## Vendored Python tools
 
-Each is an isolated `uv` project (Python 3.14+, no runtime deps). See [CLAUDE.md](CLAUDE.md) for
+An isolated `uv` project (Python 3.14+, no runtime deps). See [CLAUDE.md](CLAUDE.md) for
 the full lint/test matrix.
 
 - `mcp_sync/` — MCP + skills fan-out (the `sync-mcp-configs` / `sync-skills` entry points).
-- `aws_config_gen/` — AWS SSO profile generator.
 
 ```bash
-just test                                                    # lint+test both tools
+just test                                                    # lint+test mcp_sync
 uv run --project mcp_sync --group dev pytest mcp_sync/tests
-uv run --project aws_config_gen --group dev pytest aws_config_gen/tests
 ```
+
+`aws_config_gen` (the AWS SSO profile generator) was extracted to
+[its own repo](https://github.com/stevencarpenter/aws-config-generator); the external work wrapper
+now owns AWS profile generation, so this repo no longer ships it or the `aws_sso` capability.
 
 `token-auditor` (behind the `codax`/`claade`/`opencade` wrappers) was extracted to
 [its own repo](https://github.com/stevencarpenter/token-auditor) and installs as a standalone uv

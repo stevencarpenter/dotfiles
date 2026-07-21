@@ -39,10 +39,6 @@ agenix_after="$(
   nix eval --json \
     '.#darwinConfigurations.work-mac.config.home-manager.users.carpenter.home.activation.agenixDecrypt.after'
 )"
-aws_after="$(
-  nix eval --json \
-    '.#darwinConfigurations.work-mac.config.home-manager.users.carpenter.home.activation.awsConfigGen.after'
-)"
 skills_after="$(
   nix eval --json \
     '.#darwinConfigurations.work-mac.config.home-manager.users.carpenter.home.activation.skillsSync.after'
@@ -51,13 +47,9 @@ if ! jq -e 'index("writeBoundary") != null' <<<"$agenix_after" >/dev/null; then
   echo "agenixDecrypt is not ordered after writeBoundary" >&2
   exit 1
 fi
-if ! jq -e 'index("agenixDecrypt") != null' <<<"$aws_after" >/dev/null; then
-  echo "awsConfigGen is not ordered after synchronous agenix decryption" >&2
-  exit 1
-fi
 if ! jq -e 'index("agenixDecrypt") != null' <<<"$skills_after" >/dev/null; then
   echo "work skillsSync is not ordered after synchronous agenix decryption" >&2
   exit 1
 fi
 
-echo "login-shell, Homebrew pin, and agenix/AWS activation ordering contracts are emitted"
+echo "login-shell, Homebrew pin, and agenix activation ordering contracts are emitted"

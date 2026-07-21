@@ -133,11 +133,6 @@ in
           path = "${home}/.config/zsh/.work.env";
           mode = "0600";
         };
-        "aws-config-gen-overrides" = {
-          file = secretsDir + "/work/aws-config-gen-overrides.json.age";
-          path = "${home}/.config/aws-config-gen/overrides.json";
-          mode = "0600";
-        };
       }
       // lib.optionalAttrs caps.skills claudeSkillSecrets
     );
