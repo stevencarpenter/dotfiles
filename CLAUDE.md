@@ -101,6 +101,9 @@ Conventions:
 - **Raw dotfiles are out-of-store symlinks.** `modules/home/dotfiles.nix` links each `home/<path>`
   via `config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/home/<path>"`,
   gated by caps/identity. Editing the target is live — no rebuild.
+- **Adopting a new tool's config** (promote a test-driven config into the repo): follow
+  `docs/adopting-a-config.md` — copy under `home/`, choose file-vs-directory linking, add the
+  `mkLinks` entry, clear the collision, rebuild. Claude Code has the `adopt-config` skill for this.
 - **Templates were resolved at port time.** What used to be `.tmpl` is now either a static per-host
   file selected by `identity` (e.g. `aerospace.{personal,work}.toml` in `tiling.nix`) or a small
   nix-generated `home.file.<x>.text` (e.g. `sketchybar/machine.env` from

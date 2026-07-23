@@ -14,6 +14,23 @@
 # Auto load zmv for mass renaming. This is needed before z4h init.
 autoload -Uz zmv
 
+# ── Recover from a dead $PWD (deleted-worktree inheritance) ──────────────────
+# Agent/worktrunk flows spawn ephemeral git worktrees under projects/*/.git/wt/
+# and delete them. A tmux pane parked in one leaves every NEW window/pane
+# inheriting a now-deleted directory (our split/new-window binds pin no -c). zsh
+# then can't getcwd(): PWD collapses to '.', so the p10k prompt shows '. ❯',
+# gitstatus finds no repo, and completion hangs on the orphaned inode until
+# Ctrl-C. The absolute path is already lost by now, so land in a known-good dir.
+# Must run before `z4h init` so the prompt/compinit/gitstatus all see a real cwd.
+#
+# Detection note: DON'T test `[[ -d $PWD ]]`. macOS keeps a deleted directory's
+# vnode alive for any process chdir'd into it, so `test -d .` still returns true
+# in exactly this failure mode. The honest signal is the *shape* of $PWD: zsh
+# only emits a relative '.' when getcwd() failed at startup, so a non-absolute
+# $PWD means a dead cwd. (The `&& -d` arm also catches an absolute-but-vanished
+# path, e.g. the worktree deleted while this very shell sat in it.)
+[[ $PWD == /* && -d $PWD ]] || cd -q ~ 2>/dev/null
+
 # === z4h configuration (zstyles) ===
 # Periodic auto-update on Zsh startup: 'ask' or 'no'.
 zstyle ':z4h:' auto-update      'yes'

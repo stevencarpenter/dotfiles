@@ -9,7 +9,6 @@ function burp() {
     local failed=()
     claude update    || failed+=('claude')
     codex update     || failed+=('codex')
-    copilot update   || failed+=('copilot')
     opencode upgrade || failed+=('opencode')
     brew update      || failed+=('brew update')
     brew upgrade -y  || failed+=('brew upgrade')

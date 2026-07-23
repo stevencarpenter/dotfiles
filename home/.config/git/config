@@ -33,8 +33,15 @@
 [alias]
     wt = worktree
     lswt = worktree list
-    mkwt = "!f() { git worktree add \"$(git rev-parse --show-toplevel)+$@\"; }; f"
-    rmwt = "!f() { git worktree remove \"$(git rev-parse --show-toplevel)+$@\"; }; f"
+    # Worktrees land as a SIBLING of the primary repo, named <repo>-<branch>,
+    # matching worktrunk's template ({{repo_path}}/../{{repo}}-{{branch|sanitize}})
+    # so `git mkwt` and `wt` place worktrees identically. Anchor to --git-common-dir
+    # (the shared .git, same from every linked worktree) so running this from
+    # inside a worktree still nests off the MAIN repo, not the current worktree.
+    # Branch name is sanitized for the path only (/ -> -); the real branch keeps
+    # its slashes. show-ref picks create (-b) vs checkout of an existing branch.
+    mkwt = "!f() { c=$(git rev-parse --path-format=absolute --git-common-dir) || exit 1; top=${c%/.git}; b=\"$1\"; s=$(printf %s \"$b\" | tr / -); p=\"$(dirname \"$top\")/$(basename \"$top\")-$s\"; if git show-ref --verify --quiet \"refs/heads/$b\"; then git worktree add \"$p\" \"$b\"; else git worktree add -b \"$b\" \"$p\"; fi; }; f"
+    rmwt = "!f() { c=$(git rev-parse --path-format=absolute --git-common-dir) || exit 1; top=${c%/.git}; b=\"$1\"; s=$(printf %s \"$b\" | tr / -); git worktree remove \"$(dirname \"$top\")/$(basename \"$top\")-$s\"; }; f"
 
 # Extension seams (LOCKED contract). git include has NO glob support, so the
 # seam is two fixed filenames; git silently skips missing include files.
