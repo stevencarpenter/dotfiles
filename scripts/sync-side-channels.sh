@@ -28,15 +28,22 @@ fi
 # remote when the selected host's canonical agents capability is true.
 agents_enabled="$($capability_bin agents)"
 if [ "$agents_enabled" = "1" ]; then
-  reg_dir="$HOME/.local/share/agent-registry"
-  if [ -d "$reg_dir/.git" ]; then
-    echo "==> Refreshing agent-registry"
-    "$git_bin" -C "$reg_dir" pull --ff-only
+  working_copy="$HOME/projects/agents"
+  managed_copy="$HOME/.local/share/agent-registry"
+  if [ -f "$working_copy/pyproject.toml" ]; then
+    reg_dir="$working_copy"
+    echo "==> Using agent-registry working copy ($reg_dir)"
   else
-    echo "==> Cloning agent-registry (SSH)"
-    "$git_bin" clone git@github.com:stevencarpenter/agents.git "$reg_dir"
+    reg_dir="$managed_copy"
+    if [ -d "$reg_dir/.git" ]; then
+      echo "==> Refreshing agent-registry"
+      "$git_bin" -C "$reg_dir" pull --ff-only
+    else
+      echo "==> Cloning agent-registry (SSH)"
+      "$git_bin" clone git@github.com:stevencarpenter/agents.git "$reg_dir"
+    fi
   fi
-  "$repo_root/scripts/install-agent-registry.sh"
+  "$repo_root/scripts/install-agent-registry.sh" "$reg_dir"
 else
   echo "==> Skipping personal agent-registry (agents capability disabled)"
 fi
