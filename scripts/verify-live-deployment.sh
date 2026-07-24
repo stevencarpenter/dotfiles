@@ -31,6 +31,20 @@ else
   fail "system configuration revision is empty"
 fi
 
+if [ "$(nix config show sandbox 2>/dev/null || true)" = "false" ]; then
+  pass "Nix daemon uses the explicit macOS 27-compatible sandbox policy"
+else
+  fail "Nix daemon sandbox policy does not match the macOS 27 compatibility setting"
+fi
+
+for daemon in org.nixos.nix-gc org.nixos.nix-optimise; do
+  if launchctl print "system/$daemon" >/dev/null 2>&1; then
+    pass "$daemon maintenance daemon is loaded"
+  else
+    fail "$daemon maintenance daemon is not loaded"
+  fi
+done
+
 for path in \
   "$home_dir/.config/zsh/.zshrc" \
   "$home_dir/.config/nvim" \

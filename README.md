@@ -118,7 +118,8 @@ the owning module on `caps.<capability>`.
    ```
 
 6. Installs **rustup** (kept imperative on purpose — see `docs/nix-migration.md`).
-7. Runs **`just sync`** for the network/SSH side channels (git externals + token-auditor).
+7. Runs **`just sync`** for the network/SSH side channels (git externals, agent installation,
+   and token-auditor).
 
 Then run it:
 
@@ -139,9 +140,9 @@ remap, granting AeroSpace/SketchyBar Accessibility) — `bootstrap.sh` prints th
 just rebuild                # same, via the task runner
 ```
 
-`rebuild.sh` re-links `~/.dotfiles` (harmless if correct), maps `LocalHostName` to a flake config,
-and `exec`s `sudo darwin-rebuild switch --flake ~/.dotfiles#<host>`. There's also a `rebuild`/`ca`
-shell function in `home/.config/zsh/lib/rebuild.zsh` for use from any directory.
+`rebuild.sh` verifies that `~/.dotfiles` resolves to the physical checkout, maps `LocalHostName` to
+a flake config, and `exec`s `sudo darwin-rebuild switch` against that physical path. There's also a
+`rebuild`/`ca` shell function in `home/.config/zsh/lib/rebuild.zsh` for use from any directory.
 
 **Editing raw configs needs no rebuild.** Everything under `home/` is an out-of-store symlink, so a
 change to `~/.config/nvim/…` or `~/.config/zsh/.zshrc` is live the moment you save. A rebuild is
@@ -151,17 +152,19 @@ only needed when you change *packages*, *macOS defaults*, *gating*, or a *secret
 ## Validate without applying
 
 ```bash
-nix flake check --no-build   # or: just check
+nix flake check --no-build --all-systems   # or: just check
+git ls-files -z '*.nix' | xargs -0 nix fmt -- --check # or: just nix-fmt-check
+nix build --no-link \
+  '.#checks.aarch64-darwin.personal-mac' \
+  '.#checks.aarch64-darwin.work-mac' \
+  '.#checks.aarch64-darwin.statix'
 ```
 
-`--no-build` evaluates every flake output — so a broken module, a bad option, or a gate referencing
-an undefined capability surfaces as a hard evaluation error — **without** realizing the full darwin
-system closures. (The flake ships no formatter, so there's no `nix fmt --check` step.)
-
-> Full evaluation of both `darwinConfigurations.<host>.system` derivations was verified in a
-> Linux `nixos/nix` container. Nix *evaluation* is platform-independent — only *building* a darwin
-> closure requires a Mac — so an all-hosts eval on Linux is a valid structural gate. This runs in
-> CI on `macos-latest` (`.github/workflows/nix-flake-check.yml`).
+The flake exports every host closure through `checks.<system>.<host>`. That makes the fast check
+force `config.system.build.toplevel` for both machines instead of only traversing the non-standard
+`darwinConfigurations` output. CI also formats all Nix sources and realizes both closures on
+`macos-latest`; evaluation catches module/option errors, while realization catches file collisions
+and build-time failures.
 
 ## Secrets
 
@@ -185,9 +188,11 @@ Some provisioning is deliberately kept **out of `darwin-rebuild switch`** becaus
 network, SSH auth, or `sudo` — things a `switch` should not silently depend on. Those live in the
 Justfile instead:
 
-- **`just sync`** — clone/refresh tpm over HTTPS, clone the personal `agent-registry` over SSH
-  only when the selected host's canonical `agents` capability is enabled, and install the pinned
-  `token-auditor` uv tool. Safe to re-run; `bootstrap.sh` passes its resolved host explicitly.
+- **`just sync`** — clone/refresh tpm over HTTPS; clone, install, and validate the personal
+  `agent-registry` only when the selected host's canonical `agents` capability is enabled; and
+  install the immutable `token-auditor` release pinned in the Justfile. Safe to re-run;
+  `bootstrap.sh` passes its resolved host explicitly. A failed side channel makes this explicit
+  command fail instead of leaving a silently partial install.
 - **`just bootstrap`** — the full fresh-machine flow (`bootstrap.sh`): Lix, the work-only age key
   when applicable, first switch, rustup.
 
@@ -195,13 +200,14 @@ The rule ("bucket rule" in `docs/nix-migration.md`): declarative or offline+fast
 goes in the switch (as `home.activation` hooks); anything touching network/SSH/sudo goes in
 `just sync` / `just bootstrap`. This keeps a switch reproducible and offline-safe.
 
-## First-switch caution: `homebrew.onActivation.cleanup = "none"`
+## Homebrew policy
 
-`modules/darwin/homebrew.nix` sets `cleanup = "none"` — nix-darwin will **not** uninstall brew
-packages that aren't listed in the module. This is intentional during the cutover, while the brew
-inventory is still being audited: the first switch on an existing machine won't rip out anything the
-Brewfile port might have missed. Graduate to `"uninstall"` once the lists are confirmed complete.
-**Never** use `"zap"` (it deletes app data/config, not just the app).
+Rebuilds are idempotent: they neither update Homebrew metadata nor upgrade installed packages.
+Activation keeps unmanaged inventory in place because nix-darwin's `"check"` mode would abort
+while the migrated prefix still contains reviewed-useful extras. Run `just brew-upgrade` for
+deliberate updates and `just brew-audit` to compare declared and installed inventory using read-only
+`brew list`, `brew leaves`, and `brew tap` queries. It never invokes Homebrew cleanup or uninstall.
+**Never** set activation cleanup to `"zap"`; it deletes application data.
 
 ## Vendored Python tools
 
@@ -221,4 +227,4 @@ now owns AWS profile generation, so this repo no longer ships it or the `aws_sso
 
 `token-auditor` (behind the `codax`/`claade`/`opencade` wrappers) was extracted to
 [its own repo](https://github.com/stevencarpenter/token-auditor) and installs as a standalone uv
-tool via `just sync` (pin in the Justfile's `TOKEN_AUDITOR_VERSION`).
+tool via `just sync` (immutable release in `versions/token-auditor`).

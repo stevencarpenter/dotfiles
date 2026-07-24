@@ -27,7 +27,7 @@
       tree:
       lib.genAttrs tree.paths (p: {
         source = config.lib.file.mkOutOfStoreSymlink "${tree.root}/${p}";
-        force = tree.force;
+        inherit (tree) force;
       })
     ) config.rawDotfiles.trees
   );

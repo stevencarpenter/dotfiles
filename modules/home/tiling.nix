@@ -5,7 +5,14 @@
 # home.file entries for ".config/aerospace", ".config/sketchybar", or
 # ".config/borders" — caps.tiling gating for the tiling stack lives here
 # only, so the two modules never fight over the same home.file key.
-{ config, lib, pkgs, caps, identity, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  caps,
+  identity,
+  ...
+}:
 
 let
   dotfiles = "${config.home.homeDirectory}/.dotfiles";
@@ -18,8 +25,9 @@ in
       # scalar) — materialized as two full static files at port time; select
       # by identity here instead of templating. Only "personal" and "work"
       # identities exist, so those are the only files this branch selects.
-      ".config/aerospace/aerospace.toml".source =
-        lib.mkDefault (mkLink ".config/aerospace/aerospace.${identity}.toml");
+      ".config/aerospace/aerospace.toml".source = lib.mkDefault (
+        mkLink ".config/aerospace/aerospace.${identity}.toml"
+      );
 
       ".config/sketchybar/sketchybarrc".source = mkLink ".config/sketchybar/sketchybarrc";
       ".config/sketchybar/items".source = mkLink ".config/sketchybar/items";
