@@ -18,7 +18,12 @@
 # list for that host) and select one by `identity` here — same shape as
 # tiling.nix's aerospace.{personal,work}.toml selection. conf.d is the
 # preferred form because it keeps the shared base in one place.
-{ config, lib, caps, ... }:
+{
+  config,
+  lib,
+  caps,
+  ...
+}:
 
 let
   dotfiles = "${config.home.homeDirectory}/.dotfiles";

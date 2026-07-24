@@ -37,14 +37,21 @@
 # recorded, so the decrypted work skills are safe PROVIDED they are written
 # before skillsSync runs. That ordering lives in sync-hooks.nix / secrets.nix,
 # not here; this module does not touch ~/.claude/skills.
-{ config, pkgs, lib, caps, identity, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  caps,
+  identity,
+  ...
+}:
 
 let
   # Resolve the template's four conditionals from the host row.
   work = identity == "work"; # $work = hasPrefix "work" .machine
   hippo = identity == "personal"; # $hippo = hasPrefix "personal" .machine
-  dev = caps.dev; # $dev = (index .machines .machine).dev
-  agents = caps.agents; # $agents = (index .machines .machine).agents
+  # $dev/$agents = the corresponding machine capability.
+  inherit (caps) dev agents;
 
   home = config.home.homeDirectory;
 
@@ -97,123 +104,122 @@ in
   # dotfiles.nix already exist. Wrapped in a subshell terminated with `|| true`
   # so a merge failure warns but never fails the switch (parity with the
   # chezmoi fail_or_warn default; MCP_SYNC_STRICT had no analog here).
-  home.activation.claudeSettingsMerge =
-    lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-      (
-        set -u
-        SETTINGS="$HOME/.claude/settings.json"
-        BASE="$HOME/.dotfiles/home/.claude/settings-base.json"
+  home.activation.claudeSettingsMerge = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    (
+      set -u
+      SETTINGS="$HOME/.claude/settings.json"
+      BASE="$HOME/.dotfiles/home/.claude/settings-base.json"
 
-        if [ ! -f "$BASE" ]; then
-          echo "Warning: settings-base.json not found at $BASE; skipping Claude settings merge." >&2
-          exit 0
+      if [ ! -f "$BASE" ]; then
+        echo "Warning: settings-base.json not found at $BASE; skipping Claude settings merge." >&2
+        exit 0
+      fi
+
+      # base * variant = the full managed block.
+      managed="$(${jq} -n \
+        --slurpfile base "$BASE" \
+        --argjson variant ${lib.escapeShellArg variantJson} \
+        '$base[0] * $variant')" || { echo "Warning: could not build managed Claude settings." >&2; exit 0; }
+
+      # Fragment seam (LOCKED contract): external overlay repos drop JSON
+      # files into ~/.claude/settings.d/; each deep-merges over the managed
+      # block in lexical order (later file wins). Merging here — BEFORE the
+      # existing-settings merge — keeps live-only keys and the hooks pass
+      # below out of the fragment path.
+      for frag in "$HOME"/.claude/settings.d/*.json; do
+        [ -f "$frag" ] || continue
+        if tmp="$(printf '%s\n' "$managed" | ${jq} --slurpfile f "$frag" '. * $f[0]')"; then
+          managed="$tmp"
+        else
+          echo "Warning: bad settings fragment $frag; skipping." >&2
         fi
+      done
 
-        # base * variant = the full managed block.
-        managed="$(${jq} -n \
-          --slurpfile base "$BASE" \
-          --argjson variant ${lib.escapeShellArg variantJson} \
-          '$base[0] * $variant')" || { echo "Warning: could not build managed Claude settings." >&2; exit 0; }
+      existing="{}"
+      [ -f "$SETTINGS" ] && existing="$(cat "$SETTINGS")"
+      [ -z "$existing" ] && existing="{}"
 
-        # Fragment seam (LOCKED contract): external overlay repos drop JSON
-        # files into ~/.claude/settings.d/; each deep-merges over the managed
-        # block in lexical order (later file wins). Merging here — BEFORE the
-        # existing-settings merge — keeps live-only keys and the hooks pass
-        # below out of the fragment path.
-        for frag in "$HOME"/.claude/settings.d/*.json; do
-          [ -f "$frag" ] || continue
-          if tmp="$(printf '%s\n' "$managed" | ${jq} --slurpfile f "$frag" '. * $f[0]')"; then
-            managed="$tmp"
-          else
-            echo "Warning: bad settings fragment $frag; skipping." >&2
-          fi
-        done
-
-        existing="{}"
-        [ -f "$SETTINGS" ] && existing="$(cat "$SETTINGS")"
-        [ -z "$existing" ] && existing="{}"
-
-        # Recursive merge (existing * managed) preserves live-only keys (theme,
-        # editorMode, …) but replaces arrays WHOLESALE — which would wipe hooks a
-        # tool self-registers into the live file (e.g. an agent-state hook) under
-        # ANY event. Preserve-unknown semantics (ported from the pre-nix
-        # dot_claude/modify_settings.json.tmpl, PR #120): after the merge, rebuild
-        # .hooks so each event = managed entries first, then live hooks we don't
-        # own re-appended. A live handler is "ours" (dropped — $managed already
-        # re-added the current one) when it is byte-identical to a managed handler
-        # OR its command matches an ownership marker. Markers sweep stale spellings,
-        # capability-off hooks, and retired chezmoi hooks that are no longer present
-        # in the managed block. Non-command handler types are preserved by object
-        # identity instead of being discarded for lacking `.command`.
-        # $owned_command_markers MUST cover every command family managed here or in
-        # settings-base.json, plus deliberate migration tombstones. The program is
-        # fenced by sentinels so scripts/test-claude-hooks-preservation.sh extracts
-        # and tests this exact jq (single source of truth).
-        merged="$(printf '%s\n' "$existing" | ${jq} --argjson managed "$managed" '
-          # hooks-merge-jq:begin
-          [
-            "/hippo-brain/",
-            "/emit-routing-context.sh",
-            "/agent-journal-stop.sh",
-            "/wt-create.sh",
-            "/wt-remove.sh",
-            "encrypted_* via",
-            "chezmoi execute-template"
-          ] as $owned_command_markers
-          | . as $live
-          | ($live * $managed)
-          | (($live.hooks // {}) | if type == "object" then . else {} end) as $lh
-          | if ($lh | keys | length) > 0 then
-              .hooks = (
-                reduce ($lh | keys[]) as $k (.hooks // {};
-                  (($managed.hooks[$k] // []) ) as $m
-                  | ($m | [.[].hooks[]?]) as $managed_handlers
-                  | .[$k] = ($m + (
-                      ($lh[$k] | if type == "array" then . else [] end)
-                      | map(select(type == "object"))
-                      | map(.hooks = ((.hooks // []) | map(select(
-                          . as $handler
-                          | (($managed_handlers | index($handler)) == null)
-                            and (
-                              ($handler.command? // null) as $command
-                              | if ($command | type) == "string" then
-                                  (($owned_command_markers
-                                    | map(. as $marker | $command | contains($marker))
-                                    | any) | not)
-                                else true
-                                end
-                            )
-                        ))))
-                      | map(select((.hooks | length) > 0))
-                    ))
-                )
-                | with_entries(select((.value | length) > 0))
+      # Recursive merge (existing * managed) preserves live-only keys (theme,
+      # editorMode, …) but replaces arrays WHOLESALE — which would wipe hooks a
+      # tool self-registers into the live file (e.g. an agent-state hook) under
+      # ANY event. Preserve-unknown semantics (ported from the pre-nix
+      # dot_claude/modify_settings.json.tmpl, PR #120): after the merge, rebuild
+      # .hooks so each event = managed entries first, then live hooks we don't
+      # own re-appended. A live handler is "ours" (dropped — $managed already
+      # re-added the current one) when it is byte-identical to a managed handler
+      # OR its command matches an ownership marker. Markers sweep stale spellings,
+      # capability-off hooks, and retired chezmoi hooks that are no longer present
+      # in the managed block. Non-command handler types are preserved by object
+      # identity instead of being discarded for lacking `.command`.
+      # $owned_command_markers MUST cover every command family managed here or in
+      # settings-base.json, plus deliberate migration tombstones. The program is
+      # fenced by sentinels so scripts/test-claude-hooks-preservation.sh extracts
+      # and tests this exact jq (single source of truth).
+      merged="$(printf '%s\n' "$existing" | ${jq} --argjson managed "$managed" '
+        # hooks-merge-jq:begin
+        [
+          "/hippo-brain/",
+          "/emit-routing-context.sh",
+          "/agent-journal-stop.sh",
+          "/wt-create.sh",
+          "/wt-remove.sh",
+          "encrypted_* via",
+          "chezmoi execute-template"
+        ] as $owned_command_markers
+        | . as $live
+        | ($live * $managed)
+        | (($live.hooks // {}) | if type == "object" then . else {} end) as $lh
+        | if ($lh | keys | length) > 0 then
+            .hooks = (
+              reduce ($lh | keys[]) as $k (.hooks // {};
+                (($managed.hooks[$k] // []) ) as $m
+                | ($m | [.[].hooks[]?]) as $managed_handlers
+                | .[$k] = ($m + (
+                    ($lh[$k] | if type == "array" then . else [] end)
+                    | map(select(type == "object"))
+                    | map(.hooks = ((.hooks // []) | map(select(
+                        . as $handler
+                        | (($managed_handlers | index($handler)) == null)
+                          and (
+                            ($handler.command? // null) as $command
+                            | if ($command | type) == "string" then
+                                (($owned_command_markers
+                                  | map(. as $marker | $command | contains($marker))
+                                  | any) | not)
+                              else true
+                              end
+                          )
+                      ))))
+                    | map(select((.hooks | length) > 0))
+                  ))
               )
-              | (if ((.hooks // {}) | keys | length) == 0 then del(.hooks) else . end)
-            else . end
-          # hooks-merge-jq:end
-          ')" \
-          || { echo "Warning: Claude settings merge failed." >&2; exit 0; }
+              | with_entries(select((.value | length) > 0))
+            )
+            | (if ((.hooks // {}) | keys | length) == 0 then del(.hooks) else . end)
+          else . end
+        # hooks-merge-jq:end
+        ')" \
+        || { echo "Warning: Claude settings merge failed." >&2; exit 0; }
 
-        # Seed cross-machine defaults for model + effort ONLY when unset, so an
-        # in-tool override survives (kept out of the managed block on purpose).
-        merged="$(printf '%s\n' "$merged" | ${jq} '
-          (if .model == null then .model = "opusplan" else . end)
-          | (if .effortLevel == null then .effortLevel = "xhigh" else . end)')"
+      # Seed cross-machine defaults for model + effort ONLY when unset, so an
+      # in-tool override survives (kept out of the managed block on purpose).
+      merged="$(printf '%s\n' "$merged" | ${jq} '
+        (if .model == null then .model = "opusplan" else . end)
+        | (if .effortLevel == null then .effortLevel = "xhigh" else . end)')"
 
-        # Ensure ~/.cache/pre-commit stays sandbox-writable, and ~/projects/agents
-        # too so jj/uv/git writes under the agents registry working copy run inside
-        # the sandbox (append-if-absent so /sandbox additions survive; allowWrite
-        # normalized to an array first).
-        merged="$(printf '%s\n' "$merged" | ${jq} \
-          --arg p1 "$HOME/.cache/pre-commit" \
-          --arg p2 "$HOME/projects/agents" '
-          reduce ($p1, $p2) as $p (.;
-            (.sandbox.filesystem.allowWrite // [] | if type == "array" then . else [] end) as $aw
-            | if ($aw | index($p)) then .
-              else .sandbox.filesystem.allowWrite = ($aw + [$p]) end)')"
-        mkdir -p "$(dirname "$SETTINGS")"
-        printf '%s\n' "$merged" > "$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"
-      ) || true
-    '';
+      # Ensure ~/.cache/pre-commit stays sandbox-writable, and ~/projects/agents
+      # too so jj/uv/git writes under the agents registry working copy run inside
+      # the sandbox (append-if-absent so /sandbox additions survive; allowWrite
+      # normalized to an array first).
+      merged="$(printf '%s\n' "$merged" | ${jq} \
+        --arg p1 "$HOME/.cache/pre-commit" \
+        --arg p2 "$HOME/projects/agents" '
+        reduce ($p1, $p2) as $p (.;
+          (.sandbox.filesystem.allowWrite // [] | if type == "array" then . else [] end) as $aw
+          | if ($aw | index($p)) then .
+            else .sandbox.filesystem.allowWrite = ($aw + [$p]) end)')"
+      mkdir -p "$(dirname "$SETTINGS")"
+      printf '%s\n' "$merged" > "$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"
+    ) || true
+  '';
 }

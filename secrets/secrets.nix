@@ -27,35 +27,110 @@ let
   # the same 25 blobs under secrets/work/claude-skills/, for two different purposes (this one
   # for agenix-CLI recipients, that one for home-manager decrypt targets).
   claudeSkillFiles = [
-    { skill = "databricks-tf-v1-v2-parity-mirror"; relpath = "SKILL.md"; }
-    { skill = "databricks-tf-v1-v2-parity-mirror"; relpath = "evals/evals.json"; }
-    { skill = "databricks-tf-v1-v2-parity-mirror"; relpath = "evals/trigger-evals.json"; }
-    { skill = "databricks-tf-v1-v2-parity-mirror"; relpath = "references/parity-map.md"; }
-    { skill = "databricks-tf-v1-v2-parity-mirror"; relpath = "scripts/parity_diff.sh"; }
+    {
+      skill = "databricks-tf-v1-v2-parity-mirror";
+      relpath = "SKILL.md";
+    }
+    {
+      skill = "databricks-tf-v1-v2-parity-mirror";
+      relpath = "evals/evals.json";
+    }
+    {
+      skill = "databricks-tf-v1-v2-parity-mirror";
+      relpath = "evals/trigger-evals.json";
+    }
+    {
+      skill = "databricks-tf-v1-v2-parity-mirror";
+      relpath = "references/parity-map.md";
+    }
+    {
+      skill = "databricks-tf-v1-v2-parity-mirror";
+      relpath = "scripts/parity_diff.sh";
+    }
 
-    { skill = "kafka-connect-sink-log-triage"; relpath = "SKILL.md"; }
-    { skill = "kafka-connect-sink-log-triage"; relpath = "evals/evals.json"; }
-    { skill = "kafka-connect-sink-log-triage"; relpath = "evals/trigger-evals.json"; }
-    { skill = "kafka-connect-sink-log-triage"; relpath = "references/rebalance-rca.md"; }
-    { skill = "kafka-connect-sink-log-triage"; relpath = "scripts/connector_triage.sh"; }
+    {
+      skill = "kafka-connect-sink-log-triage";
+      relpath = "SKILL.md";
+    }
+    {
+      skill = "kafka-connect-sink-log-triage";
+      relpath = "evals/evals.json";
+    }
+    {
+      skill = "kafka-connect-sink-log-triage";
+      relpath = "evals/trigger-evals.json";
+    }
+    {
+      skill = "kafka-connect-sink-log-triage";
+      relpath = "references/rebalance-rca.md";
+    }
+    {
+      skill = "kafka-connect-sink-log-triage";
+      relpath = "scripts/connector_triage.sh";
+    }
 
-    { skill = "schema-drift-config-reconciler"; relpath = "SKILL.md"; }
-    { skill = "schema-drift-config-reconciler"; relpath = "evals/evals.json"; }
-    { skill = "schema-drift-config-reconciler"; relpath = "evals/trigger-evals.json"; }
-    { skill = "schema-drift-config-reconciler"; relpath = "references/sources-of-truth.md"; }
-    { skill = "schema-drift-config-reconciler"; relpath = "scripts/reconcile.py"; }
+    {
+      skill = "schema-drift-config-reconciler";
+      relpath = "SKILL.md";
+    }
+    {
+      skill = "schema-drift-config-reconciler";
+      relpath = "evals/evals.json";
+    }
+    {
+      skill = "schema-drift-config-reconciler";
+      relpath = "evals/trigger-evals.json";
+    }
+    {
+      skill = "schema-drift-config-reconciler";
+      relpath = "references/sources-of-truth.md";
+    }
+    {
+      skill = "schema-drift-config-reconciler";
+      relpath = "scripts/reconcile.py";
+    }
 
-    { skill = "spark-job-failure-forensics"; relpath = "SKILL.md"; }
-    { skill = "spark-job-failure-forensics"; relpath = "evals/evals.json"; }
-    { skill = "spark-job-failure-forensics"; relpath = "evals/trigger-evals.json"; }
-    { skill = "spark-job-failure-forensics"; relpath = "references/failure-patterns.md"; }
-    { skill = "spark-job-failure-forensics"; relpath = "scripts/eventlog_triage.py"; }
+    {
+      skill = "spark-job-failure-forensics";
+      relpath = "SKILL.md";
+    }
+    {
+      skill = "spark-job-failure-forensics";
+      relpath = "evals/evals.json";
+    }
+    {
+      skill = "spark-job-failure-forensics";
+      relpath = "evals/trigger-evals.json";
+    }
+    {
+      skill = "spark-job-failure-forensics";
+      relpath = "references/failure-patterns.md";
+    }
+    {
+      skill = "spark-job-failure-forensics";
+      relpath = "scripts/eventlog_triage.py";
+    }
 
-    { skill = "terraform-precommit-gauntlet"; relpath = "SKILL.md"; }
-    { skill = "terraform-precommit-gauntlet"; relpath = "evals/evals.json"; }
-    { skill = "terraform-precommit-gauntlet"; relpath = "evals/trigger-evals.json"; }
-    { skill = "terraform-precommit-gauntlet"; relpath = "references/hook-map.md"; }
-    { skill = "terraform-precommit-gauntlet"; relpath = "scripts/gauntlet.sh"; }
+    {
+      skill = "terraform-precommit-gauntlet";
+      relpath = "SKILL.md";
+    }
+    {
+      skill = "terraform-precommit-gauntlet";
+      relpath = "evals/evals.json";
+    }
+    {
+      skill = "terraform-precommit-gauntlet";
+      relpath = "evals/trigger-evals.json";
+    }
+    {
+      skill = "terraform-precommit-gauntlet";
+      relpath = "references/hook-map.md";
+    }
+    {
+      skill = "terraform-precommit-gauntlet";
+      relpath = "scripts/gauntlet.sh";
+    }
   ];
 
   otherPaths = [
@@ -65,5 +140,10 @@ let
   skillPaths = map (f: "work/claude-skills/${f.skill}/${f.relpath}.age") claudeSkillFiles;
 in
 builtins.listToAttrs (
-  map (p: { name = p; value = { publicKeys = recipients; }; }) (otherPaths ++ skillPaths)
+  map (p: {
+    name = p;
+    value = {
+      publicKeys = recipients;
+    };
+  }) (otherPaths ++ skillPaths)
 )

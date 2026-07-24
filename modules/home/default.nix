@@ -24,10 +24,14 @@
   ];
 
   # Home baseline — not owned by any domain module.
-  home.username = user;
-  home.homeDirectory = "/Users/${user}";
-  # Matches the home-manager release-26.05 pin; do not bump casually.
-  home.stateVersion = "26.05";
+  home = {
+    username = user;
+    homeDirectory = "/Users/${user}";
+    # Compatibility baseline from the first Home Manager deployment. This does
+    # NOT track the Home Manager input release; only bump after reviewing every
+    # intervening state-version migration.
+    stateVersion = "26.05";
+  };
 
   programs.home-manager.enable = true;
 }

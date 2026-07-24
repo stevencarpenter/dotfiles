@@ -26,24 +26,35 @@ on:
 
 jobs:
   flake-check:
-    # macOS runner: the flake builds darwinConfigurations for aarch64/x86_64-darwin.
+    # macOS runner: the flake realizes both aarch64-darwin host configurations.
     runs-on: macos-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@main
+        uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
 
       - name: Install contract test dependencies
         run: brew install ripgrep
 
-      # --no-build keeps this fast: it evaluates every flake output (so a broken
-      # module or a bad option surfaces as a hard error) without realizing the
-      # full darwin system closures. No `nix fmt -- --check`: this flake ships no
-      # formatter (formatter.<system> is unset), so there is nothing to check.
-      - name: nix flake check
-        run: nix flake check --no-build
+      - name: Check Nix formatting
+        run: git ls-files -z '*.nix' | xargs -0 nix fmt -- --check
+
+      # The flake exports each darwin system closure through checks.<system>, so
+      # this reaches every module's config.system.build.toplevel rather than
+      # merely traversing the non-standard darwinConfigurations output.
+      - name: Evaluate all flake checks
+        run: nix flake check --no-build --all-systems
+
+      # Realize both closures. This catches file collisions and build-time
+      # failures that evaluation alone cannot detect.
+      - name: Build nix-darwin systems
+        run: |
+          nix build --no-link \
+            '.#checks.aarch64-darwin.personal-mac' \
+            '.#checks.aarch64-darwin.work-mac' \
+            '.#checks.aarch64-darwin.statix'
 
       # The parent/child target collision this guards occurs while realizing the
       # Home Manager files derivation, so --no-build evaluation cannot catch it.

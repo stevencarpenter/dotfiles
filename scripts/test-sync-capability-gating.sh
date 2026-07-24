@@ -20,6 +20,9 @@ printf 'git %s\n' "$*" >>"$TEST_COMMAND_LOG"
 if [ "${1:-}" = "clone" ]; then
   target="${@: -1}"
   mkdir -p "$target/.git"
+  if [[ "$*" == *"stevencarpenter/agents.git"* ]]; then
+    touch "$target/pyproject.toml"
+  fi
 fi
 EOF
 
@@ -62,6 +65,25 @@ fi
 run_sync personal-mac
 if ! rg -Fq 'git@github.com:stevencarpenter/agents.git' "$fixture/personal-mac/commands.log"; then
   echo "personal sync did not retain the agent registry clone" >&2
+  exit 1
+fi
+if ! rg -Fq 'uv run --directory' "$fixture/personal-mac/commands.log"; then
+  echo "personal sync did not install the agent registry" >&2
+  exit 1
+fi
+if rg -Fq 'uv run --directory' "$fixture/work-mac/commands.log"; then
+  echo "work sync attempted to install the personal agent registry" >&2
+  exit 1
+fi
+token_auditor_version="$(tr -d '\n' <"$repo_root/versions/token-auditor")"
+if ! rg -Fq "token-auditor@${token_auditor_version}" "$fixture/personal-mac/commands.log"; then
+  echo "direct sync did not use the pinned token-auditor release" >&2
+  exit 1
+fi
+if TOKEN_AUDITOR_VERSION=latest \
+  HOME="$fixture/home" \
+  "$repo_root/scripts/sync-side-channels.sh" >/dev/null 2>&1; then
+  echo "sync accepted the mutable token-auditor main branch" >&2
   exit 1
 fi
 

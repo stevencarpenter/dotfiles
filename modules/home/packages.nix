@@ -1,4 +1,11 @@
-{ config, pkgs, lib, caps, identity, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  caps,
+  identity,
+  ...
+}:
 
 # Core CLI tooling + fonts installed declaratively via nixpkgs (home-manager),
 # replacing the CLI/font half of the old dot_config/homebrew/Brewfile.tmpl. The
@@ -84,7 +91,7 @@
       victor-mono
       nerd-fonts.dejavu-sans-mono # font-dejavu-sans-mono-nerd-font
     ]
-    # ─── Work-only policy tooling (identity gate, not a capability row) ─────
+    # ─── Work-only policy tooling ──────────────────────────────────────────
     ++ lib.optionals (identity == "work") [
       conftest
     ];

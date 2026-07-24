@@ -21,12 +21,12 @@ cleanly.
 **Adoption is a Lane 2 operation** (you add a new `home.file` entry), so it ends in a
 rebuild. After that, editing the adopted file is Lane 1 forever.
 
-## The collision safety net
+## Collision handling
 
-`flake.nix` sets `home-manager.backupFileExtension = "chezmoi-bak"`. When a real file is in
-the way of a symlink home-manager wants to create, the switch **moves it aside to
-`<file>.chezmoi-bak`** instead of aborting. So adoption never hard-blocks — but clean up
-the `.chezmoi-bak` afterward, and prefer removing the original yourself so none is created.
+Home Manager intentionally aborts when a real file occupies a managed target. The migration-only
+global `chezmoi-bak` policy was removed after cutover because silently moving an unexpected file
+hides ownership mistakes. Preserve the source in the repository and clear the exact target
+yourself before rebuilding.
 
 ## Procedure
 
@@ -51,14 +51,13 @@ the `.chezmoi-bak` afterward, and prefer removing the original yourself so none 
    - needs a brand-new axis of variance → that's the heavier **[adding a
      capability](#adding-a-capability)** flow.
 
-5. **Clear the collision.** `rm ~/.config/foo/config` (you copied it into the repo in step
-   2). Skipping this is safe — the `chezmoi-bak` net catches it — but you'll then want to
-   delete the backup.
+5. **Clear the collision.** After verifying the repository copy, remove the exact original target:
+   `rm ~/.config/foo/config`. Skipping this correctly makes activation fail.
 
 6. **Rebuild.** `./rebuild.sh` (or `just rebuild`). Nix creates the out-of-store symlink.
 
-7. **Verify.** `realpath ~/.config/foo/config` lands in `~/.dotfiles/…`; the tool still
-   reads it; no stray `*.chezmoi-bak`.
+7. **Verify.** `realpath ~/.config/foo/config` lands in `~/.dotfiles/…` and the tool still
+   reads it.
 
 A helper does the mechanical parts of steps 2–5 deterministically:
 

@@ -46,8 +46,8 @@ uv run --project mcp_sync sync-mcp-configs
 
 `token-auditor` (the auditor behind the `codax`/`claade`/`opencade` wrappers) now lives in its own
 repo: <https://github.com/stevencarpenter/token-auditor>. Lint/type/test run there, not here. The
-dotfiles pin it in the `TOKEN_AUDITOR_VERSION` variable at the top of the `Justfile` (set to
-`"latest"` to track `main`) and install it via `just sync`. The install is **unconditional** on
+dotfiles pin it in `versions/token-auditor` (read by both the Justfile and direct sync script) and
+install it via `just sync`. The install is **unconditional** on
 every machine by design; the former `token_auditor` capability was dropped (2026-07-17) because no
 consumer read it. Re-add the cap with real plumbing (see the machine.env pattern in `tiling.nix`)
 only if a host ever needs an opt-out.
@@ -63,10 +63,10 @@ token-auditor --help                                                   # or `cod
 ./rebuild.sh              # Auto-detect host from LocalHostName, sudo darwin-rebuild switch
 ./rebuild.sh work-mac     # Force a specific host config
 just rebuild              # Same, via the task runner
-nix flake check --no-build   # Evaluate every output without building (fast structural check)
+nix flake check --no-build --all-systems   # Evaluate explicit all-host closure checks
 just check                   # Alias for the above
 ./bootstrap.sh            # Fresh-machine setup (Lix, work-only age key, first switch, rustup)
-just sync                 # Network/SSH side channels: git externals + token-auditor install
+just sync                 # Network/SSH side channels: git externals + agents + token-auditor
 ```
 
 Raw configs under `home/` are out-of-store symlinks — editing them is live with no rebuild. A
@@ -169,11 +169,11 @@ in `README.md`. Where each capability is enforced:
   `home/.claude/settings-base.json` variant (dev-only LSP plugins, resolved in `ai-stack.nix`).
 - **`infra`** — `modules/home/dev-tools.nix` (mise `conf.d/infra.toml`).
 - **`agent_journal`** — `modules/home/dotfiles.nix` (config + `~/.local/bin/{agent-journal,agent-note}`).
-- **`agents`** — the `agentsInstall` hook (`sync-hooks.nix`) + the capability-aware personal
-  registry clone in `just sync`; the `emit-routing-context.sh` SessionStart hook is unioned in
+- **`agents`** — capability-aware personal registry clone, install, routing-cache refresh, and
+  validation in `just sync`; the `emit-routing-context.sh` SessionStart hook is unioned in
   `ai-stack.nix`. A work-host sync never contacts the personal registry remote.
-- token-auditor is **not capability-gated**: `just sync` installs it unconditionally (pin in the
-  Justfile's `TOKEN_AUDITOR_VERSION`; public https repo). The former orphan `token_auditor` cap
+- token-auditor is **not capability-gated**: `just sync` installs it unconditionally (release in
+  `versions/token-auditor`; public https repo). The former orphan `token_auditor` cap
   was dropped 2026-07-17.
 
 Identity-flavored splits (personal/work/lab shell profiles, hippo, homelab-over-Tailscale for
@@ -201,7 +201,7 @@ and gate the owning module on `caps.<capability>`.
 - `secrets/` — work-only age ciphertext + `secrets.nix` recipients (decrypted by agenix at work activation)
 - `mcp_sync/` — MCP + skills fan-out tool (uv project, Python 3.14+, no runtime deps)
 - `bootstrap.sh` / `rebuild.sh` — fresh-machine setup / routine switch (host auto-detect)
-- `Justfile` — `TOKEN_AUDITOR_VERSION` pin + nix/python/sync recipes
+- `Justfile` — nix/python/sync recipes (`versions/token-auditor` owns the tool release)
 - `scripts/` — hygiene test scripts (statusline, sketchybar, claude-settings-order, mcp-sync) + `strip-claude-trailer.sh`
 - `docs/ai-tools/` — Setup guides for MCP, Copilot, etc.
 - `docs/nix-migration.md` — chezmoi → nix mechanism map
@@ -241,7 +241,7 @@ Nix store. Full workflows are in `secrets/README.md` and the project secret-auth
 
 GitHub Actions in `.github/workflows/`:
 - `mcp-sync-ci.yml` — lint + test for the vendored `mcp_sync` tool (token-auditor and aws_config_gen CI live in their own repos now)
-- `nix-flake-check.yml` — `nix flake check --no-build` on `macos-latest` (DeterminateSystems/nix-installer-action); evaluates every flake output so a broken module or bad option is a hard error
+- `nix-flake-check.yml` — formats Nix, evaluates explicit `checks.<system>.<host>` closures, and builds both Darwin systems on `macos-latest`
 - `dotfiles-hygiene-ci.yml` — repo-wide hygiene: pre-commit, MCP master-config structure, shell `bash -n` syntax, and the statusline / sketchybar / claude-settings-order test scripts
 
 ## Style
@@ -253,8 +253,8 @@ GitHub Actions in `.github/workflows/`:
     include `Raises:` when relevant
 - Package manager: uv (not pip/poetry)
 - Tests: `test_*.py` filenames and `test_*` function names (enforced by pre-commit)
-- Nix: 2-space indentation; keep modules small and readable, with comments that explain constraints
-  (the flake ships no formatter, so match surrounding style by hand)
+- Nix: `nixfmt` via `nix fmt`; 2-space indentation; keep modules small and readable, with comments
+  that explain constraints
 - Raw dotfiles: live under `home/` with their real dotted names (no `dot_`/`encrypted_` prefixes);
   gating is nix (`mkIf`/`optionalAttrs`), not filename convention
 - Prefer small, focused edits; keep scripts idempotent and safe to re-run

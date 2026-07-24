@@ -4,7 +4,6 @@
 # Ports the chezmoi post-apply hooks:
 #   .chezmoiscripts/run_after_sync-mcp.sh.tmpl      -> mcpSync
 #   .chezmoiscripts/run_after_sync-skills.sh.tmpl   -> skillsSync
-#   .chezmoiscripts/run_after_sync-agents.sh.tmpl   -> agentsInstall
 #   .chezmoitemplates/sync-hook-body.sh             -> shared preamble below
 #
 # The vendored mcp_sync project has NO runtime deps and
@@ -21,10 +20,16 @@
 #
 # Overlay selection is by `identity` (personal/work/lab), matching the overlay
 # filenames, chosen at eval time — never by whatever file sorts first on disk.
-{ config, pkgs, lib, caps, identity, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  caps,
+  identity,
+  ...
+}:
 
 let
-  uv = "${pkgs.uv}/bin/uv";
   # python314 must match the interpreter in modules/home/packages.nix and
   # satisfy the vendored tools' requires-python >= 3.14.
   py = "${pkgs.python314}/bin/python3";
@@ -87,15 +92,18 @@ in
     # synchronous agenixDecrypt node. Personal has no age secrets and retains
     # the ordinary writeBoundary dependency.
     skillsSync = lib.mkIf caps.skills (
-      lib.hm.dag.entryAfter (
-        [ "writeBoundary" ] ++ lib.optional (identity == "work") "agenixDecrypt"
-      ) ''
+      lib.hm.dag.entryAfter ([ "writeBoundary" ] ++ lib.optional (identity == "work") "agenixDecrypt") ''
         (
           set -u
           # sync-skills fetches pinned Git sources through subprocess. Home
           # Manager activation does not inherit the interactive user PATH, so
           # provide Git explicitly instead of relying on a new login shell.
-          export PATH="${lib.makeBinPath [ pkgs.git pkgs.openssh ]}:$PATH"
+          export PATH="${
+            lib.makeBinPath [
+              pkgs.git
+              pkgs.openssh
+            ]
+          }:$PATH"
           PROJECT="${mcpSyncProject}"
           export PYTHONNOUSERSITE=1
           export PYTHONPATH="$PROJECT/src"
@@ -118,85 +126,5 @@ in
       ''
     );
 
-    # --- Agent registry install (caps.agents) ------------------------------
-    # Prefer the actively-edited working copy at ~/projects/agents; fall back to
-    # the SSH-cloned external at ~/.local/share/agent-registry. Both are set up
-    # by `just sync` (SSH clone); if neither exists we warn to run it. The
-    # registry is a uv virtual project, so invoke its module like its justfile:
-    # `python -m agent_registry.cli install` under --directory. Its own uv deps
-    # are unknown, so on a cold cache this may resolve packages over the
-    # network — acceptable (warn-never-fail); pre-warm via `just sync` if needed.
-    agentsInstall = lib.mkIf caps.agents (
-      lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-        (
-          set -u
-          export UV_PYTHON="${py}"
-          WORKING_COPY="$HOME/projects/agents"
-          if [ -f "$WORKING_COPY/pyproject.toml" ]; then
-            PROJECT="$WORKING_COPY"
-          else
-            PROJECT="$HOME/.local/share/agent-registry"
-          fi
-          if [ ! -f "$PROJECT/pyproject.toml" ]; then
-            echo "Warning: agent registry not found at $PROJECT; run 'just sync' to clone it." >&2
-            exit 0
-          fi
-          if ! "${uv}" run --directory "$PROJECT" python -m agent_registry.cli install; then
-            echo "Warning: agent registry install failed." >&2
-            exit 0
-          fi
-
-          # Refresh the SessionStart routing-context cache now that
-          # ~/.claude/agents is current. Stdlib-only; best-effort — a stale
-          # cache means slightly old routing hints, never a broken switch.
-          ROUTING_SCRIPT="$PROJECT/tools/routing/generate_context.py"
-          ROUTING_CACHE="$HOME/.cache/agent-routing/context.md"
-          if [ -f "$ROUTING_SCRIPT" ]; then
-            mkdir -p "$(dirname "$ROUTING_CACHE")"
-            if "${py}" "$ROUTING_SCRIPT" > "$ROUTING_CACHE.tmp" 2>/dev/null; then
-              mv "$ROUTING_CACHE.tmp" "$ROUTING_CACHE"
-            else
-              rm -f "$ROUTING_CACHE.tmp"
-              echo "Warning: agent-routing context generation failed; keeping previous cache." >&2
-            fi
-          fi
-
-          # Guard carried from the original hook: no installed Claude agent may
-          # declare a tools: allowlist of ONLY built-in tools (that strips the
-          # agent of MCP/skill access silently). Warn on violation.
-          if ! violations="$("${py}" - "$HOME/.claude/agents" <<'PYEOF'
-from pathlib import Path
-import sys
-
-root = Path(sys.argv[1])
-builtins = {"Read", "Write", "Edit", "MultiEdit", "NotebookEdit",
-            "Bash", "Glob", "Grep", "LS"}
-violations = []
-for path in sorted(root.glob("*.md")) if root.is_dir() else []:
-    try:
-        text = path.read_text(encoding="utf-8")
-    except OSError as exc:
-        violations.append(f"{path.name}: cannot read: {exc}")
-        continue
-    if not text.startswith("---\n"):
-        continue
-    frontmatter = text[4:].split("\n---\n", 1)[0]
-    for line_number, line in enumerate(frontmatter.splitlines(), start=2):
-        if not line.startswith("tools:"):
-            continue
-        tools = [p.strip() for p in line.split(":", 1)[1].split(",") if p.strip()]
-        if tools and all(tool in builtins for tool in tools):
-            violations.append(f"{path.name}:{line_number}: {line}")
-if violations:
-    print("\n".join(violations))
-    sys.exit(1)
-PYEOF
-          )"; then
-            echo "Warning: Claude agents contain built-in-only tools allowlists:" >&2
-            echo "$violations" >&2
-          fi
-        ) || true
-      ''
-    );
   };
 }

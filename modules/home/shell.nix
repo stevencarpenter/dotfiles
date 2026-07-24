@@ -13,7 +13,7 @@
 # The interactive login shell itself (chsh / /etc/shells) is handled at the
 # system level in modules/darwin/core.nix (environment.shells + the user's
 # shell). Do not duplicate that here.
-{ ... }:
+_:
 
 {
   # Let z4h own ~/.zshrc and ~/.zshenv entirely (see dotfiles.nix raw symlinks).
