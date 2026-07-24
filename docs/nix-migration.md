@@ -22,12 +22,12 @@ The shape is modeled on [kunchenguid/dotfiles](https://github.com/kunchenguid/do
 | `.chezmoiignore` gate (`hasPrefix` / `(index .machines .machine).<cap>`) | `lib.mkIf caps.<x>` / `lib.optionalAttrs (identity == "…")` in the module that owns the thing — one gate site per concern |
 | `.chezmoidata/machines.toml` (capability table) | `lib/machines.nix`, threaded into modules via `specialArgs` / `extraSpecialArgs` as `{ inputs; hostName; user; caps; identity; }` |
 | `.chezmoi.toml.tmpl` machine prompt | `bootstrap.sh` / `rebuild.sh` `detect_host` (LocalHostName → flake config), arg override, prompt fallback |
-| `run_after_` hook (MCP/skills/aws/agents sync) | `home.activation` entry after `writeBoundary` in `modules/home/sync-hooks.nix` (bucket **B** below) |
+| `run_after_` hook (MCP/skills sync) | `home.activation` entry after `writeBoundary` in `modules/home/sync-hooks.nix` (bucket **B** below) |
 | `run_onchange_configure-macos-defaults.sh` | declarative `system.defaults.*` (+ `CustomUserPreferences` fallback) in `modules/darwin/macos-defaults.nix` (bucket **A**) |
 | `run_onchange_set-login-shell.sh` (chsh dance) | `users.users.<user>.shell = "/bin/zsh"` + `environment.shells` in `modules/darwin/core.nix` (bucket **A**) |
 | `run_onchange_after_start-tiling-stack.sh` | `home.activation.startTilingStack` in `modules/home/tiling.nix` (bucket **B**) |
 | `run_once_setup-macos.sh` (xcode CLT, first-run) | `bootstrap.sh` (bucket **C**) |
-| `run_onchange_install-token-auditor.sh` | `just sync` (bucket **C**; pin in Justfile `TOKEN_AUDITOR_VERSION`) |
+| `run_onchange_install-token-auditor.sh` | `just sync` (bucket **C**; release in `versions/token-auditor`) |
 | `run_onchange` hash guards | **dropped** — nix re-runs are content-addressed; idempotent re-runs accepted |
 | `.chezmoiexternal.toml.tmpl` (agent-registry SSH clone, tpm) | `just sync` (bucket **C**; needs network/SSH) |
 | `~/Library/LaunchAgents/com.user.maxfiles.plist` | `launchd.user.agents.maxfiles` in `modules/darwin/core.nix` |
@@ -41,11 +41,11 @@ Every `run_` hook was sorted into one of three buckets:
 - **A — declarative.** State nix can express directly: macOS defaults, login shell, launchd agents.
   Becomes a `system.defaults.*` / `launchd.*` / `users.users.*` option. No script survives.
 - **B — offline + fast + idempotent.** Working-tree fan-out that must run every switch but needs no
-  network/sudo: MCP sync, skills sync, agent installer, tiling-stack restart.
+  network/sudo: MCP sync, local skills sync, tiling-stack restart.
   Becomes a `home.activation` entry after `writeBoundary`, using the nix-store `uv`/`python314`,
   wrapped `|| true` so it warns-but-never-fails the switch.
 - **C — network / SSH / sudo / one-time.** Anything a reproducible switch must not silently depend
-  on: git externals (SSH), token-auditor install, xcode CLT, rustup, the first switch itself.
+  on: git externals and agent installation, token-auditor install, xcode CLT, rustup, the first switch itself.
   Becomes `just sync` / `just bootstrap`.
 
 | Hook (chezmoi) | Bucket | Nix home |
@@ -53,7 +53,7 @@ Every `run_` hook was sorted into one of three buckets:
 | `run_after_sync-mcp` | B | `sync-hooks.nix` `mcpSync` (`caps.mcp`) |
 | `run_after_sync-skills` | B | `sync-hooks.nix` `skillsSync` (`caps.skills`, `--repo-root $HOME/.dotfiles`) |
 | `run_after_sync-aws-config` | B | removed — `aws_config_gen` was extracted to its own repo (github.com/stevencarpenter/aws-config-generator); the external work wrapper now owns it, so the hook and `aws_sso` cap were dropped |
-| `run_after_sync-agents` | B | `sync-hooks.nix` `agentsInstall` (`caps.agents`; warns if clone missing → `just sync`) |
+| `run_after_sync-agents` | C | `just sync` (`caps.agents`; clone, install, routing-cache refresh, and validation) |
 | `configure-macos-defaults` | A | `macos-defaults.nix` |
 | `set-login-shell` | A | `core.nix` idempotent postActivation `dscl` update (admin users are not `users.knownUsers`) |
 | `after_start-tiling-stack` | B | `tiling.nix` `startTilingStack` (`caps.tiling`) |
@@ -108,17 +108,18 @@ Explicitly scoped OUT of the port; none blocks a switch today.
 2. **External work-secret custody.** Personal migration to `op://` templates is complete. Move the
    remaining work environment, AWS overrides, and work skills from the personal age recipient to
    the externally administered wrapper, one consumer at a time.
-3. **Homebrew cleanup graduation.** `modules/darwin/homebrew.nix` runs `cleanup = "none"` so the
-   first switch won't uninstall un-listed brew packages while the inventory is audited. Graduate to
-   `"uninstall"` once the brew lists are confirmed complete. Never `"zap"`.
+3. **Homebrew inventory pruning.** Activation keeps `cleanup = "none"` because `"check"` is a hard
+   activation failure while unmanaged inventory exists. Review the inventory-only
+   `just brew-audit` report, then prune or
+   declare each item deliberately before enabling enforcement. Never use `"zap"`.
 ## (e) Verification evidence
 
 - **Both `darwinConfigurations` evaluate.** `darwinConfigurations.{personal-mac,work-mac}.
   system.drvPath` were forced during flake evaluation. Nix evaluation is
   platform-independent (only *building* a darwin closure needs a Mac), so an all-hosts eval on Linux
   is a valid structural gate — it exercises every module, option, and gate.
-- **`flake.lock` is committed.** Inputs are pinned; `nix flake check --no-build` in CI
-  (`.github/workflows/nix-flake-check.yml`, `macos-latest`) re-evaluates every output on each change.
+- **`flake.lock` is committed.** Inputs are pinned; CI formats Nix, evaluates the explicit
+  `checks.<system>.<host>` closures, and realizes both Darwin systems on `macos-latest`.
 - **One fix applied during the port.** The Dock hot-corner `wvous-*-modifier` keys are not typed
   nix-darwin options; they were moved from the `dock` submodule (which rejected them) into
   `system.defaults.CustomUserPreferences."com.apple.dock"` in `macos-defaults.nix`, matching the

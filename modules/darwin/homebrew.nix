@@ -1,4 +1,11 @@
-{ config, pkgs, lib, caps, user, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  caps,
+  user,
+  ...
+}:
 
 # Homebrew management via nix-homebrew (installs/owns the brew prefix) plus
 # nix-darwin's `homebrew` module (declares taps/brews/casks, replacing the old
@@ -18,7 +25,7 @@ in
 {
   nix-homebrew = {
     enable = true;
-    user = user;
+    inherit user;
     # Manage an Intel (x86) brew prefix alongside the native one only on Apple
     # Silicon; meaningless (and rejected) on a native x86_64 host. Both current
     # machines are aarch64, so this is a defensive guard for any future Intel box.
@@ -33,175 +40,179 @@ in
   homebrew = {
     enable = true;
 
+    # Manual brew commands are deterministic too: updates happen only through
+    # the explicit `just brew-upgrade` maintenance workflow.
+    global.autoUpdate = false;
+
     onActivation = {
-      # autoUpdate/upgrade stay ON deliberately: rebuild-time brew churn exists
-      # to track fast-moving tools (codex, worktrunk, railway, 1password-cli).
-      # The slow-moving third-party WM tap stack is carved OUT of that firehose
-      # instead: sketchybar + borders are `brew pin`ed by the postActivation
-      # snippet below, so upgrading tap code is a deliberate
-      # `brew upgrade sketchybar borders` (after `brew unpin`), not a side
-      # effect of every switch. aerospace (tap *cask*) has no pin mechanism in
-      # Homebrew — it remains auto-upgraded; accepted residual supply-chain
-      # exposure, revisit if nikitabobko/tap ever changes hands.
-      autoUpdate = true;
-      upgrade = true;
-      # GRADUATION: start conservative. "none" leaves anything not listed here
-      # in place (safe during the nix cutover while the brew inventory is still
-      # being audited). Move to "uninstall" once the lists below are confirmed
-      # complete. NEVER use "zap" — it deletes app data/config, not just the app.
+      # A rebuild must be idempotent: it installs missing declarations but never
+      # turns a locked Nix generation into an implicit rolling Homebrew upgrade.
+      autoUpdate = false;
+      upgrade = false;
+
+      # Keep unmanaged formulae/casks in place. `cleanup = "check"` aborts
+      # activation when any exist, and this machine still has reviewed-useful
+      # legacy inventory. `just brew-audit` is the explicit drift report;
+      # destructive cleanup remains a reviewed operator action. NEVER use
+      # "zap" here; it removes application data.
       cleanup = "none";
+
+      extraEnv = {
+        HOMEBREW_NO_ANALYTICS = "1";
+        HOMEBREW_NO_ENV_HINTS = "1";
+        HOMEBREW_NO_UPDATE_REPORT_NEW = "1";
+      };
     };
 
     # Render the Brewfile to a stable global location.
     global.brewfile = true;
 
-    taps =
-      lib.optionals caps.tiling [
-        "nikitabobko/tap"
-        "FelixKratz/formulae"
-      ];
+    taps = lib.optionals caps.tiling [
+      "nikitabobko/tap"
+      "FelixKratz/formulae"
+    ];
 
-    brews =
-      [
-        # Shell binaries: kept in Homebrew because dot_config/zsh/.zshrc probes
-        # the Homebrew prefix for zsh and the completion paths assume it.
-        "zsh"
-        "zsh-completions"
-        "bash"
-        "bash-completion"
-        # GNU `watch` (procps) has spotty Darwin packaging in nixpkgs — kept
-        # brew to preserve current behavior.
-        "watch"
-        # Git worktree helper; not confirmed in nixpkgs — kept brew.
-        "worktrunk"
-        # NOTE: `docker-completion` from the old Brewfile is dropped — OrbStack
-        # (gui cask below) ships the docker CLI + its shell completions.
-      ]
-      # mactop is a macOS-native (Apple Silicon) power monitor — only builds/
-      # makes sense on aarch64 (guard is defensive; both current hosts qualify).
-      ++ lib.optionals isAarch64 [ "mactop" ]
-      ++ lib.optionals caps.tiling [
-        # Homebrew 6 requires explicit trust for third-party tap code. Keep
-        # this scoped to the two formulae we install rather than trusting the
-        # entire FelixKratz tap. Fully-qualified names are required for
-        # formula-level `trusted = true` to take effect in Brewfile evaluation.
-        {
-          name = "felixkratz/formulae/sketchybar";
-          trusted = true;
-        }
-        {
-          name = "felixkratz/formulae/borders";
-          trusted = true;
-        }
-      ]
-      ++ lib.optionals caps.dev [
-        # railway CLI: fast-moving vendor tool, nixpkgs lags — kept brew.
-        "railway"
-      ];
-      # NOTE: the Brewfile's work-only `conftest` moved to nixpkgs — see the
-      # identity=="work" gate in modules/home/packages.nix (SME split).
+    brews = [
+      # Shell binaries: kept in Homebrew because dot_config/zsh/.zshrc probes
+      # the Homebrew prefix for zsh and the completion paths assume it.
+      "zsh"
+      "zsh-completions"
+      "bash"
+      "bash-completion"
+      # GNU `watch` (procps) has spotty Darwin packaging in nixpkgs — kept
+      # brew to preserve current behavior.
+      "watch"
+      # Git worktree helper; not confirmed in nixpkgs — kept brew.
+      "worktrunk"
+      # NOTE: `docker-completion` from the old Brewfile is dropped — OrbStack
+      # (gui cask below) ships the docker CLI + its shell completions.
+    ]
+    # mactop is a macOS-native (Apple Silicon) power monitor — only builds/
+    # makes sense on aarch64 (guard is defensive; both current hosts qualify).
+    ++ lib.optionals isAarch64 [ "mactop" ]
+    ++ lib.optionals caps.tiling [
+      # Homebrew 6 requires explicit trust for third-party tap code. Keep
+      # this scoped to the two formulae we install rather than trusting the
+      # entire FelixKratz tap. Fully-qualified names are required for
+      # formula-level `trusted = true` to take effect in Brewfile evaluation.
+      {
+        name = "felixkratz/formulae/sketchybar";
+        trusted = true;
+      }
+      {
+        name = "felixkratz/formulae/borders";
+        trusted = true;
+      }
+    ]
+    ++ lib.optionals caps.dev [
+      # railway CLI: fast-moving vendor tool, nixpkgs lags — kept brew.
+      "railway"
+    ];
+    # NOTE: `conftest` moved to nixpkgs — see the work-only condition in
+    # modules/home/packages.nix.
 
-    casks =
-      [
-        # `op` — kept brew to pair its update/signing cadence with the
-        # 1Password.app GUI cask for consistent biometric/keychain integration.
-        "1password-cli"
-      ]
-      ++ lib.optionals caps.gui [
-        "ghostty"
-        "raycast"
-        "1password"
-        "bbedit"
-        "obsidian"
-        "orbstack"
-        "the-unarchiver"
-        "codex"
-        # Bespoke Powerlevel10k-patched Meslo build — not a standard nixpkgs
-        # font, stays a cask.
-        "font-meslo-for-powerlevel10k"
-      ]
-      # aerospace is a third-party tap cask with no nixpkgs equivalent.
-      ++ lib.optionals caps.tiling [
-        "nikitabobko/tap/aerospace"
-      ]
-      # FelixKratz's custom sketchybar icon font — gui AND tiling in the
-      # original (nested gate).
-      ++ lib.optionals (caps.gui && caps.tiling) [
-        "font-sketchybar-app-font"
-      ]
-      # Dev-flavored fonts NOT confidently available (or too heavy to build,
-      # e.g. iosevka) in nixpkgs are kept as dev-gated casks. The
-      # high-confidence subset moved to home.packages fonts. Together these two
-      # sets cover every font from the Brewfile's dev block with none dropped.
-      ++ lib.optionals caps.dev [
-        "font-input"
-        "font-intel-one-mono"
-        "font-iosevka"
-        "font-inconsolata-go-nerd-font"
-      ];
+    casks = [
+      # `op` — kept brew to pair its update/signing cadence with the
+      # 1Password.app GUI cask for consistent biometric/keychain integration.
+      "1password-cli"
+    ]
+    ++ lib.optionals caps.gui [
+      "ghostty"
+      "raycast"
+      "1password"
+      "bbedit"
+      "obsidian"
+      "orbstack"
+      "the-unarchiver"
+      "codex"
+      # Bespoke Powerlevel10k-patched Meslo build — not a standard nixpkgs
+      # font, stays a cask.
+      "font-meslo-for-powerlevel10k"
+    ]
+    # aerospace is a third-party tap cask with no nixpkgs equivalent.
+    ++ lib.optionals caps.tiling [
+      "nikitabobko/tap/aerospace"
+    ]
+    # FelixKratz's custom sketchybar icon font — gui AND tiling in the
+    # original (nested gate).
+    ++ lib.optionals (caps.gui && caps.tiling) [
+      "font-sketchybar-app-font"
+    ]
+    # Dev-flavored fonts NOT confidently available (or too heavy to build,
+    # e.g. iosevka) in nixpkgs are kept as dev-gated casks. The
+    # high-confidence subset moved to home.packages fonts. Together these two
+    # sets cover every font from the Brewfile's dev block with none dropped.
+    ++ lib.optionals caps.dev [
+      "font-input"
+      "font-intel-one-mono"
+      "font-iosevka"
+      "font-inconsolata-go-nerd-font"
+    ];
   };
 
   # nix-homebrew replaces Homebrew's mutable repository with a nix-store
   # source. Its first auto-migration can leave the old core `_brew` completion
   # symlink pointing at the removed `/opt/homebrew/completions` directory.
   # Re-anchor that link to the pinned Homebrew source on every activation.
-  system.activationScripts.postActivation.text = lib.mkAfter (''
-    _brew_completion_dir="/opt/homebrew/share/zsh/site-functions"
-    if [ -d "$_brew_completion_dir" ]; then
-      ln -sfn \
-        "${config.nix-homebrew.package}/completions/zsh/_brew" \
-        "$_brew_completion_dir/_brew"
-    fi
-  ''
-  + lib.optionalString caps.tiling ''
-    # Converge the third-party-tap pin policy (see onActivation comment).
-    # Pin state is imperative brew metadata; re-asserting it every switch means
-    # a fresh machine self-heals after its first bundle run. Homebrew activation
-    # and Home Manager activation can overlap on a first run, so wait briefly
-    # for each formula and pin them independently. Runs as root, and brew
-    # refuses root, so drop to the owning user with a clean user environment.
-    # Warn-never-fail.
-    if [ -x /opt/homebrew/bin/brew ]; then
-      _brew_as_user() {
-        /usr/bin/sudo -H -u ${user} \
-          /usr/bin/env -u SUDO_USER -u SUDO_UID -u SUDO_GID -u SUDO_COMMAND \
-          /opt/homebrew/bin/brew "$@"
-      }
-      _brew_pinned_dir="/opt/homebrew/var/homebrew/pinned"
+  system.activationScripts.postActivation.text = lib.mkAfter (
+    ''
+      _brew_completion_dir="/opt/homebrew/share/zsh/site-functions"
+      if [ -d "$_brew_completion_dir" ]; then
+        ln -sfn \
+          "${config.nix-homebrew.package}/completions/zsh/_brew" \
+          "$_brew_completion_dir/_brew"
+      fi
+    ''
+    + lib.optionalString caps.tiling ''
+      # Converge the third-party-tap pin policy (see onActivation comment).
+      # Pin state is imperative brew metadata; re-asserting it every switch means
+      # a fresh machine self-heals after its first bundle run. Homebrew activation
+      # and Home Manager activation can overlap on a first run, so wait briefly
+      # for each formula and pin them independently. Runs as root, and brew
+      # refuses root, so drop to the owning user with a clean user environment.
+      # Warn-never-fail.
+      if [ -x /opt/homebrew/bin/brew ]; then
+        _brew_as_user() {
+          /usr/bin/sudo -H -u ${user} \
+            /usr/bin/env -u SUDO_USER -u SUDO_UID -u SUDO_GID -u SUDO_COMMAND \
+            /opt/homebrew/bin/brew "$@"
+        }
+        _brew_pinned_dir="/opt/homebrew/var/homebrew/pinned"
 
-      for _brew_formula in sketchybar borders; do
-        # `brew pin` is already converged when this symlink exists. Recognize
-        # that state directly so every later rebuild is quiet and idempotent.
-        if [ -L "$_brew_pinned_dir/$_brew_formula" ]; then
-          continue
-        fi
+        for _brew_formula in sketchybar borders; do
+          # `brew pin` is already converged when this symlink exists. Recognize
+          # that state directly so every later rebuild is quiet and idempotent.
+          if [ -L "$_brew_pinned_dir/$_brew_formula" ]; then
+            continue
+          fi
 
-        _brew_installed=0
-        _brew_pinned=0
-        for _brew_attempt in 1 2 3 4 5; do
-          if _brew_as_user list --formula "$_brew_formula" >/dev/null 2>&1; then
-            _brew_installed=1
-            if _brew_as_user pin "$_brew_formula" >/dev/null 2>&1; then
-              _brew_pinned=1
+          _brew_installed=0
+          _brew_pinned=0
+          for _brew_attempt in 1 2 3 4 5; do
+            if _brew_as_user list --formula "$_brew_formula" >/dev/null 2>&1; then
+              _brew_installed=1
+              if _brew_as_user pin "$_brew_formula" >/dev/null 2>&1; then
+                _brew_pinned=1
+              fi
+              break
             fi
-            break
-          fi
-          /bin/sleep 2
-        done
+            /bin/sleep 2
+          done
 
-        # Homebrew may report an already-converged pin as a warning. The
-        # filesystem link is the authoritative pin state either way.
-        if [ -L "$_brew_pinned_dir/$_brew_formula" ]; then
-          _brew_pinned=1
-        fi
-        if [ "$_brew_pinned" -ne 1 ]; then
-          if [ "$_brew_installed" -eq 1 ]; then
-            echo "warning: $_brew_formula is installed but Homebrew could not pin it" >&2
-          else
-            echo "warning: $_brew_formula was not installed after Homebrew activation" >&2
+          # Homebrew may report an already-converged pin as a warning. The
+          # filesystem link is the authoritative pin state either way.
+          if [ -L "$_brew_pinned_dir/$_brew_formula" ]; then
+            _brew_pinned=1
           fi
-        fi
-      done
-    fi
-  '');
+          if [ "$_brew_pinned" -ne 1 ]; then
+            if [ "$_brew_installed" -eq 1 ]; then
+              echo "warning: $_brew_formula is installed but Homebrew could not pin it" >&2
+            else
+              echo "warning: $_brew_formula was not installed after Homebrew activation" >&2
+            fi
+          fi
+        done
+      fi
+    ''
+  );
 }

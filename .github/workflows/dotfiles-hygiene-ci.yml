@@ -115,5 +115,8 @@ jobs:
       - name: Validate sync capability boundary
         run: scripts/test-sync-capability-gating.sh
 
+      - name: Validate Homebrew audit is read-only
+        run: scripts/test-homebrew-audit-read-only.sh
+
       - name: Validate Railway psql failure propagation
         run: scripts/test-railway-psql-errors.sh

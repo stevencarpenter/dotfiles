@@ -28,4 +28,10 @@ if [ -z "${HOST:-}" ]; then
 	exit 1
 fi
 
-exec sudo darwin-rebuild switch --flake "$REPO_ROOT#${HOST}"
+# Pass the declared macOS 27 compatibility setting as a build flag too. This
+# recovers a machine whose currently-running daemon still has sandbox=true:
+# the new nix.conf cannot be built unless the trusted rebuild request disables
+# that broken sandbox first.
+exec sudo darwin-rebuild switch \
+	--flake "$REPO_ROOT#${HOST}" \
+	--option sandbox false

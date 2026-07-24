@@ -1,10 +1,9 @@
 # Dotfiles task runner
 # Usage: just <recipe>       List: just --list
 
-# Token-auditor pin, carried over from the retired .chezmoidata/tools.toml.
-# A tag (e.g. "v0.1.0") pins a fixed release; "latest" tracks the default
-# branch (main). Consumed by the `sync` recipe below.
-TOKEN_AUDITOR_VERSION := "latest"
+# Immutable token-auditor release used by the explicit network sync workflow.
+# Update deliberately after reviewing the corresponding upstream release.
+TOKEN_AUDITOR_VERSION := `tr -d '\n' < versions/token-auditor`
 
 # Default recipe: show available commands
 default:
@@ -25,9 +24,30 @@ verify-live:
 op-adopt *FLAGS:
     python3 home/.local/bin/op-adopt {{ FLAGS }}
 
-# Evaluate the flake without building (fast structural check).
+# Evaluate every declared system closure without realizing it.
 check:
-    nix flake check --no-build
+    nix flake check --no-build --all-systems
+
+# Format all tracked Nix sources with the flake's canonical formatter.
+nix-fmt:
+    git ls-files -z '*.nix' | xargs -0 nix fmt --
+
+# Verify that all tracked Nix sources already match the canonical formatter.
+nix-fmt-check:
+    git ls-files -z '*.nix' | xargs -0 nix fmt -- --check
+
+# Run the repository-wide Nix anti-pattern linter.
+nix-lint:
+    statix check .
+
+# Explicit Homebrew update/upgrade; rebuilds only install missing declarations.
+brew-upgrade:
+    HOMEBREW_NO_ANALYTICS=1 HOMEBREW_NO_ENV_HINTS=1 brew update
+    HOMEBREW_NO_ANALYTICS=1 HOMEBREW_NO_ENV_HINTS=1 brew bundle install --upgrade
+
+# Compare declared and installed Homebrew inventory without changing anything.
+brew-audit:
+    scripts/audit-homebrew.sh
 
 # First-time provisioning on a fresh Mac (Lix, work-only age key, first switch).
 bootstrap *HOST:
@@ -35,9 +55,7 @@ bootstrap *HOST:
 
 # ── Sync (network / SSH side channels) ───────────────────
 
-# Clone/refresh the git externals and install the pinned token-auditor tool.
-# These are the network+SSH steps intentionally kept OUT of `darwin-rebuild
-# switch` (see docs/nix-migration.md, hooks bucket rule). Safe to re-run.
+# Run all network/SSH side channels outside `darwin-rebuild switch`.
 sync:
     TOKEN_AUDITOR_VERSION="{{ TOKEN_AUDITOR_VERSION }}" scripts/sync-side-channels.sh
 

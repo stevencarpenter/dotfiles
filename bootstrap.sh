@@ -92,7 +92,8 @@ echo "==> Building initial configuration #$HOST ..."
 sudo nix run \
   --extra-experimental-features "nix-command flakes" \
   github:nix-darwin/nix-darwin/nix-darwin-26.05#darwin-rebuild -- \
-  switch --flake "$REPO_ROOT#${HOST}"
+  switch --flake "$REPO_ROOT#${HOST}" \
+  --option sandbox false
 
 # ── 6. rustup (dev toolchain) ────────────────────────────────────────────
 # Kept as an imperative bootstrap rather than a nixpkgs toolchain: rustup's

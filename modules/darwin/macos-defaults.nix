@@ -1,4 +1,10 @@
-{ config, pkgs, lib, user, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  user,
+  ...
+}:
 
 # Declarative port of .chezmoiscripts/darwin/run_onchange_configure-macos-defaults.sh.
 # Each `defaults write` maps to a typed system.defaults.* option where one

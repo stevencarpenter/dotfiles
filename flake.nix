@@ -30,6 +30,7 @@
     }:
     let
       machines = import ./lib/machines.nix;
+      systems = nixpkgs.lib.unique (map (host: host.system) (builtins.attrValues machines));
 
       # Canonical capability keys, defined by this repo's own rows. External
       # host rows (wrapper flakes calling lib.mkHost) must carry AT LEAST
@@ -62,13 +63,18 @@
           configurationRevision = host.configurationRevision or (self.rev or self.dirtyRev or null);
         in
         nix-darwin.lib.darwinSystem {
-          system = host.system;
+          inherit (host) system;
           specialArgs = args;
           modules = [
             # hosts/${hostName}.nix only exists for in-repo hosts — an external
             # wrapper's host row references its own shim, so fall back to the
             # darwin module set directly when no in-repo shim exists.
-            (if builtins.pathExists ./hosts/${hostName}.nix then ./hosts/${hostName}.nix else { imports = [ ./modules/darwin ]; })
+            (
+              if builtins.pathExists ./hosts/${hostName}.nix then
+                ./hosts/${hostName}.nix
+              else
+                { imports = [ ./modules/darwin ]; }
+            )
             nix-homebrew.darwinModules.nix-homebrew
             home-manager.darwinModules.home-manager
             {
@@ -76,17 +82,13 @@
               # pass their own revision in the host row; mkDefault also lets an
               # extra Darwin module supply it without an option conflict.
               system.configurationRevision = nixpkgs.lib.mkDefault configurationRevision;
-              home-manager.useGlobalPkgs = true;
-              home-manager.useUserPackages = true;
-              # First switch on a machine still running chezmoi collides on every
-              # target home-manager wants to symlink (chezmoi already deployed a
-              # file there). Back the pre-existing file up to <name>.chezmoi-bak
-              # instead of aborting activation; these backups double as rollback
-              # material for the m5 trial cutover.
-              home-manager.backupFileExtension = "chezmoi-bak";
-              home-manager.extraSpecialArgs = args;
-              home-manager.sharedModules = extraHome;
-              home-manager.users.${host.user} = import ./modules/home;
+              home-manager = {
+                useGlobalPkgs = true;
+                useUserPackages = true;
+                extraSpecialArgs = args;
+                sharedModules = extraHome;
+                users.${host.user} = import ./modules/home;
+              };
             }
           ]
           ++ extraDarwin;
@@ -94,6 +96,31 @@
     in
     {
       darwinConfigurations = builtins.mapAttrs mkHost machines;
+
+      # `nix flake check` does not recognize darwinConfigurations as a standard
+      # deeply-evaluated output. Export every host's system closure through
+      # checks so evaluation must reach config.system.build.toplevel, and a full
+      # check can realize the exact closure that darwin-rebuild will activate.
+      checks = nixpkgs.lib.genAttrs systems (
+        system:
+        let
+          pkgs = nixpkgs.legacyPackages.${system};
+          hostChecks = builtins.mapAttrs (
+            hostName: _host: self.darwinConfigurations.${hostName}.config.system.build.toplevel
+          ) (nixpkgs.lib.filterAttrs (_: host: host.system == system) machines);
+        in
+        hostChecks
+        // {
+          statix = pkgs.runCommand "statix-check" { nativeBuildInputs = [ pkgs.statix ]; } ''
+            statix check ${self}
+            touch "$out"
+          '';
+        }
+      );
+
+      # One canonical formatter for the whole repository. `nix fmt` selects the
+      # package for the current host system.
+      formatter = nixpkgs.lib.genAttrs systems (system: nixpkgs.legacyPackages.${system}.nixfmt);
 
       # ── Public library surface (LOCKED contract v1.0) ──────────────────
       lib = { inherit mkHost canonicalCapKeys; };

@@ -236,7 +236,7 @@ First validate the selected base revision as a canary:
 
 ```bash
 cd "$HOME/.dotfiles"
-nix flake check --no-build
+nix flake check --no-build --all-systems
 scripts/test-external-overlay-contract.sh
 nix eval --raw '.#darwinConfigurations.work-mac.config.system.build.toplevel.drvPath'
 nix build --no-link \
@@ -247,7 +247,7 @@ Then, from the physical wrapper checkout:
 
 ```bash
 just sync-base-input
-nix flake check --no-build
+nix flake check --no-build --all-systems
 nix eval --raw '.#darwinConfigurations.work-wrapper.config.system.build.toplevel.drvPath'
 nix build --no-link \
   '.#darwinConfigurations.work-wrapper.config.home-manager.users.carpenter.home.activationPackage'
@@ -267,9 +267,9 @@ Inspect the emitted Home Manager ownership before switching:
 - [ ] MCP/skills overlays and whole-file takeovers have one writer;
 - [ ] malformed structured fragments fail safely;
 - [ ] secret derivations and logs contain no plaintext values;
-- [ ] Homebrew's first-switch behavior is accepted. On current PR #145,
-  `autoUpdate = true`, `upgrade = true`, and `cleanup = "none"`: no removals, but potentially broad
-  formula/cask upgrades.
+- [ ] Homebrew's first-switch behavior is accepted: updates/upgrades are disabled and
+  `cleanup = "none"` preserves unmanaged inventory pending an explicit, read-only
+  `just brew-audit` review.
 
 ## Phase 5: perform the single live cutover
 
@@ -285,9 +285,9 @@ sudo darwin-rebuild switch --flake '<private-wrapper-path>#work-wrapper'
 Then run the wrapper's network/SSH side-channel sync. Do not run the base `bootstrap.sh work-mac`,
 base `rebuild.sh work-mac`, or `chezmoi apply` after the wrapper takes ownership.
 
-Keep the terminal and existing applications open until verification finishes. Home Manager may
-create `*.chezmoi-bak` files for pre-existing targets; those are rollback material, not immediate
-cleanup candidates.
+Keep the terminal and existing applications open until verification finishes. Home Manager now
+fails on pre-existing targets instead of moving them aside; resolve each ownership collision
+explicitly before retrying.
 
 ## Phase 6: verify on hardware
 
