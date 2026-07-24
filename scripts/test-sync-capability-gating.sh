@@ -44,7 +44,8 @@ chmod +x "$fixture/bin/git" "$fixture/bin/uv" "$fixture/bin/nix"
 
 run_sync() {
   local host="$1"
-  local run_root="$fixture/$host"
+  local run_name="${2:-$host}"
+  local run_root="$fixture/$run_name"
   mkdir -p "$run_root/home"
   TEST_COMMAND_LOG="$run_root/commands.log" \
     DOTFILES_HOST="$host" \
@@ -71,10 +72,30 @@ if ! rg -Fq 'uv run --directory' "$fixture/personal-mac/commands.log"; then
   echo "personal sync did not install the agent registry" >&2
   exit 1
 fi
+if ! rg -Fq "uv run --directory $fixture/personal-mac/home/.local/share/agent-registry" \
+  "$fixture/personal-mac/commands.log"; then
+  echo "personal sync did not install from its freshly cloned registry" >&2
+  exit 1
+fi
 if rg -Fq 'uv run --directory' "$fixture/work-mac/commands.log"; then
   echo "work sync attempted to install the personal agent registry" >&2
   exit 1
 fi
+
+mkdir -p "$fixture/personal-working/home/projects/agents"
+touch "$fixture/personal-working/home/projects/agents/pyproject.toml"
+run_sync personal-mac personal-working
+if rg -Fq 'git@github.com:stevencarpenter/agents.git' \
+  "$fixture/personal-working/commands.log"; then
+  echo "personal sync cloned a redundant registry beside the working copy" >&2
+  exit 1
+fi
+if ! rg -Fq "uv run --directory $fixture/personal-working/home/projects/agents" \
+  "$fixture/personal-working/commands.log"; then
+  echo "personal sync did not install from the existing working copy" >&2
+  exit 1
+fi
+
 token_auditor_version="$(tr -d '\n' <"$repo_root/versions/token-auditor")"
 if ! rg -Fq "token-auditor@${token_auditor_version}" "$fixture/personal-mac/commands.log"; then
   echo "direct sync did not use the pinned token-auditor release" >&2

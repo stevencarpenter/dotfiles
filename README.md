@@ -188,9 +188,10 @@ Some provisioning is deliberately kept **out of `darwin-rebuild switch`** becaus
 network, SSH auth, or `sudo` — things a `switch` should not silently depend on. Those live in the
 Justfile instead:
 
-- **`just sync`** — clone/refresh tpm over HTTPS; clone, install, and validate the personal
-  `agent-registry` only when the selected host's canonical `agents` capability is enabled; and
-  install the immutable `token-auditor` release pinned in the Justfile. Safe to re-run;
+- **`just sync`** — clone/refresh tpm over HTTPS; install and validate the personal
+  `agent-registry` from `~/projects/agents` when that working copy exists, otherwise clone/refresh
+  `~/.local/share/agent-registry`, only when the selected host's canonical `agents` capability is
+  enabled; and install the immutable `token-auditor` release pinned in the Justfile. Safe to re-run;
   `bootstrap.sh` passes its resolved host explicitly. A failed side channel makes this explicit
   command fail instead of leaving a silently partial install.
 - **`just bootstrap`** — the full fresh-machine flow (`bootstrap.sh`): Lix, the work-only age key
