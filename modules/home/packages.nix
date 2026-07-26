@@ -4,6 +4,7 @@
   lib,
   caps,
   identity,
+  inputs,
   ...
 }:
 
@@ -20,6 +21,46 @@
 # unconfirmed fonts remain Homebrew casks (see homebrew.nix).
 
 let
+  # ─── Fast-moving packages: a per-package escape from the stable pin ───────
+  # nixpkgs is pinned to 26.05 (flake.nix:8). That line backports fixes but not
+  # new upstream releases, so a tool shipping every few days drifts arbitrarily
+  # far behind while a tool shipping a few times a year stays current.
+  # Everything NOT named here stays on the stable pin — including transitive
+  # build inputs, which is exactly why this is explicit selection rather than an
+  # overlay. An overlay would rewrite pkgs.<name> globally, so any stable
+  # package merely *depending* on ripgrep/fzf would rebuild against unstable and
+  # lose its binary-cache hit.
+  #
+  # Measured 2026-07-26, stable 26.05 → upstream latest:
+  #   mise     2026.5.12 → 2026.7.13  (~2 months, ~15 releases)
+  #   uv       0.11.21   → 0.11.32    (11 patch releases)
+  #   fzf      0.72.0    → 0.74.1
+  #   lazygit  0.61.1    → 0.63.1
+  #   zoxide   0.9.9     → 0.10.0
+  #   ripgrep  15.1.0    → 15.2.0
+  # For contrast, gh / yazi / neovim / delta / bat / fd / btop were all exactly
+  # current on stable and are deliberately NOT listed. The lag is a cadence
+  # mismatch in specific tools, not a general property of the channel.
+  #
+  # To add a tool: append its nixpkgs attr name here AND delete it from the
+  # stable list below. The assertion at the bottom fails the build if you forget
+  # the second half.
+  fastMovingPackages = [
+    "mise" # runtime manager; its config stays a raw symlinked dotfile
+    "uv" # also drives the mcpSync activation hook in sync-hooks.nix
+    "fzf"
+    "lazygit"
+    "zoxide"
+    "ripgrep" # binary is `rg`
+  ];
+
+  # A second nixpkgs that deliberately does not follow the stable input. No
+  # `config` argument is needed: this repo sets no `nixpkgs.config` anywhere
+  # (no allowUnfree, no overlay stack), so the defaults already match.
+  pkgsFresh = import inputs.nixpkgs-unstable { inherit (pkgs) system; };
+
+  freshPackages = map (name: pkgsFresh.${name}) fastMovingPackages;
+
   # Each capability gate gets its own binding rather than being inlined into one
   # `++` chain, so a consumer can inspect the fully assembled stable set instead
   # of just the base list. `with pkgs;` is repeated per binding because the
@@ -31,12 +72,10 @@ let
     brotli
     curl
     fd # fast find
-    fzf # fuzzy finder
     grex # regex generator
     htop
     jq
     gnumake # provides `make`
-    ripgrep # rg
     tree
     wget
     xz
@@ -46,7 +85,6 @@ let
     p7zip # 7zz archive preview for yazi
     resvg # SVG preview for yazi
     yq-go # mikefarah yq (matches the brew `yq`, not the python yq)
-    zoxide # smart cd
     btop
     ffmpeg
     neovim
@@ -69,7 +107,6 @@ let
     gh
     jujutsu # `jj`; .config/jj/config.toml is already linked by dotfiles.nix
     lazydocker
-    lazygit
 
     # ─── Development shell tooling ───────────────────────────────────────
     gnused # gnu-sed
@@ -99,11 +136,10 @@ let
     yamllint
 
     # ─── Language / secrets / runtime managers ──────────────────────────
-    uv # was a brew formula; now nix (also drives the mcp_sync/aws hooks)
+    # NOTE: `uv` and `mise` are declared in fastMovingPackages above, not here.
     # python314: pin to Python 3.14+ per the vendored tools' requirement. If
     # the pinned nixpkgs lacks `python314`, fall back to `python3`.
     python314
-    mise # runtime manager (binary only; mise config stays a raw dotfile)
     age # age encryption CLI (agenix uses its own; this is for manual use)
   ];
 
@@ -159,7 +195,32 @@ let
   # is a list, so reordering would change the derivation even though the set of
   # packages is unchanged.
   allStable = stablePackages ++ guiFonts ++ devTools ++ devFonts ++ workTools;
+
+  # Names claimed by BOTH channels. Inspects the fully assembled stable set, not
+  # just the base list, so a future fast-mover added to a capability-gated block
+  # cannot slip past the guard. (It only sees the blocks active for the host
+  # being evaluated, but `nix flake check --all-systems` covers every host, so a
+  # collision hidden behind another machine's caps still fails CI.)
+  # `pname or ""` because a few font derivations do not set pname.
+  duplicated = builtins.filter (
+    name: builtins.any (p: (p.pname or "") == name) allStable
+  ) fastMovingPackages;
 in
 {
-  home.packages = allStable;
+  # Without this, declaring a package in both channels surfaces as a
+  # home-manager file collision at activation ("collision between ... /bin/rg")
+  # — loud, but pointing at the symptom rather than the cause.
+  assertions = [
+    {
+      assertion = duplicated == [ ];
+      message =
+        "modules/home/packages.nix: "
+        + lib.concatStringsSep ", " duplicated
+        + " declared in BOTH fastMovingPackages and the stable package list. "
+        + "Each package must come from exactly one channel — delete the stable "
+        + "entry.";
+    }
+  ];
+
+  home.packages = allStable ++ freshPackages;
 }
