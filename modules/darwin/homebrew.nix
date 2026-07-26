@@ -69,7 +69,11 @@ in
     # Render the Brewfile to a stable global location.
     global.brewfile = true;
 
-    taps = lib.optionals caps.tiling [
+    taps = [
+      # Ungated: carries `crush`, declared in brews below (rationale there).
+      "charmbracelet/tap"
+    ]
+    ++ lib.optionals caps.tiling [
       "nikitabobko/tap"
       "FelixKratz/formulae"
     ];
@@ -89,17 +93,20 @@ in
       # No nixpkgs equivalent; both are homebrew/core formulae.
       "herdr"
       "mole"
+      # charmbracelet/tap/crush. nixpkgs DOES package `crush`, but the flake
+      # tracks stable 26.05 while upstream ships roughly every four days, so
+      # the nix attr trails by months — the same trade that keeps `railway` a
+      # brew. Fully-qualified + `trusted` because Homebrew 6 requires explicit
+      # trust for third-party tap code (see the sketchybar/borders block).
+      {
+        name = "charmbracelet/tap/crush";
+        trusted = true;
+      }
       # NOTE: `docker-completion` from the old Brewfile is dropped — OrbStack
       # (gui cask below) ships the docker CLI + its shell completions.
       #
-      # NOT declared, deliberately: `archon` (coleam00/archon) and `crush`
-      # (charmbracelet/tap) are third-party-tap formulae with no nixpkgs
-      # equivalent. Declaring a brew whose tap name is wrong fails activation,
-      # and the tap could not be verified when this block was written. To adopt
-      # them, confirm the tap with
-      #   brew info --json=v2 <formula> | jq -r '.formulae[0].tap'
-      # then add it to `taps` below and the formula here. Until then they stay
-      # unmanaged and show up in `just brew-audit` by design.
+      # NOTE: `archon` (coleam00/archon) is deliberately NOT declared — it is
+      # being retired from this machine rather than adopted.
     ]
     # mactop is a macOS-native (Apple Silicon) power monitor — only builds/
     # makes sense on aarch64 (guard is defensive; both current hosts qualify).
