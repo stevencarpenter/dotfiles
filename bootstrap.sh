@@ -106,6 +106,15 @@ if ! command -v rustup >/dev/null 2>&1; then
 fi
 
 # ── 7. Network/SSH side channels ─────────────────────────────────────────
+# The switch in step 5 just created these profiles, but THIS shell's PATH was
+# computed before they existed — so on a fresh machine the `command -v just`
+# guard below always failed and the whole side channel (tpm, agent-registry,
+# token-auditor) silently never provisioned. Prepend the profiles rather than
+# resolving `just` alone: scripts/sync-side-channels.sh needs `git` too, and
+# hard-exits 1 when `uv` is not on PATH.
+PATH="/etc/profiles/per-user/$(id -un)/bin:/run/current-system/sw/bin:$PATH"
+export PATH
+
 echo "==> Running 'just sync' for git externals + token-auditor ..."
 if command -v just >/dev/null 2>&1; then
   DOTFILES_HOST="$HOST" just sync \
