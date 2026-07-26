@@ -51,7 +51,7 @@
       cloudflared # cloudflare tunnel client
       glow # markdown renderer
       nmap
-      poppler_utils # pdftotext/pdfimages/… — nixpkgs `poppler` is the library only
+      poppler-utils # pdftotext/pdfimages/… — nixpkgs `poppler` is the library only
       television # fuzzy finder TUI; binary is `tv`
       typst # typesetting system
       yt-dlp
