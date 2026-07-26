@@ -67,6 +67,25 @@ zstyle ':z4h:ssh:*'                   enable 'no'
 # z4h install ohmyzsh/ohmyzsh || return
 z4h install xs5871/p10k-jj-status || return
 
+# ── Completion search path (MUST precede `z4h init`) ─────────────────────────
+# `z4h init` runs compinit internally, so fpath is effectively frozen from that
+# point on: a later `fpath+=` registers nothing, because the lazy-load hook in
+# section 9 only re-runs compinit when ${+_comps} is unset — and z4h has already
+# set it. That is why the nix profile's completions (_bat _delta _eza _fastfetch
+# _fd _gh _git_extras _mise _rg _uv _yazi _yq _zoxide) belong here and not there.
+#
+# Probe the prefixes directly rather than reading $HOMEBREW_PREFIX: the brew
+# shellenv block that exports it does not run until section 1, below. The (N-/)
+# qualifier drops any entry that is not an existing directory, so this is inert
+# on a machine without nix, without Homebrew, or on a non-darwin host.
+fpath+=(
+    /etc/profiles/per-user/$USER/share/zsh/site-functions(N-/)  # nix home-manager profile
+    /run/current-system/sw/share/zsh/site-functions(N-/)        # nix-darwin system profile
+    /opt/homebrew/share/zsh/site-functions(N-/)                 # brew (Apple Silicon)
+    /usr/local/share/zsh/site-functions(N-/)                    # brew (Intel)
+)
+typeset -U fpath
+
 # Install or update core components (fzf, zsh-autosuggestions, etc.) and
 # initialize Zsh. After this point console I/O is unavailable until Zsh
 # is fully initialized. Everything that requires user interaction or can
@@ -97,9 +116,22 @@ if [[ $OSTYPE == darwin* ]]; then
 fi
 
 # === 2. PATH Configuration (consolidated for clarity) ===
+# Nix must outrank Homebrew. `brew shellenv` (section 1, above) PREPENDS
+# /opt/homebrew/bin, while nix's profiles are exported much earlier by
+# /etc/zshenv — so without an explicit re-order every tool this flake declares in
+# modules/home/packages.nix (bat, git, rg, jq, fd, eza, uv, tmux, delta, gh,
+# yazi, zoxide, btop, …) resolves to a brew copy instead, leaving home.packages
+# pinning a version nothing actually executes.
+#
+# $HOME/.local/bin stays ahead of nix deliberately: it carries the uv tool shims
+# (token-auditor / codax), op-adopt, and the agent-journal wrappers. A hand-built
+# binary dropped there therefore still wins over nix — that is the trade, not a
+# bug.
 path=(
     $HOME/.opencode/bin
     $HOME/.local/bin
+    /etc/profiles/per-user/$USER/bin(N-/)   # nix home-manager profile
+    /run/current-system/sw/bin(N-/)         # nix-darwin system profile
     ${HOMEBREW_PREFIX:-/opt/homebrew}/opt/libpq/bin(N-/)
     "/Applications/IntelliJ IDEA.app/Contents/MacOS"
     $HOME/.lmstudio/bin
@@ -108,6 +140,12 @@ path=(
     $HOME/.bun/bin
     $path
 )
+
+# The nix dirs are already present in the inherited $path (from /etc/zshenv), and
+# .zshrc is sourced for EVERY interactive shell, so the prepend above duplicates
+# them and nested shells compound it. -U keeps the first occurrence and drops the
+# rest, which is exactly the precedence we just declared.
+typeset -U path
 
 export PATH
 
@@ -506,7 +544,13 @@ command -v atuin >/dev/null 2>&1 && zcached atuin-init "$(command -v atuin)" atu
 # z4h calls compinit internally; we detect this via ${+_comps} and skip a redundant
 # second call. The old guard (typeset -f compinit) was unreliable — z4h autoloads
 # compinit so it always appeared defined before it had actually run.
-fpath+=${HOMEBREW_PREFIX:-/opt/homebrew}/share/zsh/site-functions
+#
+# fpath is NOT extended here. It used to be (a bare
+# `fpath+=${HOMEBREW_PREFIX}/share/zsh/site-functions`), but that line was dead:
+# by this point z4h's compinit has already run and set ${+_comps}, so the guard
+# below never fires and nothing appended here is ever scanned. Every completion
+# directory — nix profile and Homebrew alike — is now added in the PRE-INIT
+# section, immediately above `z4h init`.
 
 _zsh_lazy_load_completions() {
   add-zsh-hook -d precmd _zsh_lazy_load_completions 2>/dev/null || true

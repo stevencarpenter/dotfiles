@@ -210,6 +210,22 @@ deliberate updates and `just brew-audit` to compare declared and installed inven
 `brew list`, `brew leaves`, and `brew tap` queries. It never invokes Homebrew cleanup or uninstall.
 **Never** set activation cleanup to `"zap"`; it deletes application data.
 
+What stays in Homebrew rather than nixpkgs, and why:
+
+| Kept in brew | Reason |
+|---|---|
+| GUI casks, bespoke fonts | no nixpkgs equivalent, or too heavy to build (e.g. iosevka) |
+| `zsh`, `bash` + completions | the zshrc probes the Homebrew prefix for them |
+| `tailscale` (`identity != "work"`) | nixpkgs ships binaries only; nix-darwin has no `services.tailscale`, so `brew services` supervises `tailscaled` |
+| Swift toolchain (`caps.dev`) | in nixpkgs but not reliably cached for aarch64-darwin — a switch would compile Swift from source |
+| `railway`, `crush` | packaged in nixpkgs (or not), but ship far faster than the stable channel tracks |
+| `worktrunk`, `herdr`, `mole` | no nixpkgs equivalent |
+
+Everything else that is a plain CLI belongs in `modules/home/packages.nix`. Note that nix only
+*wins* a name collision because `home/.config/zsh/.zshrc` explicitly orders the nix profiles ahead
+of `/opt/homebrew/bin`; `brew shellenv` prepends itself, so removing that ordering silently makes
+every duplicated `home.packages` entry inert.
+
 ## Vendored Python tools
 
 An isolated `uv` project (Python 3.14+, no runtime deps). See [CLAUDE.md](CLAUDE.md) for

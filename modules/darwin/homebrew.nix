@@ -3,6 +3,7 @@
   pkgs,
   lib,
   caps,
+  identity,
   user,
   ...
 }:
@@ -17,8 +18,9 @@
 # Capability gating mirrors the Brewfile's template blocks:
 #   tiling  → WM/status-bar tap+brew+cask stack
 #   gui     → GUI casks + GUI fonts
-#   dev     → railway CLI + dev-flavored font casks
-#   identity == "work" → conftest
+#   dev     → railway CLI + Swift toolchain + dev-flavored font casks
+#   identity != "work" → tailscale (homelab access; matches the tailscale.zsh
+#                        profile.d gate in modules/home/dotfiles.nix)
 let
   isAarch64 = pkgs.stdenv.hostPlatform.isAarch64;
 in
@@ -67,7 +69,11 @@ in
     # Render the Brewfile to a stable global location.
     global.brewfile = true;
 
-    taps = lib.optionals caps.tiling [
+    taps = [
+      # Ungated: carries `crush`, declared in brews below (rationale there).
+      "charmbracelet/tap"
+    ]
+    ++ lib.optionals caps.tiling [
       "nikitabobko/tap"
       "FelixKratz/formulae"
     ];
@@ -84,12 +90,33 @@ in
       "watch"
       # Git worktree helper; not confirmed in nixpkgs — kept brew.
       "worktrunk"
+      # No nixpkgs equivalent; both are homebrew/core formulae.
+      "herdr"
+      "mole"
+      # charmbracelet/tap/crush. nixpkgs DOES package `crush`, but the flake
+      # tracks stable 26.05 while upstream ships roughly every four days, so
+      # the nix attr trails by months — the same trade that keeps `railway` a
+      # brew. Fully-qualified + `trusted` because Homebrew 6 requires explicit
+      # trust for third-party tap code (see the sketchybar/borders block).
+      {
+        name = "charmbracelet/tap/crush";
+        trusted = true;
+      }
       # NOTE: `docker-completion` from the old Brewfile is dropped — OrbStack
       # (gui cask below) ships the docker CLI + its shell completions.
+      #
+      # NOTE: `archon` (coleam00/archon) is deliberately NOT declared — it is
+      # being retired from this machine rather than adopted.
     ]
     # mactop is a macOS-native (Apple Silicon) power monitor — only builds/
     # makes sense on aarch64 (guard is defensive; both current hosts qualify).
     ++ lib.optionals isAarch64 [ "mactop" ]
+    # Homelab access runs over Tailscale on non-work machines. Kept in Homebrew
+    # rather than nixpkgs on purpose: nixpkgs ships the binaries only, and
+    # nix-darwin has no `services.tailscale` (that option is NixOS-only), so
+    # `brew services` remains what actually supervises tailscaled. Mirrors the
+    # `identity != "work"` gate on profile.d/tailscale.zsh in dotfiles.nix.
+    ++ lib.optionals (identity != "work") [ "tailscale" ]
     ++ lib.optionals caps.tiling [
       # Homebrew 6 requires explicit trust for third-party tap code. Keep
       # this scoped to the two formulae we install rather than trusting the
@@ -107,6 +134,15 @@ in
     ++ lib.optionals caps.dev [
       # railway CLI: fast-moving vendor tool, nixpkgs lags — kept brew.
       "railway"
+      # Swift toolchain. These four DO exist in the locked nixpkgs, but
+      # available != cached: a Swift build on aarch64-darwin can turn a switch
+      # into a multi-hour source compile, the same hazard that keeps iosevka a
+      # cask. Homebrew ships bottles. Promote to home.packages individually
+      # only once `nix build --dry-run` reports one under "will be fetched".
+      "swiftlint"
+      "swiftformat"
+      "swift-format"
+      "xcbeautify"
     ];
     # NOTE: `conftest` moved to nixpkgs — see the work-only condition in
     # modules/home/packages.nix.
@@ -125,6 +161,11 @@ in
       "orbstack"
       "the-unarchiver"
       "codex"
+      "alt-tab"
+      "firefox@developer-edition"
+      "google-chrome"
+      "handy"
+      "visual-studio-code"
       # Bespoke Powerlevel10k-patched Meslo build — not a standard nixpkgs
       # font, stays a cask.
       "font-meslo-for-powerlevel10k"
