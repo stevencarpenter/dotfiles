@@ -17,6 +17,14 @@
 
     agenix.url = "github:ryantm/agenix";
     agenix.inputs.nixpkgs.follows = "nixpkgs";
+
+    # Escape hatch for tools whose upstream release cadence outruns the stable
+    # channel's backport window — the allowlist lives in
+    # modules/home/packages.nix. Deliberately does NOT set
+    # `inputs.nixpkgs.follows`: tracking a different channel is the entire
+    # point, and unlike nix-darwin/home-manager/agenix this input has no
+    # nixpkgs input of its own — it IS nixpkgs.
+    nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
   };
 
   outputs =
@@ -27,6 +35,7 @@
       home-manager,
       nix-homebrew,
       agenix,
+      nixpkgs-unstable,
     }:
     let
       machines = import ./lib/machines.nix;
