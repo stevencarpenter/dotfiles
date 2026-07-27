@@ -127,9 +127,61 @@ fi
 # (token-auditor / codax), op-adopt, and the agent-journal wrappers. A hand-built
 # binary dropped there therefore still wins over nix — that is the trade, not a
 # bug.
+#
+# ── mise shims: below ~/.local/bin, above nix and brew ───────────────────────
+# The slot is forced by what actually collides, not by taste:
+#   mise ∩ nix          = {}  — packages.nix ships no language runtimes, so the
+#                              two inventories are disjoint by design; ordering
+#                              against nix is free today and this keeps mise's
+#                              per-project pin winning if that ever changes.
+#   mise ∩ brew         = {node, npm, npx, goreleaser, swiftlint} — mise MUST
+#                              win these, or the version pinned in
+#                              ~/.config/mise/config.toml is not what runs.
+#   mise ∩ ~/.local/bin = {stevectl} — the hand-built binary must win, per the
+#                              paragraph directly above. The shim is also
+#                              directory-sensitive (`mise which stevectl` fails
+#                              with "not currently active" outside a project
+#                              that uses it), so letting it shadow ~/.local/bin
+#                              makes `stevectl` resolve differently per cwd.
+#
+# This used to be a blind `path=($HOME/.local/share/mise/shims $path)` at the
+# very END of this file, which landed the shims at position 1 — ahead of
+# ~/.local/bin and nix both, silently inverting the precedence declared here.
+#
+# The probe guards against a shim farm orphaned by a moved/removed mise binary:
+# all ~105 shims point at whichever mise was current when `mise reshim` last
+# ran, so they dangle as a group. A dangling shim is uniquely poisonous, because
+# zsh disagrees with itself about whether the command exists — the command hash
+# is filled from readdir(), so commands[terraform] IS set, while `=terraform`
+# does a real access(X_OK) and fails. z4h's -z4h-compinit:86 runs exactly that
+# pair, and a failed `=cmd` expansion is a FATAL zsh error that unwinds the
+# whole call stack: compinit, zsh-autosuggestions, zsh-syntax-highlighting, the
+# keybindings and the p10k prompt all die with it. One dead symlink presents as
+# "terraform not found" plus a shell with no tab completion, no right-arrow
+# accept, and a prompt that only settles when you press Enter.
+#
+# The probe MUST be an array assignment: `[[ -n <pattern> ]]` does not perform
+# filename generation in zsh, so it would test the literal pattern, always pass,
+# and silently defeat the guard. (N-*[1]) = nullglob / follow symlinks /
+# executable / stop at the first hit, so this costs one stat when healthy.
+_mise_shim_dir=$HOME/.local/share/mise/shims
+_mise_shims_ok=($_mise_shim_dir/*(N-*[1]))    # at least one shim resolves
+_mise_shims_any=($_mise_shim_dir/*(N[1]))     # dir holds any entry at all
+_mise_shim_path=()
+if (( ${#_mise_shims_ok} )); then
+    _mise_shim_path=($_mise_shim_dir)
+elif (( ${#_mise_shims_any} )); then
+    # Entries exist but none resolve — stale farm. Warn and leave it off PATH;
+    # staying silent would drop go/java/node/cargo/terraform and turn this into
+    # a second-order "command not found" mystery. An empty/absent dir (fresh
+    # machine) falls through quietly: there is nothing stale to report.
+    print -u2 "mise: every shim in $_mise_shim_dir is broken — run 'mise reshim' (or remove the dir if mise is gone)"
+fi
+
 path=(
     $HOME/.opencode/bin
     $HOME/.local/bin
+    $_mise_shim_path                        # mise shims (empty array if stale)
     /etc/profiles/per-user/$USER/bin(N-/)   # nix home-manager profile
     /run/current-system/sw/bin(N-/)         # nix-darwin system profile
     ${HOMEBREW_PREFIX:-/opt/homebrew}/opt/libpq/bin(N-/)
@@ -148,6 +200,8 @@ path=(
 typeset -U path
 
 export PATH
+
+unset _mise_shim_dir _mise_shims_ok _mise_shims_any _mise_shim_path
 
 # === 3. Environment Variables ===
 export GPG_TTY=$TTY
@@ -588,10 +642,12 @@ fi
 if command -v wt >/dev/null 2>&1; then zcached wt-shell-init "$(command -v wt)" command wt config shell init zsh; fi
 
 # mise (polyglot runtime manager) - lazy load with hook prevention
+#
+# The shims directory is NOT added here. It is declared in section 2 with the
+# rest of the PATH precedence, because adding it at this point in the file put
+# it at position 1 — ahead of ~/.local/bin and nix — which inverted the order
+# section 2 goes to some length to establish. Precedence lives in one place.
 if command -v mise >/dev/null 2>&1; then
-  # Add shims to PATH
-  path=($HOME/.local/share/mise/shims $path)
-
   # Create wrapper function that activates on first use
   mise() {
     if [[ -z "${MISE_SHELL-}" ]]; then

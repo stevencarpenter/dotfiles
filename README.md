@@ -226,6 +226,26 @@ Everything else that is a plain CLI belongs in `modules/home/packages.nix`. Note
 of `/opt/homebrew/bin`; `brew shellenv` prepends itself, so removing that ordering silently makes
 every duplicated `home.packages` entry inert.
 
+### Fast-moving tools and the stable pin
+
+Shipping faster than the stable channel tracks is **no longer** a reason to keep a tool in Homebrew.
+`modules/home/packages.nix` opens with a `fastMovingPackages` allowlist: any name in it is drawn
+from a second `nixpkgs-unstable` flake input, while everything else stays on the `26.05` pin.
+Selection is explicit rather than an overlay, so unstable versions never leak into other packages'
+dependency graphs and the rest of the closure keeps its cache hits. An eval-time assertion fails the
+build if a package is declared in both channels.
+
+Currently allowlisted: `mise`, `uv`, `fzf`, `lazygit`, `zoxide`, `ripgrep` — measured 2026-07-26 at
+between one minor version and ~15 releases behind upstream (`mise` was the worst, ~2 months). Most
+CLI tools do **not** belong here: `gh`, `yazi`, `neovim`, `delta`, `bat`, `fd`, and `btop` were all
+exactly current on stable. Add a tool only after measuring it.
+
+The `railway` and `crush` rows above predate this mechanism, and their stated reason no longer
+holds — on unstable they sit one release behind upstream rather than months. They remain brews only
+because moving them is a package-manager migration rather than a channel change; see
+`docs/superpowers/specs/2026-07-26-fast-moving-package-channel-lag-design.md` §7. That follow-up
+should also revisit the `worktrunk` row: it *is* packaged in nixpkgs-unstable, at 0.66.0.
+
 ## Vendored Python tools
 
 An isolated `uv` project (Python 3.14+, no runtime deps). See [CLAUDE.md](CLAUDE.md) for
