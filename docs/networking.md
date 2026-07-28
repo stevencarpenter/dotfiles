@@ -13,9 +13,12 @@ mid-conversation, and the open work that still needs to land in this repo
 
 What this repo currently touches networking-wise:
 
-- `home/.config/atuin/config.toml` — points at
-  `https://logbook.snugmarina.org` for shell-history sync. Gated by the
-  `atuin` capability.
+- `home/.config/atuin/config.sync.toml` — points at
+  `https://logbook.snugmarina.org` for shell-history sync. Deployed as
+  `~/.config/atuin/config.toml` on machines where the `atuin` capability is
+  true. Machines where it is false get `config.local.toml` instead, which sets
+  `auto_sync = false` and names no server — the capability selects the
+  variant, it does not gate the file's existence.
 - `home/.config/zsh/profile.d/tailscale.zsh` — `tsexit` helpers for picking
   Tailscale exit nodes (homelab or Mullvad add-on). Sourced by zsh on any
   machine where `tailscale` is installed.

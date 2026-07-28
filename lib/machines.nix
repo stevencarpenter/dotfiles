@@ -19,9 +19,14 @@
 #   sketchybar_workspace_badges — allow SketchyBar workspace app icons to query
 #            LaunchServices via lsappinfo for dock notification dots. Keep this
 #            off on machines where LaunchServices is under triage.
-#   atuin  — deploy ~/.config/atuin/config.toml pointing at the self-hosted
-#            atuin server. Off on work machines so corporate shells never sync
-#            history to the home lab.
+#   atuin  — sync shell history to the self-hosted atuin server. Selects WHICH
+#            config variant deploys, not whether one does: true ->
+#            home/.config/atuin/config.sync.toml (carries sync_address),
+#            false -> config.local.toml (auto_sync = false, names no server).
+#            BOTH carry history_filter and the tmux popup — those are not
+#            sync concerns and belong everywhere. Leave it false anywhere
+#            history should stay on the machine it was typed on. See
+#            docs/superpowers/specs/2026-07-27-atuin-config-split-design.md.
 #   mcp    — deploy the MCP master config + run the post-apply sync hook that
 #            generates per-tool MCP configs (codex, opencode, cursor, copilot,
 #            …). Off on machines that don't run a constellation of AI dev tools.

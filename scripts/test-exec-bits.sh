@@ -25,6 +25,7 @@ exec_scripts=(
   home/.config/tmux/scripts/claude-pane-monitor.sh
   scripts/host-capability.sh
   scripts/sync-side-channels.sh
+  scripts/test-atuin-filter-parity.sh
   scripts/test-bootstrap-clt-gate.sh
   scripts/test-external-overlay-contract.sh
   scripts/test-nix-review-regressions.sh

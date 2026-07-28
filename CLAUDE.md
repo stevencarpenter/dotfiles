@@ -154,7 +154,10 @@ in `README.md`. Where each capability is enforced:
   activation) and `modules/darwin/homebrew.nix` (WM tap/brew/cask block, `font-sketchybar-app-font`).
 - **`sketchybar_workspace_badges`** — `modules/home/tiling.nix` generates
   `~/.config/sketchybar/machine.env` (`SKETCHYBAR_WORKSPACE_BADGES=0/1`).
-- **`atuin`** — `modules/home/dotfiles.nix` links `~/.config/atuin/config.toml`.
+- **`atuin`** — `modules/home/dotfiles.nix` links `~/.config/atuin/config.toml` on *every* machine;
+  the capability selects which variant (`config.sync.toml` with the self-hosted `sync_address`, vs
+  `config.local.toml` with `auto_sync = false`). Both carry `history_filter` and `[tmux] enabled`.
+  `scripts/test-atuin-filter-parity.sh` keeps the two filter lists identical.
 - **`mcp`** — `modules/home/dotfiles.nix` (master config + overlay + overrides `.keep`) and the
   `mcpSync` hook in `modules/home/sync-hooks.nix`. (No github MCP server ships anywhere: `mcp_sync`
   strips a `github` server via `RETIRED_MCP_SERVER_NAMES`, and the `github@claude-plugins-official`

@@ -1,0 +1,40 @@
+# Atuin client config — NON-SYNCING variant. Selected by
+# modules/home/dotfiles.nix when caps.atuin is false; the syncing twin is
+# config.sync.toml.
+#
+# The history_filter blocks in the two files MUST stay byte-identical —
+# enforced by scripts/test-atuin-filter-parity.sh in dotfiles-hygiene-ci.
+#
+# auto_sync = false and the absent sync_address are deliberate AS A PAIR.
+# Atuin's own defaults are `sync_address = "https://api.atuin.sh"` and
+# `auto_sync = true` (see `atuin default-config`), so omitting the address
+# alone would leave the PUBLIC Atuin server configured. Having no config file
+# at all — which is what this machine had until 2026-07-27 — is not a safe
+# state either; it is a silent opt-in to those upstream defaults. History on
+# this machine stays local, and says so.
+auto_sync = false
+
+# --- BEGIN history_filter (parity-checked against the twin variant) ---
+history_filter = [
+    "DIUN_TOKEN",
+    "NTFY_PASSWORD",
+    "NTFY_ADMIN_PASS",
+    "DIUN_USER_PASS",
+    "tk_[A-Za-z0-9_]+",
+    "op item (create|edit).*password",
+    "sk-proj-[A-Za-z0-9_-]+",
+    "ghp_[A-Za-z0-9]+",
+    "xox[bap]-[A-Za-z0-9-]+",
+    "AKIA[0-9A-Z]{16}",
+]
+# --- END history_filter ---
+
+# Render the interactive search UI in a tmux popup rather than inline in the
+# current pane. This drives BOTH ctrl-r and the up-arrow binding: `atuin init
+# zsh` reads this key at init time and emits `export ATUIN_TMUX_POPUP=false`
+# when it is absent or false, after which __atuin_tmux_popup_check fails and
+# __atuin_search_cmd falls back to rendering inline. Requires tmux >= 3.2;
+# outside tmux it renders inline regardless. The ATUIN_TMUX_POPUP env var can
+# override at runtime.
+[tmux]
+enabled = true

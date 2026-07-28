@@ -120,3 +120,6 @@ jobs:
 
       - name: Validate Railway psql failure propagation
         run: scripts/test-railway-psql-errors.sh
+
+      - name: Validate atuin config variant parity
+        run: scripts/test-atuin-filter-parity.sh
