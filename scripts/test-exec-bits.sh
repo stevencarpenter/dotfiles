@@ -26,6 +26,8 @@ exec_scripts=(
   scripts/host-capability.sh
   scripts/sync-side-channels.sh
   scripts/test-atuin-filter-parity.sh
+  scripts/test-atuin-filter-parity-mutations.sh
+  scripts/test-eval-cache.sh
   scripts/test-bootstrap-clt-gate.sh
   scripts/test-external-overlay-contract.sh
   scripts/test-nix-review-regressions.sh

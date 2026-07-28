@@ -123,3 +123,19 @@ jobs:
 
       - name: Validate atuin config variant parity
         run: scripts/test-atuin-filter-parity.sh
+
+      # Mutation audit: proves the parity guard above actually FAILS on each
+      # regression it claims to catch. Its first version passed while the
+      # original defect was reproducible, so "the guard is green" is not by
+      # itself evidence of anything.
+      - name: Validate the atuin parity guard actually fails on regressions
+        run: scripts/test-atuin-filter-parity-mutations.sh
+
+      # zsh is not guaranteed on the runner image, and eval-cache.zsh cannot be
+      # exercised without it. Install rather than skip: a silently skipped test
+      # is indistinguishable from a passing one.
+      - name: Ensure zsh is available
+        run: command -v zsh >/dev/null 2>&1 || sudo apt-get install -y zsh
+
+      - name: Validate zsh eval-cache behavior
+        run: scripts/test-eval-cache.sh
