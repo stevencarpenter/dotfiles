@@ -15,10 +15,22 @@ login_activation="$(
   nix eval --no-eval-cache --raw \
     '.#darwinConfigurations.personal-mac.config.system.activationScripts.postActivation.text'
 )"
-if ! rg -Fq 'UserShell' <<<"$login_activation" || ! rg -Fq '/bin/zsh' <<<"$login_activation"; then
-  echo "emitted system activation does not enforce UserShell=/bin/zsh" >&2
-  exit 1
-fi
+# Anchored on the actual dscl commands, not on the words appearing somewhere.
+# The previous form checked only that 'UserShell' and '/bin/zsh' occurred in
+# the emitted text — and 'UserShell' also occurs in the block's own comment and
+# in a prefix strip, so changing the dscl read to a different attribute left
+# the assertion green (found by mutation testing, 2026-07-28). A contract test
+# has to match the line that does the work.
+# shellcheck disable=SC2016  # these are literals in the EMITTED script, not expansions here
+for shell_contract in \
+  '_login_shell="/bin/zsh"' \
+  '/usr/bin/dscl . -read "$_ds_user" UserShell' \
+  '/usr/bin/dscl . -create "$_ds_user" UserShell "$_login_shell"'; do
+  if ! rg -Fq "$shell_contract" <<<"$login_activation"; then
+    echo "emitted system activation lacks login-shell contract: $shell_contract" >&2
+    exit 1
+  fi
+done
 
 for pin_contract in \
   '/opt/homebrew/var/homebrew/pinned' \
@@ -58,7 +70,28 @@ if ! jq -e 'index("agenixDecrypt") != null' <<<"$skills_after" >/dev/null; then
   exit 1
 fi
 
-# Atuin config variant wiring.
+# Atuin sync POLICY.
+#
+# The wiring assertion further down derives its expectations FROM
+# lib/machines.nix, so it is blind by construction to the capability itself
+# being set wrong — flip a row and the expectation flips with it. This
+# invariant is the missing half: a machine whose identity is "work" must never
+# sync shell history to the self-hosted server. Stated as a rule over identity
+# rather than a hardcoded host list, so it covers rows that do not exist yet
+# and names no machine.
+sync_policy_violations="$(
+  # shellcheck disable=SC2016  # ${n} is Nix interpolation, not shell expansion
+  nix eval --raw --file lib/machines.nix --apply \
+    'm: builtins.concatStringsSep " " (builtins.filter (s: s != "") (map (n:
+       if m.${n}.identity == "work" && m.${n}.caps.atuin then n else ""
+     ) (builtins.attrNames m)))'
+)"
+if [ -n "$sync_policy_violations" ]; then
+  echo "work-identity machines must not enable atuin sync: $sync_policy_violations" >&2
+  exit 1
+fi
+
+# Atuin config variant WIRING.
 #
 # modules/home/dotfiles.nix picks the deployed config with
 # `if caps.atuin then "sync" else "local"`. Nothing else proves that ternary
@@ -95,4 +128,4 @@ while read -r host expected_variant; do
   esac
 done <<<"$expected_variants"
 
-echo "login-shell, Homebrew pin, agenix activation ordering, and atuin variant wiring contracts are emitted"
+echo "login-shell, Homebrew pin, agenix ordering, atuin sync policy, and atuin variant wiring contracts are emitted"

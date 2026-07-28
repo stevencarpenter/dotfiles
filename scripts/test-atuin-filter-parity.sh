@@ -47,6 +47,33 @@ done
 # Single pass with inline table tracking — no process substitution and no
 # mktemp, both of which are blocked under the Claude Code sandbox and would
 # turn a real assertion into a silent skip.
+# Strip a trailing TOML comment from a value, honouring quotes. A bare
+# `${value%%#*}` truncates `sync_address = "https://host/#frag"` to
+# `"https://host/`, which fails the assertion for a config that is perfectly
+# valid. Scans instead, tracking whether it is inside a quoted string.
+#
+# Limit: a `\"` escape inside a basic string ends the scan's string early.
+# TOML literal strings ('…') have no escapes, and no value this script checks
+# contains one, but that is the boundary if a future key needs it.
+strip_toml_comment() {
+  local v="$1" out="" quote="" ch i
+  for ((i = 0; i < ${#v}; i++)); do
+    ch="${v:i:1}"
+    if [[ -n "${quote}" ]]; then
+      out+="${ch}"
+      [[ "${ch}" == "${quote}" ]] && quote=""
+    elif [[ "${ch}" == '"' || "${ch}" == "'" ]]; then
+      quote="${ch}"
+      out+="${ch}"
+    elif [[ "${ch}" == '#' ]]; then
+      break
+    else
+      out+="${ch}"
+    fi
+  done
+  printf '%s' "${out}"
+}
+
 toml_assignment() {
   local file="$1" want_table="$2" key="$3"
   local current="" line trimmed lhs value
@@ -70,7 +97,7 @@ toml_assignment() {
     lhs="${lhs%[\"\']}"
     [[ "${lhs}" == "${key}" ]] || continue
     value="${trimmed#*=}"
-    value="${value%%#*}"                       # drop trailing comment
+    value="$(strip_toml_comment "${value}")"   # quote-aware comment strip
     value="${value#"${value%%[![:space:]]*}"}" # ltrim
     value="${value%"${value##*[![:space:]]}"}" # rtrim
     printf '%s\n' "${value}"

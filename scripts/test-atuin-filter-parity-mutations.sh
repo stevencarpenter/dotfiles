@@ -185,6 +185,22 @@ check "sync_address repointed in the sync variant" FAIL "lost its top-level self
 fresh; mut delline "${SYNC}" 'sync_address ='
 check "sync_address removed from the sync variant" FAIL "lost its top-level self-hosted"
 
+# --- comment stripping must respect quotes ------------------------------
+# Both the config value AND the guard's expected literal are mutated together,
+# so this isolates the parser: the value is legitimate and matches, and the
+# only way to fail is to truncate at the '#' inside the string.
+GUARD="${work}/w/${guard}"
+fresh
+mut sub "${SYNC}" 'sync_address = "https://logbook.snugmarina.org"' \
+  'sync_address = "https://logbook.snugmarina.org/#frag"'
+mut sub "${GUARD}" '"https://logbook.snugmarina.org"'"'" '"https://logbook.snugmarina.org/#frag"'"'"
+check "a '#' inside a quoted value is not treated as a comment" PASS -
+
+fresh
+mut sub "${SYNC}" 'sync_address = "https://logbook.snugmarina.org"' \
+  'sync_address = "https://logbook.snugmarina.org" # real trailing comment'
+check "a genuine trailing comment after a value is stripped" PASS -
+
 # --- byte-size divergence (zcached stamp insurance, see the guard) ------
 fresh; mut padto "${LOCAL}" "${SYNC}"
 check "variants padded to identical byte size" FAIL "identical size"
