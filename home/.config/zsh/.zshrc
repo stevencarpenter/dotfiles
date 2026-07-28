@@ -295,7 +295,7 @@ alias lzg='lazygit'
 alias tig='git log --reverse'
 alias lzd='lazydocker'
 # Config editing
-alias dots='cd $ZDOTDIR'
+alias dots='cd ~/.dotfiles/'
 alias zshrc='nvim $ZDOTDIR/.zshrc'
 alias zprofile='nvim $ZDOTDIR/.zprofile'
 alias ez='exec zsh'
