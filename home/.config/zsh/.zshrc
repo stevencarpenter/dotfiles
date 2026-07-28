@@ -295,7 +295,7 @@ alias lzg='lazygit'
 alias tig='git log --reverse'
 alias lzd='lazydocker'
 # Config editing
-alias dots='cd $ZDOTDIR'
+alias dots='cd ~/.dotfiles/'
 alias zshrc='nvim $ZDOTDIR/.zshrc'
 alias zprofile='nvim $ZDOTDIR/.zprofile'
 alias ez='exec zsh'
@@ -591,7 +591,12 @@ command -v zoxide >/dev/null 2>&1 && zcached zoxide-init "$(command -v zoxide)" 
 # Scrub a stale ATUIN_TMUX_POPUP a long-lived tmux server may have frozen in;
 # atuin's config.toml [tmux] block should be the only source of truth.
 unset ATUIN_TMUX_POPUP
-command -v atuin >/dev/null 2>&1 && zcached atuin-init "$(command -v atuin)" atuin init zsh
+# -k on the config: `atuin init zsh` reads config.toml and bakes the [tmux]
+# decision into the script it emits, so the config is a cache input alongside
+# the binary. Without it, a config change never invalidates the cache.
+command -v atuin >/dev/null 2>&1 &&
+  zcached -k "${XDG_CONFIG_HOME:-$HOME/.config}/atuin/config.toml" \
+    atuin-init "$(command -v atuin)" atuin init zsh
 
 # === 9. Completions ===
 # Defer custom completion registration until after first prompt.

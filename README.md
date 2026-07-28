@@ -70,7 +70,7 @@ adding a machine is a one-row change and no gate site needs editing.
 |------------|:--:|:--:|-------|
 | `tiling` | yes | yes | AeroSpace + SketchyBar + borders (WM stack) |
 | `sketchybar_workspace_badges` | no | yes | SketchyBar dock-badge queries via `lsappinfo` |
-| `atuin` | yes | no | atuin client → self-hosted sync server |
+| `atuin` | yes | no | sync shell history to the self-hosted server (selects which config variant deploys; both machines get the config) |
 | `mcp` | yes | yes | MCP master config + per-tool sync hook |
 | `skills` | yes | yes | Claude skills manifest + sync hook |
 | `gui` | yes | yes | GUI apps + display fonts |

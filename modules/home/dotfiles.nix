@@ -146,11 +146,27 @@ in
       ".config/zsh/profile.d/tailscale.zsh"
     ]))
 
-    # ---- caps.atuin -------------------------------------------------------
+    # ---- atuin ------------------------------------------------------------
+    # Deployed on EVERY machine; caps.atuin selects only WHICH variant. The
+    # capability means "sync history to the self-hosted server" — it does not
+    # mean "have a config at all". history_filter and the tmux popup are not
+    # sync concerns, so they ship in both variants.
+    #
+    # An absent config is never a neutral state: atuin then runs on its own
+    # defaults, which include a PUBLIC sync_address and no history_filter at
+    # all. `atuin init zsh` also reads [tmux].enabled at init time and emits
+    # ATUIN_TMUX_POPUP=false when it is missing, so the search UI renders
+    # inline rather than in a popup. See docs/superpowers/specs/
+    # 2026-07-27-atuin-config-split-design.md.
+    #
+    # mkDefault leaves the external work wrapper room to outrank this, per the
+    # override seam below and the aerospace precedent in tiling.nix.
     # Link only the config file; atuin writes history.db into the same dir.
-    (lib.optionalAttrs caps.atuin (mkLinks [
-      ".config/atuin/config.toml"
-    ]))
+    {
+      ".config/atuin/config.toml".source = lib.mkDefault (
+        link ".config/atuin/config.${if caps.atuin then "sync" else "local"}.toml"
+      );
+    }
 
     # Whole-file override seam for tools without native include support.
     # An external module's ordinary source definition outranks this default.
