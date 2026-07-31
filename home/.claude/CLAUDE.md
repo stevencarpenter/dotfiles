@@ -63,3 +63,10 @@ This is a non-negotiable standing instruction.
 ## Agent Journaling
 
 If `agent-journal` is configured, use the journaling skills to record material decisions, todos, blockers, completed changes, and session wrap-ups. Do not journal secrets, credentials, or trivial command chatter.
+
+## Batallion
+
+To onboard a project onto batallion:
+`uv tool install --reinstall git+ssh://git@github.com/stevencarpenter/batallion`,
+then run `batallion onboard` and follow its instructions.
+Health check for an onboarded project: `batallion doctor`.

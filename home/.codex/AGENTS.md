@@ -59,3 +59,10 @@ Agent teams are enabled with **tmux mode** (`teammateMode: tmux`) — each agent
 Note: `mcp__idea__*`, `LSP`, `TeamCreate`, and other deferred tools require a `ToolSearch` call first to get their schema before invoking.
 
 This is a non-negotiable standing instruction.
+
+## Batallion
+
+To onboard a project onto batallion:
+`uv tool install --reinstall git+ssh://git@github.com/stevencarpenter/batallion`,
+then run `batallion onboard` and follow its instructions.
+Health check for an onboarded project: `batallion doctor`.
