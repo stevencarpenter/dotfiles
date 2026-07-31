@@ -153,22 +153,6 @@ let
       nerd-fonts.jetbrains-mono # font-jetbrains-mono-nerd-font
     ]
   );
-
-  # ─── Dev-only CLI tooling (dev gate) ────────────────────────────────────
-  # The Swift toolchain quartet (swiftlint / swiftformat / swift-format /
-  # xcbeautify) deliberately does NOT live here. Those attrs exist in the
-  # locked nixpkgs, but existing is not the same as being in the binary
-  # cache: a Swift build on aarch64-darwin can turn a `darwin-rebuild switch`
-  # into a multi-hour source compile. They stay dev-gated Homebrew brews for
-  # the same reason iosevka stays a cask (see homebrew.nix). Promote one here
-  # only after `nix build --dry-run` reports it under "will be fetched".
-  devTools = lib.optionals caps.dev (
-    with pkgs;
-    [
-      helix # `hx`
-    ]
-  );
-
   # ─── Dev-flavored fonts, high-confidence nixpkgs attrs (dev gate) ───────
   # The uncertain / heavy remainder stays as dev-gated Homebrew casks.
   devFonts = lib.optionals caps.dev (
@@ -194,7 +178,7 @@ let
   # Concatenation order is identical to the original `++` chain — `home.packages`
   # is a list, so reordering would change the derivation even though the set of
   # packages is unchanged.
-  allStable = stablePackages ++ guiFonts ++ devTools ++ devFonts ++ workTools;
+  allStable = stablePackages ++ guiFonts ++ devFonts ++ workTools;
 
   # Names claimed by BOTH channels. Inspects the fully assembled stable set, not
   # just the base list, so a future fast-mover added to a capability-gated block

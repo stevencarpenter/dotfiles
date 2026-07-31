@@ -159,13 +159,9 @@ in
       "bbedit"
       "obsidian"
       "orbstack"
-      "the-unarchiver"
       "codex"
       "alt-tab"
-      "firefox@developer-edition"
-      "google-chrome"
       "handy"
-      "visual-studio-code"
       # Bespoke Powerlevel10k-patched Meslo build — not a standard nixpkgs
       # font, stays a cask.
       "font-meslo-for-powerlevel10k"
