@@ -135,6 +135,30 @@ let
     actionlint # lints .github/workflows/
     yamllint
 
+    # ─── Security tooling (SAST / DAST / supply chain) ───────────────────
+    # Consumed by the security agents in the agents-k3-sec registry
+    # (security-auditor, sast-scanner, dependency-auditor, secrets-auditor,
+    # staging-pentester, terraform-security-reviewer). Vulnerability data is
+    # fetched at runtime (trivy DB, OSV, nuclei-templates auto-update), so
+    # these do not drift stale on the stable pin the way fast-moving CLIs do.
+    # semgrep/gitleaks/nmap live above and are not repeated here. OWASP ZAP
+    # is deliberately excluded: the dast-staging-guidelines skill runs the
+    # official zap-baseline Docker image (OrbStack) instead of the nix Java
+    # app.
+    trivy # deps + IaC + container images
+    osv-scanner # cross-ecosystem lockfile audit
+    trufflehog # verified secrets in git history
+    checkov # Terraform policy baseline
+    hadolint # Dockerfile lint
+    nuclei # template-driven DAST
+    ffuf # web content discovery
+    testssl # TLS config; binary is `testssl.sh`
+    gosec # Go SAST
+    cargo-audit # RustSec advisories against Cargo.lock
+    cargo-deny # Rust dep/licence bans
+    bandit # Python SAST
+    pip-audit # Python dep audit
+
     # ─── Language / secrets / runtime managers ──────────────────────────
     # NOTE: `uv` and `mise` are declared in fastMovingPackages above, not here.
     # python314: pin to Python 3.14+ per the vendored tools' requirement. If
