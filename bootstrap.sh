@@ -87,7 +87,15 @@ fi
 # nix-darwin's homebrew module runs `brew bundle` during activation, so brew
 # must exist BEFORE the first switch. This replaced nix-homebrew, whose
 # brew-src pin froze brew at a patched 6.0.1 while homebrew-core moved on.
-if [ ! -x /opt/homebrew/bin/brew ]; then
+#
+# DOTFILES_BREW_BIN is a test seam, NOT a relocation knob — modules/darwin/
+# homebrew.nix and modules/home/tiling.nix hardcode /opt/homebrew. It exists so
+# scripts/test-bootstrap-clt-gate.sh can drive both branches hermetically: an
+# absolute path is invisible to that harness's PATH-based stubbing, so on any
+# host without brew (i.e. every Linux CI runner) bootstrap would otherwise
+# download and execute the real Homebrew installer in the middle of the test.
+BREW_BIN="${DOTFILES_BREW_BIN:-/opt/homebrew/bin/brew}"
+if [ ! -x "$BREW_BIN" ]; then
   echo "==> Installing Homebrew (independent of nix) ..."
   # Download to a file first: in `bash -c "$(curl …)"` a curl failure is
   # swallowed (the substitution's exit status is lost) and bootstrap would
@@ -97,7 +105,7 @@ if [ ! -x /opt/homebrew/bin/brew ]; then
   NONINTERACTIVE=1 /bin/bash "$brew_install_sh"
   rm -f "$brew_install_sh"
 else
-  echo "==> Homebrew already installed: $(/opt/homebrew/bin/brew --version | head -1)"
+  echo "==> Homebrew already installed: $("$BREW_BIN" --version | head -1)"
 fi
 
 # ── 5. First switch ──────────────────────────────────────────────────────
