@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 import pytest
+from pathlib import Path
 
 import mcp_sync.skills as skills_mod
 from mcp_sync.skills import ResolvedSkill
@@ -68,7 +69,10 @@ def test_load_skills_manifest_rejects_non_object_root(tmp_path):
 def _manifest():
     return {
         "sources": {
-            "mattpocock": {"type": "git", "url": "https://example.com/x"},
+            "mattpocock": {
+                "type": "git",
+                "url": "https://github.com/stevencarpenter/x",
+            },
             "personal": {"type": "local", "path": "skills/personal"},
         },
         "skills": {
@@ -123,7 +127,7 @@ def test_resolve_skills_rejects_entry_without_source():
 
 def test_resolve_skills_rejects_source_without_type():
     manifest = _manifest()
-    manifest["sources"]["typeless"] = {"url": "https://example.com/y"}
+    manifest["sources"]["typeless"] = {"url": "https://github.com/stevencarpenter/y"}
     manifest["skills"]["t"] = {"source": "typeless", "path": "skills/x/t"}
     with pytest.raises(ValueError, match="missing required 'type'"):
         resolve_skills(manifest)
@@ -217,13 +221,17 @@ def test_ensure_git_source_clones_when_cache_absent(tmp_path, monkeypatch):
     calls = []
     monkeypatch.setattr(skills_mod, "_git", lambda *a, **k: calls.append((a, k)))
     cache_root = tmp_path / "cache"
-    source = {"type": "git", "url": "https://example.com/x", "ref": "main"}
+    source = {
+        "type": "git",
+        "url": "https://github.com/stevencarpenter/x",
+        "ref": "main",
+    }
     state = {"deployed": {}, "sources": {}}
     result = ensure_git_source("mattpocock", source, cache_root, state, now=1000.0)
     assert result == cache_root / "mattpocock"
     cache_dir = cache_root / "mattpocock"
     assert calls[0] == (
-        ("clone", "https://example.com/x", str(cache_dir)),
+        ("clone", "https://github.com/stevencarpenter/x", str(cache_dir)),
         {},
     )
     assert (("fetch", "origin", "main"), {"cwd": cache_dir}) in calls
@@ -236,7 +244,11 @@ def test_ensure_git_source_skips_fetch_when_cache_fresh(tmp_path, monkeypatch):
     monkeypatch.setattr(skills_mod, "_git", lambda *a, **k: calls.append(a))
     cache_root = tmp_path / "cache"
     (cache_root / "mattpocock").mkdir(parents=True)
-    source = {"type": "git", "url": "u", "refreshPeriod": "168h"}
+    source = {
+        "type": "git",
+        "url": "https://github.com/stevencarpenter/u",
+        "refreshPeriod": "168h",
+    }
     state = {"sources": {"mattpocock": {"last_fetch": 1000.0}}}
     ensure_git_source("mattpocock", source, cache_root, state, now=1000.0 + 3600)
     assert calls == []
@@ -247,7 +259,12 @@ def test_ensure_git_source_refetches_when_stale(tmp_path, monkeypatch):
     monkeypatch.setattr(skills_mod, "_git", lambda *a, **k: calls.append((a, k)))
     cache_root = tmp_path / "cache"
     (cache_root / "mattpocock").mkdir(parents=True)
-    source = {"type": "git", "url": "u", "ref": "v2", "refreshPeriod": "1h"}
+    source = {
+        "type": "git",
+        "url": "https://github.com/stevencarpenter/u",
+        "ref": "v2",
+        "refreshPeriod": "1h",
+    }
     state = {"sources": {"mattpocock": {"last_fetch": 1000.0}}}
     ensure_git_source("mattpocock", source, cache_root, state, now=1000.0 + 99999)
     cache_dir = cache_root / "mattpocock"
@@ -263,12 +280,25 @@ def test_ensure_git_source_refetches_when_ref_changes_even_if_fresh(
     monkeypatch.setattr(skills_mod, "_git", lambda *a, **k: calls.append((a, k)))
     cache_root = tmp_path / "cache"
     (cache_root / "mp").mkdir(parents=True)
-    source = {"type": "git", "url": "u", "ref": "v2", "refreshPeriod": "168h"}
-    state = {"sources": {"mp": {"last_fetch": 1000.0, "url": "u", "ref": "v1"}}}
+    source = {
+        "type": "git",
+        "url": "https://github.com/stevencarpenter/u",
+        "ref": "v2",
+        "refreshPeriod": "168h",
+    }
+    state = {
+        "sources": {
+            "mp": {
+                "last_fetch": 1000.0,
+                "url": "https://github.com/stevencarpenter/u",
+                "ref": "v1",
+            }
+        }
+    }
     ensure_git_source("mp", source, cache_root, state, now=1000.0 + 60)
     assert any(args == ("fetch", "origin", "v2") for args, _ in calls)
     assert state["sources"]["mp"]["ref"] == "v2"
-    assert state["sources"]["mp"]["url"] == "u"
+    assert state["sources"]["mp"]["url"] == "https://github.com/stevencarpenter/u"
 
 
 def test_ensure_git_source_updates_origin_when_url_changes(tmp_path, monkeypatch):
@@ -541,7 +571,11 @@ def test_run_skills_sync_deploys_local_and_vendored(tmp_path):
         manifest,
         {
             "sources": {
-                "mattpocock": {"type": "git", "url": "u", "refreshPeriod": "168h"},
+                "mattpocock": {
+                    "type": "git",
+                    "url": "https://github.com/stevencarpenter/u",
+                    "refreshPeriod": "168h",
+                },
                 "personal": {"type": "local", "path": "skills/personal"},
             },
             "skills": {
@@ -643,7 +677,12 @@ def test_ensure_git_source_force_bypasses_freshness(tmp_path, monkeypatch):
     monkeypatch.setattr(skills_mod, "_git", lambda *a, **k: calls.append(a))
     cache_root = tmp_path / "cache"
     (cache_root / "mp").mkdir(parents=True)
-    source = {"type": "git", "url": "u", "ref": "main", "refreshPeriod": "168h"}
+    source = {
+        "type": "git",
+        "url": "https://github.com/stevencarpenter/u",
+        "ref": "main",
+        "refreshPeriod": "168h",
+    }
     state = {"sources": {"mp": {"last_fetch": 1000.0}}}
     ensure_git_source("mp", source, cache_root, state, now=1000.0 + 60, force=True)
     assert ("fetch", "origin", "main") in calls
@@ -669,7 +708,13 @@ def test_run_skills_sync_refetches_skill_absent_from_fresh_cache(tmp_path, monke
     _write_json(
         manifest,
         {
-            "sources": {"mp": {"type": "git", "url": "u", "refreshPeriod": "168h"}},
+            "sources": {
+                "mp": {
+                    "type": "git",
+                    "url": "https://github.com/stevencarpenter/u",
+                    "refreshPeriod": "168h",
+                }
+            },
             "skills": {"tdd": {"source": "mp", "path": "skills/engineering/tdd"}},
         },
     )
@@ -698,7 +743,11 @@ def test_run_skills_sync_skips_skill_with_unexpected_error_and_continues(tmp_pat
         manifest,
         {
             "sources": {
-                "mp": {"type": "git", "url": "u", "refreshPeriod": "168h"},
+                "mp": {
+                    "type": "git",
+                    "url": "https://github.com/stevencarpenter/u",
+                    "refreshPeriod": "168h",
+                },
                 "personal": {"type": "local", "path": "skills/personal"},
             },
             "skills": {
@@ -781,7 +830,11 @@ def test_run_skills_sync_git_failure_still_deploys_local_skill(tmp_path, monkeyp
         manifest,
         {
             "sources": {
-                "mp": {"type": "git", "url": "u", "ref": "main"},
+                "mp": {
+                    "type": "git",
+                    "url": "https://github.com/stevencarpenter/u",
+                    "ref": "main",
+                },
                 "personal": {"type": "local", "path": "skills/personal"},
             },
             "skills": {
@@ -853,3 +906,94 @@ def test_run_skills_sync_prunes_dropped_source_from_state(tmp_path):
     written = json.loads(state.read_text())
     # "deadsource" is referenced by nothing in the manifest — pruned.
     assert written["sources"] == {}
+
+
+# --- git-source provenance -------------------------------------------------
+# Skill git sources are LIVE tracking clones (fetch + reset --hard FETCH_HEAD),
+# so whoever controls the repo controls what lands in ~/.claude/skills and gets
+# loaded by an agent. Every git source must therefore resolve to a repository
+# the operator owns. The allowlist is host+owner, fail-closed.
+
+
+def _git_manifest(url: str, allowed: list[str] | None = None) -> dict:
+    m = {
+        "sources": {"remote": {"type": "git", "url": url}},
+        "skills": {"thing": {"source": "remote", "path": "thing"}},
+    }
+    if allowed is not None:
+        m["allowedGitOwners"] = allowed
+    return m
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://github.com/stevencarpenter/agents",
+        "https://github.com/stevencarpenter/agents.git",
+        "git@github.com:stevencarpenter/agents.git",
+        "ssh://git@github.com/stevencarpenter/agents.git",
+    ],
+)
+def test_git_source_accepts_owned_repository_in_every_url_form(url):
+    resolved = resolve_skills(_git_manifest(url))
+    assert [s.name for s in resolved] == ["thing"]
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        # Different owner on the same host.
+        "https://github.com/someone-else/agents",
+        # Lookalike host that merely contains the allowed host string.
+        "https://github.com.evil.tld/stevencarpenter/agents",
+        # Allowed owner as a path segment under a foreign host.
+        "https://evil.tld/github.com/stevencarpenter/agents",
+        # Owner as a prefix of a different owner.
+        "https://github.com/stevencarpenter-evil/agents",
+        # Non-github forge.
+        "https://gitlab.com/stevencarpenter/agents",
+        # Userinfo trick pointing at another host.
+        "https://github.com@evil.tld/stevencarpenter/agents",
+    ],
+)
+def test_git_source_rejects_unowned_repository(url):
+    with pytest.raises(ValueError, match="not an allowed owner"):
+        resolve_skills(_git_manifest(url))
+
+
+def test_git_source_allowlist_is_extensible_for_overlays():
+    # An overlay (e.g. an internal work repo) extends the allowlist rather than
+    # editing this repo, so no third-party org name needs to live here.
+    url = "https://internal.example/org-name/skills"
+    with pytest.raises(ValueError, match="not an allowed owner"):
+        resolve_skills(_git_manifest(url))
+    resolved = resolve_skills(
+        _git_manifest(
+            url, allowed=["github.com/stevencarpenter", "internal.example/org-name"]
+        )
+    )
+    assert [s.name for s in resolved] == ["thing"]
+
+
+def test_git_source_allowlist_cannot_be_emptied_to_disable_the_check():
+    # An empty, null, or non-list allowlist must fail closed rather than
+    # degrading to "allow everything". Set the key explicitly so the default
+    # never applies.
+    for bad in ([], "github.com/stevencarpenter", None, {}, [""]):
+        manifest = {
+            "allowedGitOwners": bad,
+            "sources": {"remote": {"type": "git", "url": "https://github.com/x/y"}},
+            "skills": {"thing": {"source": "remote", "path": "thing"}},
+        }
+        with pytest.raises(ValueError, match="allowedGitOwners"):
+            resolve_skills(manifest)
+
+
+def test_repo_manifest_git_sources_are_all_owned():
+    # The shipped manifest itself must satisfy the rule. Vacuous today (no git
+    # sources), but this fails the moment an unowned one is added.
+    repo = Path(__file__).resolve().parents[2]
+    manifest = load_skills_manifest(
+        repo / "home" / ".config" / "skills" / "skills-master.json"
+    )
+    resolve_skills(manifest)

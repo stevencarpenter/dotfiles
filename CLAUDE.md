@@ -164,8 +164,15 @@ in `README.md`. Where each capability is enforced:
   strips a `github` server via `RETIRED_MCP_SERVER_NAMES`, and the `github@claude-plugins-official`
   plugin — which bundles a remote GitHub MCP server — is pinned `false` in
   `home/.claude/settings-base.json`. `gh-axi` is used for GitHub instead.)
-- **`skills`** — `modules/home/dotfiles.nix` (manifest + overlay) and the `skillsSync` hook. Also
-  gates the work-only decrypted skill blobs in `modules/home/secrets.nix`.
+- **`skills`** — `modules/home/dotfiles.nix` (manifest + overlay) and the `skillsSync` hook.
+  **Git-source provenance is enforced in code**, not just by review: a git skill source is a live
+  tracking clone (`fetch` + `reset --hard FETCH_HEAD`) whose contents an agent then executes, so
+  `resolve_skills` rejects any source whose `<host>/<owner>` is not in an allowlist
+  (`DEFAULT_ALLOWED_GIT_OWNERS` in `mcp_sync/src/mcp_sync/skills.py`). It fails closed — an empty or
+  malformed `allowedGitOwners` is an error, never allow-all. This repo's default names only the
+  maintainer's own forge account; a machine overlay extends the list via `allowedGitOwners` (it
+  deep-merges into the manifest), so a private overlay can permit its own organization without that
+  organization's name living in this public tree.
 - **`gui`** — `modules/darwin/homebrew.nix` (GUI casks) and `modules/home/packages.nix` (display
   fonts). CLI casks like `1password-cli` stay outside this gate.
 - **`dev`** — `modules/home/dev-tools.nix` (mise `conf.d/dev.toml`), `modules/home/packages.nix`

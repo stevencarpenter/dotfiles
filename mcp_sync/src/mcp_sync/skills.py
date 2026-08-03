@@ -11,6 +11,7 @@ import time
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlsplit
 from typing import Any
 
 from .sync import deep_merge, log_error, log_info, log_success
@@ -22,6 +23,85 @@ _DURATION_RE = re.compile(r"^(\d+)([smhd])$")
 
 DEFAULT_REFRESH = "168h"
 DEFAULT_REF = "main"
+
+# Git skill sources are LIVE tracking clones: ensure_git_source fetches a ref and
+# `reset --hard FETCH_HEAD`, then the skill directory is copied into
+# ~/.claude/skills where an agent loads it. Whoever controls that repository
+# therefore controls code the agent executes. Every git source must resolve to a
+# repository the operator owns.
+#
+# The allowlist is "<host>/<owner>", compared on the parsed hostname and the
+# first path segment — never by substring — so a lookalike host
+# (github.com.evil.tld), an owner-shaped path segment under a foreign host
+# (evil.tld/github.com/owner), an owner prefix (owner-evil), and a userinfo
+# trick (https://github.com@evil.tld/owner) are all rejected.
+#
+# This repo's default names only the maintainer's own forge account. A machine
+# overlay extends the list via `allowedGitOwners` (overlays deep-merge into the
+# manifest), so a private repo can permit its own organization without that
+# organization's name living in this public tree.
+DEFAULT_ALLOWED_GIT_OWNERS = ("github.com/stevencarpenter",)
+
+# scp-style remote: user@host:path (no scheme). Anchored so it cannot match a
+# scheme URL — [^/@]+ stops at the "//" in "https://".
+_SCP_GIT_URL_RE = re.compile(r"^[^/@]+@([^:/]+):(.+)$")
+
+
+def _git_source_owner(source_name: str, url: str) -> str:
+    """Return the ``"<host>/<owner>"`` a git remote URL actually points at.
+
+    Args:
+        source_name: Source name, for error messages.
+        url: Remote URL in scheme (``https://``, ``ssh://``) or scp
+            (``git@host:owner/repo``) form.
+
+    Returns:
+        Lowercased ``"<host>/<owner>"``.
+
+    Raises:
+        ValueError: If the URL has no resolvable host or no owner segment.
+    """
+    scp = _SCP_GIT_URL_RE.match(url)
+    if scp:
+        host, path = scp.group(1), scp.group(2)
+    else:
+        parts = urlsplit(url)
+        # .hostname, not .netloc: it strips userinfo and port, so
+        # "https://github.com@evil.tld/x" resolves to evil.tld.
+        host, path = parts.hostname or "", parts.path
+    segments = [segment for segment in path.strip("/").split("/") if segment]
+    if not host or not segments:
+        raise ValueError(f"Git source {source_name!r} has an unparseable url: {url!r}")
+    return f"{host.lower()}/{segments[0].lower()}"
+
+
+def _allowed_git_owners(manifest: JsonDict) -> set[str]:
+    """Resolve the git-source owner allowlist, failing closed.
+
+    Args:
+        manifest: The merged manifest.
+
+    Returns:
+        Lowercased ``"<host>/<owner>"`` entries.
+
+    Raises:
+        ValueError: If ``allowedGitOwners`` is present but is not a non-empty
+            list of non-empty strings. An empty or malformed allowlist must not
+            degrade into allowing every remote.
+    """
+    if "allowedGitOwners" not in manifest:
+        return {owner.lower() for owner in DEFAULT_ALLOWED_GIT_OWNERS}
+    raw = manifest["allowedGitOwners"]
+    if (
+        not isinstance(raw, list)
+        or not raw
+        or not all(isinstance(entry, str) and entry.strip("/") for entry in raw)
+    ):
+        raise ValueError(
+            "allowedGitOwners must be a non-empty list of '<host>/<owner>' strings"
+        )
+    return {entry.strip("/").lower() for entry in raw}
+
 
 _SAFE_SKILL_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
@@ -160,6 +240,7 @@ def resolve_skills(manifest: JsonDict) -> list[ResolvedSkill]:
             or omits its required ``url``/``path``.
     """
     sources = manifest.get("sources", {})
+    allowed_git_owners = _allowed_git_owners(manifest)
     resolved: list[ResolvedSkill] = []
     for name, entry in sorted(manifest.get("skills", {}).items()):
         _validate_skill_name(name)
@@ -179,9 +260,19 @@ def resolve_skills(manifest: JsonDict) -> list[ResolvedSkill]:
         if not source_type:
             raise ValueError(f"Source {source_name!r} is missing required 'type' field")
         if source_type == "git":
-            if not source.get("url"):
+            url = source.get("url")
+            if not url:
                 raise ValueError(
                     f"Git source {source_name!r} is missing required 'url' field"
+                )
+            owner = _git_source_owner(source_name, url)
+            if owner not in allowed_git_owners:
+                raise ValueError(
+                    f"Git source {source_name!r} resolves to {owner!r}, which is "
+                    f"not an allowed owner. A git skill source is a live clone "
+                    f"whose contents an agent executes, so it must be a "
+                    f"repository you own. Allowed: "
+                    f"{sorted(allowed_git_owners)}"
                 )
             subpath = entry.get("path")
             if not subpath:
