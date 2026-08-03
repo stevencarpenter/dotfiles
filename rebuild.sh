@@ -22,7 +22,10 @@ detect_host() {
 	esac
 }
 
-HOST="${1:-$(detect_host || true)}"
+# $DOTFILES_HOST is the same override scripts/host-capability.sh honors; accept
+# it here too so an explicitly-hosted deploy resolves identically on both sides
+# of `just sync` instead of the switch failing while the side channels succeed.
+HOST="${1:-${DOTFILES_HOST:-$(detect_host || true)}}"
 if [ -z "${HOST:-}" ]; then
 	echo "unknown host; pass explicitly: rebuild.sh <personal-mac|work-mac>" >&2
 	exit 1

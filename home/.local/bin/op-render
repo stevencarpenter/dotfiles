@@ -8,13 +8,18 @@
 # not truncate it (this box may only be reachable over the ssh config it renders).
 #
 # Auth: renders if EITHER OP_CONNECT_HOST + OP_CONNECT_TOKEN are set (Connect
-# mode, e.g. i9) OR an interactive `op` desktop-app session is available (e.g.
-# m5), checked via `op whoami`. `op account list` is intentionally insufficient:
-# it succeeds for a configured-but-signed-out account and would let `op inject`
-# block activation waiting for authentication. Connect creds take precedence when both
-# are present. If neither is available, it skips with exit 0 (leaves existing
-# files untouched) rather than failing a boot or a nix activation. bash 3.2
-# safe (macOS default shell).
+# mode, e.g. i9) OR an interactive `op` session is available, checked via
+# `op whoami`. `op account list` is intentionally insufficient: it succeeds for
+# a configured-but-signed-out account and would let `op inject` block waiting
+# for authentication. Connect creds take precedence when both are present. If
+# neither is available, it skips with exit 0 (leaves existing files untouched)
+# rather than failing its caller. bash 3.2 safe (macOS default shell).
+#
+# WHERE THIS RUNS: from `just sync` (via scripts/sync-side-channels.sh), never
+# from a home.activation hook — the activation PATH is a closed nix-store list
+# with no /opt/homebrew/bin/op, and rendering needs an interactive session that
+# a `sudo darwin-rebuild` context cannot obtain. Activation may only invoke
+# `--warn-stale-only`, which reads the sentinel and returns without calling op.
 #
 # Env overrides: OP_BIN (default `op`), OP_RENDER_MANIFEST
 # (default ~/.config/op/render-manifest).
@@ -28,22 +33,74 @@ MANIFEST="${OP_RENDER_MANIFEST:-$HOME/.config/op/render-manifest}"
 SENTINEL="$(dirname "$MANIFEST")/.last-render"
 STALE_DAYS="${OP_RENDER_STALE_DAYS:-7}"
 
-log() { printf 'op-render: %s\n' "$*" >&2; }
+# Ignore SIGPIPE. A caller that truncates our output (`op-render | head -1`,
+# piping into a pager) closes the pipe mid-run; the next log() then dies on
+# SIGPIPE *after* targets have been renamed into place but *before* the
+# sentinel is touched — leaving a correct render permanently recorded as
+# stale. Logging must never be able to abort the bookkeeping.
+#
+# SIG_IGN is inherited by children (`op inject`, find, mktemp). Harmless today —
+# nothing here relies on SIGPIPE to terminate a pipeline — but a future internal
+# pipeline in this script would not get the default kill-on-EPIPE behavior.
+trap '' PIPE
+
+log() { printf 'op-render: %s\n' "$*" >&2 || true; }
+
+# Human-readable mtime, GNU stat first then BSD. Order matters and is not
+# cosmetic: GNU `stat -f` means --file-system, so it exits 0 after printing an
+# apfs block/inode dump and a BSD-first probe would never fall through — that
+# splices a filesystem report into the middle of the warning below. Both forms
+# are reachable: home-manager activation runs with nix coreutils (GNU) on PATH,
+# an interactive macOS shell resolves /usr/bin/stat (BSD). Same trap and same
+# ordering as perm() in scripts/test-op-render.sh.
+mtime_human() {
+  local t
+  if t="$(stat -c '%y' "$1" 2>/dev/null)"; then
+    printf '%s\n' "${t%%.*}"   # trim GNU's fractional seconds
+  else
+    stat -f '%Sm' "$1" 2>/dev/null
+  fi
+}
 
 warn_if_stale() {
   if [ ! -e "$SENTINEL" ]; then
     log "WARNING: no successful render on record; rendered secrets may be arbitrarily stale."
   elif [ -n "$(find "$SENTINEL" -mtime "+$STALE_DAYS" 2>/dev/null)" ]; then
-    log "WARNING: last successful render was $(stat -f '%Sm' "$SENTINEL") (>$STALE_DAYS days ago); rendered secrets are going stale. Fix op auth and re-run op-render."
+    log "WARNING: last successful render was $(mtime_human "$SENTINEL") (>$STALE_DAYS days ago); rendered secrets are going stale. Fix op auth and re-run op-render."
   fi
 }
 
+# --warn-stale-only: report sentinel age and exit, touching no network and not
+# invoking `op` at all. This is what home.activation runs — rendering needs
+# network plus an interactive 1Password approval, which the activation context
+# cannot obtain (its PATH excludes /opt/homebrew and its process ancestry is
+# not one the desktop app will authorize). The render itself belongs to
+# `just sync`. Keeping the nag in activation preserves the only signal that
+# ever surfaced a broken render.
+if [ "${1:-}" = "--warn-stale-only" ]; then
+  warn_if_stale
+  exit 0
+fi
+
 if [ -n "${OP_CONNECT_HOST:-}" ] && [ -n "${OP_CONNECT_TOKEN:-}" ]; then
   :  # Connect mode (headless, e.g. i9)
-elif "$OP_BIN" whoami >/dev/null 2>&1; then
+elif ! command -v "$OP_BIN" >/dev/null 2>&1; then
+  # Distinct from signed-out on purpose: these have different fixes (PATH vs
+  # auth) and folding them together is how a missing `op` under the closed
+  # home-manager activation PATH hid behind a plausible auth warning. `op` is
+  # a Homebrew binary, so nothing nix-managed puts it on that PATH.
+  log "op CLI not found (OP_BIN=$OP_BIN); skipping (files left intact)."
+  warn_if_stale
+  exit 0
+elif op_err="$("$OP_BIN" whoami 2>&1 >/dev/null)"; then
   :  # interactive desktop-app session (e.g. m5)
 else
-  log "no op auth (no Connect creds, no interactive session); skipping (files left intact)."
+  # Surface op's OWN error rather than just "failed". Swallowing this is what
+  # made the original breakage unreadable: "not signed in", "could not connect
+  # to the desktop app", and a rejected process-signature all look identical
+  # once 2>&1 goes to /dev/null, yet they have completely different fixes.
+  log "op found but '$OP_BIN whoami' failed: ${op_err%%$'\n'*}"
+  log "skipping (files left intact)."
   warn_if_stale
   exit 0
 fi

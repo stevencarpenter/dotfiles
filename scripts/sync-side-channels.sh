@@ -14,6 +14,66 @@ if [ -z "$token_auditor_version" ] || [ "$token_auditor_version" = "latest" ]; t
   exit 1
 fi
 
+# op-render — materialize ~/.ssh/config and ~/.config/zsh/.personal.env from
+# op:// templates. Ordered FIRST on purpose: the agent-registry clone below
+# talks to git@github.com over SSH and so depends on the ssh config rendered
+# here. Personal-only — work secrets come from agenix during activation, not
+# 1Password.
+#
+# This cannot live in home.activation. Rendering needs network plus an
+# interactive approval: the 1Password desktop app authorizes CLI access by
+# calling-process ancestry, and a `sudo darwin-rebuild` activation is not an
+# approved one (its PATH does not even contain /opt/homebrew/bin/op). Run from
+# a terminal, which is what `just sync` is for. Activation keeps only the
+# staleness nag (`op-render --warn-stale-only`).
+identity="$("$capability_bin" --identity)"
+if [ "$identity" = "personal" ]; then
+  render_bin="${OP_RENDER_BIN:-$repo_root/home/.local/bin/op-render}"
+  if [ -x "$render_bin" ]; then
+    # Establish a session before rendering. `op` sessions expire after ~30
+    # minutes of inactivity, so the interactive command that needs one is the
+    # right place to ask — that is this script, run from your terminal.
+    # Idempotent: with a session already live, `op signin` just reprints the
+    # export line and prompts for nothing.
+    #
+    # eval, because op emits `export OP_SESSION_<shorthand>="…"` on stdout for
+    # the caller to apply; op-render then inherits it as a child process. The
+    # token stays in this process's environment and is never logged or written.
+    #
+    # TTY-guarded: `op signin` blocks waiting for input, so it must not run in
+    # CI, cron, or any other non-interactive invocation, where hanging is far
+    # worse than skipping. (bootstrap.sh IS interactive and so does sign in —
+    # the guard protects the headless callers, not that one.) With no TTY, fall
+    # through and let op-render report whatever auth state it finds.
+    #
+    # Scoped to a subshell so OP_SESSION_* reaches op-render and NOTHING else.
+    # The rest of this script clones over SSH and runs `uv tool install` on
+    # third-party build code; none of that needs a 1Password session, and a
+    # token in the environment is also readable by same-user processes.
+    echo "==> Rendering op:// secrets"
+    (
+      if [ -t 0 ]; then
+        # stdout is captured (op emits `export OP_SESSION_…` there), stderr is
+        # deliberately NOT redirected: op writes both its prompts and its errors
+        # there. Capturing it would hide a password prompt and look like a hang;
+        # discarding it would recreate the swallowed-stderr anti-pattern that
+        # made the original breakage unreadable for two weeks.
+        signin_out=""
+        if signin_out="$("${OP_BIN:-op}" signin)"; then
+          eval "$signin_out"
+        else
+          echo "warning: op signin failed (see op's message above); rendering anyway" >&2
+        fi
+      fi
+      "$render_bin"
+    ) || echo "warning: op-render did not complete; existing secrets left intact" >&2
+  else
+    echo "warning: op-render not executable at $render_bin; skipping" >&2
+  fi
+else
+  echo "==> Skipping op-render (identity: $identity)"
+fi
+
 # tpm (tmux plugin manager) — public https clone, weekly refresh upstream.
 tpm_dir="$HOME/.config/tmux/plugins/tpm"
 if [ -d "$tpm_dir/.git" ]; then

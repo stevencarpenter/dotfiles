@@ -191,7 +191,9 @@ in
 
   age.secrets =
     # WS1 (SNUG-386) migrated ALL common + personal secrets off agenix to
-    # op-render (op:// templates, see modules/home/sync-hooks.nix opRender):
+    # op-render (op:// templates; the renderer runs from `just sync` via
+    # scripts/sync-side-channels.sh — modules/home/sync-hooks.nix keeps only
+    # the opRenderStaleCheck nag):
     #   - zsh-env (~/.config/zsh/.env): only content was the non-secret flag
     #     ENABLE_TOOL_SEARCH, now a plain profile.d fragment (common-env.zsh).
     #   - zsh-personal-env (~/.config/zsh/.personal.env): op:// template.

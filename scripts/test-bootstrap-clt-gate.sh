@@ -156,7 +156,14 @@ for host in personal-mac work-mac; do
   fi
 done
 
-if rg -q '^op ' "$fixture/personal-mac-commands.log" 2>/dev/null; then
+# `op read` specifically, not any `op` call. Personal bootstrap legitimately
+# reaches op-render now (which probes `op whoami`, and signs in when it has a
+# TTY); the work-only thing it must never do is READ the age identity. The old
+# `^op ` proxy was accurate only while `op read` was the sole op invocation on
+# this path — and it passed for the wrong reason: bootstrap used to call a
+# `just sync` whose nested rebuild failed, aborting the side channels before any
+# op call could happen.
+if rg -q '^op read' "$fixture/personal-mac-commands.log" 2>/dev/null; then
   echo "personal bootstrap fetched the work-only age identity" >&2
   exit 1
 fi
