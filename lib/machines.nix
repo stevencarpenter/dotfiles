@@ -25,8 +25,7 @@
 #            false -> config.local.toml (auto_sync = false, names no server).
 #            BOTH carry history_filter and the tmux popup — those are not
 #            sync concerns and belong everywhere. Leave it false anywhere
-#            history should stay on the machine it was typed on. See
-#            docs/superpowers/specs/2026-07-27-atuin-config-split-design.md.
+#            history should stay on the machine it was typed on.
 #   mcp    — deploy the MCP master config + run the post-apply sync hook that
 #            generates per-tool MCP configs (codex, opencode, cursor, copilot,
 #            …). Off on machines that don't run a constellation of AI dev tools.
@@ -82,21 +81,4 @@
     };
   };
 
-  work-mac = {
-    system = "aarch64-darwin";
-    user = "carpenter";
-    identity = "work";
-    caps = {
-      tiling = true;
-      sketchybar_workspace_badges = true;
-      atuin = false;
-      mcp = true;
-      skills = true;
-      gui = true;
-      dev = false;
-      infra = true;
-      agent_journal = false;
-      agents = false;
-    };
-  };
 }

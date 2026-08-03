@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 
@@ -36,23 +35,6 @@ def test_parse_duration_minutes_and_seconds():
 def test_parse_duration_rejects_garbage():
     with pytest.raises(ValueError, match="Invalid duration"):
         parse_duration("soon")
-
-
-def test_work_overlay_disables_all_git_sourced_skills():
-    repo = Path(__file__).resolve().parents[2]
-    manifest = load_skills_manifest(
-        repo / "home" / ".config" / "skills" / "skills-master.json"
-    )
-    git_skills = {
-        name
-        for name, entry in manifest["skills"].items()
-        if entry is not False and manifest["sources"][entry["source"]]["type"] == "git"
-    }
-    overlay = json.loads(
-        (repo / "home" / ".config" / "skills" / "machine" / "work.json").read_text()
-    )
-    disabled = {name for name, value in overlay["skills"].items() if value is False}
-    assert disabled == git_skills
 
 
 def test_load_skills_manifest_reads_sources_and_skills(tmp_path):

@@ -51,7 +51,10 @@ done
 # worth guarding is now its absence. `age.secrets` is an option contributed by
 # the agenix module — with the module unimported it does not exist at all, so a
 # successful eval of the option is itself the regression.
-for host in personal-mac work-mac; do
+# Only personal-mac remains in-repo. The external (work-identity) case is
+# covered by scripts/test-external-overlay-contract.sh, which builds a real
+# wrapper consumer and asserts zero age.secrets there.
+for host in personal-mac; do
   # POSITIVE CONTROL FIRST. The assertion below is "this eval must fail", which
   # would also be satisfied by a typo in the attribute path, a renamed user, or
   # a broken flake — passing for entirely the wrong reason and silently stopping
@@ -76,7 +79,7 @@ done
 # exist before the fan-out reads them) — just no longer after a decrypt node.
 skills_after="$(
   nix eval --json \
-    '.#darwinConfigurations.work-mac.config.home-manager.users.carpenter.home.activation.skillsSync.after'
+    '.#darwinConfigurations.personal-mac.config.home-manager.users.carpenter.home.activation.skillsSync.after'
 )"
 if ! jq -e 'index("writeBoundary") != null' <<<"$skills_after" >/dev/null; then
   echo "skillsSync is not ordered after writeBoundary" >&2

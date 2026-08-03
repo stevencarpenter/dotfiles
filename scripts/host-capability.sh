@@ -25,12 +25,11 @@ fi
 if [ -z "$host" ]; then
   case "$(scutil --get LocalHostName 2>/dev/null || true)" in
     personal-mac | Stevens-MacBook-Pro) host=personal-mac ;;
-    work-mac) host=work-mac ;;
   esac
 fi
 
 case "$host" in
-  personal-mac | work-mac) ;;
+  personal-mac) ;;
   *)
     if [ "$mode" = identity ]; then
       echo "error: cannot resolve a known host for --identity" >&2

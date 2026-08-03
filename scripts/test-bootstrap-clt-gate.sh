@@ -56,9 +56,10 @@ fi
 
 echo "bootstrap stops cleanly while Command Line Tools installation is pending"
 
-# Once CLT is present, the age identity fetch must remain work-only. Personal
-# hosts render their secrets directly from 1Password and must not retain the
-# work bridge key merely because bootstrap was re-run.
+# Once CLT is present, bootstrap must run through without ever fetching an age
+# identity. The `op` mock below still answers the retired age-key read so this
+# harness can prove bootstrap does not call it — see the negative assertion
+# after the loop.
 cat >"$fixture/bin/xcode-select" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -126,7 +127,7 @@ chmod +x "$fixture/bin/xcode-select" "$fixture/bin/nix" \
   "$fixture/bin/rustup" "$fixture/bin/op" "$fixture/bin/sudo" \
   "$fixture/bin/brew" "$fixture/bin/curl"
 
-for host in personal-mac work-mac; do
+for host in personal-mac; do
   host_home="$fixture/$host-home"
   command_log="$fixture/$host-commands.log"
   mkdir -p "$host_home"
@@ -157,12 +158,12 @@ done
 # This assertion used to be asymmetric: personal must never read the key, work
 # must always read it. The age bridge is gone — this repo declares zero
 # age.secrets on every identity — so the invariant is now symmetric and
-# strictly negative for BOTH hosts.
+# strictly negative for every host bootstrap can build.
 #
 # `op read` specifically, not any `op` call: bootstrap legitimately reaches
 # op-render (which probes `op whoami`, and signs in when it has a TTY). The
 # thing no host may do is READ an age identity out of 1Password.
-for host in personal-mac work-mac; do
+for host in personal-mac; do
   if rg -q '^op read' "$fixture/$host-commands.log" 2>/dev/null; then
     echo "$host bootstrap fetched an age identity; the age bridge is gone" >&2
     exit 1

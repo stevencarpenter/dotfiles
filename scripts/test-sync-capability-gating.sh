@@ -37,22 +37,17 @@ cat >"$fixture/bin/uv" <<'EOF'
 printf 'uv %s\n' "$*" >>"$TEST_COMMAND_LOG"
 EOF
 
-# Two eval shapes now: a 0/1 capability and the identity string. Match the
-# identity expression FIRST — it also names the host, so the capability arms
-# would otherwise swallow it and hand back "1", silently skipping the
-# personal-only op-render block instead of exercising it.
-cat >"$fixture/bin/nix" <<'EOF'
+# Mock host-capability.sh directly, rather than mocking `nix` underneath the
+# real one. The work identity this test must cover belongs to an EXTERNAL wrapper
+# and so has no row in lib/machines.nix at all — the real host-capability.sh
+# would (correctly) exit 2 for it. Driving the gate inputs straight in keeps the
+# test measuring what it claims to measure: that sync-side-channels.sh honors the
+# identity/capability boundary, independent of which hosts this repo declares.
+cat >"$fixture/bin/host-capability" <<'EOF'
 #!/usr/bin/env bash
-case " $* " in
-  *.identity*)
-    case " $* " in
-      *work-mac*) printf 'work' ;;
-      *personal-mac*) printf 'personal' ;;
-      *) exit 2 ;;
-    esac
-    ;;
-  *work-mac*) printf '0' ;;
-  *personal-mac*) printf '1' ;;
+case "${1:-}" in
+  --identity) printf '%s' "${MOCK_IDENTITY:?}" ;;
+  agents) printf '%s' "${MOCK_AGENTS:?}" ;;
   *) exit 2 ;;
 esac
 EOF
@@ -72,19 +67,22 @@ printf 'op %s\n' "$*" >>"$TEST_COMMAND_LOG"
 exit 0
 EOF
 
-chmod +x "$fixture/bin/git" "$fixture/bin/uv" "$fixture/bin/nix" \
+chmod +x "$fixture/bin/git" "$fixture/bin/uv" "$fixture/bin/host-capability" \
   "$fixture/bin/op-render" "$fixture/bin/op"
 
+# run_sync <identity> <agents-capability> [run-name]
 run_sync() {
-  local host="$1"
-  local run_name="${2:-$host}"
+  local identity="$1"
+  local agents="$2"
+  local run_name="${3:-$identity}"
   local run_root="$fixture/$run_name"
   mkdir -p "$run_root/home"
   TEST_COMMAND_LOG="$run_root/commands.log" \
-    DOTFILES_HOST="$host" \
+    MOCK_IDENTITY="$identity" \
+    MOCK_AGENTS="$agents" \
+    HOST_CAPABILITY_BIN="$fixture/bin/host-capability" \
     HOME="$run_root/home" \
     PATH="$fixture/bin:/usr/bin:/bin" \
-    NIX_BIN="$fixture/bin/nix" \
     GIT_BIN="$fixture/bin/git" \
     UV_BIN="$fixture/bin/uv" \
     OP_RENDER_BIN="$fixture/bin/op-render" \
@@ -92,27 +90,27 @@ run_sync() {
     "$repo_root/scripts/sync-side-channels.sh" >/dev/null
 }
 
-run_sync work-mac
-if rg -Fq 'git@github.com:stevencarpenter/agents.git' "$fixture/work-mac/commands.log"; then
+run_sync work 0
+if rg -Fq 'git@github.com:stevencarpenter/agents.git' "$fixture/work/commands.log"; then
   echo "work sync contacted the personal agent registry" >&2
   exit 1
 fi
 
-run_sync personal-mac
-if ! rg -Fq 'git@github.com:stevencarpenter/agents.git' "$fixture/personal-mac/commands.log"; then
+run_sync personal 1
+if ! rg -Fq 'git@github.com:stevencarpenter/agents.git' "$fixture/personal/commands.log"; then
   echo "personal sync did not retain the agent registry clone" >&2
   exit 1
 fi
-if ! rg -Fq 'uv run --directory' "$fixture/personal-mac/commands.log"; then
+if ! rg -Fq 'uv run --directory' "$fixture/personal/commands.log"; then
   echo "personal sync did not install the agent registry" >&2
   exit 1
 fi
-if ! rg -Fq "uv run --directory $fixture/personal-mac/home/.local/share/agent-registry" \
-  "$fixture/personal-mac/commands.log"; then
+if ! rg -Fq "uv run --directory $fixture/personal/home/.local/share/agent-registry" \
+  "$fixture/personal/commands.log"; then
   echo "personal sync did not install from its freshly cloned registry" >&2
   exit 1
 fi
-if rg -Fq 'uv run --directory' "$fixture/work-mac/commands.log"; then
+if rg -Fq 'uv run --directory' "$fixture/work/commands.log"; then
   echo "work sync attempted to install the personal agent registry" >&2
   exit 1
 fi
@@ -121,16 +119,16 @@ fi
 # it (work secrets are the external wrapper's custody). And on personal it must run
 # BEFORE the agent-registry clone, which authenticates over SSH using the
 # ~/.ssh/config op-render produces.
-if rg -Fq 'op-render' "$fixture/work-mac/commands.log"; then
+if rg -Fq 'op-render' "$fixture/work/commands.log"; then
   echo "work sync invoked the personal op-render" >&2
   exit 1
 fi
-if ! rg -Fq 'op-render' "$fixture/personal-mac/commands.log"; then
+if ! rg -Fq 'op-render' "$fixture/personal/commands.log"; then
   echo "personal sync did not render op:// secrets" >&2
   exit 1
 fi
-render_line="$(rg -n -Fm1 'op-render' "$fixture/personal-mac/commands.log" | cut -d: -f1)"
-clone_line="$(rg -n -Fm1 'stevencarpenter/agents.git' "$fixture/personal-mac/commands.log" | cut -d: -f1)"
+render_line="$(rg -n -Fm1 'op-render' "$fixture/personal/commands.log" | cut -d: -f1)"
+clone_line="$(rg -n -Fm1 'stevencarpenter/agents.git' "$fixture/personal/commands.log" | cut -d: -f1)"
 if [ -z "$render_line" ] || [ -z "$clone_line" ] || [ "$render_line" -ge "$clone_line" ]; then
   echo "op-render must precede the SSH agent-registry clone (renders its ssh config)" >&2
   exit 1
@@ -139,11 +137,11 @@ fi
 # `op signin` blocks on input, so it must only run with a TTY. The case this
 # protects is CI and other non-interactive invocations — NOT bootstrap.sh, which
 # is interactive and therefore does (correctly) sign in.
-if rg -Fq 'op signin' "$fixture/personal-mac/commands.log"; then
+if rg -Fq 'op signin' "$fixture/personal/commands.log"; then
   echo "sync ran a blocking 'op signin' without a TTY" >&2
   exit 1
 fi
-if ! rg -Fq 'op-render session=none' "$fixture/personal-mac/commands.log"; then
+if ! rg -Fq 'op-render session=none' "$fixture/personal/commands.log"; then
   echo "non-TTY sync should still attempt the render, sessionless" >&2
   exit 1
 fi
@@ -155,9 +153,11 @@ run_sync_tty() {
   local run_root="$fixture/personal-tty"
   mkdir -p "$run_root/home"
   local -a inner=(
-    env "TEST_COMMAND_LOG=$run_root/commands.log" DOTFILES_HOST=personal-mac
+    env "TEST_COMMAND_LOG=$run_root/commands.log"
+    MOCK_IDENTITY=personal MOCK_AGENTS=1
+    "HOST_CAPABILITY_BIN=$fixture/bin/host-capability"
     "HOME=$run_root/home" "PATH=$fixture/bin:/usr/bin:/bin"
-    "NIX_BIN=$fixture/bin/nix" "GIT_BIN=$fixture/bin/git" "UV_BIN=$fixture/bin/uv"
+    "GIT_BIN=$fixture/bin/git" "UV_BIN=$fixture/bin/uv"
     "OP_RENDER_BIN=$fixture/bin/op-render" "OP_BIN=$fixture/bin/op"
     "TOKEN_AUDITOR_VERSION=$token_auditor_version"
     "$repo_root/scripts/sync-side-channels.sh"
@@ -199,7 +199,7 @@ fi
 
 mkdir -p "$fixture/personal-working/home/projects/agents"
 touch "$fixture/personal-working/home/projects/agents/pyproject.toml"
-run_sync personal-mac personal-working
+run_sync personal 1 personal-working
 if rg -Fq 'git@github.com:stevencarpenter/agents.git' \
   "$fixture/personal-working/commands.log"; then
   echo "personal sync cloned a redundant registry beside the working copy" >&2
@@ -211,7 +211,7 @@ if ! rg -Fq "uv run --directory $fixture/personal-working/home/projects/agents" 
   exit 1
 fi
 
-if ! rg -Fq "token-auditor@${token_auditor_version}" "$fixture/personal-mac/commands.log"; then
+if ! rg -Fq "token-auditor@${token_auditor_version}" "$fixture/personal/commands.log"; then
   echo "direct sync did not use the pinned token-auditor release" >&2
   exit 1
 fi
