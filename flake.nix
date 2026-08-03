@@ -91,8 +91,16 @@
                 # box still carrying files from a previous (non-nix) dotfile
                 # manager that is every target, so the first switch can never
                 # succeed without this. With it, each colliding file is renamed
-                # to <target>.chezmoi-bak and activation proceeds — which also
-                # leaves the old content on disk as rollback material.
+                # to <target>.chezmoi-bak and activation proceeds.
+                #
+                # NOT durable rollback material. The pinned home-manager's
+                # backup step is `mv "$target" "$target.$ext"` with no -n, and it
+                # only `rm`s a pre-existing backup when HOME_MANAGER_BACKUP_
+                # OVERWRITE is set (nothing here sets it). So a SECOND collision
+                # at the same target silently overwrites the first backup — if a
+                # real file reappears at a managed path and you switch again, the
+                # original pre-nix content is gone. Copy anything you actually
+                # care about out of band before the first switch.
                 backupFileExtension = "chezmoi-bak";
                 extraSpecialArgs = args;
                 sharedModules = extraHome;

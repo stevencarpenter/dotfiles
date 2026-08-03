@@ -52,6 +52,18 @@ done
 # the agenix module — with the module unimported it does not exist at all, so a
 # successful eval of the option is itself the regression.
 for host in personal-mac work-mac; do
+  # POSITIVE CONTROL FIRST. The assertion below is "this eval must fail", which
+  # would also be satisfied by a typo in the attribute path, a renamed user, or
+  # a broken flake — passing for entirely the wrong reason and silently stopping
+  # covering its subject. So prove the surrounding path evaluates before
+  # concluding anything from the failure of the age.secrets one.
+  if ! nix eval --json \
+    ".#darwinConfigurations.${host}.config.home-manager.users.carpenter.home.stateVersion" \
+    >/dev/null 2>&1; then
+    echo "${host}: control eval failed — the attribute path is wrong, so the" >&2
+    echo "  age.secrets assertion below would pass vacuously. Fix the path." >&2
+    exit 1
+  fi
   if nix eval --json \
     ".#darwinConfigurations.${host}.config.home-manager.users.carpenter.age.secrets" \
     >/dev/null 2>&1; then
