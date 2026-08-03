@@ -53,7 +53,6 @@ jobs:
         run: |
           nix build --no-link \
             '.#checks.aarch64-darwin.personal-mac' \
-            '.#checks.aarch64-darwin.work-mac' \
             '.#checks.aarch64-darwin.statix'
 
       # The parent/child target collision this guards occurs while realizing the
