@@ -100,7 +100,11 @@ if [ ! -x "$BREW_BIN" ]; then
   # Download to a file first: in `bash -c "$(curl …)"` a curl failure is
   # swallowed (the substitution's exit status is lost) and bootstrap would
   # continue with no brew installed. Under set -e this aborts instead.
-  brew_install_sh="$(mktemp -t homebrew-install)"
+  # Explicit XXXXXX template rather than `-t homebrew-install`: BSD mktemp
+  # treats -t's argument as a prefix and appends randomness, but GNU mktemp
+  # rejects it ("too few X's in template"), and the hygiene test runs this
+  # script on a Linux runner. Same accommodation as perm() in that test.
+  brew_install_sh="$(mktemp "${TMPDIR:-/tmp}/homebrew-install.XXXXXX")"
   curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh -o "$brew_install_sh"
   NONINTERACTIVE=1 /bin/bash "$brew_install_sh"
   rm -f "$brew_install_sh"
