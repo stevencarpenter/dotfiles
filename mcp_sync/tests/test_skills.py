@@ -997,3 +997,90 @@ def test_repo_manifest_git_sources_are_all_owned():
         repo / "home" / ".config" / "skills" / "skills-master.json"
     )
     resolve_skills(manifest)
+
+
+# --- source-name and ref hardening -----------------------------------------
+# Both are on the same surface as the provenance allowlist. A source NAME is used
+# directly as a cache directory (cache_root / name), and a `ref` is passed
+# positionally to `git fetch origin <ref>` where git still parses options.
+
+
+# "" is deliberately absent: an empty source reference is caught earlier by the
+# falsy-`source` check ("missing required 'source' field"), which is the correct
+# rejection with a different message.
+@pytest.mark.parametrize(
+    "bad_name", ["../../escaped", "a/b", "..", ".", "-leading-dash", "with space"]
+)
+def test_source_name_must_be_a_safe_single_segment(bad_name):
+    manifest = {
+        "sources": {
+            bad_name: {"type": "git", "url": "https://github.com/stevencarpenter/x"}
+        },
+        "skills": {"thing": {"source": bad_name, "path": "thing"}},
+    }
+    with pytest.raises(ValueError, match="source name"):
+        resolve_skills(manifest)
+
+
+def test_ensure_git_source_rejects_unsafe_source_name(tmp_path):
+    with pytest.raises(ValueError, match="source name"):
+        ensure_git_source(
+            "../../escaped",
+            {"type": "git", "url": "https://github.com/stevencarpenter/x"},
+            tmp_path,
+            {"sources": {}},
+            now=0.0,
+        )
+
+
+@pytest.mark.parametrize(
+    "bad_ref",
+    [
+        "--upload-pack=/bin/sh",
+        "-o",
+        "--exec=evil",
+        "main;rm -rf /",
+        "main space",
+        "",
+    ],
+)
+def test_ensure_git_source_rejects_option_shaped_or_unsafe_ref(tmp_path, bad_ref):
+    with pytest.raises(ValueError, match="git ref"):
+        ensure_git_source(
+            "ok",
+            {
+                "type": "git",
+                "url": "https://github.com/stevencarpenter/x",
+                "ref": bad_ref,
+            },
+            tmp_path,
+            {"sources": {}},
+            now=0.0,
+        )
+
+
+@pytest.mark.parametrize("good_ref", ["main", "v1.2.3", "release/2026-07", "a1b2c3d"])
+def test_ensure_git_source_accepts_ordinary_refs(tmp_path, monkeypatch, good_ref):
+    monkeypatch.setattr(skills_mod, "_git", lambda *a, **k: None)
+    ensure_git_source(
+        "ok",
+        {
+            "type": "git",
+            "url": "https://github.com/stevencarpenter/x",
+            "ref": good_ref,
+        },
+        tmp_path,
+        {"sources": {}},
+        now=0.0,
+    )
+
+
+def test_ensure_git_source_rejects_option_shaped_url(tmp_path):
+    with pytest.raises(ValueError, match="url"):
+        ensure_git_source(
+            "ok",
+            {"type": "git", "url": "--upload-pack=/bin/sh"},
+            tmp_path,
+            {"sources": {}},
+            now=0.0,
+        )

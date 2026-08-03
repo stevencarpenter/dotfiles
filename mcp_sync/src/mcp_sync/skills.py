@@ -105,6 +105,55 @@ def _allowed_git_owners(manifest: JsonDict) -> set[str]:
 
 _SAFE_SKILL_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
+# A source name is used DIRECTLY as a cache directory (cache_root / name), so it
+# must be a single safe path segment. Without this, a source named "../../x"
+# clones outside the cache root — skill names were validated, source names were
+# not. Same charset as skill names: must start alphanumeric, so an
+# option-shaped "-name" is rejected too.
+_SAFE_SOURCE_NAME_RE = _SAFE_SKILL_NAME_RE
+
+# A ref is passed positionally to `git fetch origin <ref>`, and git parses
+# options anywhere on the command line — so "--upload-pack=/bin/sh" is a command
+# execution vector, not just a bad ref. subprocess uses a list (no shell), so
+# quoting is not the issue; option-shaping is. Conservative charset, and a
+# leading "-" can never appear because the first character must be alphanumeric.
+_SAFE_GIT_REF_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")
+
+
+def _validate_source_name(name: str) -> None:
+    """Reject a source name that is not a single safe path segment.
+
+    Args:
+        name: Source name from the manifest.
+
+    Raises:
+        ValueError: If the name could escape the cache root or be read as an
+            option.
+    """
+    if not _SAFE_SOURCE_NAME_RE.match(name):
+        raise ValueError(
+            f"unsafe source name {name!r}: must match "
+            f"{_SAFE_SOURCE_NAME_RE.pattern} (it is used as a directory name)"
+        )
+
+
+def _validate_git_ref(source_name: str, ref: str) -> None:
+    """Reject a ref that git would parse as an option, or that is malformed.
+
+    Args:
+        source_name: Source name, for error messages.
+        ref: Requested ref.
+
+    Raises:
+        ValueError: If the ref is empty or outside the safe charset.
+    """
+    if not _SAFE_GIT_REF_RE.match(ref):
+        raise ValueError(
+            f"unsafe git ref {ref!r} for source {source_name!r}: must match "
+            f"{_SAFE_GIT_REF_RE.pattern}"
+        )
+
+
 # A marker file written into every copy-mode skill directory. Garbage
 # collection of a copy-mode skill requires this marker to still match, proving
 # the directory is one this tool deployed rather than a user/plugin replacement.
@@ -255,6 +304,7 @@ def resolve_skills(manifest: JsonDict) -> list[ResolvedSkill]:
             raise ValueError(
                 f"Skill {name!r} references unknown source {source_name!r}"
             )
+        _validate_source_name(source_name)
         source = sources[source_name]
         source_type = source.get("type")
         if not source_type:
@@ -381,8 +431,16 @@ def ensure_git_source(
         Path to the cached clone.
     """
     cache_dir = cache_root / name
+    # Revalidated here, not only in resolve_skills: this is a public entry point
+    # and the values flow straight into a git argv.
+    _validate_source_name(name)
     url = source["url"]
+    if url.startswith("-"):
+        raise ValueError(
+            f"unsafe url {url!r} for source {name!r}: git would parse it as an option"
+        )
     ref = source.get("ref", DEFAULT_REF)
+    _validate_git_ref(name, ref)
     refresh_s = parse_duration(source.get("refreshPeriod", DEFAULT_REFRESH))
     prior = state.get("sources", {}).get(name, {})
     last_fetch = prior.get("last_fetch", 0)
