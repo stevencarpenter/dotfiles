@@ -83,6 +83,35 @@ elif [ "$(readlink "$HOME/.dotfiles" 2>/dev/null || true)" != "$REPO_ROOT" ]; th
   ln -sfn "$REPO_ROOT" "$HOME/.dotfiles"
 fi
 
+# ── 4.5 Homebrew (independent install; nix references but does not own it) ──
+# nix-darwin's homebrew module runs `brew bundle` during activation, so brew
+# must exist BEFORE the first switch. This replaced nix-homebrew, whose
+# brew-src pin froze brew at a patched 6.0.1 while homebrew-core moved on.
+#
+# DOTFILES_BREW_BIN is a test seam, NOT a relocation knob — modules/darwin/
+# homebrew.nix and modules/home/tiling.nix hardcode /opt/homebrew. It exists so
+# scripts/test-bootstrap-clt-gate.sh can drive both branches hermetically: an
+# absolute path is invisible to that harness's PATH-based stubbing, so on any
+# host without brew (i.e. every Linux CI runner) bootstrap would otherwise
+# download and execute the real Homebrew installer in the middle of the test.
+BREW_BIN="${DOTFILES_BREW_BIN:-/opt/homebrew/bin/brew}"
+if [ ! -x "$BREW_BIN" ]; then
+  echo "==> Installing Homebrew (independent of nix) ..."
+  # Download to a file first: in `bash -c "$(curl …)"` a curl failure is
+  # swallowed (the substitution's exit status is lost) and bootstrap would
+  # continue with no brew installed. Under set -e this aborts instead.
+  # Explicit XXXXXX template rather than `-t homebrew-install`: BSD mktemp
+  # treats -t's argument as a prefix and appends randomness, but GNU mktemp
+  # rejects it ("too few X's in template"), and the hygiene test runs this
+  # script on a Linux runner. Same accommodation as perm() in that test.
+  brew_install_sh="$(mktemp "${TMPDIR:-/tmp}/homebrew-install.XXXXXX")"
+  curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh -o "$brew_install_sh"
+  NONINTERACTIVE=1 /bin/bash "$brew_install_sh"
+  rm -f "$brew_install_sh"
+else
+  echo "==> Homebrew already installed: $("$BREW_BIN" --version | head -1)"
+fi
+
 # ── 5. First switch ──────────────────────────────────────────────────────
 # darwin-rebuild is not on PATH yet, so run it straight from the flake input.
 echo "==> Building initial configuration #$HOST ..."

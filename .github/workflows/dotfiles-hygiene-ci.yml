@@ -26,7 +26,12 @@ on:
 
 jobs:
   hygiene:
-    runs-on: ubuntu-latest
+    # macOS runner: these scripts exercise real macOS dotfiles config (stat,
+    # mktemp, sed, and other BSD-vs-GNU-divergent behavior) and one guards a
+    # macOS-only bootstrap path. ubuntu-latest previously ran the same scripts
+    # against GNU userland, which is a different program on the coreutils/BSD
+    # divergences and requires portability shims that add no coverage here.
+    runs-on: macos-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -36,11 +41,14 @@ jobs:
         with:
           python-version: "3.14"
 
+      # bash: modules/darwin/homebrew.nix installs this on every real machine,
+      # replacing Apple's frozen /usr/bin/bash 3.2 (GPLv2 license freeze) with
+      # a modern one on the front of PATH. Scripts like sketchybar's
+      # aerospace.sh plugin rely on that machine invariant (associative
+      # arrays need bash >= 4) via a bare `bash` invocation rather than a
+      # pinned path — a fresh runner without this formula fails that check.
       - name: Install shell test dependencies
-        run: |
-          set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends ripgrep zsh
+        run: brew install ripgrep bash
 
       - name: Install pre-commit
         run: python -m pip install --upgrade pip pre-commit
@@ -131,11 +139,11 @@ jobs:
       - name: Validate the atuin parity guard actually fails on regressions
         run: scripts/test-atuin-filter-parity-mutations.sh
 
-      # zsh is not guaranteed on the runner image, and eval-cache.zsh cannot be
-      # exercised without it. Install rather than skip: a silently skipped test
-      # is indistinguishable from a passing one.
+      # zsh ships by default on macOS runners, but this stays a real install
+      # rather than an assumption: a silently skipped test is indistinguishable
+      # from a passing one if that ever stops being true.
       - name: Ensure zsh is available
-        run: command -v zsh >/dev/null 2>&1 || sudo apt-get install -y zsh
+        run: command -v zsh >/dev/null 2>&1 || brew install zsh
 
       - name: Validate zsh eval-cache behavior
         run: scripts/test-eval-cache.sh

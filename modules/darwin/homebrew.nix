@@ -1,5 +1,4 @@
 {
-  config,
   pkgs,
   lib,
   caps,
@@ -8,12 +7,18 @@
   ...
 }:
 
-# Homebrew management via nix-homebrew (installs/owns the brew prefix) plus
-# nix-darwin's `homebrew` module (declares taps/brews/casks, replacing the old
-# dot_config/homebrew/Brewfile.tmpl). Only GUI apps, macOS-native tooling with
-# no nixpkgs equivalent, bespoke fonts, and shell binaries the zshrc probes at
-# the Homebrew prefix stay here; pure CLI tools moved to home.packages (see
-# modules/home/packages.nix).
+# Declarative Homebrew via nix-darwin's `homebrew` module (taps/brews/casks,
+# replacing the old dot_config/homebrew/Brewfile.tmpl). Homebrew ITSELF is an
+# independent, self-updating install at /opt/homebrew (and /usr/local for the
+# Rosetta prefix) — nix references that install but does not own it. This
+# replaced nix-homebrew (zhaofengli), whose brew-src pin froze brew at a
+# patched 6.0.1 while homebrew-core moved on (gcc 16.1's
+# `configure_gcc_runtime` post-install step broke installs). Bootstrap of a
+# fresh machine installs brew via the official installer BEFORE the first
+# darwin-rebuild switch.
+# Only GUI apps, macOS-native tooling with no nixpkgs equivalent, bespoke
+# fonts, and shell binaries the zshrc probes at the Homebrew prefix stay
+# here; pure CLI tools moved to home.packages (see modules/home/packages.nix).
 #
 # Capability gating mirrors the Brewfile's template blocks:
 #   tiling  → WM/status-bar tap+brew+cask stack
@@ -25,20 +30,6 @@ let
   isAarch64 = pkgs.stdenv.hostPlatform.isAarch64;
 in
 {
-  nix-homebrew = {
-    enable = true;
-    inherit user;
-    # Manage an Intel (x86) brew prefix alongside the native one only on Apple
-    # Silicon; meaningless (and rejected) on a native x86_64 host. Both current
-    # machines are aarch64, so this is a defensive guard for any future Intel box.
-    enableRosetta = isAarch64;
-    # Adopt an existing Homebrew install rather than failing if one is present.
-    autoMigrate = true;
-    # Leave taps mutable (brew taps them at runtime from homebrew.taps) instead
-    # of pinning homebrew-core/cask as flake inputs — keeps the flake thin.
-    # mutableTaps stays at its default (true).
-  };
-
   homebrew = {
     enable = true;
 
@@ -187,16 +178,19 @@ in
     ];
   };
 
-  # nix-homebrew replaces Homebrew's mutable repository with a nix-store
-  # source. Its first auto-migration can leave the old core `_brew` completion
-  # symlink pointing at the removed `/opt/homebrew/completions` directory.
-  # Re-anchor that link to the pinned Homebrew source on every activation.
+  # The independent brew install keeps its zsh completion at
+  # completions/zsh/_brew (prefix-relative); the installer normally links it
+  # into share/zsh/site-functions. Re-anchor that link on every activation so
+  # a fresh prefix self-heals even if the link was lost (this replaced the
+  # nix-homebrew migration that left the link dangling). Both sides are
+  # existence-checked: ln -sfn would happily create a dangling link.
   system.activationScripts.postActivation.text = lib.mkAfter (
     ''
+      _brew_completion_src="/opt/homebrew/completions/zsh/_brew"
       _brew_completion_dir="/opt/homebrew/share/zsh/site-functions"
-      if [ -d "$_brew_completion_dir" ]; then
+      if [ -e "$_brew_completion_src" ] && [ -d "$_brew_completion_dir" ]; then
         ln -sfn \
-          "${config.nix-homebrew.package}/completions/zsh/_brew" \
+          "$_brew_completion_src" \
           "$_brew_completion_dir/_brew"
       fi
     ''

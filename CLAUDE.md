@@ -65,7 +65,7 @@ token-auditor --help                                                   # or `cod
 just rebuild              # Same, via the task runner
 nix flake check --no-build --all-systems   # Evaluate explicit all-host closure checks
 just check                   # Alias for the above
-./bootstrap.sh            # Fresh-machine setup (Lix, work-only age key, first switch, rustup)
+./bootstrap.sh            # Fresh-machine setup (Lix, Homebrew, work-only age key, first switch, rustup)
 just sync                 # Network/SSH side channels: git externals + agents + token-auditor
 ```
 

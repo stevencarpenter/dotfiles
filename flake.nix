@@ -13,8 +13,6 @@
     home-manager.url = "github:nix-community/home-manager/release-26.05";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
 
-    nix-homebrew.url = "github:zhaofengli/nix-homebrew";
-
     agenix.url = "github:ryantm/agenix";
     agenix.inputs.nixpkgs.follows = "nixpkgs";
 
@@ -33,7 +31,6 @@
       nixpkgs,
       nix-darwin,
       home-manager,
-      nix-homebrew,
       agenix,
       nixpkgs-unstable,
     }:
@@ -84,7 +81,6 @@
               else
                 { imports = [ ./modules/darwin ]; }
             )
-            nix-homebrew.darwinModules.nix-homebrew
             home-manager.darwinModules.home-manager
             {
               # Internal hosts inherit this repo's revision. External wrappers

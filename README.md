@@ -36,8 +36,8 @@ bootstrap.sh  rebuild.sh  # fresh-machine setup / routine switch (host auto-dete
 Justfile                  # nix + python + sync task runner
 ```
 
-- **`flake.nix`** — pins `nixpkgs`/`nix-darwin`/`home-manager` to the **26.05** stable darwin line
-  (plus `nix-homebrew` and `agenix`), then folds `lib/machines.nix` into
+- **`flake.nix`** — pins `nixpkgs`/`nix-darwin`/`home-manager` to the **26.05** stable darwin line (plus `agenix`), then
+  folds `lib/machines.nix` into
   `darwinConfigurations.<host>` via a `mkHost` helper. Every host receives the same specialArgs
   payload — `{ inherit inputs hostName; user; caps; identity; }` — for both the darwin modules
   (`specialArgs`) and home-manager (`extraSpecialArgs`). Adding a machine stays a one-row edit.
@@ -48,7 +48,8 @@ Justfile                  # nix + python + sync task runner
   host-scoped declarations. All real variance flows from the caps table.
 - **`modules/darwin/`** — system scope. `core.nix` (nix-daemon ownership, unfree policy, login
   shell pin, `maxfiles` launchd agent, `stateVersion`), `macos-defaults.nix` (declarative
-  `system.defaults.*`), `homebrew.nix` (nix-homebrew taps/brews/casks, gated per caps).
+  `system.defaults.*`), `homebrew.nix` (declarative taps/brews/casks against an independent, self-updating brew install,
+  gated per caps).
 - **`modules/home/`** — home scope. `dotfiles.nix` is the heart of the thin wrapper (out-of-store
   symlinks); the rest own shell, packages, tiling, dev tooling, the AI stack, agenix secrets, and
   the post-switch sync hooks. Each self-gates on caps/identity.

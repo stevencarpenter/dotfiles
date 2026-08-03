@@ -9,30 +9,30 @@ The shape is modeled on [kunchenguid/dotfiles](https://github.com/kunchenguid/do
 
 ## (a) Mechanism mapping
 
-| Chezmoi mechanism | Nix home |
-|---|---|
-| `dot_config/…` source prefix | `home/.config/…` — real dotted name, symlinked out-of-store via `mkOutOfStoreSymlink` in `modules/home/dotfiles.nix` |
-| `dot_claude/`, `private_dot_ssh/`, etc. | `home/.claude/`, `~/.ssh/config` (the SSH config is an agenix secret, not a raw symlink) |
-| `executable_` prefix | file mode set where it matters (agenix `mode = "0700"` for skill scripts); raw symlinks inherit the tracked file's mode |
-| `.tmpl` (Go template) — **structural** per-host diff | static per-host file selected by `identity`. e.g. `aerospace.toml.tmpl` → `home/.config/aerospace/aerospace.{personal,work}.toml`, chosen in `modules/home/tiling.nix` |
-| `.tmpl` — **scalar** per-host value | nix-generated `home.file.<x>.text`. e.g. `sketchybar/machine.env.tmpl` → generated from `caps.sketchybar_workspace_badges` in `tiling.nix` |
-| `.tmpl` — **assembled** (base + gated blocks) | split raw files merged by the tool. e.g. `mise/config.toml.tmpl` → `config.toml` + `conf.d/{dev,infra}.toml`, each linked only when its cap is on (`dev-tools.nix`); mise merges `conf.d/*.toml` |
-| `.tmpl` — zero directives (rename only) | plain file. e.g. `git/config.tmpl` → `home/.config/git/config` |
-| `modify_settings.json.tmpl` (chezmoi `modify_` script) | `home/.claude/settings-base.json` (invariant block) + a Nix-computed variant + a jq-merge `home.activation` entry in `modules/home/ai-stack.nix` (preserves Claude's in-tool edits + SessionStart-hook union) |
-| `.chezmoiignore` gate (`hasPrefix` / `(index .machines .machine).<cap>`) | `lib.mkIf caps.<x>` / `lib.optionalAttrs (identity == "…")` in the module that owns the thing — one gate site per concern |
-| `.chezmoidata/machines.toml` (capability table) | `lib/machines.nix`, threaded into modules via `specialArgs` / `extraSpecialArgs` as `{ inputs; hostName; user; caps; identity; }` |
-| `.chezmoi.toml.tmpl` machine prompt | `bootstrap.sh` / `rebuild.sh` `detect_host` (LocalHostName → flake config), arg override, prompt fallback |
-| `run_after_` hook (MCP/skills sync) | `home.activation` entry after `writeBoundary` in `modules/home/sync-hooks.nix` (bucket **B** below) |
-| `run_onchange_configure-macos-defaults.sh` | declarative `system.defaults.*` (+ `CustomUserPreferences` fallback) in `modules/darwin/macos-defaults.nix` (bucket **A**) |
-| `run_onchange_set-login-shell.sh` (chsh dance) | `users.users.<user>.shell = "/bin/zsh"` + `environment.shells` in `modules/darwin/core.nix` (bucket **A**) |
-| `run_onchange_after_start-tiling-stack.sh` | `home.activation.startTilingStack` in `modules/home/tiling.nix` (bucket **B**) |
-| `run_once_setup-macos.sh` (xcode CLT, first-run) | `bootstrap.sh` (bucket **C**) |
-| `run_onchange_install-token-auditor.sh` | `just sync` (bucket **C**; release in `versions/token-auditor`) |
-| `run_onchange` hash guards | **dropped** — nix re-runs are content-addressed; idempotent re-runs accepted |
-| `.chezmoiexternal.toml.tmpl` (agent-registry SSH clone, tpm) | `just sync` (bucket **C**; needs network/SSH) |
-| `~/Library/LaunchAgents/com.user.maxfiles.plist` | `launchd.user.agents.maxfiles` in `modules/darwin/core.nix` |
-| `dot_config/homebrew/Brewfile.tmpl` | `modules/darwin/homebrew.nix` (nix-homebrew + nix-darwin `homebrew` module), caps-gated; pure CLI tools moved to `home.packages` |
-| age encryption (chezmoi `encrypted_` + `[age]` key) | **Split custody** — personal values render from 1Password templates via `op-render`; only the temporary work bridge remains carry-verbatim agenix under `secrets/` |
+| Chezmoi mechanism                                                        | Nix home                                                                                                                                                                                                      |
+|--------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `dot_config/…` source prefix                                             | `home/.config/…` — real dotted name, symlinked out-of-store via `mkOutOfStoreSymlink` in `modules/home/dotfiles.nix`                                                                                          |
+| `dot_claude/`, `private_dot_ssh/`, etc.                                  | `home/.claude/`, `~/.ssh/config` (the SSH config is an agenix secret, not a raw symlink)                                                                                                                      |
+| `executable_` prefix                                                     | file mode set where it matters (agenix `mode = "0700"` for skill scripts); raw symlinks inherit the tracked file's mode                                                                                       |
+| `.tmpl` (Go template) — **structural** per-host diff                     | static per-host file selected by `identity`. e.g. `aerospace.toml.tmpl` → `home/.config/aerospace/aerospace.{personal,work}.toml`, chosen in `modules/home/tiling.nix`                                        |
+| `.tmpl` — **scalar** per-host value                                      | nix-generated `home.file.<x>.text`. e.g. `sketchybar/machine.env.tmpl` → generated from `caps.sketchybar_workspace_badges` in `tiling.nix`                                                                    |
+| `.tmpl` — **assembled** (base + gated blocks)                            | split raw files merged by the tool. e.g. `mise/config.toml.tmpl` → `config.toml` + `conf.d/{dev,infra}.toml`, each linked only when its cap is on (`dev-tools.nix`); mise merges `conf.d/*.toml`              |
+| `.tmpl` — zero directives (rename only)                                  | plain file. e.g. `git/config.tmpl` → `home/.config/git/config`                                                                                                                                                |
+| `modify_settings.json.tmpl` (chezmoi `modify_` script)                   | `home/.claude/settings-base.json` (invariant block) + a Nix-computed variant + a jq-merge `home.activation` entry in `modules/home/ai-stack.nix` (preserves Claude's in-tool edits + SessionStart-hook union) |
+| `.chezmoiignore` gate (`hasPrefix` / `(index .machines .machine).<cap>`) | `lib.mkIf caps.<x>` / `lib.optionalAttrs (identity == "…")` in the module that owns the thing — one gate site per concern                                                                                     |
+| `.chezmoidata/machines.toml` (capability table)                          | `lib/machines.nix`, threaded into modules via `specialArgs` / `extraSpecialArgs` as `{ inputs; hostName; user; caps; identity; }`                                                                             |
+| `.chezmoi.toml.tmpl` machine prompt                                      | `bootstrap.sh` / `rebuild.sh` `detect_host` (LocalHostName → flake config), arg override, prompt fallback                                                                                                     |
+| `run_after_` hook (MCP/skills sync)                                      | `home.activation` entry after `writeBoundary` in `modules/home/sync-hooks.nix` (bucket **B** below)                                                                                                           |
+| `run_onchange_configure-macos-defaults.sh`                               | declarative `system.defaults.*` (+ `CustomUserPreferences` fallback) in `modules/darwin/macos-defaults.nix` (bucket **A**)                                                                                    |
+| `run_onchange_set-login-shell.sh` (chsh dance)                           | `users.users.<user>.shell = "/bin/zsh"` + `environment.shells` in `modules/darwin/core.nix` (bucket **A**)                                                                                                    |
+| `run_onchange_after_start-tiling-stack.sh`                               | `home.activation.startTilingStack` in `modules/home/tiling.nix` (bucket **B**)                                                                                                                                |
+| `run_once_setup-macos.sh` (xcode CLT, first-run)                         | `bootstrap.sh` (bucket **C**)                                                                                                                                                                                 |
+| `run_onchange_install-token-auditor.sh`                                  | `just sync` (bucket **C**; release in `versions/token-auditor`)                                                                                                                                               |
+| `run_onchange` hash guards                                               | **dropped** — nix re-runs are content-addressed; idempotent re-runs accepted                                                                                                                                  |
+| `.chezmoiexternal.toml.tmpl` (agent-registry SSH clone, tpm)             | `just sync` (bucket **C**; needs network/SSH)                                                                                                                                                                 |
+| `~/Library/LaunchAgents/com.user.maxfiles.plist`                         | `launchd.user.agents.maxfiles` in `modules/darwin/core.nix`                                                                                                                                                   |
+| `dot_config/homebrew/Brewfile.tmpl`                                      | `modules/darwin/homebrew.nix` (nix-darwin `homebrew` module against an independent, self-updating brew install), caps-gated; pure CLI tools moved to `home.packages`                                          |
+| age encryption (chezmoi `encrypted_` + `[age]` key)                      | **Split custody** — personal values render from 1Password templates via `op-render`; only the temporary work bridge remains carry-verbatim agenix under `secrets/`                                            |
 
 ### The hook bucket rule
 

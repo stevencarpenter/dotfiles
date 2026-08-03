@@ -5,6 +5,6 @@
   imports = [
     ./core.nix # nix daemon settings, login shell, launchd agents, stateVersion
     ./macos-defaults.nix # system.defaults.* (ported from configure-macos-defaults)
-    ./homebrew.nix # nix-homebrew taps/brews/casks, gated per caps
+    ./homebrew.nix # declarative taps/brews/casks against an independent brew install, gated per caps
   ];
 }
