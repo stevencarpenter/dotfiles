@@ -98,9 +98,9 @@
         }
       }
     },
-    "ssh-config": {
-      "template": "~/.dotfiles/home/.ssh/config.tpl",
-      "target": "~/.ssh/config",
+    "ssh-homelab-fragment": {
+      "template": "~/.dotfiles/home/.ssh/config.d/10-homelab.conf.tpl",
+      "target": "~/.ssh/config.d/10-homelab.conf",
       "format": "render-only",
       "adopt": false,
       "allowed_references": [
