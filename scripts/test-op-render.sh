@@ -8,6 +8,23 @@ set -uo pipefail
 here="$(cd "$(dirname "$0")/.." && pwd)"
 RENDER="$here/home/.local/bin/op-render"
 
+# POLICY: this suite must NEVER touch a real 1Password CLI. CI is given no op
+# install, no session, and no secrets, and never will be — mocks only. Rather
+# than trusting that no `op` happens to be on PATH (there is one on every dev
+# machine), shadow it with a poison pill that fails loudly. Every legitimate
+# call goes through $OP_BIN as an absolute path to a mock, so nothing here
+# should ever resolve `op` from PATH; if a future test forgets to set OP_BIN,
+# this turns a silent real-op call into an obvious failure.
+poison="$(mktemp -d)"
+trap 'rm -rf "$poison"' EXIT
+cat >"$poison/op" <<'POISON'
+#!/usr/bin/env bash
+echo "FAIL: test invoked a PATH-resolved real 'op' (args: $*). Tests must use a mock." >&2
+exit 66
+POISON
+chmod +x "$poison/op"
+PATH="$poison:$PATH"
+
 fails=0
 run() { local name="$1"; shift; if "$@"; then echo "ok   - $name"; else echo "FAIL - $name"; fails=$((fails + 1)); fi; }
 
@@ -131,7 +148,10 @@ t_warn_stale_only_needs_no_homebrew() {
   setup
   touch -t 202001010000 "$work/.last-render"
   local err
-  err="$(env -i HOME="$HOME" PATH="/usr/bin:/bin" \
+  # Fixture HOME, not the real one: nothing in this suite may read or write
+  # live secret state, and --warn-stale-only derives its sentinel from the
+  # manifest directory anyway.
+  err="$(env -i HOME="$work" PATH="/usr/bin:/bin" \
     OP_RENDER_MANIFEST="$OP_RENDER_MANIFEST" \
     "$RENDER" --warn-stale-only 2>&1 >/dev/null)"
   printf '%s\n' "$err" | rg -q 'going stale' \

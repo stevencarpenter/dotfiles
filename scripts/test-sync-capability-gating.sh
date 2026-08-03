@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 # Work-host side-channel sync must never contact the personal agent registry.
+#
+# POLICY: no real 1Password CLI, ever — CI gets no op install, no session, and
+# no secrets. Both defenses are in place below: OP_BIN is always the fixture
+# mock, and run_sync pins PATH to "$fixture/bin:/usr/bin:/bin", which excludes
+# /opt/homebrew/bin where a real op lives. Keep both when adding cases.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -155,9 +160,14 @@ run_sync_tty() {
     "TOKEN_AUDITOR_VERSION=$token_auditor_version"
     "$repo_root/scripts/sync-side-channels.sh"
   )
-  # BSD script (macOS): script [-q] file [command ...]. util-linux differs.
-  if script -q /dev/null "${inner[@]}" >/dev/null 2>&1; then return 0; fi
-  script -q -c "$(printf '%q ' "${inner[@]}")" /dev/null >/dev/null 2>&1
+  # python pty.spawn, not `script`: BSD script sees EOF on its own stdin in a
+  # non-interactive harness and can exit before the child finishes, making this
+  # check intermittently skip itself (observed locally). pty.spawn waitpid()s
+  # the child, so the pty is allocated deterministically — 10/10 vs flaky — and
+  # it behaves the same on macOS and Linux, unlike script's incompatible
+  # BSD/util-linux flag forms.
+  python3 -c 'import pty,sys; sys.exit(pty.spawn(sys.argv[1:]))' \
+    "${inner[@]}" >/dev/null 2>&1
 }
 
 token_auditor_version="$(tr -d '\n' <"$repo_root/versions/token-auditor")"
