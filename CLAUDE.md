@@ -66,7 +66,9 @@ just rebuild              # Same, via the task runner
 nix flake check --no-build --all-systems   # Evaluate explicit all-host closure checks
 just check                   # Alias for the above
 ./bootstrap.sh            # Fresh-machine setup (Lix, Homebrew, work-only age key, first switch, rustup)
-just sync                 # Network/SSH side channels: git externals + agents + token-auditor
+just sync                 # Full deploy: switch, then op-render secrets + git externals + agents
+                          #   + token-auditor. One command; the order is load-bearing.
+just sync-side-channels   # Side channels only, skipping the rebuild
 ```
 
 Raw configs under `home/` are out-of-store symlinks — editing them is live with no rebuild. A
@@ -227,8 +229,11 @@ names and state spinners instead of version numbers.
 Personal and work secret authoring deliberately differ:
 
 - **Personal:** add an `op://` reference to the appropriate template under `home/`, keep the target
-  in `home/.config/op/render-manifest`, run `op-render`, and verify mode `0600`, structural parity,
-  no unresolved references, and a fresh `.last-render` sentinel. Personal declares zero
+  in `home/.config/op/render-manifest`, run `just sync` (or `op-render` directly), and verify mode
+  `0600`, structural parity, no unresolved references, and a fresh `.last-render` sentinel.
+  op-render must run from an interactive terminal: `just sync` runs `eval "$(op signin)"` right
+  before it (TTY-guarded, since `op signin` blocks on input) because op sessions expire after ~30
+  minutes. Activation only runs `op-render --warn-stale-only`. Personal declares zero
   `age.secrets`. For reviewed edits to the rendered `.personal.env`, run `just op-adopt` for a
   names-only plan and let the user run `just op-adopt --apply` after review. Never run the apply
   path on the user's behalf. Adoption is limited to exact mappings in

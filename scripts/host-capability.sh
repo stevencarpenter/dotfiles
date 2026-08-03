@@ -4,9 +4,20 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 capability="${1:-}"
-host="${2:-${DOTFILES_HOST:-}}"
 
-if [[ ! "$capability" =~ ^[a-z][a-z0-9_]*$ ]]; then
+# `--identity` prints the host's identity string instead of a 0/1 capability.
+# identity is a peer of caps in lib/machines.nix (some gates are
+# `optionalAttrs (identity == "…")`, not `mkIf caps.x`), so callers outside nix
+# need to read it from the same source of truth rather than re-detecting.
+mode=capability
+if [ "$capability" = "--identity" ]; then
+  mode=identity
+  shift
+fi
+host="${2:-${DOTFILES_HOST:-}}"
+[ "$mode" = identity ] && host="${1:-${DOTFILES_HOST:-}}"
+
+if [ "$mode" = capability ] && [[ ! "$capability" =~ ^[a-z][a-z0-9_]*$ ]]; then
   echo "error: invalid or missing capability name" >&2
   exit 2
 fi
@@ -27,6 +38,16 @@ case "$host" in
 esac
 
 nix_bin="${NIX_BIN:-nix}"
+
+if [ "$mode" = identity ]; then
+  exec "$nix_bin" eval --impure --raw --expr "
+    let
+      machines = import ${repo_root}/lib/machines.nix;
+    in
+      machines.${host}.identity
+  "
+fi
+
 exec "$nix_bin" eval --impure --raw --expr "
   let
     machines = import ${repo_root}/lib/machines.nix;

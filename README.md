@@ -171,8 +171,18 @@ and build-time failures.
 
 Personal machines declare zero `age.secrets`. `home/.local/bin/op-render` atomically renders
 `~/.config/zsh/.personal.env` and `~/.ssh/config` from public-safe templates containing `op://`
-references. It runs during personal Home Manager activation when the 1Password CLI is authenticated
-and preserves the last known-good targets on any failure.
+references. It preserves the last known-good targets on any failure.
+
+It runs from **`just sync`**, not from Home Manager activation. Rendering needs the network and a
+live `op` session, and `op` sessions expire after ~30 minutes of inactivity — so `just sync` runs
+`eval "$(op signin)"` itself, immediately before rendering, and `op-render` inherits the exported
+`OP_SESSION_*` as a child process. That signin is TTY-guarded (`[ -t 0 ]`): `op signin` blocks on
+input, and this script also runs from `bootstrap.sh` and non-interactive contexts where hanging
+would be worse than skipping. Activation cannot do any of this — its PATH (a closed nix-store list)
+does not even contain `/opt/homebrew/bin/op`. Activation keeps only the
+cheap staleness nag (`op-render --warn-stale-only`), which reads the `.last-render` sentinel,
+touches no network, and warns when the last successful render is older than `OP_RENDER_STALE_DAYS`
+(default 7).
 
 For reviewed edits made directly to `~/.config/zsh/.personal.env`, `just op-adopt` produces a
 names-only reverse-adoption plan and `just op-adopt --apply` updates only fields already pinned in
@@ -189,12 +199,17 @@ Some provisioning is deliberately kept **out of `darwin-rebuild switch`** becaus
 network, SSH auth, or `sudo` — things a `switch` should not silently depend on. Those live in the
 Justfile instead:
 
-- **`just sync`** — clone/refresh tpm over HTTPS; install and validate the personal
-  `agent-registry` from `~/projects/agents` when that working copy exists, otherwise clone/refresh
-  `~/.local/share/agent-registry`, only when the selected host's canonical `agents` capability is
-  enabled; and install the immutable `token-auditor` release pinned in the Justfile. Safe to re-run;
-  `bootstrap.sh` passes its resolved host explicitly. A failed side channel makes this explicit
-  command fail instead of leaving a silently partial install.
+- **`just sync`** — the one-command full deploy: `darwin-rebuild switch`, then every side channel,
+  in the only order that works. Rendering personal `op://` secrets comes first (personal identity
+  only) because it produces the `~/.ssh/config` the agent-registry clone authenticates with, and it
+  needs the manifest symlink the switch just wrote. Then: clone/refresh tpm over HTTPS; install and
+  validate the personal `agent-registry` from `~/projects/agents` when that working copy exists,
+  otherwise clone/refresh `~/.local/share/agent-registry`, only when the selected host's canonical
+  `agents` capability is enabled; and install the immutable `token-auditor` release pinned in the
+  Justfile. Safe to re-run; `bootstrap.sh` passes its resolved host explicitly. A failed side
+  channel makes this explicit command fail instead of leaving a silently partial install.
+- **`just sync-side-channels`** — the side channels alone, skipping the rebuild, for when the
+  generation is already current.
 - **`just bootstrap`** — the full fresh-machine flow (`bootstrap.sh`): Lix, the work-only age key
   when applicable, first switch, rustup.
 

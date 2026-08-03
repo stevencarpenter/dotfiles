@@ -16,8 +16,10 @@ home/.ssh/config.tpl               -> ~/.ssh/config
 `home/.config/op/render-manifest` is the authoritative template-to-target map.
 `home/.config/op/adopt-policy.json` separately pins every allowed reference, variable, item,
 field, and reverse-adoption permission. Home Manager links both only for
-`identity == "personal"`; the personal-only `opRender` activation invokes the renderer after
-`writeBoundary`.
+`identity == "personal"`; `just sync` invokes the renderer (via
+`scripts/sync-side-channels.sh`, which signs in first when it has a TTY). The personal-only
+`opRenderStaleCheck` activation entry only warns when the last render has gone stale — it never
+renders, because activation can neither reach `op` nor authenticate.
 
 The renderer:
 
@@ -43,7 +45,10 @@ keeps the last-good files but cannot refresh them.
    `home/.config/op/adopt-policy.json`.
 3. Add only that exact reference to the appropriate `*.tpl` file under `home/`.
 4. Add a manifest entry only when introducing a new template/target pair.
-5. Run `home/.local/bin/op-render` with an authenticated `op` session.
+5. Run `just sync` (or `home/.local/bin/op-render` directly) from an interactive terminal with an
+   authenticated `op` session. It cannot run from a `darwin-rebuild` activation hook — 1Password
+   authorizes CLI access by calling-process ancestry, so only a terminal you have approved can
+   render. Activation runs `op-render --warn-stale-only`, which nags but never renders.
 6. Run the documented secret-policy, renderer, and live-deployment checks.
 
 Never commit the rendered target, copy a literal value into a template, or use agenix for a new

@@ -53,10 +53,27 @@ brew-audit:
 bootstrap *HOST:
     ./bootstrap.sh {{ HOST }}
 
-# ── Sync (network / SSH side channels) ───────────────────
+# ── Sync (full deploy) ───────────────────────────────────
 
-# Run all network/SSH side channels outside `darwin-rebuild switch`.
-sync:
+# Ordering is load-bearing, not incidental:
+#   1. darwin-rebuild switch — writes the symlinks the rest depends on,
+#      including ~/.config/op/render-manifest and the op:// templates.
+#   2. op-render (inside sync-side-channels.sh, ordered first there) — needs
+#      step 1's manifest, and renders the ~/.ssh/config step 3 authenticates
+#      with.
+#   3. remaining side channels — the agent-registry clone uses git@github.com
+#      over SSH and so must follow step 2.
+# Rendering deliberately does NOT run inside activation: 1Password authorizes
+# the CLI by process ancestry and will not serve a `sudo darwin-rebuild` hook.
+# Running it here means it inherits this terminal's approval.
+
+# Full deploy: switch the generation, then run every network/SSH side channel.
+sync *HOST:
+    ./rebuild.sh {{ HOST }}
+    TOKEN_AUDITOR_VERSION="{{ TOKEN_AUDITOR_VERSION }}" scripts/sync-side-channels.sh
+
+# Side channels only, skipping the rebuild (use when the generation is current).
+sync-side-channels:
     TOKEN_AUDITOR_VERSION="{{ TOKEN_AUDITOR_VERSION }}" scripts/sync-side-channels.sh
 
 # ── MCP Sync ─────────────────────────────────────────────

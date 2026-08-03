@@ -39,20 +39,28 @@ let
 in
 {
   home.activation = {
-    # --- op-render: materialize op:// secret templates (identity: personal) --
-    # Renders ~/.config/zsh/.personal.env and ~/.ssh/config from op:// templates
-    # via the desktop app on m5 (no Connect). Fail-safe: a broken/absent op
-    # leaves existing secret files byte-for-byte intact and NEVER fails the
-    # switch. No-op where no manifest exists. See the WS1 migration plan.
-    opRender = lib.mkIf (identity == "personal") (
+    # --- op-render staleness nag (identity: personal) -----------------------
+    # Reports only. The RENDER itself lives in `just sync`, not here, per the
+    # repo's bucketing contract: activation is for offline + fast + idempotent
+    # work, and rendering is neither offline nor unattended. It needs network
+    # and an interactive 1Password approval that this context cannot get — the
+    # activation PATH is a closed nix-store list with no /opt/homebrew (so a
+    # bare `op` does not even resolve), and the desktop app authorizes CLI
+    # access by process ancestry, which under `sudo darwin-rebuild` is not an
+    # approved one. Attempting it here failed silently for weeks.
+    #
+    # What stays is the sentinel check: no `op`, no network, just a warning
+    # when the last successful render is older than the threshold. That nag is
+    # the only thing that ever surfaced the breakage, so it keeps earning its
+    # place in the switch.
+    opRenderStaleCheck = lib.mkIf (identity == "personal") (
       lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         (
           set -u
           MANIFEST="$HOME/.config/op/render-manifest"
           RENDER="${repoRoot}/home/.local/bin/op-render"
           [ -f "$MANIFEST" ] || exit 0
-          OP_RENDER_MANIFEST="$MANIFEST" "$RENDER" \
-            || echo "op-render: warned (secrets left intact)." >&2
+          OP_RENDER_MANIFEST="$MANIFEST" "$RENDER" --warn-stale-only || true
         ) || true
       ''
     );
