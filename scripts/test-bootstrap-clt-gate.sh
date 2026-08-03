@@ -6,10 +6,6 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 fixture="$(mktemp -d)"
 trap 'rm -rf "$fixture"' EXIT
 
-# GNU stat uses -c; BSD/macOS stat uses -f. Try GNU first because GNU's -f
-# means "file system" and can otherwise exit successfully with unusable output.
-perm() { /usr/bin/stat -c '%a' "$1" 2>/dev/null || /usr/bin/stat -f '%Lp' "$1"; }
-
 mkdir -p "$fixture/bin" "$fixture/home"
 
 cat >"$fixture/bin/xcode-select" <<'EOF'
@@ -156,34 +152,28 @@ for host in personal-mac work-mac; do
   fi
 done
 
-# `op read` specifically, not any `op` call. Personal bootstrap legitimately
-# reaches op-render now (which probes `op whoami`, and signs in when it has a
-# TTY); the work-only thing it must never do is READ the age identity. The old
-# `^op ` proxy was accurate only while `op read` was the sole op invocation on
-# this path — and it passed for the wrong reason: bootstrap used to call a
-# `just sync` whose nested rebuild failed, aborting the side channels before any
-# op call could happen.
-if rg -q '^op read' "$fixture/personal-mac-commands.log" 2>/dev/null; then
-  echo "personal bootstrap fetched the work-only age identity" >&2
-  exit 1
-fi
-if [ -e "$fixture/personal-mac-home/.config/age/keys.txt" ]; then
-  echo "personal bootstrap created the work-only age identity" >&2
-  exit 1
-fi
+# No host may fetch or create an age identity.
+#
+# This assertion used to be asymmetric: personal must never read the key, work
+# must always read it. The age bridge is gone — this repo declares zero
+# age.secrets on every identity — so the invariant is now symmetric and
+# strictly negative for BOTH hosts.
+#
+# `op read` specifically, not any `op` call: bootstrap legitimately reaches
+# op-render (which probes `op whoami`, and signs in when it has a TTY). The
+# thing no host may do is READ an age identity out of 1Password.
+for host in personal-mac work-mac; do
+  if rg -q '^op read' "$fixture/$host-commands.log" 2>/dev/null; then
+    echo "$host bootstrap fetched an age identity; the age bridge is gone" >&2
+    exit 1
+  fi
+  if [ -e "$fixture/$host-home/.config/age/keys.txt" ]; then
+    echo "$host bootstrap created an age identity; the age bridge is gone" >&2
+    exit 1
+  fi
+done
 
-if ! rg -Fxq \
-  'op read op://Private/dotfiles-age-key/notesPlain' \
-  "$fixture/work-mac-commands.log"; then
-  echo "work bootstrap did not fetch the declared age identity" >&2
-  exit 1
-fi
-if [ "$(perm "$fixture/work-mac-home/.config/age/keys.txt")" != 600 ]; then
-  echo "work bootstrap age identity does not have mode 0600" >&2
-  exit 1
-fi
-
-echo "bootstrap fetches the age identity on work-mac only"
+echo "bootstrap fetches no age identity on any host"
 
 # The mirror case: with brew absent, bootstrap must install it, and must do so
 # through the download-to-a-file path so a failed fetch aborts under set -e

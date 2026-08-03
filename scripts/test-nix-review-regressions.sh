@@ -44,29 +44,34 @@ for pin_contract in \
   fi
 done
 
-agenix_launchd_enabled="$(
-  nix eval --json \
-    '.#darwinConfigurations.work-mac.config.home-manager.users.carpenter.launchd.agents.activate-agenix.enable'
-)"
-if [ "$agenix_launchd_enabled" != false ]; then
-  echo "work secrets still decrypt through the asynchronous agenix launchd agent" >&2
-  exit 1
-fi
+# No age secrets anywhere.
+#
+# The old assertions here pinned the shape of the synchronous agenix decrypt
+# node. That bridge is gone: no identity declares age.secrets, so the invariant
+# worth guarding is now its absence. `age.secrets` is an option contributed by
+# the agenix module — with the module unimported it does not exist at all, so a
+# successful eval of the option is itself the regression.
+for host in personal-mac work-mac; do
+  if nix eval --json \
+    ".#darwinConfigurations.${host}.config.home-manager.users.carpenter.age.secrets" \
+    >/dev/null 2>&1; then
+    echo "${host} still exposes age.secrets — the agenix module is imported again" >&2
+    exit 1
+  fi
+done
 
-agenix_after="$(
-  nix eval --json \
-    '.#darwinConfigurations.work-mac.config.home-manager.users.carpenter.home.activation.agenixDecrypt.after'
-)"
+# skillsSync must still be ordered after writeBoundary (home.file symlinks must
+# exist before the fan-out reads them) — just no longer after a decrypt node.
 skills_after="$(
   nix eval --json \
     '.#darwinConfigurations.work-mac.config.home-manager.users.carpenter.home.activation.skillsSync.after'
 )"
-if ! jq -e 'index("writeBoundary") != null' <<<"$agenix_after" >/dev/null; then
-  echo "agenixDecrypt is not ordered after writeBoundary" >&2
+if ! jq -e 'index("writeBoundary") != null' <<<"$skills_after" >/dev/null; then
+  echo "skillsSync is not ordered after writeBoundary" >&2
   exit 1
 fi
-if ! jq -e 'index("agenixDecrypt") != null' <<<"$skills_after" >/dev/null; then
-  echo "work skillsSync is not ordered after synchronous agenix decryption" >&2
+if jq -e 'index("agenixDecrypt") != null' <<<"$skills_after" >/dev/null; then
+  echo "skillsSync still depends on the removed agenixDecrypt node" >&2
   exit 1
 fi
 
@@ -128,4 +133,4 @@ while read -r host expected_variant; do
   esac
 done <<<"$expected_variants"
 
-echo "login-shell, Homebrew pin, agenix ordering, atuin sync policy, and atuin variant wiring contracts are emitted"
+echo "login-shell, Homebrew pin, no-age-secrets, atuin sync policy, and atuin variant wiring contracts are emitted"

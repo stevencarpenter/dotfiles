@@ -8,7 +8,7 @@
   imports = [ ../modules/darwin ];
 
   # ── host-scoped config ─────────────────────────────────────────────────
-  # Per-host agenix secret declarations are added by T6 (secrets). Anything
+  # This repo declares no age secrets on any host. Anything
   # that is truly unique to this box (and cannot be derived from the caps
   # table) goes below this line.
 }

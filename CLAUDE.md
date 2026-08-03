@@ -11,10 +11,10 @@ wrapper" shape: nix owns packages, macOS defaults, capability gating, and orches
 raw config files live under `home/` (real dotted names) and are symlinked into place **out of the
 nix store** through `~/.dotfiles` — so editing a raw config is live immediately, no rebuild needed.
 One flake drives two machine types (`personal-mac`, `work-mac`) from a single
-capability table (`lib/machines.nix`); modules gate on caps/identity, never on hostname. Personal
-secrets render directly from 1Password via `op-render`; work secrets temporarily remain
-age-encrypted through [agenix](https://github.com/ryantm/agenix) until the external work wrapper
-takes custody. The repo also vendors one small Python tool
+capability table (`lib/machines.nix`); modules gate on caps/identity, never on hostname. Secrets
+render directly from 1Password via `op-render`; this repo declares zero `age.secrets` on every
+identity and does not depend on agenix. Secrets for an externally-owned host are that wrapper's
+custody. The repo also vendors one small Python tool
 (`mcp_sync/`). Two former tools were extracted to their own public repos and install as standalone
 uv tools: `token-auditor` (github.com/stevencarpenter/token-auditor, via `just sync`) and
 `aws_config_gen` (github.com/stevencarpenter/aws-config-generator; the external work wrapper now
@@ -199,11 +199,11 @@ and gate the owning module on `caps.<capability>`.
 - `lib/machines.nix` — per-machine capability table (single source of truth for gating)
 - `hosts/*.nix` — thin per-host shims; host-scoped declarations only
 - `modules/darwin/` — system scope: `core.nix`, `macos-defaults.nix`, `homebrew.nix`
-- `modules/home/` — home scope: `dotfiles`, `shell`, `packages`, `tiling`, `dev-tools`, `ai-stack`, `secrets`, `sync-hooks`
+- `modules/home/` — home scope: `dotfiles`, `shell`, `packages`, `tiling`, `dev-tools`, `ai-stack`, `sync-hooks`
 - `home/` — raw dotfiles (real dotted names), symlinked out-of-store through `~/.dotfiles`
 - `home/.config/mcp/` — master MCP config + per-machine overlays (override layer wired in `sync.py`; no override files managed in-repo yet)
 - `home/.config/nvim/` — Neovim config (LazyVim)
-- `secrets/` — work-only age ciphertext + `secrets.nix` recipients (decrypted by agenix at work activation)
+- `secrets/` — documentation only; no ciphertext is tracked and no host declares age secrets
 - `mcp_sync/` — MCP + skills fan-out tool (uv project, Python 3.14+, no runtime deps)
 - `bootstrap.sh` / `rebuild.sh` — fresh-machine setup / routine switch (host auto-detect)
 - `Justfile` — nix/python/sync recipes (`versions/token-auditor` owns the tool release)
@@ -233,17 +233,18 @@ Personal and work secret authoring deliberately differ:
   `0600`, structural parity, no unresolved references, and a fresh `.last-render` sentinel.
   op-render must run from an interactive terminal: `just sync` runs `eval "$(op signin)"` right
   before it (TTY-guarded, since `op signin` blocks on input) because op sessions expire after ~30
-  minutes. Activation only runs `op-render --warn-stale-only`. Personal declares zero
-  `age.secrets`. For reviewed edits to the rendered `.personal.env`, run `just op-adopt` for a
+  minutes. Activation only runs `op-render --warn-stale-only`.
+  For reviewed edits to the rendered `.personal.env`, run `just op-adopt` for a
   names-only plan and let the user run `just op-adopt --apply` after review. Never run the apply
   path on the user's behalf. Adoption is limited to exact mappings in
   `home/.config/op/adopt-policy.json`; Login items and SSH config remain manual/render-only.
-- **Work:** the temporary bridge remains age ciphertext under `secrets/`, decrypted by agenix using
-  the work-only identity at `~/.config/age/keys.txt`. Use `agenix -e`, update
-  `modules/home/secrets.nix`, and rebuild until the external work wrapper replaces this custody.
+- **Work:** not this repo's concern. The age bridge (ciphertexts, recipient file, and
+  `modules/home/secrets.nix`) was removed; no host declares `age.secrets` or an age identity.
+  Secrets for an externally-owned host are administered by that wrapper's own flake.
 
-Do NOT `builtins.readFile` a decrypted value anywhere; that would bake plaintext into the public
-Nix store. Full workflows are in `secrets/README.md` and the project secret-authoring skill.
+Never add an age secret back to this repo, and never `builtins.readFile` a decrypted value —
+that would bake plaintext into the public Nix store. Full workflows are in `secrets/README.md`
+and the project secret-authoring skill.
 
 ## CI
 

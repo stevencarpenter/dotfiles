@@ -12,7 +12,7 @@
 # uv editable environments: their .pth files embed the checkout path and break
 # after a worktree move. Every entry:
 #   - runs after writeBoundary (so home.file symlinks exist),
-#   - depends on synchronous agenixDecrypt when consuming work secrets,
+#   - runs after writeBoundary only (no secret-decryption node exists),
 #   - uses the nix-store Python directly with user site-packages disabled,
 #   - is wrapped in a subshell ending `|| true` so a failure warns but NEVER
 #     fails the switch (parity with the chezmoi fail_or_warn default; setting
@@ -96,11 +96,12 @@ in
     # sync-skills is an entry point of the SAME mcp_sync project. Pass the
     # canonical repo root explicitly so personal skill links remain stable.
     #
-    # Work skills are agenix-decrypted, so work activation depends on the
-    # synchronous agenixDecrypt node. Personal has no age secrets and retains
-    # the ordinary writeBoundary dependency.
+    # No identity declares age secrets any more, so there is no decryption node
+    # to order against — every identity uses the ordinary writeBoundary
+    # dependency. An external wrapper that supplies its own work skills is
+    # responsible for ordering its own hooks.
     skillsSync = lib.mkIf caps.skills (
-      lib.hm.dag.entryAfter ([ "writeBoundary" ] ++ lib.optional (identity == "work") "agenixDecrypt") ''
+      lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         (
           set -u
           # sync-skills fetches pinned Git sources through subprocess. Home

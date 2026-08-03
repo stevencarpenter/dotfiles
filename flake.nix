@@ -13,15 +13,12 @@
     home-manager.url = "github:nix-community/home-manager/release-26.05";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
 
-    agenix.url = "github:ryantm/agenix";
-    agenix.inputs.nixpkgs.follows = "nixpkgs";
-
     # Escape hatch for tools whose upstream release cadence outruns the stable
     # channel's backport window — the allowlist lives in
     # modules/home/packages.nix. Deliberately does NOT set
     # `inputs.nixpkgs.follows`: tracking a different channel is the entire
-    # point, and unlike nix-darwin/home-manager/agenix this input has no
-    # nixpkgs input of its own — it IS nixpkgs.
+    # point, and unlike nix-darwin/home-manager this input has no nixpkgs
+    # input of its own — it IS nixpkgs.
     nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
   };
 
@@ -31,7 +28,6 @@
       nixpkgs,
       nix-darwin,
       home-manager,
-      agenix,
       nixpkgs-unstable,
     }:
     let
@@ -90,6 +86,14 @@
               home-manager = {
                 useGlobalPkgs = true;
                 useUserPackages = true;
+                # home-manager's checkLinkTargets aborts the WHOLE activation on
+                # the first pre-existing unmanaged file at any target path. On a
+                # box still carrying files from a previous (non-nix) dotfile
+                # manager that is every target, so the first switch can never
+                # succeed without this. With it, each colliding file is renamed
+                # to <target>.chezmoi-bak and activation proceeds — which also
+                # leaves the old content on disk as rollback material.
+                backupFileExtension = "chezmoi-bak";
                 extraSpecialArgs = args;
                 sharedModules = extraHome;
                 users.${host.user} = import ./modules/home;

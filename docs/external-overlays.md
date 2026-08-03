@@ -73,8 +73,8 @@ Mechanism as shipped, per seam (deviations from the original draft called out):
 
 - **ssh `config.d/`** — `~/.ssh/config.d/.keep` is a real `home.file` entry
   (`modules/home/dotfiles.nix`): `~/.ssh` itself is not directory-linked (only
-  `~/.ssh/config` is materialized, by `secrets.nix`), so the seam dir needs its
-  own home-manager-owned entry to exist pre-fragment.
+  `~/.ssh/config` is materialized, by `op-render` from an `op://` template), so
+  the seam dir needs its own home-manager-owned entry to exist pre-fragment.
 - **git overlay tree** — fixed include filenames, not a glob:
   `~/.config/git/config` sources
   `~/.config/external-overlays/git/extra.inc` and `work.inc` explicitly. The
@@ -170,14 +170,23 @@ Optional:
 5. **`module.nix`** — uses `homeModules.rawDotfiles` to link `files/`, takes
    over the `<identity>.json` overlay symlinks, registers a Claude settings
    fragment, declares its own secrets.
-6. **Secrets** — org-chosen mechanism. Encrypted-at-rest (SOPS, op-connect,
-   org agenix) **or repo-access-as-boundary**: non-credential work content as
-   plaintext in the private repo, with only credential-class values as
-   `op://` references rendered against an org-managed vault. Hard
-   requirements either way: never encrypted against the personal age
-   recipient (see `secrets/README.md`), never a single person's keys as the
-   team's decryption path, and no credential-class value in plaintext even in
-   the private repo.
+6. **Secrets** — org-chosen mechanism, and now **entirely** the external
+   repo's problem: this repo declares zero `age.secrets`, imports no agenix,
+   and tracks no ciphertext. Encrypted-at-rest (SOPS, op-connect, org agenix)
+   **or repo-access-as-boundary**: non-credential work content as plaintext in
+   the private repo, with only credential-class values as `op://` references
+   rendered against an org-managed vault. Hard requirements either way: never
+   encrypted against the personal age recipient (see `secrets/README.md`),
+   never a single person's keys as the team's decryption path, and no
+   credential-class value in plaintext even in the private repo.
+
+   Note the operational constraint learned on the personal side: a renderer
+   that shells out to `op` can **never** run from a `home.activation` hook.
+   The activation PATH is a closed nix-store list with no `op` on it, and
+   1Password authorizes CLI access by calling-process ancestry, so only an
+   approved interactive terminal can render. Drive it from a task-runner
+   command that signs in first (TTY-guarded); leave activation a stale-check
+   warning at most.
 
 Explicitly out of scope for the external repo: editing this repo's base
 files, adding inputs to this repo's flake, introducing a third identity
@@ -202,13 +211,23 @@ seam is for genuinely machine-global behavior only.
 4. **Done.** Add the missing native seams: ssh `Include config.d/*`
    (top-placed), isolated git includes, and the isolated tmux fragment glob.
 5. **Done.** Add the Claude settings fragment hook to `ai-stack.nix`.
-6. Extraction (separate, after the external repo exists): move work files,
-   overlays, and secrets out; delete the work module here. **Operational
-   handoff is part of this step:** the work machine's daily flow becomes
-   `darwin-rebuild switch --flake <org-repo>#<host>`; the org repo takes
-   ownership of that machine's bootstrap/rebuild scripts and flake-root
-   assumption, and this repo's `rebuild.sh`/`bootstrap.sh` host-detect maps
-   drop the work host.
+6. Extraction (separate, after the external repo exists), in two parts:
+
+   **6a. Done.** Secrets are out: the 26 work ciphertexts, the recipient file,
+   `modules/home/secrets.nix`, the agenix input and module imports, and
+   `bootstrap.sh`'s age-identity fetch are all deleted. No host declares
+   `age.secrets` or an age identity, so an external work host no longer
+   inherits a mandatory (and fatally-failing) decrypt step from this base.
+   `home-manager.backupFileExtension` is now set, so a first switch on a box
+   still carrying another dotfile manager's files backs them up instead of
+   aborting.
+
+   **6b. Pending.** Move the remaining work files and overlays out and delete
+   the work host row. **Operational handoff is part of this step:** the work
+   machine's daily flow becomes `darwin-rebuild switch --flake <org-repo>#<host>`;
+   the org repo takes ownership of that machine's bootstrap/rebuild scripts and
+   flake-root assumption, and this repo's `rebuild.sh`/`bootstrap.sh`
+   host-detect maps drop the work host.
 
 ## Review criteria for an external-repo spec
 
