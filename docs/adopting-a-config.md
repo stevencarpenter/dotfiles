@@ -103,7 +103,6 @@ So all three agents share the same procedure; only Claude Code gets first-class 
 ## Related
 
 - `CLAUDE.md` § *Layout & module conventions* — the out-of-store-symlink model.
-- `docs/nix-migration.md` — chezmoi → nix mechanism map (why there's no `apply` step).
 - `modules/home/dotfiles.nix` — the link lists and gating blocks you edit in step 4.
 
 <a id="adding-a-capability"></a>

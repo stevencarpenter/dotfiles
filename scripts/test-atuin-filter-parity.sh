@@ -17,7 +17,6 @@
 # (identical absence still compares equal), and reformatting `enabled=true`
 # without spaces.
 #
-# See docs/superpowers/specs/2026-07-27-atuin-config-split-design.md.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

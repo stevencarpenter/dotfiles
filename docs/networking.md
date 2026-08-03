@@ -56,9 +56,10 @@ repo today. Some of that should change; some should stay outside the repo.
   dominant heat/fan source on the thermally-marginal 2019 i9 — it only runs
   while a session is connected. SSH + a long-lived tmux session is the daily
   path now; Screen Share stays *enabled* for the rare GUI need on i9's
-  unreliable display, just not left open. `~/.ssh/config` is rendered by the personal-only
-  1Password manifest to make this repeatable; work-mac is excluded until its external wrapper owns
-  the corresponding fragment.
+  unreliable display, just not left open. The `Host i9` stanza is a personal-only
+  op-rendered tier-2 fragment (`~/.ssh/config.d/10-homelab.conf`), so it never materializes on a
+  machine that cannot reach the tailnet. A work machine is built by its own external wrapper,
+  which owns the corresponding tier-3 fragment.
 
 ## Recommendations
 
