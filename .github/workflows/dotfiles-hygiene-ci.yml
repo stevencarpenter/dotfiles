@@ -41,8 +41,14 @@ jobs:
         with:
           python-version: "3.14"
 
+      # bash: modules/darwin/homebrew.nix installs this on every real machine,
+      # replacing Apple's frozen /usr/bin/bash 3.2 (GPLv2 license freeze) with
+      # a modern one on the front of PATH. Scripts like sketchybar's
+      # aerospace.sh plugin rely on that machine invariant (associative
+      # arrays need bash >= 4) via a bare `bash` invocation rather than a
+      # pinned path — a fresh runner without this formula fails that check.
       - name: Install shell test dependencies
-        run: brew install ripgrep
+        run: brew install ripgrep bash
 
       - name: Install pre-commit
         run: python -m pip install --upgrade pip pre-commit
