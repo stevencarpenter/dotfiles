@@ -120,7 +120,7 @@ else
 fi
 
 ssh_config="$home_dir/.ssh/config"
-include_line="$(rg -n -m1 '^Include ~/.ssh/config.d/\*$' "$ssh_config" || true)"
+include_line="$(rg -n -m1 '^Include ~/.ssh/config.d/\*\.conf$' "$ssh_config" || true)"
 first_host_line="$(rg -n -m1 '^Host([[:space:]]|$)' "$ssh_config" || true)"
 include_line="${include_line%%:*}"
 first_host_line="${first_host_line%%:*}"
