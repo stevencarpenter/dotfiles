@@ -40,16 +40,33 @@ if [ "$identity" = "personal" ]; then
     # the caller to apply; op-render then inherits it as a child process. The
     # token stays in this process's environment and is never logged or written.
     #
-    # TTY-guarded: `op signin` blocks waiting for input, and this script also
-    # runs from bootstrap.sh and non-interactive contexts where hanging is far
-    # worse than skipping. With no TTY, fall through and let op-render report
-    # the auth state it finds.
-    if [ -t 0 ]; then
-      eval "$("${OP_BIN:-op}" signin 2>/dev/null || true)"
-    fi
+    # TTY-guarded: `op signin` blocks waiting for input, so it must not run in
+    # CI, cron, or any other non-interactive invocation, where hanging is far
+    # worse than skipping. (bootstrap.sh IS interactive and so does sign in —
+    # the guard protects the headless callers, not that one.) With no TTY, fall
+    # through and let op-render report whatever auth state it finds.
+    #
+    # Scoped to a subshell so OP_SESSION_* reaches op-render and NOTHING else.
+    # The rest of this script clones over SSH and runs `uv tool install` on
+    # third-party build code; none of that needs a 1Password session, and a
+    # token in the environment is also readable by same-user processes.
     echo "==> Rendering op:// secrets"
-    "$render_bin" ||
-      echo "warning: op-render did not complete; existing secrets left intact" >&2
+    (
+      if [ -t 0 ]; then
+        # stdout is captured (op emits `export OP_SESSION_…` there), stderr is
+        # deliberately NOT redirected: op writes both its prompts and its errors
+        # there. Capturing it would hide a password prompt and look like a hang;
+        # discarding it would recreate the swallowed-stderr anti-pattern that
+        # made the original breakage unreadable for two weeks.
+        signin_out=""
+        if signin_out="$("${OP_BIN:-op}" signin)"; then
+          eval "$signin_out"
+        else
+          echo "warning: op signin failed (see op's message above); rendering anyway" >&2
+        fi
+      fi
+      "$render_bin"
+    ) || echo "warning: op-render did not complete; existing secrets left intact" >&2
   else
     echo "warning: op-render not executable at $render_bin; skipping" >&2
   fi

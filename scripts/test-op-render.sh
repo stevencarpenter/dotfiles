@@ -15,7 +15,7 @@ RENDER="$here/home/.local/bin/op-render"
 # call goes through $OP_BIN as an absolute path to a mock, so nothing here
 # should ever resolve `op` from PATH; if a future test forgets to set OP_BIN,
 # this turns a silent real-op call into an obvious failure.
-poison="$(mktemp -d)"
+poison="$(mktemp -d)" || { echo "mktemp failed; refusing to run without the op poison pill" >&2; exit 1; }
 trap 'rm -rf "$poison"' EXIT
 cat >"$poison/op" <<'POISON'
 #!/usr/bin/env bash
@@ -173,6 +173,41 @@ t_sigpipe_does_not_skip_sentinel() {
   [ -f "$target2" ] && [ -f "$work/.last-render" ]
 }
 
+# Stub GNU coreutils `stat`. Without this the GNU branch is never exercised:
+# ambient stat on macOS (and on the macos-latest runner) is BSD, so the suite
+# could not fail on the very defect it documents — verified by mutation, a
+# BSD-first mtime_human() passed every test before this stub existed.
+# Mimics the two behaviours that matter: -c is a format string, and -f means
+# --file-system, so it treats the format as a FILENAME and dumps filesystem
+# info instead of a timestamp.
+make_gnu_stat() {
+  mkdir -p "$work/gnu"
+  cat > "$work/gnu/stat" <<'EOF'
+#!/usr/bin/env bash
+case "${1:-}" in
+  -c) printf '2026-07-20 04:45:20.123456789 -0700\n'; exit 0 ;;
+  -f) shift
+      echo "stat: cannot read file system information for '$1': No such file or directory" >&2
+      printf '  File: "%s"\n    ID: 100000e0000001a Namelen: ? Type: apfs\nBlock size: 4096\nInodes: Total: 1431914713\n' "${2:-}"
+      exit 1 ;;
+esac
+exit 2
+EOF
+  chmod +x "$work/gnu/stat"
+}
+
+t_stale_warning_clean_under_gnu_stat() {
+  setup; make_gnu_stat
+  touch -t 202001010000 "$work/.last-render"
+  local err
+  err="$( ( unset OP_CONNECT_HOST OP_CONNECT_TOKEN
+            PATH="$work/gnu:$PATH" OP_MOCK_AUTH=none \
+            "$RENDER" 2>&1 >/dev/null ) )"
+  printf '%s\n' "$err" | rg -q 'last successful render was .+ \(>7 days ago\)' \
+    && ! printf '%s\n' "$err" | rg -q 'cannot read file system|Block size|Inodes' \
+    && [ "$(printf '%s\n' "$err" | rg -c 'op-render:')" = "$(printf '%s\n' "$err" | wc -l | tr -d ' ')" ]
+}
+
 t_stale_warning_is_clean() {
   setup; printf 'PRE\n' > "$target"
   touch -t 202001010000 "$work/.last-render"
@@ -202,7 +237,8 @@ run "interactive op renders 0600"      t_interactive_renders
 run "no auth (no connect, no session)" t_no_auth_skips
 run "missing op vs signed-out differ"   t_missing_op_distinct_from_signed_out
 run "truncating pipe keeps sentinel"   t_sigpipe_does_not_skip_sentinel
-run "stale warning is one clean line"  t_stale_warning_is_clean
+run "stale warning clean (BSD stat)"   t_stale_warning_is_clean
+run "stale warning clean (GNU stat)"   t_stale_warning_clean_under_gnu_stat
 run "--warn-stale-only never renders"  t_warn_stale_only_never_renders
 run "--warn-stale-only needs no homebrew" t_warn_stale_only_needs_no_homebrew
 

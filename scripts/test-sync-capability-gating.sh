@@ -9,6 +9,7 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 fixture="$(mktemp -d)"
+token_auditor_version="$(tr -d '\n' <"$repo_root/versions/token-auditor")"
 trap 'rm -rf "$fixture"' EXIT
 
 if [ ! -x "$repo_root/scripts/sync-side-channels.sh" ]; then
@@ -135,8 +136,9 @@ if [ -z "$render_line" ] || [ -z "$clone_line" ] || [ "$render_line" -ge "$clone
   exit 1
 fi
 
-# `op signin` blocks on input, so it must only run with a TTY: bootstrap.sh and
-# CI call this same script, where a hang beats every other failure mode.
+# `op signin` blocks on input, so it must only run with a TTY. The case this
+# protects is CI and other non-interactive invocations — NOT bootstrap.sh, which
+# is interactive and therefore does (correctly) sign in.
 if rg -Fq 'op signin' "$fixture/personal-mac/commands.log"; then
   echo "sync ran a blocking 'op signin' without a TTY" >&2
   exit 1
@@ -166,22 +168,33 @@ run_sync_tty() {
   # the child, so the pty is allocated deterministically — 10/10 vs flaky — and
   # it behaves the same on macOS and Linux, unlike script's incompatible
   # BSD/util-linux flag forms.
-  python3 -c 'import pty,sys; sys.exit(pty.spawn(sys.argv[1:]))' \
+  # waitstatus_to_exitcode, not the raw waitpid status: pty.spawn returns the
+  # encoded status, so a child exiting 1 becomes 256 and sys.exit() truncates
+  # that to 0 — the harness would report success for a failed run.
+  python3 -c 'import os,pty,sys; sys.exit(os.waitstatus_to_exitcode(pty.spawn(sys.argv[1:])))' \
     "${inner[@]}" >/dev/null 2>&1
 }
 
-token_auditor_version="$(tr -d '\n' <"$repo_root/versions/token-auditor")"
-if run_sync_tty && [ -s "$fixture/personal-tty/commands.log" ]; then
-  if ! rg -Fq 'op signin' "$fixture/personal-tty/commands.log"; then
-    echo "TTY sync did not establish an op session before rendering" >&2
-    exit 1
-  fi
-  if ! rg -Fq 'op-render session=tok' "$fixture/personal-tty/commands.log"; then
-    echo "op session did not propagate into op-render's environment" >&2
-    exit 1
-  fi
-else
-  echo "warning: no usable pty harness; TTY signin path NOT covered on this host" >&2
+# Hard failure, never a self-skip. A test that quietly stops covering its
+# subject is what let a broken render hide for two weeks; python3 is present on
+# every host that runs this suite (the same CI job already runs test_op_adopt.py
+# under an explicit Python setup step), so there is no portability case for an
+# escape hatch here.
+if ! run_sync_tty; then
+  echo "pty harness failed to run sync under a TTY (python3 missing or pty denied)" >&2
+  exit 1
+fi
+if [ ! -s "$fixture/personal-tty/commands.log" ]; then
+  echo "TTY sync produced no command log — harness ran but exercised nothing" >&2
+  exit 1
+fi
+if ! rg -Fq 'op signin' "$fixture/personal-tty/commands.log"; then
+  echo "TTY sync did not establish an op session before rendering" >&2
+  exit 1
+fi
+if ! rg -Fq 'op-render session=tok' "$fixture/personal-tty/commands.log"; then
+  echo "op session did not propagate into op-render's environment" >&2
+  exit 1
 fi
 
 mkdir -p "$fixture/personal-working/home/projects/agents"
@@ -198,7 +211,6 @@ if ! rg -Fq "uv run --directory $fixture/personal-working/home/projects/agents" 
   exit 1
 fi
 
-token_auditor_version="$(tr -d '\n' <"$repo_root/versions/token-auditor")"
 if ! rg -Fq "token-auditor@${token_auditor_version}" "$fixture/personal-mac/commands.log"; then
   echo "direct sync did not use the pinned token-auditor release" >&2
   exit 1

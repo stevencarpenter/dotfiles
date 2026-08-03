@@ -144,18 +144,25 @@ fi
 PATH="/etc/profiles/per-user/$(id -un)/bin:/run/current-system/sw/bin:$PATH"
 export PATH
 
-echo "==> Running 'just sync' for git externals + token-auditor ..."
+# Side channels only — NOT `just sync`, which now begins with its own
+# darwin-rebuild switch. Step 5 above already switched this host, and `just
+# sync` forwards no host to rebuild.sh, so on a fresh machine whose
+# LocalHostName is not yet in the detect_host map (exactly the case the $HOST
+# argument exists to handle) the nested rebuild would exit 1 and the `||` below
+# would swallow it — silently skipping tpm, the agent registry, token-auditor,
+# and op-render.
+echo "==> Running side channels for git externals + token-auditor ..."
 if command -v just >/dev/null 2>&1; then
-  DOTFILES_HOST="$HOST" just sync \
-    || echo "    (just sync had warnings; re-run later once online/authed)"
+  DOTFILES_HOST="$HOST" just sync-side-channels \
+    || echo "    (side channels had warnings; re-run later once online/authed)"
 else
-  echo "    'just' not on PATH yet; run 'just sync' after the switch completes."
+  echo "    'just' not on PATH yet; run 'just sync' once the switch completes."
 fi
 
 echo
 echo "==> Done. Subsequent rebuilds: ./rebuild.sh (or the 'rebuild' shell fn)."
 echo "    Provisioning that needs network/SSH (agent-registry, token-auditor,"
-echo "    tpm) runs via 'just sync'."
+echo "    tpm) runs via 'just sync' (switch + side channels)."
 echo
 echo "    Manual first-run steps (TCC-protected, cannot be scripted):"
 echo "      - Accessibility → Display → Reduce transparency"

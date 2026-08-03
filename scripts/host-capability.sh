@@ -32,7 +32,11 @@ fi
 case "$host" in
   personal-mac | work-mac) ;;
   *)
-    echo "error: cannot resolve a known host for capability '$capability'" >&2
+    if [ "$mode" = identity ]; then
+      echo "error: cannot resolve a known host for --identity" >&2
+    else
+      echo "error: cannot resolve a known host for capability '$capability'" >&2
+    fi
     exit 2
     ;;
 esac
