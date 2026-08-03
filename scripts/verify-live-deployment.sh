@@ -134,7 +134,12 @@ fi
 # Tier 1 must be the tracked base, not a leftover rendered file: a real file
 # here means an old op-rendered ~/.ssh/config survived and is now shadowing the
 # universal base (agent, multiplexing, and the config.d seam would all be stale).
-if [ -L "$ssh_config" ] && [ "$(/usr/bin/readlink "$ssh_config")" = "$repo_root/home/.ssh/config" ]; then
+# Compare against the LOGICAL path the module embeds
+# (mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/home/..."), not
+# $repo_root, which is `pwd -P` and would differ wherever ~/.dotfiles is a
+# symlink to another checkout path — a layout bootstrap.sh explicitly supports.
+if [ -L "$ssh_config" ] &&
+  [ "$(/usr/bin/readlink "$ssh_config")" = "$home_dir/.dotfiles/home/.ssh/config" ]; then
   pass "SSH universal base is the tracked out-of-store symlink"
 else
   fail "~/.ssh/config is not the tracked base symlink (stale rendered file?)"
