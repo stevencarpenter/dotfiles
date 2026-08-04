@@ -72,4 +72,27 @@ activation_path="$(
 )"
 
 test -x "${activation_path}/activate"
-echo "external-overlay-contract: revision and isolated fragment build passed"
+
+# A wrapper-built work host must declare ZERO age secrets.
+#
+# This base repo no longer imports agenix, so `age.secrets` is not a defined
+# option and evaluating it must FAIL. That is the assertion: a successful eval
+# means the agenix module leaked back into the base module set, which would
+# re-impose an age identity (and a fatal decrypt step) on every external work
+# host. Wrappers that want their own secret custody bring their own module.
+if nix eval --impure --json --expr \
+  "(${consumer_expr}).config.home-manager.users.\"contract-test\".age.secrets" \
+  >/dev/null 2>&1; then
+  echo "external work host still declares age.secrets: the base re-imported agenix" >&2
+  exit 1
+fi
+
+# Belt and braces: no age identity path either.
+if nix eval --impure --json --expr \
+  "(${consumer_expr}).config.home-manager.users.\"contract-test\".age.identityPaths" \
+  >/dev/null 2>&1; then
+  echo "external work host still declares age.identityPaths" >&2
+  exit 1
+fi
+
+echo "external-overlay-contract: revision, isolated fragment build, and zero-age-secrets passed"

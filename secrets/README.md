@@ -1,12 +1,14 @@
 # Secret management
 
-Personal and work secrets intentionally use different custody paths.
+This directory holds documentation only. **No ciphertext is tracked in this repository**, and no
+host declares `age.secrets` or an age identity — the agenix module is not imported at all. Every
+secret this repo owns renders from 1Password. Secrets for an externally-owned host are that
+wrapper's custody, administered by its own flake.
 
-## Personal: 1Password templates
+## 1Password templates
 
-`personal-mac` declares zero `age.secrets` and an empty `age.identityPaths` list. Personal values
-are stored in the personal 1Password account and rendered by `home/.local/bin/op-render` from
-public-safe templates:
+Values are stored in 1Password and rendered by `home/.local/bin/op-render` from public-safe
+templates:
 
 ```text
 home/.config/zsh/.personal.env.tpl -> ~/.config/zsh/.personal.env
@@ -95,45 +97,23 @@ rendered-target ignore rules, pre-commit policy validation, gitleaks, review, an
 history provide layered protection without claiming that arbitrary strings can be proven
 non-secret.
 
-## Work: temporary agenix bridge
+## No age secrets, ever
 
-The remaining age ciphertext is work-only and is decrypted at Home Manager activation by agenix:
+The former carry-verbatim age bridge for work secrets is **gone**. Removed in full: the 26
+ciphertexts under `secrets/work/`, the `secrets/secrets.nix` recipient file,
+`modules/home/secrets.nix`, the agenix flake input and module imports, and `bootstrap.sh`'s
+age-identity fetch.
 
-```text
-secrets/work/zsh-work-env.age
-  -> ~/.config/zsh/.work.env
-secrets/work/claude-skills/<skill>/**
-  -> ~/.claude/skills/<skill>/**
-```
+Do not add it back. Two tests enforce this:
 
-The skills subtree contains 25 blobs across five work-only skills. Script targets are mode `0700`;
-other work secret targets are mode `0600`. `modules/home/secrets.nix` declares them only for
-`identity == "work"`, and work activation decrypts synchronously before dependent skills hooks.
+- `scripts/test-nix-review-regressions.sh` — asserts `age.secrets` does not evaluate on any host.
+- `scripts/test-external-overlay-contract.sh` — asserts a wrapper-built external work host
+  declares zero `age.secrets` and no `age.identityPaths`.
 
-`bootstrap.sh work-mac` obtains the temporary work age identity from
-`op://Private/dotfiles-age-key/notesPlain` at `~/.config/age/keys.txt`. Personal bootstrap does not
-fetch or require this key.
+If a future secret genuinely cannot use 1Password, the requirements are: org-scoped recipients,
+teammate-decryptable, and **no reuse of a personal age recipient or any single person's key**.
+Deleting a ciphertext from git does not remove it from history — rotate any credential that was
+ever committed.
 
-### Add or rotate a work-bridge secret
-
-1. Add its path and recipient to `secrets/secrets.nix`.
-2. Run `agenix -e <work/path.age>` from `secrets/`.
-3. Declare or update its `age.secrets.<name>` entry in `modules/home/secrets.nix`.
-4. Run the work configuration build/verification before switching.
-
-Do not use `builtins.readFile` on decrypted data. Ciphertext may enter the public Nix store;
-plaintext must not.
-
-## Required end state
-
-The age bridge is rollback material, not the final work-secret design. The external work wrapper
-must move each work consumer to externally administered custody without using the personal age
-recipient or a single employee's key. Retain the old ciphertext until the replacement consumer,
-rollback, and one normal update cycle are verified; then delete the retired declarations, blobs,
-recipient entries, and local work key.
-
-Current bridge recipient (for `agenix -e` only):
-
-```text
-age1462h0ed4ufkjrq0wu326l30c8hay9uewlsaudk89mgqjc5540vrqacejsz
-```
+Never `builtins.readFile` a decrypted value. Ciphertext may enter the public Nix store; plaintext
+must not.

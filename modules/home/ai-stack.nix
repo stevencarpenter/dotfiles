@@ -31,12 +31,12 @@
 #   - ~/.config/mcp/machine/<identity>.json (overlay)     -> modules/home/dotfiles.nix (identity-gated)
 #   - the MCP/skills fan-out that consumes those overlays -> modules/home/sync-hooks.nix
 #
-# ~/.claude/skills interplay note: TWO writers populate ~/.claude/skills/ — the
-# agenix-decrypted work skills (modules/home/secrets.nix) and the sync-skills
-# activation (modules/home/sync-hooks.nix). sync-skills only GCs entries it
-# recorded, so the decrypted work skills are safe PROVIDED they are written
-# before skillsSync runs. That ordering lives in sync-hooks.nix / secrets.nix,
-# not here; this module does not touch ~/.claude/skills.
+# ~/.claude/skills interplay note: in THIS repo there is now exactly one writer
+# of ~/.claude/skills/ — the sync-skills activation (modules/home/sync-hooks.nix).
+# The former second writer (age-decrypted work skills) is gone with the age
+# bridge. An external wrapper may add its own writer via extraHomeModules;
+# sync-skills only GCs entries it recorded, so a wrapper's skills survive
+# regardless of ordering. This module does not touch ~/.claude/skills.
 {
   config,
   pkgs,

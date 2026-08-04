@@ -17,7 +17,7 @@ fi
 # op-render — materialize ~/.ssh/config and ~/.config/zsh/.personal.env from
 # op:// templates. Ordered FIRST on purpose: the agent-registry clone below
 # talks to git@github.com over SSH and so depends on the ssh config rendered
-# here. Personal-only — work secrets come from agenix during activation, not
+# here. Personal-only — work secrets are the external wrapper's custody, not
 # 1Password.
 #
 # This cannot live in home.activation. Rendering needs network plus an

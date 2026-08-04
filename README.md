@@ -10,14 +10,14 @@ One flake drives two machine types — `personal-mac` and `work-mac` — from a 
 capability table ([`lib/machines.nix`](lib/machines.nix)), so the same checkout produces a
 different environment on each host with no hostname checks inside any module.
 
-Personal secrets render directly from 1Password references via `op-render`; work secrets still use
-the temporary [agenix](https://github.com/ryantm/agenix) bridge until the external work wrapper takes
-custody. The repo also vendors a small Python tool (`mcp_sync/`) that
+Secrets render directly from 1Password references via `op-render`; this repo declares zero
+`age.secrets` on every identity. Secrets for an externally-owned host are that wrapper's custody.
+The repo also vendors a small Python tool (`mcp_sync/`) that
 regenerates machine-specific AI-tool config after every switch.
 
 > **Migrating from the old chezmoi layout?** See [`docs/nix-migration.md`](docs/nix-migration.md)
 > for the full mechanism-by-mechanism mapping (dot\_ prefixes → `home/`, `.chezmoiignore` gates →
-> `mkIf`, `run_` hooks → activation vs `just sync`, age → agenix).
+> `mkIf`, `run_` hooks → activation vs `just sync`, age → `op-render`).
 
 ## Repo tour
 
@@ -36,7 +36,7 @@ bootstrap.sh  rebuild.sh  # fresh-machine setup / routine switch (host auto-dete
 Justfile                  # nix + python + sync task runner
 ```
 
-- **`flake.nix`** — pins `nixpkgs`/`nix-darwin`/`home-manager` to the **26.05** stable darwin line (plus `agenix`), then
+- **`flake.nix`** — pins `nixpkgs`/`nix-darwin`/`home-manager` to the **26.05** stable darwin line, then
   folds `lib/machines.nix` into
   `darwinConfigurations.<host>` via a `mkHost` helper. Every host receives the same specialArgs
   payload — `{ inherit inputs hostName; user; caps; identity; }` — for both the darwin modules
@@ -51,13 +51,12 @@ Justfile                  # nix + python + sync task runner
   `system.defaults.*`), `homebrew.nix` (declarative taps/brews/casks against an independent, self-updating brew install,
   gated per caps).
 - **`modules/home/`** — home scope. `dotfiles.nix` is the heart of the thin wrapper (out-of-store
-  symlinks); the rest own shell, packages, tiling, dev tooling, the AI stack, agenix secrets, and
-  the post-switch sync hooks. Each self-gates on caps/identity.
+  symlinks); the rest own shell, packages, tiling, dev tooling, the AI stack, and the post-switch
+  sync hooks. Each self-gates on caps/identity.
 - **`home/`** — the actual dotfiles, mirroring `~` (e.g. `home/.config/nvim`,
   `home/.config/zsh/.zshrc`, `home/.claude/hooks/…`). Symlinked live; safe to edit in place.
-- **`secrets/`** — work-only age ciphertext carried over from chezmoi, plus `secrets.nix`
-  (agenix recipients). Personal templates live under `home/` and contain only `op://` references.
-  Nothing under `secrets/` is decrypted or edited by hand. See
+- **`secrets/`** — documentation only. No ciphertext is tracked in this repo. Templates live
+  under `home/` and contain only `op://` references. See
   [`secrets/README.md`](secrets/README.md).
 - **`mcp_sync/`** — isolated `uv` project (Python 3.14+, no runtime deps) that
   fans config out to per-tool formats after each switch. Run standalone or via the activation hooks.
@@ -99,16 +98,8 @@ the owning module on `caps.<capability>`.
 2. Installs **Lix** if `nix` isn't on PATH, via the Lix installer. (`nix.enable = true` with
    `nix.package = pkgs.lix` in `modules/darwin/core.nix` — nix-darwin manages the daemon and
    runs Lix as the interpreter.)
-3. Resolves the host config. On `work-mac` only, fetches the temporary work **age identity key from
-   1Password** into `~/.config/age/keys.txt`:
-
-   ```bash
-   op read "op://Private/dotfiles-age-key/notesPlain" > ~/.config/age/keys.txt
-   chmod 600 ~/.config/age/keys.txt
-   ```
-
-   Personal machines skip this step because their secret surface is fully 1Password-rendered and
-   evaluates to zero `age.secrets`.
+3. Resolves the host config. No host fetches an age identity: every identity's secret surface is
+   fully 1Password-rendered and evaluates to zero `age.secrets`.
 4. Links `~/.dotfiles → <repo>` (the out-of-store root the raw symlinks resolve through).
 5. Runs the
    **first switch** straight from the flake input (`darwin-rebuild` isn't on PATH yet):
@@ -189,9 +180,9 @@ names-only reverse-adoption plan and `just op-adopt --apply` updates only fields
 `home/.config/op/adopt-policy.json`. It cannot import new variables, modify templates, or adopt SSH
 config; Login-item fields remain manual-only to avoid the 1Password CLI's passkey-loss hazard.
 
-Work currently decrypts its environment, AWS overrides, and 25 work-skill files through agenix
-using `~/.config/age/keys.txt`. That carry-verbatim bridge remains until the external work wrapper
-moves them to externally administered custody. See [`secrets/README.md`](secrets/README.md).
+The former carry-verbatim age bridge for work secrets has been removed: its ciphertexts, recipient
+file, and module are gone, and no host requires an age identity. Secrets for an externally-owned
+host are administered by that wrapper. See [`secrets/README.md`](secrets/README.md).
 
 ## Side channels (`just sync` / `just bootstrap`)
 

@@ -164,7 +164,7 @@ let
     # python314: pin to Python 3.14+ per the vendored tools' requirement. If
     # the pinned nixpkgs lacks `python314`, fall back to `python3`.
     python314
-    age # age encryption CLI (agenix uses its own; this is for manual use)
+    age # age encryption CLI, for manual use (no age secrets are declared here)
   ];
 
   # ─── GUI base fonts (mirror the Brewfile gui gate) ──────────────────────

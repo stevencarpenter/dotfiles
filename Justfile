@@ -49,7 +49,7 @@ brew-upgrade:
 brew-audit:
     scripts/audit-homebrew.sh
 
-# First-time provisioning on a fresh Mac (Lix, work-only age key, first switch).
+# First-time provisioning on a fresh Mac (Lix, Homebrew, first switch).
 bootstrap *HOST:
     ./bootstrap.sh {{ HOST }}
 

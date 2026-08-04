@@ -12,8 +12,8 @@ The shape is modeled on [kunchenguid/dotfiles](https://github.com/kunchenguid/do
 | Chezmoi mechanism                                                        | Nix home                                                                                                                                                                                                      |
 |--------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `dot_config/…` source prefix                                             | `home/.config/…` — real dotted name, symlinked out-of-store via `mkOutOfStoreSymlink` in `modules/home/dotfiles.nix`                                                                                          |
-| `dot_claude/`, `private_dot_ssh/`, etc.                                  | `home/.claude/`, `~/.ssh/config` (the SSH config is an agenix secret, not a raw symlink)                                                                                                                      |
-| `executable_` prefix                                                     | file mode set where it matters (agenix `mode = "0700"` for skill scripts); raw symlinks inherit the tracked file's mode                                                                                       |
+| `dot_claude/`, `private_dot_ssh/`, etc.                                  | `home/.claude/`, `~/.ssh/config` (the SSH config is an `op://` template rendered by op-render, not a raw symlink)                                                                                                                      |
+| `executable_` prefix                                                     | file mode set where it matters; raw symlinks inherit the tracked file's mode                                                                                                                                  |
 | `.tmpl` (Go template) — **structural** per-host diff                     | static per-host file selected by `identity`. e.g. `aerospace.toml.tmpl` → `home/.config/aerospace/aerospace.{personal,work}.toml`, chosen in `modules/home/tiling.nix`                                        |
 | `.tmpl` — **scalar** per-host value                                      | nix-generated `home.file.<x>.text`. e.g. `sketchybar/machine.env.tmpl` → generated from `caps.sketchybar_workspace_badges` in `tiling.nix`                                                                    |
 | `.tmpl` — **assembled** (base + gated blocks)                            | split raw files merged by the tool. e.g. `mise/config.toml.tmpl` → `config.toml` + `conf.d/{dev,infra}.toml`, each linked only when its cap is on (`dev-tools.nix`); mise merges `conf.d/*.toml`              |
@@ -32,7 +32,7 @@ The shape is modeled on [kunchenguid/dotfiles](https://github.com/kunchenguid/do
 | `.chezmoiexternal.toml.tmpl` (agent-registry SSH clone, tpm)             | `just sync` (bucket **C**; needs network/SSH)                                                                                                                                                                 |
 | `~/Library/LaunchAgents/com.user.maxfiles.plist`                         | `launchd.user.agents.maxfiles` in `modules/darwin/core.nix`                                                                                                                                                   |
 | `dot_config/homebrew/Brewfile.tmpl`                                      | `modules/darwin/homebrew.nix` (nix-darwin `homebrew` module against an independent, self-updating brew install), caps-gated; pure CLI tools moved to `home.packages`                                          |
-| age encryption (chezmoi `encrypted_` + `[age]` key)                      | **Split custody** — personal values render from 1Password templates via `op-render`; only the temporary work bridge remains carry-verbatim agenix under `secrets/`                                            |
+| age encryption (chezmoi `encrypted_` + `[age]` key)                      | **Fully replaced by `op://` templates rendered via `op-render`.** No ciphertext is tracked and no host declares `age.secrets`; an externally-owned host's secrets are its own wrapper's custody               |
 
 ### The hook bucket rule
 
@@ -86,28 +86,26 @@ Every `run_` hook was sorted into one of three buckets:
 - **Rebuild needs `sudo`.** `chezmoi apply` ran as the user; `darwin-rebuild switch` needs root to
   write system state. Routine config edits still need no rebuild, but any package/defaults change is
   now a privileged operation.
-- **Activation ordering is subtle.** On Darwin, agenix decrypts through an asynchronous launchd
-  agent rather than Home Manager's `writeBoundary` DAG. `skillsSync` is safe because it garbage
-  collects only entries recorded in its own state; it never owns the agenix work-skill paths.
+- **Activation ordering is subtle.** `skillsSync` runs after `writeBoundary` and garbage collects
+  only entries recorded in its own state, so an external wrapper that writes its own skill paths
+  is safe regardless of ordering. (This bullet previously described sequencing against agenix's
+  asynchronous Darwin launchd agent; that bridge has since been removed entirely.)
 - **Nix learning curve.** The repo is now Nix expressions, specialArgs threading, and the
   home-manager/nix-darwin option surface — a steeper on-ramp than chezmoi's prefix conventions for
   anyone (including future-owner) making changes.
-- **Work secrets are plaintext-on-disk after decrypt.** agenix decrypts to a user-owned path outside the
-  store and symlinks to the target — the *store* stays safe (only ciphertext enters it), but the
-  decrypted secret sits on disk mode 0400/0600, same as chezmoi's decrypted output. Personal
-  secrets have already moved to 1Password rendering; the age bridge remains only for work until
-  the external wrapper assumes custody (see `secrets/README.md`).
+- **Rendered secrets are plaintext-on-disk.** `op-render` writes mode-0600 files, same as
+  chezmoi's decrypted output — the *store* stays clean because only `op://` references are
+  tracked. The age bridge that once carried work secrets has been removed in full
+  (see `secrets/README.md`).
 
 ## (d) Deferred work
 
 Explicitly scoped OUT of the port; none blocks a switch today.
 
-1. **One-time re-encryption to agenix-native recipients (hygiene only).** Blobs were produced by
-   plain `age -e -r` via chezmoi, not the `agenix` CLI. They decrypt identically; re-encrypting via
-   `agenix -e` just buys a clean edit loop. See `secrets/README.md`.
-2. **External work-secret custody.** Personal migration to `op://` templates is complete. Move the
-   remaining work environment, AWS overrides, and work skills from the personal age recipient to
-   the externally administered wrapper, one consumer at a time.
+1. ~~**One-time re-encryption to agenix-native recipients.**~~ Moot: the blobs are deleted.
+2. ~~**External work-secret custody.**~~ Done on this side — the ciphertexts, recipient file,
+   secrets module, and agenix input are removed, and no host declares `age.secrets`. Standing up
+   the replacement consumers is the external wrapper's work, not this repo's.
 3. **Homebrew inventory pruning.** Activation keeps `cleanup = "none"` because `"check"` is a hard
    activation failure while unmanaged inventory exists. Review the inventory-only
    `just brew-audit` report, then prune or

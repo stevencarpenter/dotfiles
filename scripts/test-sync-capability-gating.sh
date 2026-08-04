@@ -118,7 +118,7 @@ if rg -Fq 'uv run --directory' "$fixture/work-mac/commands.log"; then
 fi
 
 # op-render renders personal 1Password content; a work host must never invoke
-# it (work secrets come from agenix at activation). And on personal it must run
+# it (work secrets are the external wrapper's custody). And on personal it must run
 # BEFORE the agent-registry clone, which authenticates over SSH using the
 # ~/.ssh/config op-render produces.
 if rg -Fq 'op-render' "$fixture/work-mac/commands.log"; then

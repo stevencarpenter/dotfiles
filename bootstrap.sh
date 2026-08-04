@@ -54,25 +54,11 @@ if [ -z "${HOST:-}" ]; then
 fi
 echo "==> Using host config: $HOST"
 
-# ── 3. Work-only age identity key from 1Password ─────────────────────────
-# Personal secrets are rendered directly from 1Password and declare zero
-# age.secrets. The carry-verbatim age bridge remains work-only until the
-# external work wrapper takes custody of those secrets.
-if [ "$HOST" = "work-mac" ]; then
-  KEY_DEST="$HOME/.config/age/keys.txt"
-  if [ ! -s "$KEY_DEST" ]; then
-    echo "==> Fetching work age identity key from 1Password ..."
-    if ! command -v op >/dev/null 2>&1; then
-      echo "ERROR: 1Password CLI (op) not found. Install it, sign in, then re-run." >&2
-      exit 1
-    fi
-    mkdir -p "$(dirname "$KEY_DEST")"
-    op read "op://Private/dotfiles-age-key/notesPlain" >"$KEY_DEST"
-    chmod 600 "$KEY_DEST"
-  else
-    echo "==> work age key already present at $KEY_DEST"
-  fi
-fi
+# ── 3. (removed) age identity key ────────────────────────────────────────
+# This repo declares zero age.secrets on every identity, so no host needs an
+# age identity. All secrets here render from 1Password via op-render; secrets
+# for an externally-owned host are that wrapper's custody, fetched by its own
+# bootstrap. Bootstrap must never write ~/.config/age/keys.txt.
 
 # ── 4. ~/.dotfiles symlink (out-of-store root for raw dotfiles) ───────────
 if [ "$REPO_ROOT" = "$HOME/.dotfiles" ]; then

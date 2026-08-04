@@ -62,7 +62,7 @@ in
       ".config/zsh/.p10k.zsh"
       ".config/zsh/lib" # rebuild.zsh (replaces the retired chezmoi-apply lib)
       ".config/zsh/profile.d/worktrunk-aliases.zsh"
-      ".config/zsh/profile.d/common-env.zsh" # non-secret flags (was the agenix zsh-env secret; WS1)
+      ".config/zsh/profile.d/common-env.zsh" # non-secret flags (was the zsh-env age secret; WS1)
 
       # Editor / TUI / terminal configs.
       ".config/nvim" # stock LazyVim tree; LazyVim rewrites lazy-lock.json in place
