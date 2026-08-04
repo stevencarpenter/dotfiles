@@ -27,6 +27,7 @@ exec_scripts=(
   scripts/host-capability.sh
   scripts/sync-side-channels.sh
   scripts/test-gh-account-routing.sh
+  scripts/test-ssh-controlpath-identity.sh
   scripts/test-atuin-filter-parity.sh
   scripts/test-atuin-filter-parity-mutations.sh
   scripts/test-eval-cache.sh
