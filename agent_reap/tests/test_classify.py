@@ -224,3 +224,58 @@ def test_non_claude_panes_are_ignored_entirely(config: Config) -> None:
     assert report.candidates == ()
     assert report.interactive == ()
     assert report.skipped == ()
+
+
+def test_team_scope_reaps_regardless_of_inbox_state(
+    config: Config, teams_dir: Path
+) -> None:
+    """Targeted teardown ignores liveness checks: the team is already over."""
+    write_inbox(
+        teams_dir, "abc123", "docs-readme", payload=[{"m": "queued"}], mtime=NOW
+    )
+
+    report = _classify(
+        config, [make_pane()], {200: make_process(state="R+")}, team_scope="abc123"
+    )
+
+    assert [c.teammate.agent_name for c in report.candidates] == ["docs-readme"]
+
+
+def test_team_scope_ignores_other_teams(config: Config, teams_dir: Path) -> None:
+    """A teardown for one session must not touch a different live team."""
+    write_inbox(teams_dir, "abc123", "docs-readme", mtime=DRAINED_LONG_AGO)
+
+    report = _classify(
+        config, [make_pane()], {200: make_process()}, team_scope="other999"
+    )
+
+    assert report.candidates == ()
+
+
+def test_team_scope_still_protects_own_ancestry(
+    config: Config, teams_dir: Path
+) -> None:
+    """The hook must never kill the shell it runs in, even during teardown."""
+    write_inbox(teams_dir, "abc123", "docs-readme", mtime=DRAINED_LONG_AGO)
+
+    report = _classify(
+        config,
+        [make_pane()],
+        {200: make_process()},
+        protected_pids={200},
+        team_scope="abc123",
+    )
+
+    assert report.candidates == ()
+    assert report.skipped[0].reason == "this session"
+
+
+def test_team_scope_still_spares_the_lead(config: Config, teams_dir: Path) -> None:
+    """Teardown of a team leaves its lead alone unless asked."""
+    write_inbox(teams_dir, "abc123", "team-lead", mtime=NOW)
+    process = make_process(command="claude --agent-id team-lead@session-abc123")
+
+    report = _classify(config, [make_pane()], {200: process}, team_scope="abc123")
+
+    assert report.candidates == ()
+    assert "team lead" in report.skipped[0].reason

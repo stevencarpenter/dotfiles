@@ -40,7 +40,27 @@ zstyle ':z4h:' auto-update-days '28'
 zstyle ':z4h:bindkey' keyboard  'mac'
 
 # Start tmux if not already in tmux.
-# zstyle ':z4h:' start-tmux command tmux -u new -A -D -t z4h
+#
+# MUST be set explicitly. Leaving this commented out does NOT mean "no tmux" —
+# z4h defaults to 'isolated' (main.zsh: `zstyle -a :z4h: start-tmux start_tmux ||
+# start_tmux=(isolated)`), which appends the shell's PID to the socket path and so
+# spins up a SEPARATE tmux server per terminal window. Measured cost of that
+# default here: 11 socket files, 8 of them stale, 4 live servers, none intentional.
+#
+# That sprawl is not merely untidy — it makes cleanup silently wrong. `tmux
+# kill-server` is socket-scoped, so run from one window it exits 0, detaches your
+# client, and kills a server, while a runaway Claude team survives on a different
+# socket. Silent success against the wrong target.
+#
+# 'system' execs plain `tmux -u` on the DEFAULT socket, which buys three things:
+#   1. One server for every window, so kill-server / list-panes are unambiguous.
+#   2. tmux stays in play, so z4h's startup prompt-at-bottom still fires (it is
+#      gated on `-n $_Z4H_TMUX`; plain 'no' would silently drop it).
+#   3. Windows load THIS repo's ~/.config/tmux/tmux.conf instead of z4h's minimal
+#      one — so the everforest theme and claude-pane-monitor.sh (which publishes
+#      the runaway-teammate badge) apply everywhere, not just in hand-started
+#      sessions.
+zstyle ':z4h:' start-tmux system
 
 # Whether to move prompt to the bottom when zsh starts and on Ctrl+L.
 zstyle ':z4h:' prompt-at-bottom 'yes'

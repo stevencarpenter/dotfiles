@@ -95,13 +95,19 @@ def _self_context(
     return pids, pane_ids, sessions
 
 
-def build_report(config: Config, runner: Runner, now: float | None = None) -> Report:
+def build_report(
+    config: Config,
+    runner: Runner,
+    now: float | None = None,
+    team_scope: str | None = None,
+) -> Report:
     """Discover and classify the current pane population.
 
     Args:
         config: Effective settings.
         runner: Command executor.
         now: Current unix timestamp; defaults to wall clock.
+        team_scope: Restrict to one team session id for targeted teardown.
 
     Returns:
         The classification report.
@@ -125,6 +131,7 @@ def build_report(config: Config, runner: Runner, now: float | None = None) -> Re
         protected_pane_ids=protected_panes,
         protected_sessions=protected_sessions,
         sockets=sockets,
+        team_scope=team_scope,
     )
 
 
@@ -297,6 +304,14 @@ def build_parser() -> argparse.ArgumentParser:
     reap_cmd.add_argument(
         "--include-lead", action="store_true", help="also reap team lead panes"
     )
+    reap_cmd.add_argument(
+        "--team",
+        metavar="SESSION_ID",
+        help=(
+            "tear down exactly this team (the SessionEnd hook's path): skips the "
+            "liveness checks, since the team is already over"
+        ),
+    )
     return parser
 
 
@@ -374,7 +389,7 @@ def cli(argv: Sequence[str] | None = None, runner: Runner | None = None) -> int:
             _print_strays(masters, disowned, args.verbose)
         return 0
 
-    report = build_report(config, run)
+    report = build_report(config, run, team_scope=getattr(args, "team", None))
 
     if command == "reap":
         outcomes = reap(report.candidates, run, dry_run=not args.kill)

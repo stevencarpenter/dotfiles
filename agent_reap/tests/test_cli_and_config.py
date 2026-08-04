@@ -206,3 +206,27 @@ def test_socket_globs_substitute_the_uid() -> None:
     """``{uid}`` is expanded so one config works on every machine."""
     config = Config(socket_globs=("/private/tmp/tmux-{uid}/*",))
     assert config.resolved_globs(uid=501) == ("/private/tmp/tmux-501/*",)
+
+
+def test_env_var_selects_the_config(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """AGENT_REAP_CONFIG makes the hook's kill path testable and launchd-friendly."""
+    path = tmp_path / "env.toml"
+    path.write_text("teammate_idle_minutes = 7\n", encoding="utf-8")
+    monkeypatch.setenv("AGENT_REAP_CONFIG", str(path))
+
+    assert load_config().config.teammate_idle_minutes == 7
+
+
+def test_explicit_config_beats_the_env_var(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An explicit --config must win over the environment."""
+    env = tmp_path / "env.toml"
+    env.write_text("teammate_idle_minutes = 7\n", encoding="utf-8")
+    explicit = tmp_path / "explicit.toml"
+    explicit.write_text("teammate_idle_minutes = 99\n", encoding="utf-8")
+    monkeypatch.setenv("AGENT_REAP_CONFIG", str(env))
+
+    assert load_config(explicit).config.teammate_idle_minutes == 99

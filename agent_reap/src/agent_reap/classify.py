@@ -166,6 +166,7 @@ def classify(
     protected_sessions: set[str] | None = None,
     sockets: tuple[str, ...] = (),
     teams_dir: Path | None = None,
+    team_scope: str | None = None,
 ) -> Report:
     """Sort panes into candidates, interactive sessions, and exclusions.
 
@@ -181,6 +182,12 @@ def classify(
             the caller's own team.
         sockets: Sockets searched, recorded on the report.
         teams_dir: Override for the teams root; defaults to the configured path.
+        team_scope: Tear down exactly this team session id. Used by the
+            ``SessionEnd`` hook, where the team's lifecycle has *ended* — so the
+            inbox-drained, idle-threshold, and sleeping checks no longer apply
+            (they exist to avoid reaping mid-work agents in a *live* team), and
+            the own-team guard is deliberately lifted for this id. The pane and
+            ancestry guards still hold, so the hook can never kill its own shell.
 
     Returns:
         The classification, with a reason attached to every exclusion.
@@ -223,6 +230,29 @@ def classify(
         if pane.pid in protected_pids or pane.pane_id in protected_pane_ids:
             skipped.append(Skipped(pane, "this session"))
             continue
+
+        if team_scope is not None:
+            # Targeted teardown: this team is over. Only the self-guards above
+            # apply; liveness checks would keep the leak alive.
+            if teammate.session_id != team_scope:
+                continue
+            if teammate.agent_name == "team-lead" and not config.include_lead:
+                skipped.append(Skipped(pane, "team lead (use --include-lead)"))
+                continue
+            if not _agent_allowed(teammate.agent_name, config):
+                skipped.append(Skipped(pane, "excluded by allow/deny list"))
+                continue
+            candidates.append(
+                Candidate(
+                    pane=pane,
+                    process=process,
+                    teammate=teammate,
+                    inbox=read_inbox(root, teammate.session_id, teammate.agent_name),
+                    idle_s=0.0,
+                )
+            )
+            continue
+
         if teammate.session_id in protected_sessions:
             skipped.append(Skipped(pane, "own team session"))
             continue

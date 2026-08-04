@@ -109,6 +109,12 @@ def load_config(path: Path | None = None) -> LoadedConfig:
     Returns:
         The effective config, its source path, and any parse errors.
     """
+    # AGENT_REAP_CONFIG exists so the SessionEnd hook's kill path is testable
+    # against a scratch socket, and so a launchd runner can be pointed at its own
+    # policy file. An explicit --config still wins over it.
+    env_path = os.environ.get("AGENT_REAP_CONFIG")
+    if path is None and env_path:
+        path = Path(env_path)
     target = (path or DEFAULT_CONFIG_PATH).expanduser()
     if not target.is_file():
         return LoadedConfig(config=Config(), path=None)
