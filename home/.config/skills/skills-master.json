@@ -7,6 +7,7 @@
   },
   "skills": {
     "refactor": { "source": "personal" },
-    "claude-cost": { "source": "personal" }
+    "claude-cost": { "source": "personal" },
+    "gh-axi": { "source": "personal" }
   }
 }
