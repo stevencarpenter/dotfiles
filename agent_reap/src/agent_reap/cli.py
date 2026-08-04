@@ -77,11 +77,27 @@ def _self_context(
         runner: Command executor, unused but kept for symmetry with callers.
 
     Returns:
-        Protected pids, protected pane ids, and protected team session ids.
+        Protected pids, protected (socket, pane_id) pairs, and protected team
+        session ids.
     """
     del runner
     pids = ancestry(os.getpid(), processes)
-    pane_ids = {p for p in (os.environ.get("TMUX_PANE"),) if p}
+
+    # Socket-qualify the pane. $TMUX is "<socket>,<server-pid>,<session>", and a
+    # pane id is unique only WITHIN a server — every server numbers from %0. A
+    # bare id would therefore protect a same-numbered pane on every other socket,
+    # which under-reaps silently. Resolve the socket the same way discovery does
+    # so /tmp and /private/tmp compare equal.
+    pane_ids: set[tuple[str, str]] = set()
+    tmux_env = os.environ.get("TMUX", "")
+    pane_env = os.environ.get("TMUX_PANE")
+    if tmux_env and pane_env:
+        socket_path = tmux_env.split(",", 1)[0]
+        try:
+            resolved = str(Path(socket_path).resolve())
+        except OSError:
+            resolved = socket_path
+        pane_ids.add((resolved, pane_env))
     sessions = {
         s
         for s in (
@@ -128,7 +144,7 @@ def build_report(
         config=config,
         now=time.time() if now is None else now,
         protected_pids=protected_pids,
-        protected_pane_ids=protected_panes,
+        protected_panes=protected_panes,
         protected_sessions=protected_sessions,
         sockets=sockets,
         team_scope=team_scope,
