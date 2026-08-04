@@ -143,13 +143,6 @@ in
       };
     })
 
-    # ---- identity: work ---------------------------------------------------
-    (lib.optionalAttrs (identity == "work") (mkLinks [
-      ".config/zsh/profile.d/work-shell-functions.zsh"
-      ".config/zsh/profile.d/work-aws-shell-functions.zsh"
-      ".config/zsh/profile.d/work-secrets.zsh"
-    ]))
-
     # ---- NOT work (homelab access over Tailscale: personal only) ---------
     (lib.optionalAttrs (identity != "work") (mkLinks [
       ".config/zsh/profile.d/tailscale.zsh"
@@ -165,8 +158,7 @@ in
     # defaults, which include a PUBLIC sync_address and no history_filter at
     # all. `atuin init zsh` also reads [tmux].enabled at init time and emits
     # ATUIN_TMUX_POPUP=false when it is missing, so the search UI renders
-    # inline rather than in a popup. See docs/superpowers/specs/
-    # 2026-07-27-atuin-config-split-design.md.
+    # inline rather than in a popup.
     #
     # mkDefault leaves the external work wrapper room to outrank this, per the
     # override seam below and the aerospace precedent in tiling.nix.

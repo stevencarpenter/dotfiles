@@ -10,7 +10,7 @@ A personal macOS dotfiles repository built as a **nix-darwin + home-manager flak
 wrapper" shape: nix owns packages, macOS defaults, capability gating, and orchestration, while the
 raw config files live under `home/` (real dotted names) and are symlinked into place **out of the
 nix store** through `~/.dotfiles` — so editing a raw config is live immediately, no rebuild needed.
-One flake drives two machine types (`personal-mac`, `work-mac`) from a single
+One flake drives its hosts (currently just `personal-mac`) from a single
 capability table (`lib/machines.nix`); modules gate on caps/identity, never on hostname. Secrets
 render directly from 1Password via `op-render`; this repo declares zero `age.secrets` on every
 identity and does not depend on agenix. Secrets for an externally-owned host are that wrapper's
@@ -18,8 +18,7 @@ custody. The repo also vendors one small Python tool
 (`mcp_sync/`). Two former tools were extracted to their own public repos and install as standalone
 uv tools: `token-auditor` (github.com/stevencarpenter/token-auditor, via `just sync`) and
 `aws_config_gen` (github.com/stevencarpenter/aws-config-generator; the external work wrapper now
-owns AWS profile generation, so this repo dropped it and the `aws_sso` capability). This repo was
-ported from chezmoi; see `docs/nix-migration.md` for the full mechanism map.
+owns AWS profile generation, so this repo dropped it and the `aws_sso` capability).
 
 ## Commands
 
@@ -61,11 +60,11 @@ token-auditor --help                                                   # or `cod
 
 ```bash
 ./rebuild.sh              # Auto-detect host from LocalHostName, sudo darwin-rebuild switch
-./rebuild.sh work-mac     # Force a specific host config
+./rebuild.sh personal-mac # Force a specific host config
 just rebuild              # Same, via the task runner
 nix flake check --no-build --all-systems   # Evaluate explicit all-host closure checks
 just check                   # Alias for the above
-./bootstrap.sh            # Fresh-machine setup (Lix, Homebrew, work-only age key, first switch, rustup)
+./bootstrap.sh            # Fresh-machine setup (Lix, Homebrew, first switch, rustup)
 just sync                 # Full deploy: switch, then op-render secrets + git externals + agents
                           #   + token-auditor. One command; the order is load-bearing.
 just sync-side-channels   # Side channels only, skipping the rebuild
@@ -91,9 +90,9 @@ lib/machines.nix          # capability table (the single source of per-host vari
 hosts/*.nix               # thin per-host shims; host-scoped declarations only
 modules/darwin/*.nix      # system scope (specialArgs): core, macos-defaults, homebrew
 modules/home/*.nix        # home scope (extraSpecialArgs): dotfiles, shell, packages,
-                          #   tiling, dev-tools, ai-stack, secrets, sync-hooks
+                          #   tiling, dev-tools, ai-stack, sync-hooks
 home/                     # raw dotfiles, real dotted names, symlinked out-of-store
-secrets/                  # work-only age ciphertext + recipients
+secrets/                  # documentation only; no ciphertext, no age secrets
 ```
 
 Conventions:
@@ -209,7 +208,6 @@ and gate the owning module on `caps.<capability>`.
 - `Justfile` — nix/python/sync recipes (`versions/token-auditor` owns the tool release)
 - `scripts/` — hygiene test scripts (statusline, sketchybar, claude-settings-order, mcp-sync) + `strip-claude-trailer.sh`
 - `docs/ai-tools/` — Setup guides for MCP, Copilot, etc.
-- `docs/nix-migration.md` — chezmoi → nix mechanism map
 
 ### Tmux Status Bar Integration
 

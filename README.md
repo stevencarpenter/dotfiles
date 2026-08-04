@@ -6,7 +6,7 @@ shape modeled on [kunchenguid/dotfiles](https://github.com/kunchenguid/dotfiles)
 under [`home/`](home/) with their real dotted names and are symlinked into place **out of the nix
 store** (through `~/.dotfiles`). Editing a raw config is live immediately — no rebuild required.
 
-One flake drives two machine types — `personal-mac` and `work-mac` — from a single
+One flake drives its hosts — currently just `personal-mac` — from a single
 capability table ([`lib/machines.nix`](lib/machines.nix)), so the same checkout produces a
 different environment on each host with no hostname checks inside any module.
 
@@ -14,10 +14,6 @@ Secrets render directly from 1Password references via `op-render`; this repo dec
 `age.secrets` on every identity. Secrets for an externally-owned host are that wrapper's custody.
 The repo also vendors a small Python tool (`mcp_sync/`) that
 regenerates machine-specific AI-tool config after every switch.
-
-> **Migrating from the old chezmoi layout?** See [`docs/nix-migration.md`](docs/nix-migration.md)
-> for the full mechanism-by-mechanism mapping (dot\_ prefixes → `home/`, `.chezmoiignore` gates →
-> `mkIf`, `run_` hooks → activation vs `just sync`, age → `op-render`).
 
 ## Repo tour
 
@@ -109,7 +105,7 @@ the owning module on `caps.<capability>`.
      switch --flake "$HOME/.dotfiles#<host>"
    ```
 
-6. Installs **rustup** (kept imperative on purpose — see `docs/nix-migration.md`).
+6. Installs **rustup** (kept imperative on purpose).
 7. Runs **`just sync`** for the network/SSH side channels (git externals, agent installation,
    and token-auditor).
 
@@ -117,7 +113,7 @@ Then run it:
 
 ```bash
 ./bootstrap.sh              # auto-detect host from LocalHostName
-./bootstrap.sh work-mac     # or force a host config
+./bootstrap.sh personal-mac # or force a host config
 # equivalently: just bootstrap
 ```
 
@@ -128,7 +124,7 @@ remap, granting AeroSpace/SketchyBar Accessibility) — `bootstrap.sh` prints th
 
 ```bash
 ./rebuild.sh                # auto-detect host, sudo darwin-rebuild switch
-./rebuild.sh work-mac       # force a host config
+./rebuild.sh personal-mac   # force a host config
 just rebuild                # same, via the task runner
 ```
 
@@ -148,7 +144,6 @@ nix flake check --no-build --all-systems   # or: just check
 git ls-files -z '*.nix' | xargs -0 nix fmt -- --check # or: just nix-fmt-check
 nix build --no-link \
   '.#checks.aarch64-darwin.personal-mac' \
-  '.#checks.aarch64-darwin.work-mac' \
   '.#checks.aarch64-darwin.statix'
 ```
 
@@ -201,10 +196,10 @@ Justfile instead:
   channel makes this explicit command fail instead of leaving a silently partial install.
 - **`just sync-side-channels`** — the side channels alone, skipping the rebuild, for when the
   generation is already current.
-- **`just bootstrap`** — the full fresh-machine flow (`bootstrap.sh`): Lix, the work-only age key
-  when applicable, first switch, rustup.
+- **`just bootstrap`** — the full fresh-machine flow (`bootstrap.sh`): Lix, Homebrew, first
+  switch, rustup.
 
-The rule ("bucket rule" in `docs/nix-migration.md`): declarative or offline+fast+idempotent work
+The rule: declarative or offline+fast+idempotent work
 goes in the switch (as `home.activation` hooks); anything touching network/SSH/sudo goes in
 `just sync` / `just bootstrap`. This keeps a switch reproducible and offline-safe.
 
@@ -249,9 +244,8 @@ exactly current on stable. Add a tool only after measuring it.
 
 The `railway` and `crush` rows above predate this mechanism, and their stated reason no longer
 holds — on unstable they sit one release behind upstream rather than months. They remain brews only
-because moving them is a package-manager migration rather than a channel change; see
-`docs/superpowers/specs/2026-07-26-fast-moving-package-channel-lag-design.md` §7. That follow-up
-should also revisit the `worktrunk` row: it *is* packaged in nixpkgs-unstable, at 0.66.0.
+because moving them is a package-manager migration rather than a channel change. A follow-up should
+also revisit the `worktrunk` row: it *is* packaged in nixpkgs-unstable, at 0.66.0.
 
 ## Vendored Python tools
 

@@ -1,15 +1,13 @@
+-- Which darwinConfigurations.<host> nixd loads its option set from.
+--
+-- personal-mac is the only host this flake declares; a work machine is built by
+-- its own external wrapper. Honour an explicit DOTFILES_HOST so a wrapper user
+-- can point nixd at their own host name, but never infer a host this flake does
+-- not provide (nixd would silently get no darwin options).
 local function dotfiles_host()
-    local configured = (vim.env.DOTFILES_HOST or ""):lower()
-    if configured:find("work", 1, true) then
-        return "work-mac"
-    end
-    if configured:find("personal", 1, true) then
-        return "personal-mac"
-    end
-
-    local local_hostname = vim.trim(vim.fn.system({ "scutil", "--get", "LocalHostName" })):lower()
-    if local_hostname:find("work", 1, true) then
-        return "work-mac"
+    local configured = vim.env.DOTFILES_HOST or ""
+    if configured ~= "" then
+        return configured
     end
     return "personal-mac"
 end

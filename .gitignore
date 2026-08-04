@@ -66,10 +66,13 @@ build/
 # Codex sandbox env (machine-local)
 /.codex/environments/environment.toml
 
-# understand-anything: track the graph + fingerprints + meta, but not the
-# transient per-run scratch dirs (recreated and deleted on each /understand run)
-.understand-anything/intermediate/
-.understand-anything/tmp/
+# understand-anything: nothing under here is tracked any more. The committed
+# graph/fingerprints/meta went stale silently — the last index was generated
+# 2026-05-23 against a commit no longer in history, and 194 of its 246 indexed
+# paths (78%) had ceased to exist, still describing chezmoi templates, a lab-mac
+# host, and an aws_sso capability. A stale index is worse than no index: it reads
+# as current. Regenerate on demand instead of committing a snapshot that rots.
+.understand-anything/
 .codegraph/
 .agents/
 

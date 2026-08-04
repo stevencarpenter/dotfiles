@@ -2,7 +2,7 @@
 # Rebuild this machine's nix-darwin + home-manager configuration.
 # Auto-detects the flake config from LocalHostName; override with an arg:
 #   ./rebuild.sh              # detect host, switch
-#   ./rebuild.sh work-mac     # force a specific host config
+#   ./rebuild.sh personal-mac # force a specific host config
 set -euo pipefail
 
 # Resolve the physical checkout path. Lix 2.94 rejects a symlink as a flake
@@ -17,7 +17,6 @@ fi
 detect_host() {
 	case "$(scutil --get LocalHostName 2>/dev/null || true)" in
 	personal-mac | Stevens-MacBook-Pro) echo personal-mac ;;
-	work-mac) echo work-mac ;;
 	*) return 1 ;;
 	esac
 }
@@ -27,7 +26,7 @@ detect_host() {
 # of `just sync` instead of the switch failing while the side channels succeed.
 HOST="${1:-${DOTFILES_HOST:-$(detect_host || true)}}"
 if [ -z "${HOST:-}" ]; then
-	echo "unknown host; pass explicitly: rebuild.sh <personal-mac|work-mac>" >&2
+	echo "unknown host; pass explicitly: rebuild.sh <personal-mac>" >&2
 	exit 1
 fi
 

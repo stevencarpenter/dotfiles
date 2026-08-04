@@ -1,12 +1,10 @@
 # External overlay repos — extension contract (LOCKED v1.0)
 
-> Status: **locked 2026-07-18** after a multi-round adversarial review. The
-> sanitized consensus history, decision rationale, and migration plan are in
-> [`external-overlays-decision-record.md`](external-overlays-decision-record.md).
-> Changes require an explicit new review round, not silent edits. Describes the seam this repo exposes on
-> the `m5` branch so an external repo (e.g. an employer's dotfiles) can extend
-> it. Nothing here names or assumes any specific organization; that is a
-> design requirement, not an accident.
+> Status: **locked 2026-07-18** after a multi-round adversarial review.
+> Changes require an explicit new review round, not silent edits. Describes the
+> seam this repo exposes so an external repo can extend it. Nothing here names
+> or assumes any specific organization; that is a design requirement, not an
+> accident.
 >
 > v1.0 = original draft + round-2 amendments: dual-mode non-nix path,
 > tools-are-not-fragments, repo-access-as-boundary secrets option, caps
@@ -95,15 +93,20 @@ Mechanism as shipped, per seam (deviations from the original draft called out):
   either). The activation-time merge hardened its commit to only fire on
   successful `jq` output (a Task 5 review catch) so a fragment parse failure
   can't wipe the managed base with an empty/partial merge result.
-- **NEW — hostName collision rule:** an external wrapper's host row name must
-  not collide with a basename under this repo's `hosts/*.nix`
-  (`personal-mac`, `work-mac`). `lib.mkHost` selects the host-specific import
-  by `builtins.pathExists ./hosts/${hostName}.nix` first and only falls back
-  to the generic `modules/darwin` import when no such file exists — so a
-  wrapper naming its host `work-mac` gets this repo's in-tree shim silently
+- **hostName collision rule:** an external wrapper's host row name must not
+  collide with a basename under this repo's `hosts/*.nix` (currently only
+  `personal-mac`). `lib.mkHost` selects the host-specific import by
+  `builtins.pathExists ./hosts/${hostName}.nix` first and only falls back to
+  the generic `modules/darwin` import when no such file exists — so a wrapper
+  reusing an in-repo basename gets this repo's in-tree shim silently
   substituted instead of its own module, with no eval error to flag the
   mistake. Wrapper authors must pick a hostName distinct from every file in
   `hosts/`.
+
+  `hosts/work-mac.nix` was deleted with the work host row (step 6b), so
+  `work-mac` no longer collides — but do not rely on that. The rule is about
+  the mechanism, not the current file list, and a name like `work-wrapper` is
+  unambiguous regardless of what this repo declares later.
 
 Design preference, in order: **native layering** (git/ssh/tmux includes) →
 **sync-time structured merge** (mcp/skills/settings) → **whole-file identity
@@ -228,12 +231,19 @@ seam is for genuinely machine-global behavior only.
    still carrying another dotfile manager's files backs them up instead of
    aborting.
 
-   **6b. Pending.** Move the remaining work files and overlays out and delete
-   the work host row. **Operational handoff is part of this step:** the work
-   machine's daily flow becomes `darwin-rebuild switch --flake <org-repo>#<host>`;
-   the org repo takes ownership of that machine's bootstrap/rebuild scripts and
-   flake-root assumption, and this repo's `rebuild.sh`/`bootstrap.sh`
-   host-detect maps drop the work host.
+   **6b. Done here; operational handoff remains.** The work host row,
+   `hosts/work-mac.nix`, the work shell fragments, the work MCP/skills overlays,
+   and the `work-mac` arms of the `rebuild.sh`/`bootstrap.sh`/`host-capability.sh`
+   host maps are all deleted. `caps.infra`'s mise fragment is now `mkDefault`ed
+   so an overlay can own the corporate-access tool list.
+
+   Still outstanding, and owned by the external repo rather than this one: the
+   work machine's daily flow becoming `darwin-rebuild switch --flake
+   <org-repo>#<host>`, and that repo taking ownership of its own
+   bootstrap/rebuild scripts and host resolution. This repo can no longer build
+   a work host at all, by design — the work-identity path is covered only by
+   `scripts/test-external-overlay-contract.sh`, which builds a synthetic
+   external consumer.
 
 ## Review criteria for an external-repo spec
 

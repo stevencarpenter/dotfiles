@@ -13,7 +13,6 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 detect_host() {
   case "$(scutil --get LocalHostName 2>/dev/null || true)" in
     personal-mac | Stevens-MacBook-Pro) echo personal-mac ;;
-    work-mac) echo work-mac ;;
     *) return 1 ;;
   esac
 }
@@ -50,7 +49,7 @@ fi
 HOST="${1:-$(detect_host || true)}"
 if [ -z "${HOST:-}" ]; then
   echo "Could not auto-detect host from LocalHostName."
-  read -r -p "Enter host config (personal-mac / work-mac): " HOST
+  read -r -p "Enter host config (personal-mac): " HOST
 fi
 echo "==> Using host config: $HOST"
 
@@ -113,8 +112,8 @@ sudo nix run \
 # ── 6. rustup (dev toolchain) ────────────────────────────────────────────
 # Kept as an imperative bootstrap rather than a nixpkgs toolchain: rustup's
 # toolchain-switching workflow differs from a pinned nix toolchain, and that
-# behavior change was deliberately NOT applied during the port (see
-# docs/nix-migration.md). Idempotent — no-op if rustup already present.
+# behavior change was deliberately NOT applied during the port. Idempotent —
+# no-op if rustup already present.
 if ! command -v rustup >/dev/null 2>&1; then
   echo "==> Installing rustup ..."
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y || true
