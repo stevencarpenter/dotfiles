@@ -256,6 +256,27 @@ in
       ".local/bin/agent-note"
     ]))
 
+    # ---- agent-reap SessionEnd teardown hook (all machines) ---------------
+    # Disbands a Claude agent team when its session ends, closing the lifecycle
+    # gap that let 19 teammates survive at 7.18 GB. Wired in
+    # home/.claude/settings-base.json under SessionEnd; inert without agent-reap
+    # on PATH, so it is safe to link before `just sync` installs the tool.
+    (mkLinks [
+      ".claude/hooks/agent-reap-session-end.sh"
+    ])
+
+    # ---- agent-reap (all machines) ----------------------------------------
+    # Config only. The CLI itself is a uv tool installed by `just sync`
+    # (scripts/sync-side-channels.sh), which owns ~/.local/bin/agent-reap — so
+    # nothing is linked there or the shim and the symlink would collide.
+    #
+    # Ungated on purpose: agent-reap is inert without a tmux server or a team
+    # directory, so a capability would gate nothing real. Per CLAUDE.md, a
+    # capability without a consumer is not worth adding.
+    (mkLinks [
+      ".config/agent-reap" # config.toml (plain out-of-store symlink; edits are live)
+    ])
+
     # ---- ssh tier 1: universal base (all machines) -------------------------
     # mkDefault so an external overlay can take the whole file over if it ever
     # needs to; the expectation is that it drops a config.d fragment instead.

@@ -118,3 +118,22 @@ else
   echo "error: uv not found; cannot install token-auditor" >&2
   exit 1
 fi
+
+# agent-reap — vendored in this repo, so it installs from the local path rather
+# than a pinned remote release. Unconditional like token-auditor: it is inert on
+# a machine with no tmux server and no teams, so a capability gate would buy
+# nothing.
+#
+# --reinstall is REQUIRED, not belt-and-braces. With --force alone, uv reuses its
+# cached wheel for this path while the version string is unchanged, so edits to
+# the source deploy a STALE binary and the failure is silent — verified: a new
+# code path was missing from the installed copy while `uv run` on the same tree
+# had it. Since a vendored tool's version rarely bumps per edit, --reinstall is
+# the only way to guarantee what is on PATH matches this checkout.
+if command -v "$uv_bin" >/dev/null 2>&1; then
+  echo "==> Installing agent-reap (${repo_root}/agent_reap)"
+  "$uv_bin" tool install --force --reinstall "$repo_root/agent_reap"
+else
+  echo "error: uv not found; cannot install agent-reap" >&2
+  exit 1
+fi
