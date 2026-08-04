@@ -162,7 +162,7 @@ def classify(
     config: Config,
     now: float,
     protected_pids: set[int],
-    protected_pane_ids: set[str] | None = None,
+    protected_panes: set[tuple[str, str]] | None = None,
     protected_sessions: set[str] | None = None,
     sockets: tuple[str, ...] = (),
     teams_dir: Path | None = None,
@@ -177,7 +177,11 @@ def classify(
         now: Current unix timestamp.
         protected_pids: Pids that must never be reaped — normally the caller's own
             ancestry, so the tool cannot kill the session running it.
-        protected_pane_ids: Pane ids that must never be reaped.
+        protected_panes: (socket, pane_id) pairs that must never be reaped.
+            Qualified by socket on purpose: a pane id is unique only WITHIN a
+            tmux server, so comparing bare ids lets the caller's own id protect a
+            same-numbered pane on every other socket — which silently under-reaps
+            exactly the leak this tool exists to stop.
         protected_sessions: Team session ids that must never be reaped, normally
             the caller's own team.
         sockets: Sockets searched, recorded on the report.
@@ -192,7 +196,7 @@ def classify(
     Returns:
         The classification, with a reason attached to every exclusion.
     """
-    protected_pane_ids = protected_pane_ids or set()
+    protected_panes = protected_panes or set()
     protected_sessions = protected_sessions or set()
     root = (teams_dir or config.teams_dir).expanduser()
     teammate_idle_s = config.teammate_idle_minutes * 60
@@ -213,7 +217,10 @@ def classify(
         if teammate is None:
             if not _is_claude_pane(pane, process):
                 continue  # Not ours; not worth reporting.
-            if pane.pid in protected_pids or pane.pane_id in protected_pane_ids:
+            if (
+                pane.pid in protected_pids
+                or (pane.socket, pane.pane_id) in protected_panes
+            ):
                 skipped.append(Skipped(pane, "this session"))
                 continue
             idle = (
@@ -227,7 +234,7 @@ def classify(
             interactive.append(Interactive(pane=pane, process=process, idle_s=idle))
             continue
 
-        if pane.pid in protected_pids or pane.pane_id in protected_pane_ids:
+        if pane.pid in protected_pids or (pane.socket, pane.pane_id) in protected_panes:
             skipped.append(Skipped(pane, "this session"))
             continue
 

@@ -33,7 +33,7 @@ def _classify(
     params: dict = {
         "now": NOW,
         "protected_pids": set(),
-        "protected_pane_ids": set(),
+        "protected_panes": set(),
         "protected_sessions": set(),
     }
     params.update(kwargs)
@@ -101,12 +101,15 @@ def test_own_ancestry_is_never_reapable(config: Config, teams_dir: Path) -> None
     assert report.skipped[0].reason == "this session"
 
 
-def test_own_pane_id_is_never_reapable(config: Config, teams_dir: Path) -> None:
+def test_own_pane_is_never_reapable(config: Config, teams_dir: Path) -> None:
     """The caller's own pane is untouchable even if ancestry lookup failed."""
     write_inbox(teams_dir, "abc123", "docs-readme", mtime=DRAINED_LONG_AGO)
 
     report = _classify(
-        config, [make_pane()], {200: make_process()}, protected_pane_ids={"%2"}
+        config,
+        [make_pane()],
+        {200: make_process()},
+        protected_panes={("/tmp/tmux-501/default", "%2")},
     )
 
     assert report.candidates == ()
@@ -279,3 +282,45 @@ def test_team_scope_still_spares_the_lead(config: Config, teams_dir: Path) -> No
 
     assert report.candidates == ()
     assert "team lead" in report.skipped[0].reason
+
+
+def test_same_pane_id_on_another_socket_is_still_reapable(
+    config: Config, teams_dir: Path
+) -> None:
+    """Pane ids collide across servers; protection must be socket-qualified.
+
+    Every tmux server numbers panes from %0, so the caller's own id matches a
+    different pane on every other socket. Comparing bare ids silently spared
+    those teammates — an under-reap of exactly the leak this tool exists to stop,
+    and one that got MORE likely after a full tmux restart renumbered everything.
+    """
+    pane = make_pane(pane_id="%0", socket="/tmp/scratch.sock")
+    write_inbox(teams_dir, "abc123", "docs-readme", mtime=DRAINED_LONG_AGO)
+
+    report = _classify(
+        config,
+        [pane],
+        {200: make_process()},
+        # Caller sits at %0 on a DIFFERENT server.
+        protected_panes={("/private/tmp/tmux-503/default", "%0")},
+    )
+
+    assert [c.pane.pane_id for c in report.candidates] == ["%0"]
+
+
+def test_same_pane_id_on_the_same_socket_is_protected(
+    config: Config, teams_dir: Path
+) -> None:
+    """The guard must still fire for a genuine self-match."""
+    pane = make_pane(pane_id="%0", socket="/tmp/scratch.sock")
+    write_inbox(teams_dir, "abc123", "docs-readme", mtime=DRAINED_LONG_AGO)
+
+    report = _classify(
+        config,
+        [pane],
+        {200: make_process()},
+        protected_panes={("/tmp/scratch.sock", "%0")},
+    )
+
+    assert report.candidates == ()
+    assert report.skipped[0].reason == "this session"
