@@ -93,6 +93,9 @@ jobs:
       - name: Validate exec bits on directly-exec'd scripts
         run: scripts/test-exec-bits.sh
 
+      - name: Validate ssh ControlPath identity separation
+        run: scripts/test-ssh-controlpath-identity.sh
+
       - name: Validate gh account routing wrapper
         run: scripts/test-gh-account-routing.sh
 
