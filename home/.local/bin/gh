@@ -33,33 +33,55 @@
 set -uo pipefail
 
 # ---- locate the real gh -----------------------------------------------------
-# Drop this script's own directory from PATH, then look again. Resolving by
-# PATH rather than hardcoding a path keeps the mise shim in play: `gh` here is
-# ~/.local/share/mise/shims/gh, and hardcoding /opt/homebrew/bin/gh would
-# quietly bypass the version mise selects.
+# Resolve by PATH rather than hardcoding a path, which keeps the mise shim in
+# play: `gh` here is ~/.local/share/mise/shims/gh, and hardcoding
+# /opt/homebrew/bin/gh would quietly bypass the version mise selects.
+#
+# Excluding only our OWN directory is not enough, and the failure is a hang
+# rather than an error. A mise shim whose tool is not active in the current
+# directory does not fail — it falls back to a PATH lookup, which finds this
+# wrapper again, which calls the shim again, forever:
+#
+#   ~/.local/bin/gh -> mise shim -> PATH lookup -> ~/.local/bin/gh -> ...
+#
+# So carry the directories already tried across re-entry. Each bounce then
+# resolves strictly further down PATH and the chain terminates. This is
+# deliberately generic: any shim that defers to PATH behaves this way, and
+# special-casing mise would leave the next one to rediscover.
 self_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
-stripped=""
-IFS=':' read -ra _entries <<<"${PATH}"
-for _e in "${_entries[@]}"; do
-  [ -n "${_e}" ] || continue
-  # -P so a symlinked PATH entry still compares equal to self_dir.
-  _r="$(cd "${_e}" 2>/dev/null && pwd -P)" || continue
-  [ "${_r}" = "${self_dir}" ] && continue
-  stripped="${stripped:+${stripped}:}${_e}"
-done
+skip="${_GH_ACCOUNT_WRAPPER_SKIP:-}"
 
-real_gh="$(PATH="${stripped}" command -v gh 2>/dev/null)"
+path_without_tried() {
+  local out="" e r
+  local IFS=':'
+  for e in ${PATH}; do
+    [ -n "${e}" ] || continue
+    # -P so a symlinked PATH entry still compares equal.
+    r="$(cd "${e}" 2>/dev/null && pwd -P)" || continue
+    [ "${r}" = "${self_dir}" ] && continue
+    case ":${skip}:" in
+    *":${r}:"*) continue ;;
+    esac
+    out="${out:+${out}:}${e}"
+  done
+  printf '%s' "${out}"
+}
+
+real_gh="$(PATH="$(path_without_tried)" command -v gh 2>/dev/null)"
 if [ -z "${real_gh}" ]; then
   echo "gh: real gh binary not found on PATH (wrapper at ${self_dir}/gh)" >&2
   exit 127
 fi
 
-# Belt and braces: if a resolution bug ever pointed us back at ourselves, exec
-# the real thing instead of forking until the process table fills.
-if [ -n "${_GH_ACCOUNT_WRAPPER:-}" ]; then
+real_dir="$(cd "$(dirname "${real_gh}")" && pwd -P)"
+export _GH_ACCOUNT_WRAPPER_SKIP="${skip:+${skip}:}${real_dir}"
+
+# A non-empty inherited skip list means we were re-entered through a shim's
+# PATH fallback. The outer invocation is already doing the routing, so just
+# hand off — routing again would re-run `auth token` on every bounce.
+if [ -n "${skip}" ]; then
   exec "${real_gh}" "$@"
 fi
-export _GH_ACCOUNT_WRAPPER=1
 
 # ---- cases that must not be routed ------------------------------------------
 # `gh auth ...` must NOT see a forced GH_TOKEN: `auth switch`/`auth login`
