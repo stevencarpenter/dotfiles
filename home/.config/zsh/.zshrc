@@ -559,6 +559,14 @@ rebuild_helper="${XDG_CONFIG_HOME:-$HOME/.config}/zsh/lib/rebuild.zsh"
 [[ -f "${rebuild_helper}" ]] && source "${rebuild_helper}"
 unset rebuild_helper
 
+# GitHub CLI account routing. `gh` has one active account per host and no per-repo
+# selection, so on a machine logged into both work and personal accounts it picks the
+# wrong one half the time. Defines `gh`/`gh-axi` wrappers that resolve the account from
+# origin's owner. See lib/gh-account.zsh for why this is not `gh auth switch`.
+gh_account_helper="${XDG_CONFIG_HOME:-$HOME/.config}/zsh/lib/gh-account.zsh"
+[[ -f "${gh_account_helper}" ]] && source "${gh_account_helper}"
+unset gh_account_helper
+
 # Yazi TUI file manager wrapper (updates shell CWD on exit)
 function y() {
 	local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
