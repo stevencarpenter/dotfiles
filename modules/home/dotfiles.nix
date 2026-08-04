@@ -108,7 +108,9 @@ in
       # to the Claude ones above. hooks.json is NOT linked here — it is generated
       # personal-only below (its only live hook is the personal hippo session
       # hook; the old chezmoi PreToolUse/PostToolUse template guards are dead).
-      ".codex/AGENTS.md"
+      # NOTE: .codex/AGENTS.md is deliberately NOT linked here. It is assembled
+      # at activation from this body plus ~/.codex/AGENTS.d/*.md — see the
+      # codexAgentsAssemble hook below for why.
       ".codex/hooks/wt-create.sh"
       ".codex/hooks/wt-remove.sh"
     ])
@@ -272,8 +274,60 @@ in
       # managed block. Materialize the dir with a real .keep so it exists
       # even with no fragments present yet.
       ".claude/settings.d/.keep".text = "";
+
+      # ~/.codex/AGENTS.d is the fragment seam for the Codex agent-instruction
+      # assembly (codexAgentsAssemble below) — the AGENTS.md analogue of
+      # settings.d. Same reason for a real .keep: the dir must exist before any
+      # overlay has dropped a fragment into it.
+      ".codex/AGENTS.d/.keep".text = "";
     }
   ];
+
+  # ~/.codex/AGENTS.md is ASSEMBLED here, not symlinked, because Codex has no
+  # include directive — concatenation is the only way an external overlay can
+  # contribute global agent instructions. home.file cannot do it: nix would have
+  # to glob a fragment that another repo drops during this same activation. So
+  # the assembly is an activation step, and this hook is the file's SINGLE
+  # writer.
+  #
+  # That single-writer property is the whole point. Previously the base linked
+  # AGENTS.md and the work overlay ran a marker-block merge over it, whose
+  # `mv tmp file` replaced the symlink with a regular file. The first switch
+  # survived; every switch after it aborted in checkLinkTargets, because the
+  # backup slot (home-manager.backupFileExtension) was already occupied and
+  # home-manager refuses to clobber a backup.
+  #
+  # Cost, accepted deliberately: the body loses the edit-live property the rest
+  # of home/ keeps — editing home/.codex/AGENTS.md now needs a switch to take
+  # effect, where before it was instant.
+  home.activation.codexAgentsAssemble = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    (
+      set -u
+      BODY="${dotfiles}/home/.codex/AGENTS.md"
+      OUT="$HOME/.codex/AGENTS.md"
+
+      if [ ! -f "$BODY" ]; then
+        echo "Warning: Codex AGENTS body not found at $BODY; leaving $OUT alone." >&2
+        exit 0
+      fi
+
+      mkdir -p "$HOME/.codex"
+      tmp="$OUT.hm-tmp"
+      cat "$BODY" > "$tmp"
+
+      # Fragment seam (LOCKED contract): overlay repos drop *.md into
+      # ~/.codex/AGENTS.d/ and they append in lexical order. `.keep` is not
+      # matched by *.md, so an empty seam appends nothing and the output is
+      # exactly the body.
+      for frag in "$HOME"/.codex/AGENTS.d/*.md; do
+        [ -f "$frag" ] || continue
+        printf '\n' >> "$tmp"
+        cat "$frag" >> "$tmp"
+      done
+
+      mv "$tmp" "$OUT"
+    ) || true
+  '';
 
   # One link deliberately routed through the public rawDotfiles API so the
   # in-repo build exercises the same code path external wrappers use.
