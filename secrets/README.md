@@ -12,7 +12,7 @@ templates:
 
 ```text
 home/.config/zsh/.personal.env.tpl -> ~/.config/zsh/.personal.env
-home/.ssh/config.tpl               -> ~/.ssh/config
+home/.ssh/config.d/10-homelab.conf.tpl -> ~/.ssh/config.d/10-homelab.conf
 ```
 
 `home/.config/op/render-manifest` is the authoritative template-to-target map.

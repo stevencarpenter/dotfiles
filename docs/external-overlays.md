@@ -58,7 +58,7 @@ work config needs to edit a file this repo owns, that is a contract violation
 
 | Seam | Mechanism | Status |
 |---|---|---|
-| `~/.ssh/config.d/*` | native `Include`, placed **above all `Host` blocks** | exists |
+| `~/.ssh/config.d/*.conf` | native `Include`, placed **above all `Host` blocks** | exists |
 | `~/.config/external-overlays/git/{extra,work}.inc` | native `[include]` / `[includeIf "gitdir:..."]` | exists |
 | `~/.config/external-overlays/tmux/*.conf` | native `source-file -q` glob | exists |
 | `~/.config/zsh/profile.d/*.zsh` | sourced loop | exists |
@@ -71,6 +71,12 @@ work config needs to edit a file this repo owns, that is a contract violation
 
 Mechanism as shipped, per seam (deviations from the original draft called out):
 
+- **ssh `config.d/` fragment requirements (hard, not stylistic):** the glob is
+  `*.conf`, and a fragment MUST be written atomically and MUST parse. ssh does
+  not skip a bad include — it exits `terminating, 1 bad configuration options`
+  and every connection on the machine fails, including the one you would use to
+  repair it. Verified by dropping one malformed file into the directory. Render
+  to a tmpfile and rename; never write a fragment in place.
 - **ssh `config.d/`** — `~/.ssh/config.d/.keep` is a real `home.file` entry
   (`modules/home/dotfiles.nix`): `~/.ssh` itself is not directory-linked (only
   `~/.ssh/config` is materialized, by `op-render` from an `op://` template), so
@@ -110,7 +116,7 @@ knowledge of how it was deployed.
 
 ### SSH ordering note (trap)
 
-`ssh_config` is **first-match-wins**. The `Include ~/.ssh/config.d/*` line
+`ssh_config` is **first-match-wins**. The `Include ~/.ssh/config.d/*.conf` line
 must sit at the top of the base config — after the OrbStack include, before
 `Host i9` and `Host *` — or org host stanzas can never take effect. Include
 placement is base-file design and is owned by this repo.
@@ -208,7 +214,7 @@ seam is for genuinely machine-global behavior only.
    caps assertion to superset.
 2. **Done.** Generalize `dotfiles.nix` symlinking into `homeModules.rawDotfiles`.
 3. **Done (mkDefault only).** Identity-selected symlinks are `mkDefault`ed; gate-site consolidation deferred to step 6/extraction, where those sites are deleted outright.
-4. **Done.** Add the missing native seams: ssh `Include config.d/*`
+4. **Done.** Add the missing native seams: ssh `Include config.d/*.conf`
    (top-placed), isolated git includes, and the isolated tmux fragment glob.
 5. **Done.** Add the Claude settings fragment hook to `ai-stack.nix`.
 6. Extraction (separate, after the external repo exists), in two parts:

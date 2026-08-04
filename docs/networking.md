@@ -25,7 +25,7 @@ What this repo currently touches networking-wise:
 - `home/.config/aerospace/`, `home/.config/sketchybar/` — local UI, not network.
 - Tailscale itself is installed via Homebrew (cask); its config lives in
   user libraries managed by the GUI app, not Nix.
-- `home/.ssh/config.tpl` → `~/.ssh/config` — personal-only `op-render` template, deployed mode
+- `home/.ssh/config.d/10-homelab.conf.tpl` → `~/.ssh/config.d/10-homelab.conf` — personal-only `op-render` template, deployed mode
   0600 from 1Password references. Carries `Host i9`
   (Tailscale MagicDNS) plus keepalive / `ControlMaster` defaults, and
   reproduces the OrbStack include + 1Password `IdentityAgent` those tools

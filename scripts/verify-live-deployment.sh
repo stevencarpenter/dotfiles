@@ -96,7 +96,10 @@ else
   fail "managed personal skill state is absent or retains a legacy root"
 fi
 
-for secret in "$home_dir/.config/zsh/.personal.env" "$home_dir/.ssh/config"; do
+# ~/.ssh/config is no longer a rendered secret — it is the tracked universal
+# base (tier 1), a plain symlink with no op:// reference. Only the tier-2
+# personal-host fragment is rendered, so that is what carries the 0600 contract.
+for secret in "$home_dir/.config/zsh/.personal.env" "$home_dir/.ssh/config.d/10-homelab.conf"; do
   if [ -s "$secret" ] && [ "$(/usr/bin/stat -f '%Lp' "$secret" 2>/dev/null || true)" = "600" ] \
     && ! rg -q 'op://' "$secret"; then
     pass "$secret is populated, mode 0600, and has no unresolved references"
@@ -117,7 +120,7 @@ else
 fi
 
 ssh_config="$home_dir/.ssh/config"
-include_line="$(rg -n -m1 '^Include ~/.ssh/config.d/\*$' "$ssh_config" || true)"
+include_line="$(rg -n -m1 '^Include ~/.ssh/config.d/\*\.conf$' "$ssh_config" || true)"
 first_host_line="$(rg -n -m1 '^Host([[:space:]]|$)' "$ssh_config" || true)"
 include_line="${include_line%%:*}"
 first_host_line="${first_host_line%%:*}"
@@ -126,6 +129,20 @@ if [ -n "$include_line" ] && [ -n "$first_host_line" ] \
   pass "SSH external-fragment include exists before every Host block"
 else
   fail "SSH config is stale or the external-fragment include is misordered"
+fi
+
+# Tier 1 must be the tracked base, not a leftover rendered file: a real file
+# here means an old op-rendered ~/.ssh/config survived and is now shadowing the
+# universal base (agent, multiplexing, and the config.d seam would all be stale).
+# Compare against the LOGICAL path the module embeds
+# (mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/home/..."), not
+# $repo_root, which is `pwd -P` and would differ wherever ~/.dotfiles is a
+# symlink to another checkout path — a layout bootstrap.sh explicitly supports.
+if [ -L "$ssh_config" ] &&
+  [ "$(/usr/bin/readlink "$ssh_config")" = "$home_dir/.dotfiles/home/.ssh/config" ]; then
+  pass "SSH universal base is the tracked out-of-store symlink"
+else
+  fail "~/.ssh/config is not the tracked base symlink (stale rendered file?)"
 fi
 
 last_render="$home_dir/.config/op/.last-render"

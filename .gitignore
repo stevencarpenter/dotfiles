@@ -84,4 +84,6 @@ result-*
 # Rendered 1Password targets must never enter the repository. Only their
 # adjacent *.tpl sources and the exact-reference policy are tracked.
 /home/.config/zsh/.personal.env
-/home/.ssh/config
+# ~/.ssh/config is now a TRACKED universal base (home/.ssh/config), not a
+# rendered secret. Only the tier-2 personal fragment is op-rendered.
+/home/.ssh/config.d/10-homelab.conf

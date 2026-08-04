@@ -3,4 +3,4 @@
 # Rendered files are 0600 secrets; only the *.tpl templates are committed.
 # adopt-policy.json pins the exact allowed references and reverse-adoption scope.
 ~/.dotfiles/home/.config/zsh/.personal.env.tpl:~/.config/zsh/.personal.env
-~/.dotfiles/home/.ssh/config.tpl:~/.ssh/config
+~/.dotfiles/home/.ssh/config.d/10-homelab.conf.tpl:~/.ssh/config.d/10-homelab.conf
