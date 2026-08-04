@@ -40,6 +40,11 @@ summary = true    # Enable LLM branch summaries (requires [commit.generation])
 
 full = true       # Show CI, main…± diffstat, and LLM summaries (--full)
 branches = true   # Include branches without worktrees (--branches)
+# Pins the `wt list --json` output schema. Pre-existing deprecation surfaced by
+# `wt config show`; applied by hand rather than via `wt config update` because
+# ~/.config/worktrunk is a read-only nix-store directory symlink and a rewrite
+# through it can fail on the atomic rename.
+json-schema = 2
 # remotes = false    # Include remote-only branches (--remotes)
 #
 # ### Commit
@@ -50,47 +55,56 @@ branches = true   # Include branches without worktrees (--branches)
 stage = "all"      # What to stage before commit: "all", "tracked", or "none"
 
 [commit.generation]
-command = "CLAUDECODE= MAX_THINKING_TOKENS=0 claude -p --model=haiku --tools='' --disable-slash-commands --setting-sources='' --system-prompt=''"
+# `--safe-mode` and `--no-session-persistence` were missing, and `--setting-sources`
+# was empty rather than `user`, all three diverging from worktrunk's documented
+# invocation (see its llm-commits reference). What each buys:
+#   --safe-mode              hermetic: no hooks, plugins, MCP, skills, or CLAUDE.md.
+#                            Without it this call ingests whatever CLAUDE.md sits above
+#                            the repo — instructions written for PR bodies ("include
+#                            purpose, key changed paths, test evidence") reaching a
+#                            haiku model with no system prompt and no thinking budget,
+#                            which is a plausible source of the PR-prose-as-subject
+#                            messages seen in Aug 2026. Requires Claude Code >= 2.1.169.
+#   --no-session-persistence keeps generated-commit turns out of `claude --continue`.
+#   --setting-sources=user   the documented value; empty can break setups that
+#                            authenticate through apiKeyHelper rather than OAuth.
+# `CLAUDECODE=` (unset, not a value) is kept deliberately: it clears the harness's
+# nested-invocation guard so this works when `wt` is driven from inside a session.
+# `--disable-slash-commands` is also kept — a diff line beginning with `/` must not be
+# read as a command, and --safe-mode does not cover that.
+command = "CLAUDECODE= MAX_THINKING_TOKENS=0 claude -p --no-session-persistence --model=haiku --tools='' --safe-mode --disable-slash-commands --setting-sources='user' --system-prompt=''"
+
+# Style guidance is APPENDED to worktrunk's own prompts rather than replacing them.
+# This block previously carried a full inline copy of the default squash-template,
+# which had two costs. It had already drifted from upstream (`{% for commit in
+# commit_details %}{{ commit }}` where the current default is `{% for detail in
+# commit_details %}{{ detail.subject }}`), and — the real problem — a custom template
+# that does not reference `{{ user_guidance }}` / `{{ project_guidance }}` silently
+# OPTS OUT of template-append entirely, so no style guide could ever reach the model.
+# Deleting the fork restores the upstream default (which interpolates both blocks) and
+# leaves only the delta here, per docs/external-overlays.md's ordering: native layering
+# over whole-file swap, because forked copies stop receiving base improvements.
+#
+# The rules below are the ones actually violated by generated messages in Aug 2026:
+# a body-style sentence promoted to the subject with the real `chore:` subject demoted
+# into the body, and unbalanced trailing `)` on two others. `template-append` is marked
+# experimental upstream; if it is ever dropped, these move into a full template override.
+template-append = """
+- Subject MUST use a Conventional Commit prefix: feat:, fix:, chore:, docs:, refactor:, test:
+- The subject is the change in imperative mood, never an explanatory sentence about it.
+  Any explanation belongs in the body, after a blank line — never on the subject line.
+- No trailing period on the subject
+- Every parenthesis, bracket, quote and backtick must be balanced; emit no stray `)`
+- Never mention an AI agent, assistant, model or harness anywhere in the message,
+  and never add a Co-Authored-By trailer
+"""
 
 # #### Squash template
 #
-# Available variables (in addition to commit template variables):
-#
-# - `{{ commits }}` — list of commits being squashed
-# - `{{ target_branch }}` — merge target branch
-#
-# Default template:
-
-# <!-- DEFAULT_SQUASH_TEMPLATE_START -->
-squash-template = """
- Combine these commits into a single commit message.
-
- <format>
- - Subject line under 50 chars
- - For material changes, add a blank line then a body paragraph explaining the change
- - Output only the commit message, no quotes or code blocks
- </format>
-
- <style>
- - Imperative mood: "Add feature" not "Added feature"
- - Match the style of commits being squashed (conventional commits if used)
- - Describe the change, not the intent or benefit
- </style>
-
- <commits branch="{{ branch }}" target="{{ target_branch }}">
- {% for commit in commit_details %}- {{ commit }}
- {% endfor %}</commits>
-
- <diffstat>
- {{ git_diff_stat }}
- </diffstat>
-
- <diff>
- {{ git_diff }}
- </diff>
-
- """
-# <!-- DEFAULT_SQUASH_TEMPLATE_END -->
+# Intentionally NOT overridden — see the template-append note above. `wt config create
+# --help` prints the current defaults for both the commit and squash templates if a
+# full override is ever genuinely needed; copying one back in here re-forks it and
+# re-disables template-append.
 
 # ### Merge
 #
