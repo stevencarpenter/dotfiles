@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+# gh — route GitHub CLI calls to the account that owns the current repo.
+#
+# THE PROBLEM: `gh` has exactly one *active* account per host. There is no
+# per-repo, per-directory, or config-file account selection (checked on gh
+# 2.97: only `gh auth token --user` names an account; everything else follows
+# the active one). On a machine logged into both a work and a personal account,
+# whichever is active loses in the other's repos — and git and gh disagree in a
+# way that reads as a permissions bug rather than an account bug:
+#
+#   $ git push        # works — the remote's SSH key decides
+#   $ gh pr create    # GraphQL: <other-user> does not have the correct permissions
+#
+# WHY A SCRIPT ON PATH AND NOT A SHELL FUNCTION: this logic began as a zsh
+# function (see ../../.config/zsh/lib/gh-account.zsh), which covered
+# hand-typed `gh` and nothing else. A shell function does not exist for any
+# subprocess, so every non-zsh caller silently bypassed it — most importantly
+# coding agents, which run tools through a non-interactive bash shell and hit
+# exactly the CreatePullRequest failure above.
+#
+# Being on PATH also fixes the wrapper's biggest blind spot for free: gh-axi
+# shells out to the `gh` BINARY, so routing now applies however it is invoked —
+# `npx -y gh-axi@<pin>`, an installed copy, or the convenience function — with
+# no gh-axi-specific wrapper needed.
+#
+# SAFETY POSTURE: a GitHub token with full write scope is readable by every
+# same-user process while it sits in an environment, so it is passed to one
+# command and dies with it. Never exported, never written to disk. Same
+# discipline the op-render path uses for OP_SESSION_*.
+#
+# This wrapper must never be the reason `gh` fails. Every routing step degrades
+# to plain `gh` rather than erroring, and `set -e` is deliberately NOT used.
+set -uo pipefail
+
+# ---- locate the real gh -----------------------------------------------------
+# Drop this script's own directory from PATH, then look again. Resolving by
+# PATH rather than hardcoding a path keeps the mise shim in play: `gh` here is
+# ~/.local/share/mise/shims/gh, and hardcoding /opt/homebrew/bin/gh would
+# quietly bypass the version mise selects.
+self_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+stripped=""
+IFS=':' read -ra _entries <<<"${PATH}"
+for _e in "${_entries[@]}"; do
+  [ -n "${_e}" ] || continue
+  # -P so a symlinked PATH entry still compares equal to self_dir.
+  _r="$(cd "${_e}" 2>/dev/null && pwd -P)" || continue
+  [ "${_r}" = "${self_dir}" ] && continue
+  stripped="${stripped:+${stripped}:}${_e}"
+done
+
+real_gh="$(PATH="${stripped}" command -v gh 2>/dev/null)"
+if [ -z "${real_gh}" ]; then
+  echo "gh: real gh binary not found on PATH (wrapper at ${self_dir}/gh)" >&2
+  exit 127
+fi
+
+# Belt and braces: if a resolution bug ever pointed us back at ourselves, exec
+# the real thing instead of forking until the process table fills.
+if [ -n "${_GH_ACCOUNT_WRAPPER:-}" ]; then
+  exec "${real_gh}" "$@"
+fi
+export _GH_ACCOUNT_WRAPPER=1
+
+# ---- cases that must not be routed ------------------------------------------
+# `gh auth ...` must NOT see a forced GH_TOKEN: `auth switch`/`auth login`
+# refuse to run while it is set, and `auth status` would report the injected
+# token instead of real account state. Managing accounts has to stay possible
+# from inside a mapped repo.
+if [ "${1:-}" = "auth" ]; then
+  exec "${real_gh}" "$@"
+fi
+
+# An explicit token from the caller wins. CI sets GH_TOKEN/GITHUB_TOKEN
+# deliberately, and overriding it with a local keyring account would be both
+# surprising and wrong.
+if [ -n "${GH_TOKEN:-}" ] || [ -n "${GITHUB_TOKEN:-}" ]; then
+  exec "${real_gh}" "$@"
+fi
+
+# ---- owner -> account -------------------------------------------------------
+# Owners absent from this map fall through to whatever account is active, so a
+# work repo needs no entry and gets no surprises. This is the ONLY owner map —
+# the zsh lib's GH_ACCOUNT_BY_OWNER was deleted along with its gh() function,
+# so there is nothing to keep in sync.
+account_for_owner() {
+  case "$1" in
+  stevencarpenter) echo "stevencarpenter" ;;
+  *) return 1 ;;
+  esac
+}
+
+url="$(git remote get-url origin 2>/dev/null)" || url=""
+[ -n "${url}" ] || exec "${real_gh}" "$@"
+
+# Strip the .git suffix BEFORE matching, and keep the pattern greedy-only.
+# Handles every remote spelling in use: scp-like with or without user@
+# (github-dotfiles:owner/repo.git, git@github.com:owner/repo.git), https://,
+# and ssh://.
+slug="${url%.git}"
+[[ ${slug} =~ [:/]([^/:]+)/([^/:]+)$ ]] || exec "${real_gh}" "$@"
+owner="${BASH_REMATCH[1]}"
+
+account="$(account_for_owner "${owner}")" || exec "${real_gh}" "$@"
+
+# The machine may simply not be logged into the mapped account. That is not
+# worth interrupting a command over — fall through to the active account.
+token="$("${real_gh}" auth token --user "${account}" 2>/dev/null)" || token=""
+[ -n "${token}" ] || exec "${real_gh}" "$@"
+
+GH_TOKEN="${token}" exec "${real_gh}" "$@"

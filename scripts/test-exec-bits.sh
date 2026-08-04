@@ -23,8 +23,10 @@ exec_scripts=(
   home/.config/sketchybar/plugins/wifi.sh
   home/.config/aerospace/layouts/workspace-8-comms.sh
   home/.config/tmux/scripts/claude-pane-monitor.sh
+  home/.local/bin/gh
   scripts/host-capability.sh
   scripts/sync-side-channels.sh
+  scripts/test-gh-account-routing.sh
   scripts/test-atuin-filter-parity.sh
   scripts/test-atuin-filter-parity-mutations.sh
   scripts/test-eval-cache.sh

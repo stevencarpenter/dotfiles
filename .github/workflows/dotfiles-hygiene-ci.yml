@@ -93,6 +93,9 @@ jobs:
       - name: Validate exec bits on directly-exec'd scripts
         run: scripts/test-exec-bits.sh
 
+      - name: Validate gh account routing wrapper
+        run: scripts/test-gh-account-routing.sh
+
       - name: Validate SketchyBar clock popup behavior
         run: scripts/test-sketchybar-clock-popup.sh
 

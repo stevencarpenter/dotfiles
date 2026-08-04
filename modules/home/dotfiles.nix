@@ -91,6 +91,14 @@ in
       # Copilot IntelliJ instructions (single file; copilot writes runtime state in the dir).
       ".config/github-copilot/intellij/global-copilot-instructions.md"
 
+      # gh account router. Deliberately on PATH rather than only a zsh function:
+      # ~/.local/bin precedes the mise shim dir, so this shadows `gh` for EVERY
+      # caller including subprocesses — which is the whole point, since a shell
+      # function is invisible to the non-interactive bash that coding agents and
+      # `npx gh-axi` run through. Ungated: the dual-account problem it solves is
+      # worst on the work machine, which is logged into both accounts.
+      ".local/bin/gh"
+
       # Claude Code statusline + hooks. NOTE: settings.json is NOT linked here —
       # it is jq-merged by an activation script in ai-stack.nix so Claude's own
       # in-tool edits survive. CLAUDE.md is deployed per the locked gating map
