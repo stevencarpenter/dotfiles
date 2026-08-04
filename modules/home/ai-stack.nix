@@ -104,7 +104,13 @@ in
   # dotfiles.nix already exist. Wrapped in a subshell terminated with `|| true`
   # so a merge failure warns but never fails the switch (parity with the
   # chezmoi fail_or_warn default; MCP_SYNC_STRICT had no analog here).
-  home.activation.claudeSettingsMerge = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+  # entryAfter "linkGeneration", NOT "writeBoundary": linkGeneration is itself a
+  # writeBoundary dependant, so ordering between the two was never defined and
+  # this entry in fact sorted BEFORE it. Same latent defect that made the Codex
+  # AGENTS.d seam read empty — here it would silently skip every
+  # ~/.claude/settings.d fragment an overlay had dropped, which is a LOCKED
+  # contract. No live impact yet only because that seam has no fragments.
+  home.activation.claudeSettingsMerge = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
     (
       set -u
       SETTINGS="$HOME/.claude/settings.json"

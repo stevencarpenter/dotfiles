@@ -121,6 +121,34 @@ case "${out}" in
   ;;
 esac
 
+# --- a shim that defers to PATH must not ping-pong ---------------------------
+# THE BUG THIS GUARDS: a mise shim whose tool is not active in the current
+# directory does not error — it falls back to a PATH lookup, finds this wrapper
+# again, and the two call each other forever. It hangs rather than failing, so
+# without a bounded test it looks like a slow network call.
+#
+# Layout mirrors the real one: wrapper dir first, then a shim that re-execs
+# whatever `gh` PATH offers next, then the genuine binary.
+mkdir -p "${tmp}/shim" "${tmp}/realbin2"
+cat >"${tmp}/shim/gh" <<'SHIM'
+#!/usr/bin/env bash
+# Stand-in for `mise shims/gh` with the tool inactive: defer to PATH.
+exec gh "$@"
+SHIM
+chmod +x "${tmp}/shim/gh"
+cat >"${tmp}/realbin2/gh" <<'FAKE'
+#!/usr/bin/env bash
+if [ "${1:-}" = auth ] && [ "${2:-}" = token ]; then printf 'tok-for-%s\n' "$4"; exit 0; fi
+echo "GH_TOKEN=${GH_TOKEN:-<unset>}"
+FAKE
+chmod +x "${tmp}/realbin2/gh"
+
+bounce_path="${tmp}/wrap:${tmp}/shim:${tmp}/realbin2:/usr/bin:/bin"
+out="$(cd "${tmp}/repo" && PATH="${bounce_path}" "${to[@]}" gh pr create 2>&1)" && rc=0 || rc=$?
+check "shim PATH-fallback terminates (no hang)" "0" "${rc}"
+check "shim PATH-fallback still routes" "tok-for-stevencarpenter" \
+  "$(printf '%s\n' "${out}" | sed -n 's/^GH_TOKEN=//p')"
+
 if [ "${failures}" -ne 0 ]; then
   echo "${failures} check(s) failed" >&2
   exit 1

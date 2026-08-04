@@ -308,7 +308,12 @@ in
   # Cost, accepted deliberately: the body loses the edit-live property the rest
   # of home/ keeps — editing home/.codex/AGENTS.md now needs a switch to take
   # effect, where before it was instant.
-  home.activation.codexAgentsAssemble = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+  # entryAfter "linkGeneration", NOT "writeBoundary". linkGeneration is itself
+  # an entryAfter-writeBoundary node, so two writeBoundary dependants have no
+  # defined order relative to each other — and this one sorted FIRST, running
+  # before any symlink existed. The seam glob then matched nothing and the
+  # output was silently the bare body: no error, just missing fragments.
+  home.activation.codexAgentsAssemble = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
     (
       set -u
       BODY="${dotfiles}/home/.codex/AGENTS.md"
