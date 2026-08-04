@@ -1,0 +1,49 @@
+# agent-reap — idle Claude teammate reaper.
+#
+# Plain out-of-store symlink (modules/home/dotfiles.nix): edits here are live,
+# no rebuild needed.
+#
+# Nothing in this file can cause a kill on its own. `agent-reap` is report-only
+# until you pass --kill, and interactive sessions are never killed by the reap
+# subcommand at all.
+
+# Where tmux servers keep their sockets. "{uid}" is substituted at load.
+#
+# All three shapes matter: the stock per-uid directory, its /tmp alias, and
+# z4h's private per-server sockets. Reading only $TMUX is what makes
+# `tmux kill-server` appear to do nothing — it kills the server you are attached
+# to while a team survives on another socket. Paths are symlink-resolved before
+# de-duplication, so /tmp -> /private/tmp does not double-count a server.
+socket_globs = [
+  "/private/tmp/tmux-{uid}/*",
+  "/tmp/tmux-{uid}/*",
+  "/tmp/z4h-tmux-{uid}-*",
+]
+
+# How long a teammate's inbox must sit drained before its pane is reapable.
+# Drained-but-recent means the agent may still be finishing up.
+teammate_idle_minutes = 30
+
+# How long an interactive Claude window must be quiet before it is *reported*.
+# Reporting only — an abandoned window may hold context worth more than its
+# memory, so the call stays yours.
+interactive_idle_minutes = 240
+
+# The team lead holds the team's context. Reaping it needs --include-lead.
+include_lead = false
+
+# Gate for unattended (launchd) runs. The CLI always requires an explicit flag
+# regardless; this exists so a periodic runner cannot kill by default.
+kill_enabled = false
+
+# Never reap these teammate names.
+deny_agent_names = []
+
+# If non-empty, ONLY these teammate names are reapable.
+allow_agent_names = []
+
+# Executable path prefixes treated as user-owned when hunting disowned
+# descendants. An allowlist, deliberately: blocklisting system paths produced 23
+# false positives on a real machine (bare-name launchd jobs, audio drivers,
+# vendor agents, login shells). Widen this if a real stray falls outside it.
+stray_command_prefixes = ["~/", "/nix/store/"]

@@ -1,0 +1,208 @@
+"""End-to-end CLI behavior and config loading."""
+
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass
+from pathlib import Path
+
+import pytest
+
+from agent_reap.cli import cli
+from agent_reap.config import Config, load_config
+from agent_reap.runner import RecordingRunner, Result
+
+from .conftest import make_socket, pane_line, write_inbox
+
+
+@dataclass(frozen=True)
+class Machine:
+    """A fully stubbed machine for CLI tests.
+
+    Attributes:
+        config_path: Config file wired to the fake socket and teams dirs.
+        runner: Runner stubbed for this machine's tmux and ps output.
+        socket: Path of the fake tmux socket.
+    """
+
+    config_path: Path
+    runner: RecordingRunner
+    socket: Path
+
+
+@pytest.fixture
+def wired(
+    tmp_path: Path, short_tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> Machine:
+    """Build a fake machine: one socket, one teammate pane, one drained inbox.
+
+    Args:
+        tmp_path: Pytest temporary directory for files.
+        short_tmp_path: Short directory, required for binding a unix socket.
+        monkeypatch: Fixture used to clear inherited session env vars.
+
+    Returns:
+        The stubbed machine.
+    """
+    monkeypatch.delenv("TMUX_PANE", raising=False)
+    monkeypatch.delenv("CLAUDE_SESSION_ID", raising=False)
+    monkeypatch.delenv("CODEX_COMPANION_SESSION_ID", raising=False)
+    monkeypatch.delenv("TMUX", raising=False)
+
+    sockets_dir = short_tmp_path / "s"
+    sockets_dir.mkdir()
+    sock_path = make_socket(sockets_dir / "default")
+
+    teams = tmp_path / "teams"
+    teams.mkdir()
+    write_inbox(teams, "abc123", "docs-readme", mtime=1.0)
+
+    config_path = tmp_path / "config.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                f'socket_globs = ["{sockets_dir}/*"]',
+                f'teams_dir = "{teams}"',
+                f'ssh_dir = "{tmp_path / "ssh"}"',
+                "teammate_idle_minutes = 30",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    row = pane_line("%2", "devbox", 1, 2, 200, 10, "2.1.221", "/repo")
+    runner = RecordingRunner(
+        responses={
+            f"tmux -S {sock_path} list-sessions": Result(0, "devbox: 3 windows"),
+            f"tmux -S {sock_path} list-panes": Result(0, row),
+            "ps -eo": Result(
+                0,
+                "200 100 400000 Ss+ 01:40:24 claude --agent-id docs-readme@session-abc123",
+            ),
+            f"tmux -S {sock_path} kill-pane": Result(0),
+        }
+    )
+    return Machine(config_path=config_path, runner=runner, socket=sock_path)
+
+
+def test_report_lists_the_candidate(
+    wired: Machine, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The default command surfaces the reapable teammate and its memory."""
+    assert cli(["--config", str(wired.config_path), "report"], runner=wired.runner) == 0
+
+    out = capsys.readouterr().out
+    assert "docs-readme" in out
+    assert "reapable teammates: 1" in out
+
+
+def test_report_json_is_machine_readable(
+    wired: Machine, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """``--json`` emits parseable output with the fields a caller needs."""
+    cli(["--config", str(wired.config_path), "--json", "report"], runner=wired.runner)
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["candidates"][0]["agent"] == "docs-readme"
+    assert payload["candidates"][0]["pane_id"] == "%2"
+    assert payload["reclaimable_kb"] == 400_000
+
+
+def test_reap_without_kill_flag_touches_nothing(
+    wired: Machine, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Report-only is the default even for the reap subcommand."""
+    cli(["--config", str(wired.config_path), "reap"], runner=wired.runner)
+
+    assert not any("kill-pane" in " ".join(c) for c in wired.runner.calls)
+    assert "dry run" in capsys.readouterr().out
+
+
+def test_reap_with_kill_flag_kills_by_pane_id(wired: Machine) -> None:
+    """``--kill`` issues exactly one kill-pane against the stable pane id."""
+    status = cli(
+        ["--config", str(wired.config_path), "reap", "--kill"], runner=wired.runner
+    )
+
+    assert status == 0
+    kills = [c for c in wired.runner.calls if "kill-pane" in c]
+    assert len(kills) == 1
+    assert kills[0][-1] == "%2"
+
+
+def test_idle_minutes_override_spares_a_fresh_inbox(
+    wired: Machine, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A large threshold turns the candidate back into a skip."""
+    cli(
+        ["--config", str(wired.config_path), "--idle-minutes", "999999999", "report"],
+        runner=wired.runner,
+    )
+
+    assert "reapable teammates: 0" in capsys.readouterr().out
+
+
+def test_sockets_marks_the_current_server(
+    wired: Machine,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``sockets`` shows every server and which one ``$TMUX`` points at."""
+    monkeypatch.setenv("TMUX", f"{wired.socket},7068,0")
+
+    cli(["--config", str(wired.config_path), "sockets"], runner=wired.runner)
+
+    out = capsys.readouterr().out
+    assert "<- $TMUX" in out
+    assert "devbox: 3 windows" in out
+
+
+def test_strays_reports_zero_when_nothing_escaped(
+    wired: Machine, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """With no disowned Claude processes the Ctrl+D hypothesis reads unsupported."""
+    cli(["--config", str(wired.config_path), "strays"], runner=wired.runner)
+
+    out = capsys.readouterr().out
+    assert "claude processes among them: 0" in out
+    assert "no evidence of Claude processes escaping pane teardown" in out
+
+
+def test_missing_config_falls_back_to_defaults(tmp_path: Path) -> None:
+    """An absent config file is normal, not an error."""
+    loaded = load_config(tmp_path / "nope.toml")
+
+    assert loaded.path is None
+    assert loaded.config == Config()
+
+
+def test_malformed_config_degrades_instead_of_raising(tmp_path: Path) -> None:
+    """A syntax error still lets you see what is leaking."""
+    path = tmp_path / "config.toml"
+    path.write_text("this is not toml =", encoding="utf-8")
+
+    loaded = load_config(path)
+
+    assert loaded.config == Config()
+    assert loaded.errors and "unreadable config" in loaded.errors[0]
+
+
+def test_bad_field_types_fall_back_per_key(tmp_path: Path) -> None:
+    """One bad key does not discard the whole file."""
+    path = tmp_path / "config.toml"
+    path.write_text(
+        'teammate_idle_minutes = "soon"\ninteractive_idle_minutes = 15\n',
+        encoding="utf-8",
+    )
+
+    loaded = load_config(path)
+
+    assert loaded.config.teammate_idle_minutes == Config().teammate_idle_minutes
+    assert loaded.config.interactive_idle_minutes == 15
+    assert any("teammate_idle_minutes" in e for e in loaded.errors)
+
+
+def test_socket_globs_substitute_the_uid() -> None:
+    """``{uid}`` is expanded so one config works on every machine."""
+    config = Config(socket_globs=("/private/tmp/tmux-{uid}/*",))
+    assert config.resolved_globs(uid=501) == ("/private/tmp/tmux-501/*",)

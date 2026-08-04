@@ -253,6 +253,7 @@ An isolated `uv` project (Python 3.14+, no runtime deps). See [CLAUDE.md](CLAUDE
 the full lint/test matrix.
 
 - `mcp_sync/` — MCP + skills fan-out (the `sync-mcp-configs` / `sync-skills` entry points).
+- `agent_reap/` — reaps idle Claude teammate panes across every tmux socket (`agent-reap`).
 
 ```bash
 just test                                                    # lint+test mcp_sync

@@ -14,8 +14,9 @@ One flake drives its hosts (currently just `personal-mac`) from a single
 capability table (`lib/machines.nix`); modules gate on caps/identity, never on hostname. Secrets
 render directly from 1Password via `op-render`; this repo declares zero `age.secrets` on every
 identity and does not depend on agenix. Secrets for an externally-owned host are that wrapper's
-custody. The repo also vendors one small Python tool
-(`mcp_sync/`). Two former tools were extracted to their own public repos and install as standalone
+custody. The repo also vendors two small Python tools
+(`mcp_sync/`, `agent_reap/`). Two former tools were extracted to their own public repos and
+install as standalone
 uv tools: `token-auditor` (github.com/stevencarpenter/token-auditor, via `just sync`) and
 `aws_config_gen` (github.com/stevencarpenter/aws-config-generator; the external work wrapper now
 owns AWS profile generation, so this repo dropped it and the `aws_sso` capability).
@@ -25,6 +26,28 @@ owns AWS profile generation, so this repo dropped it and the `aws_sso` capabilit
 All Python commands run from the repo root. Each tool is its own `uv` project.
 
 Both vendored Python tools use PEP 735 `[dependency-groups]`; install dev deps with `--group dev`.
+
+### Agent Reap (`agent_reap/`)
+
+Finds and reaps idle Claude Code teammate panes across *every* tmux socket. Teams in tmux mode
+leave one pane per teammate alive after the work is done; nothing closes them, so they
+accumulate until they exhaust the subagent budget. Report-only unless `--kill` is passed;
+team leads and idle interactive sessions are never killed without a further explicit flag.
+
+```bash
+just reap            # report (kills nothing)
+just reap-sockets    # every tmux server — shows why `tmux kill-server` missed one
+just reap-strays     # ssh control masters + disowned descendants (report-only)
+just reap-kill       # actually reap idle teammate panes
+
+uv run --project agent_reap --group dev ruff check agent_reap/src agent_reap/tests
+uv run --project agent_reap --group dev pytest agent_reap/tests --cov=agent_reap
+```
+
+Installed unconditionally as a uv tool from the local path by `just sync`
+(`scripts/sync-side-channels.sh`) — it is inert without a tmux server or a team directory, so
+it carries no capability gate. `just sync` owns `~/.local/bin/agent-reap`; only
+`~/.config/agent-reap/config.toml` is symlinked by `modules/home/dotfiles.nix`.
 
 ### MCP Sync (`mcp_sync/`)
 
@@ -211,6 +234,7 @@ and gate the owning module on `caps.<capability>`.
 - `home/.config/nvim/` — Neovim config (LazyVim)
 - `secrets/` — documentation only; no ciphertext is tracked and no host declares age secrets
 - `mcp_sync/` — MCP + skills fan-out tool (uv project, Python 3.14+, no runtime deps)
+- `agent_reap/` — idle Claude teammate reaper (uv project, Python 3.14+, no runtime deps)
 - `bootstrap.sh` / `rebuild.sh` — fresh-machine setup / routine switch (host auto-detect)
 - `Justfile` — nix/python/sync recipes (`versions/token-auditor` owns the tool release)
 - `scripts/` — hygiene test scripts (statusline, sketchybar, claude-settings-order, mcp-sync) + `strip-claude-trailer.sh`
@@ -255,6 +279,7 @@ and the project secret-authoring skill.
 
 GitHub Actions in `.github/workflows/`:
 - `mcp-sync-ci.yml` — lint + test for the vendored `mcp_sync` tool (token-auditor and aws_config_gen CI live in their own repos now)
+- `agent-reap-ci.yml` — lint + test for the vendored `agent_reap` tool
 - `nix-flake-check.yml` — formats Nix, evaluates explicit `checks.<system>.<host>` closures, and builds both Darwin systems on `macos-latest`
 - `dotfiles-hygiene-ci.yml` — repo-wide hygiene: pre-commit, MCP master-config structure, shell `bash -n` syntax, and the statusline / sketchybar / claude-settings-order test scripts
 

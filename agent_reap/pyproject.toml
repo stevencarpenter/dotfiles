@@ -1,0 +1,38 @@
+[project]
+name = "agent-reap"
+version = "0.1.0"
+description = "Find and reap idle Claude teammate panes across every tmux socket."
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = []
+
+[project.scripts]
+agent-reap = "agent_reap.cli:cli"
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "ruff",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+# Pin first-party detection. Without this, isort infers it from the working
+# directory: run from the repo root (`ruff check agent_reap/src agent_reap/tests`,
+# as the Justfile does) and `agent_reap` looks third-party; run from inside the
+# project (`working-directory: agent_reap` in CI) and it looks first-party. The
+# two then demand different import grouping and disagree about the same file.
+[tool.ruff.lint.isort]
+known-first-party = ["agent_reap"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]

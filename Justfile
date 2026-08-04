@@ -101,16 +101,47 @@ mcp-fmt:
 mcp-sync:
     uv run --project mcp_sync sync-mcp-configs
 
+# ── Agent Reap ───────────────────────────────────────────
+
+# Lint agent_reap
+reap-lint:
+    uv run --project agent_reap --group dev ruff check agent_reap/src agent_reap/tests
+    uv run --project agent_reap --group dev ruff format --check agent_reap/src agent_reap/tests
+
+# Test agent_reap
+reap-test *FLAGS:
+    uv run --project agent_reap --group dev pytest agent_reap/tests --cov=agent_reap --cov-report=term-missing {{ FLAGS }}
+
+# Format agent_reap
+reap-fmt:
+    uv run --project agent_reap --group dev ruff format agent_reap/src agent_reap/tests
+
+# Report idle Claude teammate panes across every tmux socket (kills nothing)
+reap:
+    uv run --project agent_reap agent-reap report
+
+# Every tmux server and its sessions — shows why `tmux kill-server` missed one
+reap-sockets:
+    uv run --project agent_reap agent-reap sockets
+
+# ssh control masters + disowned descendants (report-only)
+reap-strays:
+    uv run --project agent_reap agent-reap strays
+
+# Actually reap idle teammate panes. Leads and interactive sessions are spared.
+reap-kill:
+    uv run --project agent_reap agent-reap reap --kill
+
 # ── All Python projects ──────────────────────────────────
 
 # Lint all Python projects
-lint: mcp-lint
+lint: mcp-lint reap-lint
 
 # Test all Python projects
-test: mcp-test
+test: mcp-test reap-test
 
 # Format all Python projects
-fmt: mcp-fmt
+fmt: mcp-fmt reap-fmt
 
 # Run all Python checks (lint + test). Nix flake checks live under `just check`.
 py-check: lint test

@@ -1,0 +1,91 @@
+# agent-reap
+
+Finds and reaps idle Claude Code teammate panes across **every** tmux socket.
+
+## The problem
+
+Claude Code agent teams in tmux mode leave one pane per teammate alive after the work is
+done. Nothing in the team lifecycle closes them, so they accumulate until they exhaust the
+subagent budget. Observed in the wild: 19 idle teammates in a single window holding
+**7.18 GB** of resident memory, drained and untouched for 90 minutes.
+
+They are not orphans. They are healthy, attached panes whose leader never receives EOF or
+SIGHUP, because nothing ever closes the pane.
+
+## Two facts that shaped the design
+
+**Socket discovery globs the filesystem instead of reading `$TMUX`.** A machine running z4h
+has several tmux servers on separate sockets. `tmux kill-server` is socket-scoped, so running
+it from the wrong window kills a server the team does not live on and appears to do nothing.
+Paths are symlink-resolved before de-duplication — on macOS `/tmp` is a symlink to
+`/private/tmp`, so the default socket matches two of the stock globs and would otherwise be
+searched twice.
+
+**`tmux kill-pane` is the only kill primitive.** Pane destruction with `remain-on-exit off`
+SIGHUPs the pane leader and its non-disowned children, so it is already a complete teardown.
+Signal escalation in the normal path would be dead code dressed as a safety net; `--force`
+exists only for processes that have no pane at all. Panes are addressed by pane *id* (`%68`),
+never by index — indices are positional and renumber as panes die.
+
+## Usage
+
+```bash
+agent-reap                 # report: reapable teammates + idle interactive sessions
+agent-reap sockets         # every tmux server, and which one $TMUX points at
+agent-reap strays          # ssh control masters + disowned descendants
+agent-reap reap            # dry run
+agent-reap reap --kill     # actually reap
+agent-reap --json report   # machine-readable
+agent-reap -v report       # include the reason every pane was excluded
+```
+
+## What it will and will not kill
+
+A teammate pane is reaped only when **all** hold: its command carries
+`--agent-id <name>@session-<id>`; the team directory exists; its inbox is drained (an empty
+JSON container) **and** has been quiet past `teammate_idle_minutes`; the process is sleeping;
+and it is not yours. "Not yours" is three independent guards — process ancestry (the
+strongest, it works with no tmux environment at all), the current `TMUX_PANE`, and the
+caller's own team session.
+
+Never killed without an explicit extra flag:
+
+- **Team leads** — they hold the team's context (`--include-lead`).
+- **Idle interactive sessions** — an abandoned Claude window. `^D` does not close a Claude
+  pane (measured: neither an empty prompt nor a double tap exits), so these accumulate
+  silently. Each may hold conversation context worth more than its memory, so the tool
+  reports them and leaves the decision to you.
+
+## Strays
+
+Two leak classes pane teardown provably cannot reach, both report-only:
+
+- **ssh control masters** — `ControlPersist` keeps them alive on purpose; they were never a
+  child of the shell that created them.
+- **user-owned PPID-1 processes with no pane** — the only measured path by which `^D` can
+  leave something behind is `disown`/`nohup`; a plain `sleep &` is SIGHUP'd and does not
+  survive.
+
+Selection here is an allowlist (`stray_command_prefixes`), not a blocklist. Blocklisting
+system paths was tried first and produced 23 false positives on a real machine: bare-name
+launchd jobs, audio drivers, vendor agents under `/usr/local/bin`, and login shells. The
+report ends with a single number — how many strays are Claude processes — because that is the
+question this category exists to answer.
+
+## Configuration
+
+`~/.config/agent-reap/config.toml`, a live out-of-store symlink from the dotfiles repo. Every
+field has a working default and a missing file is normal. A malformed file degrades to
+defaults with a warning rather than aborting: a config typo must not stop you from seeing what
+is leaking.
+
+## Development
+
+```bash
+uv run --project agent_reap --group dev ruff check agent_reap/src agent_reap/tests
+uv run --project agent_reap --group dev ruff format agent_reap/src agent_reap/tests
+uv run --project agent_reap --group dev pytest agent_reap/tests --cov=agent_reap
+```
+
+Every external command goes through an injected `Runner`, so no test shells out to a real
+tmux or signals a real process — a hard requirement for a tool whose job is killing things.

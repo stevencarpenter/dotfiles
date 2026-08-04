@@ -118,3 +118,15 @@ else
   echo "error: uv not found; cannot install token-auditor" >&2
   exit 1
 fi
+
+# agent-reap — vendored in this repo, so it installs from the local path rather
+# than a pinned remote release. Unconditional like token-auditor: it is inert on
+# a machine with no tmux server and no teams, so a capability gate would buy
+# nothing. --force keeps re-install idempotent.
+if command -v "$uv_bin" >/dev/null 2>&1; then
+  echo "==> Installing agent-reap (${repo_root}/agent_reap)"
+  "$uv_bin" tool install --force "$repo_root/agent_reap"
+else
+  echo "error: uv not found; cannot install agent-reap" >&2
+  exit 1
+fi
