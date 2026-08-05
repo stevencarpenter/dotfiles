@@ -38,3 +38,4 @@ tree-sitter = "latest"
 # DuckDB — needed by yazi on every machine for tabular file previews
 duckdb = "latest"
 "github:agavra/tuicr" = "latest"
+lefthook = "latest"
