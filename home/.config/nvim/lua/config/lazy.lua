@@ -68,3 +68,34 @@ require("lazy").setup({
     },
   },
 })
+
+-- LazyVim writes `lazyvim.json` with a raw `io.open`/`f:write` and no final
+-- newline (lazyvim/util/json.lua `M.save`), so the BufWritePre `fixendofline`
+-- autocmd in config/autocmds.lua can never reach it — that only governs buffer
+-- writes. Every `:LazyExtras` toggle, news dismissal, or schema migration
+-- therefore reintroduced a `\ No newline at end of file` diff in this repo.
+-- Wrap the writer so the file always lands with exactly one trailing newline.
+do
+  local ok, json = pcall(require, "lazyvim.util.json")
+  if ok then
+    local save = json.save
+    json.save = function(...)
+      local result = save(...)
+      local path = LazyVim.config.json.path
+      local f = io.open(path, "r")
+      if f then
+        local data = f:read("*a")
+        f:close()
+        local fixed = data:gsub("\n*$", "") .. "\n"
+        if fixed ~= data then
+          f = io.open(path, "w")
+          if f then
+            f:write(fixed)
+            f:close()
+          end
+        end
+      end
+      return result
+    end
+  end
+end
