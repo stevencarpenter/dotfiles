@@ -9,6 +9,9 @@ on:
       - "modules/**"
       - "lib/**"
       - "scripts/**"
+      - "docs/**"
+      - "agent_reap/README.md"
+      - "CLAUDE.md"
       - "bootstrap.sh"
       - "rebuild.sh"
       - "README.md"
@@ -20,6 +23,9 @@ on:
       - "modules/**"
       - "lib/**"
       - "scripts/**"
+      - "docs/**"
+      - "agent_reap/README.md"
+      - "CLAUDE.md"
       - "bootstrap.sh"
       - "rebuild.sh"
       - "README.md"
@@ -92,6 +98,9 @@ jobs:
 
       - name: Validate exec bits on directly-exec'd scripts
         run: scripts/test-exec-bits.sh
+
+      - name: Validate tmux lifecycle contract
+        run: scripts/test-tmux-lifecycle-contract.sh
 
       - name: Validate ssh ControlPath identity separation
         run: scripts/test-ssh-controlpath-identity.sh

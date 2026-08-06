@@ -137,6 +137,11 @@ change to `~/.config/nvim/…` or `~/.config/zsh/.zshrc` is live the moment you 
 only needed when you change *packages*, *macOS defaults*, *gating*, or a *secret/hook declaration*
 — anything nix actually owns.
 
+Long-lived programs still cache state after a raw file changes. For tmux/z4h/Claude behavior,
+follow the [tmux runtime lifecycle runbook](docs/ai-tools/tmux-runtime-lifecycle.md): it separates
+tracked source, deployed artifacts, live server state, and surviving processes/sockets, and covers
+cwd inheritance, detach topology, agent cleanup, plugin residue, and stale side-channel binaries.
+
 ## Validate without applying
 
 ```bash
@@ -253,7 +258,8 @@ An isolated `uv` project (Python 3.14+, no runtime deps). See [CLAUDE.md](CLAUDE
 the full lint/test matrix.
 
 - `mcp_sync/` — MCP + skills fan-out (the `sync-mcp-configs` / `sync-skills` entry points).
-- `agent_reap/` — reaps idle Claude teammate panes across every tmux socket (`agent-reap`).
+- [`agent_reap/`](agent_reap/) — reports and reaps idle Claude teammate panes across every tmux
+  socket (`agent-reap`); automatic cleanup is a Claude `SessionEnd` hook, not a daemon.
 
 ```bash
 just test                                                    # lint+test mcp_sync
