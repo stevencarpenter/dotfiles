@@ -38,6 +38,7 @@ let
   #   lazygit  0.61.1    → 0.63.1
   #   zoxide   0.9.9     → 0.10.0
   #   ripgrep  15.1.0    → 15.2.0
+  #   atuin    18.15.2   → 18.19.0    (measured 2026-08-07; ~4 months)
   # For contrast, gh / yazi / neovim / delta / bat / fd / btop were all exactly
   # current on stable and are deliberately NOT listed. The lag is a cadence
   # mismatch in specific tools, not a general property of the channel.
@@ -52,6 +53,15 @@ let
     "lazygit"
     "zoxide"
     "ripgrep" # binary is `rg`
+    # atuin ships ~2x/week and its `init zsh` output is version-dependent, so a
+    # stale binary silently disables features the config asks for. Stable 26.05
+    # serves 18.15.2 (2026-04-16); the tmux popup that config.{sync,local}.toml
+    # enables via `[tmux] enabled = true` needs >= 18.12.0, and a machine left on
+    # an older binary emits no ATUIN_TMUX_POPUP export at all — the config reads
+    # as ignored rather than as unsupported (diagnosed 2026-08-07 on a host
+    # running a pre-18.12 installer copy). Config without the matching binary is
+    # not a working contract, so nix owns both or neither.
+    "atuin"
   ];
 
   # A second nixpkgs that deliberately does not follow the stable input. No

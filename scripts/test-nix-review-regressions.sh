@@ -148,4 +148,33 @@ while read -r host expected_variant; do
   esac
 done <<<"$expected_variants"
 
-echo "login-shell, Homebrew pin, no-age-secrets, atuin sync policy, and atuin variant wiring contracts are emitted"
+# nixpkgs-unstable SOAK PIN.
+#
+# The input must name a 40-char rev, never a branch. Reverting it to
+# "nixpkgs-unstable" is a one-word edit that silently removes two properties
+# and breaks nothing observable: the flake still evaluates, both closures still
+# build, and every other assertion here stays green. What it loses is (1) the
+# disclosure-soak window — the lock would then track the branch tip, ingesting
+# a compromised rev as soon as Hydra certifies it builds — and (2) the
+# guarantee that a bare `nix flake update` cannot move this input, which is
+# what keeps every bump a reviewable `git diff`. Neither is recoverable by
+# inspection after the fact, so it is asserted rather than documented.
+#
+# Read from flake.nix rather than flake.lock: the lock records a rev either
+# way, so it cannot distinguish a rev pin from a branch that merely resolved to
+# one. The distinction only exists in the input URL.
+unstable_ref="$(
+  sed -n 's|.*nixpkgs-unstable\.url = "github:NixOS/nixpkgs/\([^"]*\)".*|\1|p' flake.nix
+)"
+if [ -z "$unstable_ref" ]; then
+  echo "could not read the nixpkgs-unstable input URL from flake.nix" >&2
+  exit 1
+fi
+if ! [[ "$unstable_ref" =~ ^[0-9a-f]{40}$ ]]; then
+  echo "nixpkgs-unstable is pinned to '$unstable_ref', not a 40-char rev." >&2
+  echo "  The soak window and the no-accidental-bump property both depend on a" >&2
+  echo "  rev pin — see the comment in flake.nix. Bump with 'just update-unstable'." >&2
+  exit 1
+fi
+
+echo "login-shell, Homebrew pin, no-age-secrets, atuin sync policy, atuin variant wiring, and nixpkgs-unstable soak pin contracts are emitted"

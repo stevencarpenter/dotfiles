@@ -87,6 +87,9 @@ token-auditor --help                                                   # or `cod
 just rebuild              # Same, via the task runner
 nix flake check --no-build --all-systems   # Evaluate explicit all-host closure checks
 just check                   # Alias for the above
+just update-unstable         # Bump nixpkgs-unstable to the rev as of 7 days ago,
+                             #   build, print the closure diff. Never switches.
+just update-unstable 14      # Wider soak window
 ./bootstrap.sh            # Fresh-machine setup (Lix, Homebrew, first switch, rustup)
 just sync                 # Full deploy: switch, then op-render secrets + git externals + agents
                           #   + token-auditor. One command; the order is load-bearing.
@@ -96,6 +99,14 @@ just sync-side-channels   # Side channels only, skipping the rebuild
 Raw configs under `home/` are out-of-store symlinks — editing them is live with no rebuild. A
 `darwin-rebuild switch` is only needed for changes nix owns: packages, macOS defaults, gating, or a
 secret/hook declaration.
+
+`nixpkgs-unstable` is pinned to a **rev**, not to the branch, so `nix flake update` cannot move it
+and every bump is a reviewable `git diff`. The rev trails the channel by ~7 days on purpose: a
+lockfile's narHash proves the tree was not tampered with, not that it was benign when locked, and
+only elapsed time closes that gap. Bump it with `just update-unstable`, never by hand — a branch
+name in that input fails `scripts/test-nix-review-regressions.sh`. Rationale in full lives in
+`scripts/update-unstable.sh`; the exposed surface is the `fastMovingPackages` allowlist in
+`modules/home/packages.nix`.
 
 ### Pre-commit
 

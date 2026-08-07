@@ -19,7 +19,24 @@
     # `inputs.nixpkgs.follows`: tracking a different channel is the entire
     # point, and unlike nix-darwin/home-manager this input has no nixpkgs
     # input of its own — it IS nixpkgs.
-    nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    #
+    # Pinned to a REV, not to the `nixpkgs-unstable` branch, and that is
+    # load-bearing in two ways:
+    #
+    #   1. Soak window. The rev is chosen ~7 days behind the branch tip, so a
+    #      publicly disclosed supply-chain incident has a week to surface before
+    #      this repo ingests it. The lock's narHash proves the tree wasn't
+    #      tampered with; it says nothing about whether the tree was benign when
+    #      locked. Only elapsed time addresses that. Rationale in full:
+    #      scripts/update-unstable.sh.
+    #   2. A bare `nix flake update` cannot move this input while it names a
+    #      rev. Bumping is therefore always a deliberate act with a reviewable
+    #      `git diff`, never a side effect of refreshing something else.
+    #
+    # Bump with `just update-unstable` (default 7 days). Reverting this to a
+    # branch name silently disables both properties and fails the assertion in
+    # scripts/test-nix-review-regressions.sh.
+    nixpkgs-unstable.url = "github:NixOS/nixpkgs/3f50310a736e4e954194338709c3ad75c50acc20"; # nixpkgs-unstable @ 2026-07-31
   };
 
   outputs =

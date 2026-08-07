@@ -40,6 +40,12 @@ nix-fmt-check:
 nix-lint:
     statix check .
 
+# Bump nixpkgs-unstable to the channel rev as of DAYS ago (default 7), build the
+# result, and print the closure diff. Never switches — apply with ./rebuild.sh.
+# The soak window is a supply-chain control: see scripts/update-unstable.sh.
+update-unstable *DAYS:
+    scripts/update-unstable.sh {{ DAYS }}
+
 # Explicit Homebrew update/upgrade; rebuilds only install missing declarations.
 brew-upgrade:
     HOMEBREW_NO_ANALYTICS=1 HOMEBREW_NO_ENV_HINTS=1 brew update

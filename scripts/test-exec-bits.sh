@@ -26,6 +26,7 @@ exec_scripts=(
   home/.local/bin/gh
   scripts/host-capability.sh
   scripts/sync-side-channels.sh
+  scripts/update-unstable.sh
   scripts/test-gh-account-routing.sh
   scripts/test-ssh-controlpath-identity.sh
   scripts/test-atuin-filter-parity.sh

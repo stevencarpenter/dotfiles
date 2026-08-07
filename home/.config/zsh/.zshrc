@@ -613,9 +613,14 @@ function sip_holder() {
 # zoxide (smart cd)
 command -v zoxide >/dev/null 2>&1 && zcached zoxide-init "$(command -v zoxide)" zoxide init --cmd cd zsh
 
-# atuin (shell history) - skip silently on machines without atuin installed
 [[ -f "$HOME/.local/bin/env" ]] && . "$HOME/.local/bin/env" || true
-[[ -f "$HOME/.atuin/bin/env" ]] && . "$HOME/.atuin/bin/env" || true
+# atuin (shell history) - skip silently on machines without atuin installed.
+# nix owns the binary (fastMovingPackages in modules/home/packages.nix), so
+# ~/.atuin/bin/env is deliberately NOT sourced: it PREPENDS ~/.atuin/bin to
+# PATH, which would shadow the nix atuin with whatever version the upstream
+# `curl | sh` installer last left behind. That shadowing is exactly how one host
+# sat on a pre-18.12 binary for months while its nix-managed config asked for
+# the tmux popup. Re-adding this line silently reverts that ownership.
 # Scrub a stale ATUIN_TMUX_POPUP a long-lived tmux server may have frozen in;
 # atuin's config.toml [tmux] block should be the only source of truth.
 unset ATUIN_TMUX_POPUP
