@@ -32,6 +32,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # Full history, not the default depth-1 clone: the external-overlay
+          # contract test resolves this repo as `git+file://…`, and Lix refuses
+          # a shallow repo there ("shallow repositories are only allowed when
+          # `shallow = true;`"). Determinate Nix accepted it, so this only
+          # surfaced once CI moved onto the interpreter the machines run.
+          fetch-depth: 0
 
       # modules/darwin/core.nix sets nix.package = pkgs.lix, so CI must evaluate
       # and build under Lix too — not upstream/Determinate Nix. This step also
