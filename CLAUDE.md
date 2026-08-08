@@ -48,6 +48,9 @@ Installed unconditionally as a uv tool from the local path by `just sync`
 (`scripts/sync-side-channels.sh`) — it is inert without a tmux server or a team directory, so
 it carries no capability gate. `just sync` owns `~/.local/bin/agent-reap`; only
 `~/.config/agent-reap/config.toml` is symlinked by `modules/home/dotfiles.nix`.
+It is not a daemon: automatic cleanup is the Claude `SessionEnd` hook, and solo sessions do not
+create a hook log. See `docs/ai-tools/tmux-runtime-lifecycle.md` before diagnosing tmux cwd,
+detach, socket, pane/process, stateful-plugin, generated-config, or stale-binary behavior.
 
 ### MCP Sync (`mcp_sync/`)
 
@@ -252,6 +255,12 @@ plugin) so the monitor has full control over `window-status-format` and
 
 Window names show `#{pane_title}` via `automatic-rename-format`, so tabs display Claude session
 names and state spinners instead of version numbers.
+
+The cwd contract is separate from window identity: `prefix c`, `prefix |`, and `prefix -` pass
+`-c "$HOME"` so a long-lived foreground agent cannot leak its launch directory into a new shell.
+The hygiene test loads the real config into an isolated tmux server and checks the effective final
+bindings, catching later overrides as well as missing lines. The full live-state debugging and
+cleanup runbook is `docs/ai-tools/tmux-runtime-lifecycle.md`.
 
 ### Secrets
 
