@@ -49,11 +49,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # ONLY steps that do not realize derivations — formatting and evaluation,
-  # about two minutes cold. Anything that builds belongs in the build job; a
-  # step that realizes a closure here pays for it twice, once per job, because
-  # the two jobs run in sequence. The build job needs this to pass, so a
-  # formatting slip costs two minutes to learn rather than half an hour.
+  # ONLY steps that do not realize derivations — formatting and evaluation.
+  # Anything that builds belongs in the build job instead: a closure realized
+  # here would be built twice, once per job, since the two no longer share a
+  # store. Keeping this job cache-free is what makes it genuinely fast.
   checks:
     name: Fast checks
     # macOS runner: every host in lib/machines.nix is aarch64-darwin, so the
@@ -73,14 +72,10 @@ jobs:
       - name: Install Lix
         uses: ./.github/actions/install-lix
 
-      - name: Restore Nix store
-        uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7
-        with:
-          primary-key: nix-checks-${{ runner.os }}-${{ hashFiles('flake.lock') }}
-          restore-prefixes-first-match: nix-checks-${{ runner.os }}-
-          # The action does not collect garbage on macOS unless this is a
-          # number, and an unbounded store outgrows the 10GB per-repo cache.
-          gc-max-store-size-macos: 4000000000
+      # Deliberately NO Nix store cache here. Measured on 5a8759f: restoring it
+      # cost 256s to serve 17s of work (fmt 8s, eval 9s), and those same steps
+      # ran in 24s and 45s on a cold store in the very first run. The cache pays
+      # for itself only where a closure gets realized, which is the build job.
 
       - name: Check Nix formatting
         run: git ls-files -z '*.nix' | xargs -0 nix fmt -- --check
@@ -97,7 +92,10 @@ jobs:
   # shaped, and file collisions surface once it is up for review.
   build:
     name: Build system closures
-    needs: checks
+    # No `needs: checks`. Chaining bought fail-fast when this job took 30
+    # minutes; with a warm cache it is ~6 and setup dominates both jobs, so
+    # serializing only added the fast job's runtime to the wall clock for a
+    # head start measured in seconds. They run concurrently instead.
     if: github.event_name == 'push' || github.event.pull_request.draft == false
     runs-on: macos-latest
     steps:
@@ -109,16 +107,17 @@ jobs:
       - name: Install Lix
         uses: ./.github/actions/install-lix
 
-      # Shares the fast job's cache prefix: that job saves a store already
-      # warmed by evaluation, so a cold build starts from those paths instead
-      # of from nothing.
+      # The only cache in this workflow. It turns a ~30 minute cold closure
+      # build into ~19s of work behind a ~5 minute restore, which is the one
+      # place that trade pays. Keyed on flake.lock, since that is what decides
+      # which store paths the build needs.
       - name: Restore Nix store
         uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7
         with:
           primary-key: nix-build-${{ runner.os }}-${{ hashFiles('flake.lock') }}
-          restore-prefixes-first-match: |
-            nix-build-${{ runner.os }}-
-            nix-checks-${{ runner.os }}-
+          restore-prefixes-first-match: nix-build-${{ runner.os }}-
+          # The action does not collect garbage on macOS unless this is a
+          # number, and an unbounded store outgrows the 10GB per-repo cache.
           gc-max-store-size-macos: 6000000000
 
       - name: Install contract test dependencies
