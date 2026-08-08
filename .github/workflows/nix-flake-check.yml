@@ -101,6 +101,9 @@ jobs:
       - name: Check Nix formatting
         run: git ls-files -z '*.nix' | xargs -0 nix fmt -- --check
 
+      - name: Install flake check dependencies
+        run: brew install ripgrep
+
       # The flake exports each darwin system closure through checks.<system>, so
       # this reaches every module's config.system.build.toplevel rather than
       # merely traversing the non-standard darwinConfigurations output.
