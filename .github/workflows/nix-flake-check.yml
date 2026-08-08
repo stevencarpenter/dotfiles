@@ -1,13 +1,28 @@
 name: Nix Flake Check
 
+# Branch pushes reach this through `pull_request` alone. Without the branches
+# filter both events fire on a PR branch and every push runs the whole matrix
+# twice for one answer.
+#
+# The two path lists are duplicated rather than shared through a YAML anchor:
+# the Actions workflow parser does not support anchors, so an alias here would
+# fail to parse rather than expand. Keep them in sync by hand.
+#
+# home/.config/{git/config,tmux/tmux.conf} are listed because the contract tests
+# assert on their contents. Without them the commit that breaks a seam cannot
+# trigger the job that checks it — exactly how 0fbfcc7 left the contract test
+# red without ever turning main red.
 on:
   push:
+    branches: ["main"]
     paths:
       - "flake.nix"
       - "flake.lock"
       - "lib/**"
       - "hosts/**"
       - "modules/**"
+      - "home/.config/git/config"
+      - "home/.config/tmux/tmux.conf"
       - "scripts/test-external-overlay-contract.sh"
       - "scripts/test-nix-review-regressions.sh"
       - "secrets/secrets.nix"
@@ -19,13 +34,26 @@ on:
       - "lib/**"
       - "hosts/**"
       - "modules/**"
+      - "home/.config/git/config"
+      - "home/.config/tmux/tmux.conf"
       - "scripts/test-external-overlay-contract.sh"
       - "scripts/test-nix-review-regressions.sh"
       - "secrets/secrets.nix"
       - ".github/workflows/nix-flake-check.yml"
 
+# Superseding a push cancels the run it obsoletes. The closure build is the most
+# expensive job in the repo; paying for an answer about an overwritten commit is
+# pure waste.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  flake-check:
+  # Everything that answers in about two minutes, ordered so cheap failures
+  # report without waiting on the closure build. The build job needs this to
+  # pass first, so a formatting slip no longer costs half an hour to learn.
+  checks:
+    name: Fast checks
     # macOS runner: every host in lib/machines.nix is aarch64-darwin, so the
     # host closures can only be realized here.
     runs-on: macos-latest
@@ -40,36 +68,17 @@ jobs:
           # surfaced once CI moved onto the interpreter the machines run.
           fetch-depth: 0
 
-      # modules/darwin/core.nix sets nix.package = pkgs.lix, so CI must evaluate
-      # and build under Lix too — not upstream/Determinate Nix. This step also
-      # supplies the experimental-features nix.conf that every later nix call
-      # needs: the installer writes `experimental-features = nix-command flakes`
-      # (enable_flakes defaults true), which is why no step passes it by hand.
-      #
-      # Pinned by digest rather than piping install.lix.systems/lix into a
-      # shell: that URL serves whatever is current, and the action this
-      # replaced was SHA-pinned in 615f9b0 for the same supply-chain reason the
-      # nixpkgs-unstable soak pin exists. Pinning the installer also pins the
-      # interpreter — this build embeds Lix 2.95.2.
-      #
-      # aarch64 is hardcoded deliberately: lib/machines.nix declares only
-      # aarch64-darwin hosts and the build step below targets that system.
-      #
-      # To bump: re-download, `shasum -a 256` it, update LIX_INSTALLER_SHA256.
-      # A mismatch fails the job closed rather than installing something new.
       - name: Install Lix
-        env:
-          LIX_INSTALLER_URL: https://install.lix.systems/lix/lix-installer-aarch64-darwin
-          LIX_INSTALLER_SHA256: 3c71fdcfeddac8fa075b626b6e0ddd9ba73af930e47b4fa027e22c7279f596ae
-        run: |
-          set -euo pipefail
-          curl -sSf -L -o "$RUNNER_TEMP/lix-installer" "$LIX_INSTALLER_URL"
-          echo "${LIX_INSTALLER_SHA256}  $RUNNER_TEMP/lix-installer" | shasum -a 256 -c -
-          chmod +x "$RUNNER_TEMP/lix-installer"
-          # --no-confirm is required, not cosmetic: the installer aborts when
-          # stdin is not a TTY unless it is passed.
-          "$RUNNER_TEMP/lix-installer" install --no-confirm
-          echo "/nix/var/nix/profiles/default/bin" >> "$GITHUB_PATH"
+        uses: ./.github/actions/install-lix
+
+      - name: Restore Nix store
+        uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7
+        with:
+          primary-key: nix-checks-${{ runner.os }}-${{ hashFiles('flake.lock') }}
+          restore-prefixes-first-match: nix-checks-${{ runner.os }}-
+          # The action does not collect garbage on macOS unless this is a
+          # number, and an unbounded store outgrows the 10GB per-repo cache.
+          gc-max-store-size-macos: 4000000000
 
       - name: Install contract test dependencies
         run: brew install ripgrep
@@ -83,16 +92,6 @@ jobs:
       - name: Evaluate all flake checks
         run: nix flake check --no-build --all-systems
 
-      # Realize each host closure plus the statix lint check. This catches file
-      # collisions and build-time failures that evaluation alone cannot detect.
-      # Targets are enumerated rather than globbed, so adding a host row to
-      # lib/machines.nix also needs a line here or it goes unbuilt.
-      - name: Build nix-darwin systems
-        run: |
-          nix build --no-link \
-            '.#checks.aarch64-darwin.personal-mac' \
-            '.#checks.aarch64-darwin.statix'
-
       # The parent/child target collision this guards occurs while realizing the
       # Home Manager files derivation, so --no-build evaluation cannot catch it.
       - name: Build external-overlay contract fixture
@@ -102,3 +101,42 @@ jobs:
       # proving that the module graph evaluates.
       - name: Validate review regression contracts
         run: scripts/test-nix-review-regressions.sh
+
+  # Realizing the closure costs ~30 minutes cold, which is most of this
+  # workflow. Gate it behind the fast job and skip it for drafts: a draft is
+  # still being shaped, and file collisions surface once it is up for review.
+  build:
+    name: Build system closures
+    needs: checks
+    if: github.event_name == 'push' || github.event.pull_request.draft == false
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Install Lix
+        uses: ./.github/actions/install-lix
+
+      # Shares the fast job's cache prefix: that job saves a store already
+      # warmed by evaluation, so a cold build starts from those paths instead
+      # of from nothing.
+      - name: Restore Nix store
+        uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7
+        with:
+          primary-key: nix-build-${{ runner.os }}-${{ hashFiles('flake.lock') }}
+          restore-prefixes-first-match: |
+            nix-build-${{ runner.os }}-
+            nix-checks-${{ runner.os }}-
+          gc-max-store-size-macos: 6000000000
+
+      # Realize each host closure plus the statix lint check. This catches file
+      # collisions and build-time failures that evaluation alone cannot detect.
+      # Targets are enumerated rather than globbed, so adding a host row to
+      # lib/machines.nix also needs a line here or it goes unbuilt.
+      - name: Build nix-darwin systems
+        run: |
+          nix build --no-link \
+            '.#checks.aarch64-darwin.personal-mac' \
+            '.#checks.aarch64-darwin.statix'
