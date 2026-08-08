@@ -37,6 +37,7 @@ exec_scripts=(
   scripts/test-nix-review-regressions.sh
   scripts/test-railway-psql-errors.sh
   scripts/test-sync-capability-gating.sh
+  scripts/test-tmux-lifecycle-contract.sh
 )
 
 failures=0

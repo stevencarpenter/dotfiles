@@ -39,6 +39,26 @@ agent-reap --json report   # machine-readable
 agent-reap -v report       # include the reason every pane was excluded
 ```
 
+## Lifecycle and automatic cleanup
+
+`agent-reap` is not a daemon and this repo installs no launchd job for it. Automatic cleanup is
+event-driven: the generated Claude settings register
+`~/.claude/hooks/agent-reap-session-end.sh` for `SessionEnd`. When the ended session owns a
+`~/.claude/teams/session-<id>` directory, the hook runs a team-scoped reap and appends its result to
+`~/.claude/logs/agent-reap-session-end.log`. Solo sessions exit without creating the log.
+
+A configured hook proves only that generation succeeded, not that a qualifying event ran. Verify
+the generated `~/.claude/settings.json`, the hook log, `agent-reap -v sockets`, and the live pane
+inventory together. The reaper recognizes Claude teammate command lines and Claude team inboxes;
+it is not a general tmux or Codex process collector.
+
+The executable is a side channel owned by `just sync` / `just sync-side-channels`, while the config
+is a live out-of-store symlink. The installer deliberately uses `--force --reinstall`: `uv` can
+otherwise reuse a stale wheel when local source changes without a version bump.
+
+See the [tmux runtime lifecycle runbook](../docs/ai-tools/tmux-runtime-lifecycle.md) for the broader
+source/deployment/runtime/process verification model and the other retained-state failure classes.
+
 ## What it will and will not kill
 
 A teammate pane is reaped only when **all** hold: its command carries

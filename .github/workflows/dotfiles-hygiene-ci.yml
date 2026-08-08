@@ -9,6 +9,9 @@ on:
       - "modules/**"
       - "lib/**"
       - "scripts/**"
+      - "docs/**"
+      - "agent_reap/README.md"
+      - "CLAUDE.md"
       - "bootstrap.sh"
       - "rebuild.sh"
       - "README.md"
@@ -20,6 +23,9 @@ on:
       - "modules/**"
       - "lib/**"
       - "scripts/**"
+      - "docs/**"
+      - "agent_reap/README.md"
+      - "CLAUDE.md"
       - "bootstrap.sh"
       - "rebuild.sh"
       - "README.md"
@@ -48,7 +54,7 @@ jobs:
       # arrays need bash >= 4) via a bare `bash` invocation rather than a
       # pinned path — a fresh runner without this formula fails that check.
       - name: Install shell test dependencies
-        run: brew install ripgrep bash
+        run: brew install ripgrep bash tmux
 
       - name: Install pre-commit
         run: python -m pip install --upgrade pip pre-commit
@@ -92,6 +98,9 @@ jobs:
 
       - name: Validate exec bits on directly-exec'd scripts
         run: scripts/test-exec-bits.sh
+
+      - name: Validate tmux lifecycle contract
+        run: scripts/test-tmux-lifecycle-contract.sh
 
       - name: Validate ssh ControlPath identity separation
         run: scripts/test-ssh-controlpath-identity.sh
