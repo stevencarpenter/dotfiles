@@ -49,9 +49,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Everything that answers in about two minutes, ordered so cheap failures
-  # report without waiting on the closure build. The build job needs this to
-  # pass first, so a formatting slip no longer costs half an hour to learn.
+  # ONLY steps that do not realize derivations — formatting and evaluation,
+  # about two minutes cold. Anything that builds belongs in the build job; a
+  # step that realizes a closure here pays for it twice, once per job, because
+  # the two jobs run in sequence. The build job needs this to pass, so a
+  # formatting slip costs two minutes to learn rather than half an hour.
   checks:
     name: Fast checks
     # macOS runner: every host in lib/machines.nix is aarch64-darwin, so the
@@ -80,9 +82,6 @@ jobs:
           # number, and an unbounded store outgrows the 10GB per-repo cache.
           gc-max-store-size-macos: 4000000000
 
-      - name: Install contract test dependencies
-        run: brew install ripgrep
-
       - name: Check Nix formatting
         run: git ls-files -z '*.nix' | xargs -0 nix fmt -- --check
 
@@ -92,19 +91,10 @@ jobs:
       - name: Evaluate all flake checks
         run: nix flake check --no-build --all-systems
 
-      # The parent/child target collision this guards occurs while realizing the
-      # Home Manager files derivation, so --no-build evaluation cannot catch it.
-      - name: Build external-overlay contract fixture
-        run: scripts/test-external-overlay-contract.sh
-
-      # These assertions inspect emitted activation behavior rather than merely
-      # proving that the module graph evaluates.
-      - name: Validate review regression contracts
-        run: scripts/test-nix-review-regressions.sh
-
-  # Realizing the closure costs ~30 minutes cold, which is most of this
-  # workflow. Gate it behind the fast job and skip it for drafts: a draft is
-  # still being shaped, and file collisions surface once it is up for review.
+  # Everything that realizes a derivation, so the closure is built exactly once
+  # and the contract tests that follow reuse the warm store. ~30 minutes cold.
+  # Gated behind the fast job, and skipped for drafts: a draft is still being
+  # shaped, and file collisions surface once it is up for review.
   build:
     name: Build system closures
     needs: checks
@@ -131,6 +121,9 @@ jobs:
             nix-checks-${{ runner.os }}-
           gc-max-store-size-macos: 6000000000
 
+      - name: Install contract test dependencies
+        run: brew install ripgrep
+
       # Realize each host closure plus the statix lint check. This catches file
       # collisions and build-time failures that evaluation alone cannot detect.
       # Targets are enumerated rather than globbed, so adding a host row to
@@ -140,3 +133,20 @@ jobs:
           nix build --no-link \
             '.#checks.aarch64-darwin.personal-mac' \
             '.#checks.aarch64-darwin.statix'
+
+      # Both of these realize derivations, so they live here rather than in the
+      # fast job: on a cold store the contract fixture builds the Home Manager
+      # files derivation itself. Splitting them out cost 35 minutes in the
+      # "fast" job while the build job restored that same store and took 8 —
+      # a 43-minute serial run against 32 for one pass. Running them after the
+      # closure means the store is already warm and they cost seconds.
+
+      # The parent/child target collision this guards occurs while realizing the
+      # Home Manager files derivation, so --no-build evaluation cannot catch it.
+      - name: Build external-overlay contract fixture
+        run: scripts/test-external-overlay-contract.sh
+
+      # These assertions inspect emitted activation behavior rather than merely
+      # proving that the module graph evaluates.
+      - name: Validate review regression contracts
+        run: scripts/test-nix-review-regressions.sh
