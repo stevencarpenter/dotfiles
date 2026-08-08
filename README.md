@@ -145,9 +145,9 @@ cwd inheritance, detach topology, agent cleanup, plugin residue, and stale side-
 ## Validate without applying
 
 ```bash
-nix flake check --no-build --all-systems   # or: just check
+nix flake check --no-update-lock-file --no-build --all-systems   # or: just check
 git ls-files -z '*.nix' | xargs -0 nix fmt -- --check # or: just nix-fmt-check
-nix build --no-link \
+nix build --no-update-lock-file --no-link \
   '.#checks.aarch64-darwin.personal-mac' \
   '.#checks.aarch64-darwin.statix'
 ```

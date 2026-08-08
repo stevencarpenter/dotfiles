@@ -12,6 +12,10 @@ on:
       - "home/.config/agent-reap/**"
       - ".github/workflows/agent-reap-ci.yml"
 
+# Least privilege, declared in-tree rather than inherited from the repo default.
+permissions:
+  contents: read
+
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -28,6 +32,10 @@ jobs:
         run: |
           uv run --group dev ruff check src tests
           uv run --group dev ruff format --check src tests
+
+      - name: Type-check with mypy
+        working-directory: agent_reap
+        run: uv run --group dev mypy src tests
 
   test:
     runs-on: ubuntu-latest

@@ -23,6 +23,21 @@ DEFAULT_SOCKET_GLOBS: tuple[str, ...] = (
     "/tmp/z4h-tmux-{uid}-*",
 )
 
+_CONFIG_KEYS = frozenset(
+    {
+        "socket_globs",
+        "teammate_idle_minutes",
+        "interactive_idle_minutes",
+        "include_lead",
+        "kill_enabled",
+        "deny_agent_names",
+        "allow_agent_names",
+        "teams_dir",
+        "ssh_dir",
+        "stray_command_prefixes",
+    }
+)
+
 
 @dataclass(frozen=True)
 class Config:
@@ -36,8 +51,9 @@ class Config:
             have been quiet before it is *reported*. Never triggers a kill on its
             own.
         include_lead: Whether a team lead pane may be reaped.
-        kill_enabled: Whether a non-interactive runner (launchd) may kill. The CLI
-            still requires an explicit flag; this only gates unattended runs.
+        kill_enabled: Whether targeted unattended team cleanup may kill. The CLI
+            still requires both ``--team`` and ``--kill``; this policy gate is
+            ignored by explicit operator-driven unscoped cleanup.
         deny_agent_names: Agent names that are never reaped.
         allow_agent_names: If non-empty, only these agent names are reapable.
         teams_dir: Root holding ``session-<id>/inboxes/<agent>.json``.
@@ -110,8 +126,8 @@ def load_config(path: Path | None = None) -> LoadedConfig:
         The effective config, its source path, and any parse errors.
     """
     # AGENT_REAP_CONFIG exists so the SessionEnd hook's kill path is testable
-    # against a scratch socket, and so a launchd runner can be pointed at its own
-    # policy file. An explicit --config still wins over it.
+    # against a scratch socket, and so an unattended runner can be pointed at
+    # its own policy file. An explicit --config still wins over it.
     env_path = os.environ.get("AGENT_REAP_CONFIG")
     if path is None and env_path:
         path = Path(env_path)
@@ -127,7 +143,7 @@ def load_config(path: Path | None = None) -> LoadedConfig:
         )
 
     defaults = Config()
-    errors: list[str] = []
+    errors = [f"unknown key: {key}" for key in sorted(raw.keys() - _CONFIG_KEYS)]
 
     def _int(key: str, fallback: int) -> int:
         value = raw.get(key, fallback)

@@ -1,42 +1,102 @@
 name: Nix Flake Check
 
+# Branch pushes reach this through `pull_request` alone. Without the branches
+# filter both events fire on a PR branch and every push runs the whole matrix
+# twice for one answer.
+#
+# The two path lists are duplicated rather than shared through a YAML anchor:
+# the Actions workflow parser does not support anchors, so an alias here would
+# fail to parse rather than expand. Keep them in sync by hand.
+#
+# home/.config/{git/config,tmux/tmux.conf} are listed because the contract tests
+# assert on their contents. Without them the commit that breaks a seam cannot
+# trigger the job that checks it — exactly how 0fbfcc7 left the contract test
+# red without ever turning main red.
 on:
   push:
+    branches: ["main"]
     paths:
       - "flake.nix"
       - "flake.lock"
+      - "Justfile"
+      - "versions/nixpkgs-unstable-candidate.json"
       - "lib/**"
       - "hosts/**"
       - "modules/**"
+      - "home/.config/git/config"
+      - "home/.config/tmux/tmux.conf"
       - "scripts/test-external-overlay-contract.sh"
       - "scripts/test-nix-review-regressions.sh"
+      - "scripts/test-update-unstable-soak.sh"
+      - "scripts/update-unstable.sh"
       - "secrets/secrets.nix"
+      - ".github/actions/install-lix/**"
       - ".github/workflows/nix-flake-check.yml"
+  # `ready_for_review` is not one of the default activity types (opened,
+  # synchronize, reopened). Without it, marking a draft ready fires no run at
+  # all, so the build job's `draft == false` guard would skip forever — the PR
+  # could squash-merge having never built a closure, since main's ruleset
+  # requires no status checks.
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "flake.nix"
       - "flake.lock"
+      - "Justfile"
+      - "versions/nixpkgs-unstable-candidate.json"
       - "lib/**"
       - "hosts/**"
       - "modules/**"
+      - "home/.config/git/config"
+      - "home/.config/tmux/tmux.conf"
       - "scripts/test-external-overlay-contract.sh"
       - "scripts/test-nix-review-regressions.sh"
+      - "scripts/test-update-unstable-soak.sh"
+      - "scripts/update-unstable.sh"
       - "secrets/secrets.nix"
+      - ".github/actions/install-lix/**"
       - ".github/workflows/nix-flake-check.yml"
 
+# Superseding a push cancels the run it obsoletes. The closure build is the most
+# expensive job in the repo; paying for an answer about an overwritten commit is
+# pure waste.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least privilege, declared in-tree. The repo default is already `read`, but
+# that lives in a settings toggle no diff would show being flipped to `write`.
+permissions:
+  contents: read
+
 jobs:
-  flake-check:
-    # macOS runner: the flake realizes both aarch64-darwin host configurations.
+  # ONLY steps that do not realize derivations — formatting and evaluation.
+  # Anything that builds belongs in the build job instead: a closure realized
+  # here would be built twice, once per job, since the two no longer share a
+  # store. Keeping this job cache-free is what makes it genuinely fast.
+  checks:
+    name: Fast checks
+    # macOS runner: every host in lib/machines.nix is aarch64-darwin, so the
+    # host closures can only be realized here.
     runs-on: macos-latest
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # Full history, not the default depth-1 clone: the external-overlay
+          # contract test resolves this repo as `git+file://…`, and Lix refuses
+          # a shallow repo there ("shallow repositories are only allowed when
+          # `shallow = true;`"). Determinate Nix accepted it, so this only
+          # surfaced once CI moved onto the interpreter the machines run.
+          fetch-depth: 0
 
-      - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+      - name: Install Lix
+        uses: ./.github/actions/install-lix
 
-      - name: Install contract test dependencies
-        run: brew install ripgrep
+      # Deliberately NO Nix store cache here. Measured on 5a8759f: restoring it
+      # cost 256s to serve 17s of work (fmt 8s, eval 9s), and those same steps
+      # ran in 24s and 45s on a cold store in the very first run. The cache pays
+      # for itself only where a closure gets realized, which is the build job.
 
       - name: Check Nix formatting
         run: git ls-files -z '*.nix' | xargs -0 nix fmt -- --check
@@ -45,15 +105,64 @@ jobs:
       # this reaches every module's config.system.build.toplevel rather than
       # merely traversing the non-standard darwinConfigurations output.
       - name: Evaluate all flake checks
-        run: nix flake check --no-build --all-systems
+        run: nix flake check --no-update-lock-file --no-build --all-systems
 
-      # Realize both closures. This catches file collisions and build-time
-      # failures that evaluation alone cannot detect.
+      - name: Validate nixpkgs-unstable first-seen soak
+        run: scripts/test-update-unstable-soak.sh
+
+  # Everything that realizes a derivation, so the closure is built exactly once
+  # and the contract tests that follow reuse the warm store. ~30 minutes cold.
+  # Skipped for drafts: a draft is still being shaped, and file collisions
+  # surface once it is up for review.
+  build:
+    name: Build system closures
+    # No `needs: checks`. Chaining bought fail-fast when this job took 30
+    # minutes; with a warm cache it is ~6 and setup dominates both jobs, so
+    # serializing only added the fast job's runtime to the wall clock for a
+    # head start measured in seconds. They run concurrently instead.
+    if: github.event_name == 'push' || github.event.pull_request.draft == false
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Install Lix
+        uses: ./.github/actions/install-lix
+
+      # The only cache in this workflow. It turns a ~30 minute cold closure
+      # build into ~19s of work behind a ~5 minute restore, which is the one
+      # place that trade pays. Keyed on flake.lock, since that is what decides
+      # which store paths the build needs.
+      - name: Restore Nix store
+        uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7
+        with:
+          primary-key: nix-build-${{ runner.os }}-${{ hashFiles('flake.lock') }}
+          restore-prefixes-first-match: nix-build-${{ runner.os }}-
+          # The action does not collect garbage on macOS unless this is a
+          # number, and an unbounded store outgrows the 10GB per-repo cache.
+          gc-max-store-size-macos: 6000000000
+
+      - name: Install contract test dependencies
+        run: brew install ripgrep
+
+      # Realize each host closure plus the statix lint check. This catches file
+      # collisions and build-time failures that evaluation alone cannot detect.
+      # Targets are enumerated rather than globbed, so adding a host row to
+      # lib/machines.nix also needs a line here or it goes unbuilt.
       - name: Build nix-darwin systems
         run: |
-          nix build --no-link \
+          nix build --no-update-lock-file --no-link \
             '.#checks.aarch64-darwin.personal-mac' \
             '.#checks.aarch64-darwin.statix'
+
+      # Both of these realize derivations, so they live here rather than in the
+      # fast job: on a cold store the contract fixture builds the Home Manager
+      # files derivation itself. Splitting them out cost 35 minutes in the
+      # "fast" job while the build job restored that same store and took 8 —
+      # a 43-minute serial run against 32 for one pass. Running them after the
+      # closure means the store is already warm and they cost seconds.
 
       # The parent/child target collision this guards occurs while realizing the
       # Home Manager files derivation, so --no-build evaluation cannot catch it.

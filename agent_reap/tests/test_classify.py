@@ -17,7 +17,11 @@ def _classify(
     config: Config,
     panes: list[Pane],
     processes: dict[int, Process],
-    **kwargs: object,
+    *,
+    protected_pids: set[int] | None = None,
+    protected_panes: set[tuple[str, str]] | None = None,
+    protected_sessions: set[str] | None = None,
+    team_scope: str | None = None,
 ) -> Report:
     """Run classification with test defaults.
 
@@ -25,19 +29,24 @@ def _classify(
         config: Effective settings.
         panes: Panes to classify.
         processes: Process table.
-        **kwargs: Overrides forwarded to ``classify``.
+        protected_pids: Process ancestry protected from reaping.
+        protected_panes: Socket-qualified panes protected from reaping.
+        protected_sessions: Team sessions protected from reaping.
+        team_scope: Optional targeted teardown session.
 
     Returns:
         The classification report.
     """
-    params: dict = {
-        "now": NOW,
-        "protected_pids": set(),
-        "protected_panes": set(),
-        "protected_sessions": set(),
-    }
-    params.update(kwargs)
-    return classify(panes=panes, processes=processes, config=config, **params)
+    return classify(
+        panes=panes,
+        processes=processes,
+        config=config,
+        now=NOW,
+        protected_pids=protected_pids or set(),
+        protected_panes=protected_panes or set(),
+        protected_sessions=protected_sessions or set(),
+        team_scope=team_scope,
+    )
 
 
 def test_drained_and_stale_teammate_is_reapable(
@@ -87,6 +96,97 @@ def test_running_teammate_is_spared(config: Config, teams_dir: Path) -> None:
 
     assert report.candidates == ()
     assert "not idle" in report.skipped[0].reason
+
+
+def test_recent_window_activity_spares_sleeping_teammate(
+    config: Config, teams_dir: Path
+) -> None:
+    """Fresh output is active work even when the event-loop process is sleeping."""
+    write_inbox(teams_dir, "abc123", "docs-readme", mtime=DRAINED_LONG_AGO)
+    pane = make_pane(activity=int(NOW))
+
+    report = _classify(config, [pane], {200: make_process(state="Ss+")})
+
+    assert report.candidates == ()
+    assert "window active" in report.skipped[0].reason
+
+
+def test_unknown_window_activity_spares_sleeping_teammate(
+    config: Config, teams_dir: Path
+) -> None:
+    """Missing tmux liveness telemetry must fail closed for destructive candidates."""
+    write_inbox(teams_dir, "abc123", "docs-readme", mtime=DRAINED_LONG_AGO)
+
+    report = _classify(
+        config,
+        [make_pane(activity=None)],
+        {200: make_process(state="Ss+")},
+    )
+
+    assert report.candidates == ()
+    assert "activity unavailable" in report.skipped[0].reason
+
+
+def test_running_descendant_spares_sleeping_teammate(
+    config: Config, teams_dir: Path
+) -> None:
+    """A busy tool child keeps its sleeping Claude parent out of the kill set."""
+    write_inbox(teams_dir, "abc123", "docs-readme", mtime=DRAINED_LONG_AGO)
+    processes = {
+        200: make_process(pid=200, state="S"),
+        201: make_process(pid=201, ppid=200, state="R", command="pytest"),
+    }
+
+    report = _classify(config, [make_pane()], processes)
+
+    assert report.candidates == ()
+    assert "active descendant" in report.skipped[0].reason
+
+
+def test_sleeping_foreground_descendant_spares_teammate(
+    config: Config, teams_dir: Path
+) -> None:
+    """A foreground child remains work even while it waits on terminal I/O."""
+    write_inbox(teams_dir, "abc123", "docs-readme", mtime=DRAINED_LONG_AGO)
+    processes = {
+        200: make_process(pid=200, pgid=200, tpgid=201, state="S"),
+        201: make_process(
+            pid=201,
+            ppid=200,
+            pgid=201,
+            tpgid=201,
+            state="S",
+            command="sleep 3600",
+        ),
+    }
+
+    report = _classify(config, [make_pane()], processes)
+
+    assert report.candidates == ()
+    assert "foreground descendant" in report.skipped[0].reason
+
+
+def test_sleeping_same_group_descendant_spares_teammate(
+    config: Config, teams_dir: Path
+) -> None:
+    """Silent child work often inherits Claude's own foreground process group."""
+    write_inbox(teams_dir, "abc123", "docs-readme", mtime=DRAINED_LONG_AGO)
+    processes = {
+        200: make_process(pid=200, pgid=200, tpgid=200, state="S"),
+        201: make_process(
+            pid=201,
+            ppid=200,
+            pgid=200,
+            tpgid=200,
+            state="S",
+            command="sleep 3600",
+        ),
+    }
+
+    report = _classify(config, [make_pane()], processes)
+
+    assert report.candidates == ()
+    assert "foreground descendant" in report.skipped[0].reason
 
 
 def test_own_ancestry_is_never_reapable(config: Config, teams_dir: Path) -> None:

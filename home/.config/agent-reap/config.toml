@@ -32,9 +32,11 @@ interactive_idle_minutes = 240
 # The team lead holds the team's context. Reaping it needs --include-lead.
 include_lead = false
 
-# Gate for unattended (launchd) runs. The CLI always requires an explicit flag
-# regardless; this exists so a periodic runner cannot kill by default.
-kill_enabled = false
+# Gate for targeted unattended cleanup. The SessionEnd hook still has to pass
+# both `--team <ended-session>` and `--kill`; malformed config fails closed,
+# candidates are revalidated immediately before destruction, and ordinary
+# report/manual dry-run commands ignore this gate.
+kill_enabled = true
 
 # Never reap these teammate names.
 deny_agent_names = []

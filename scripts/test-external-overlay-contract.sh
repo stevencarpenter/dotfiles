@@ -6,11 +6,35 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 flake_ref="git+file://${repo_root}"
 
-rg -Fq 'path = ../external-overlays/git/extra.inc' \
+# A bare `rg -Fq` under `set -e` aborts with no output, which reports a seam
+# regression as an unexplained exit 1. Name the missing string instead.
+assert_contains() {
+  local pattern="$1" file="$2"
+  if ! rg -Fq "${pattern}" "${file}"; then
+    echo "missing from ${file#"${repo_root}/"}: ${pattern}" >&2
+    exit 1
+  fi
+}
+
+# These includes must stay $HOME-anchored. git resolves a RELATIVE include
+# against the realpath of the file holding it, which for this out-of-store
+# symlink lands on a path that does not exist — and git skips a missing include
+# silently, so the seam breaks with no error and no loaded keys. The full
+# derivation is in the comment above [include] in home/.config/git/config.
+assert_contains 'path = ~/.config/external-overlays/git/extra.inc' \
   "${repo_root}/home/.config/git/config"
-rg -Fq 'path = ../external-overlays/git/work.inc' \
+assert_contains 'path = ~/.config/external-overlays/git/work.inc' \
   "${repo_root}/home/.config/git/config"
-rg -Fq 'source-file -q "$XDG_CONFIG_HOME/external-overlays/tmux/*.conf"' \
+
+# Assert the regression direction too: reverting to a relative path is invisible
+# at runtime, so presence-only checks above would still pass alongside it.
+if rg -Fq 'path = ../external-overlays/git/' "${repo_root}/home/.config/git/config"; then
+  echo "git overlay include regressed to a relative path: it resolves outside the" >&2
+  echo "overlay tree and git will skip it silently. Anchor it at ~/ instead." >&2
+  exit 1
+fi
+
+assert_contains 'source-file -q "$XDG_CONFIG_HOME/external-overlays/tmux/*.conf"' \
   "${repo_root}/home/.config/tmux/tmux.conf"
 
 row_revision_expr="

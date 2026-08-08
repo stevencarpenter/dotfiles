@@ -26,7 +26,7 @@ op-adopt *FLAGS:
 
 # Evaluate every declared system closure without realizing it.
 check:
-    nix flake check --no-build --all-systems
+    nix flake check --no-update-lock-file --no-build --all-systems
 
 # Format all tracked Nix sources with the flake's canonical formatter.
 nix-fmt:
@@ -39,6 +39,12 @@ nix-fmt-check:
 # Run the repository-wide Nix anti-pattern linter.
 nix-lint:
     statix check .
+
+# Record the current nixpkgs-unstable channel tip, then promote that exact rev
+# after DAYS have elapsed (default 7). Promotion builds and prints the closure
+# diff but never switches. See scripts/update-unstable.sh for the state machine.
+update-unstable *DAYS:
+    scripts/update-unstable.sh {{ DAYS }}
 
 # Explicit Homebrew update/upgrade; rebuilds only install missing declarations.
 brew-upgrade:

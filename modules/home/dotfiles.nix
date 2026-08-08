@@ -99,6 +99,15 @@ in
       # worst on the work machine, which is logged into both accounts.
       ".local/bin/gh"
 
+      # AeroSpace's Obsidian capture bindings call this by path. The personal
+      # config supplies its known vault; the externally-consumed work config
+      # intentionally follows the focused vault instead of naming personal data.
+      ".local/bin/obsidian-capture"
+
+      # Worktrunk commit generation is prompt-assisted but locally enforced:
+      # invalid model output is retried once, then rejected before Git sees it.
+      ".local/bin/worktrunk-commit-generator"
+
       # Claude Code statusline + hooks. NOTE: settings.json is NOT linked here —
       # it is jq-merged by an activation script in ai-stack.nix so Claude's own
       # in-tool edits survive. CLAUDE.md is deployed per the locked gating map

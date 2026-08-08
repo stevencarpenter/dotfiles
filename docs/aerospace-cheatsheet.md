@@ -54,6 +54,19 @@ Cmd             macOS         system shortcuts (copy, paste, quit)
 | `alt-r`       | Enter resize mode  |
 | `alt-shift-;` | Enter service mode |
 
+### Obsidian Capture
+
+| Keys          | Action                                      |
+|---------------|---------------------------------------------|
+| `alt-shift-n` | Create a note through the Templater command |
+| `alt-shift-d` | Create or open today's daily note           |
+
+The personal config targets the existing `obsidian` vault. External work
+configs follow the vault Obsidian brings to the foreground, so this public base
+does not hard-code a private/work vault identity. Cold-start retries live in
+`~/.local/bin/obsidian-capture`; an exhausted retry is written to stderr and the
+macOS system log instead of being discarded.
+
 ---
 
 ## Resize Mode

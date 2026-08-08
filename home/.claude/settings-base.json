@@ -56,7 +56,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/hooks/agent-reap-session-end.sh"
+            "command": "~/.claude/hooks/agent-reap-session-end.sh",
+            "timeout": 20
           }
         ]
       }

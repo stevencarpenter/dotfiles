@@ -112,13 +112,10 @@ alt-e = 'balance-sizes'
 alt-r = 'mode resize'
 alt-shift-semicolon = 'mode service'
 
-# Obsidian capture (mirrors the in-app cmd-shift-n / cmd-shift-d).
-# Obsidian's own hotkeys only fire when it has focus, so focus first and then
-# drive the same command through the obsidian CLI. The retry loop covers the
-# cold-start case where the app is not yet accepting CLI connections; when it is
-# already running the first attempt succeeds and the loop exits immediately.
-alt-shift-n = 'exec-and-forget /bin/sh -c "open -a Obsidian; for i in 1 2 3 4 5 6 7 8; do /opt/homebrew/bin/obsidian command id=templater-obsidian:create-new-note-from-template vault=lumin >/dev/null 2>&1 && break; sleep 0.4; done"'
-alt-shift-d = 'exec-and-forget /bin/sh -c "open -a Obsidian; for i in 1 2 3 4 5 6 7 8; do /opt/homebrew/bin/obsidian daily vault=lumin >/dev/null 2>&1 && break; sleep 0.4; done"'
+# Personal capture is pinned to the existing `obsidian` vault. The wrapper owns
+# cold-start retries and reports exhaustion to stderr + the macOS system log.
+alt-shift-n = 'exec-and-forget /bin/sh -c "$HOME/.local/bin/obsidian-capture new --vault obsidian"'
+alt-shift-d = 'exec-and-forget /bin/sh -c "$HOME/.local/bin/obsidian-capture daily --vault obsidian"'
 
 # ─── Resize Mode ──────────────────────────────────────────────────────────────
 

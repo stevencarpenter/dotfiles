@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+# Create a templated note or open today's daily note through Obsidian's CLI.
+# AeroSpace invokes this wrapper so cold-start retries and failures have one
+# tested implementation instead of two opaque shell one-liners.
+set -euo pipefail
+
+usage() {
+  echo "usage: obsidian-capture <new|daily> [--vault NAME]" >&2
+  exit 2
+}
+
+action="${1:-}"
+[ -n "${action}" ] || usage
+shift
+
+vault=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+  --vault)
+    [ "$#" -ge 2 ] && [ -n "$2" ] || usage
+    vault="$2"
+    shift 2
+    ;;
+  *) usage ;;
+  esac
+done
+
+case "${action}" in
+new) cli_args=(command "id=templater-obsidian:create-new-note-from-template") ;;
+daily) cli_args=(daily) ;;
+*) usage ;;
+esac
+[ -z "${vault}" ] || cli_args+=("vault=${vault}")
+
+obsidian_bin="${OBSIDIAN_BIN:-/opt/homebrew/bin/obsidian}"
+open_bin="${OPEN_BIN:-/usr/bin/open}"
+logger_bin="${LOGGER_BIN:-/usr/bin/logger}"
+sleep_bin="${SLEEP_BIN:-/bin/sleep}"
+attempts="${OBSIDIAN_CAPTURE_ATTEMPTS:-8}"
+delay="${OBSIDIAN_CAPTURE_DELAY:-0.4}"
+
+case "${attempts}" in
+"" | 0 | *[!0-9]*)
+  echo "obsidian-capture: OBSIDIAN_CAPTURE_ATTEMPTS must be a positive integer" >&2
+  exit 2
+  ;;
+esac
+
+report_failure() {
+  local message="$1"
+  printf '%s\n' "${message}" >&2
+  if [ -x "${logger_bin}" ]; then
+    "${logger_bin}" -t obsidian-capture -- "${message}" 2>/dev/null || true
+  fi
+}
+
+open_error=""
+if ! open_error="$("${open_bin}" -a Obsidian 2>&1)"; then
+  report_failure "Obsidian capture failed to open the app: ${open_error:-unknown error}"
+  exit 1
+fi
+
+last_error=""
+for ((attempt = 1; attempt <= attempts; attempt++)); do
+  if last_error="$("${obsidian_bin}" "${cli_args[@]}" 2>&1)"; then
+    exit 0
+  fi
+  if [ "${attempt}" -lt "${attempts}" ]; then
+    "${sleep_bin}" "${delay}"
+  fi
+done
+
+target="current vault"
+[ -z "${vault}" ] || target="vault '${vault}'"
+report_failure "Obsidian ${action} capture failed for ${target} after ${attempts} attempts: ${last_error:-unknown error}"
+exit 1

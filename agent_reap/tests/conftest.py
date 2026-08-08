@@ -108,6 +108,8 @@ def make_pane(
 def make_process(
     pid: int = 200,
     ppid: int = 100,
+    pgid: int | None = None,
+    tpgid: int | None = None,
     command: str = "claude --agent-id docs-readme@session-abc123 --agent-name docs-readme",
     rss_kb: int = 400_000,
     state: str = "Ss+",
@@ -118,6 +120,8 @@ def make_process(
     Args:
         pid: Process id.
         ppid: Parent process id.
+        pgid: Process-group id; defaults to ``pid``.
+        tpgid: Terminal foreground process-group id; defaults to ``pgid``.
         command: Full command line.
         rss_kb: Resident size in kilobytes.
         state: ``ps`` state code.
@@ -129,6 +133,8 @@ def make_process(
     return Process(
         pid=pid,
         ppid=ppid,
+        pgid=pid if pgid is None else pgid,
+        tpgid=(pid if pgid is None else pgid) if tpgid is None else tpgid,
         rss_kb=rss_kb,
         state=state,
         elapsed_s=elapsed_s,

@@ -22,15 +22,25 @@
 # best-effort and the whole thing is bounded by a timeout.
 set -uo pipefail
 
-readonly TIMEOUT_SECS=20
+# Claude also caps this command handler at 20 seconds in settings-base.json.
+# Finish our own timeout path first so it can terminate the whole worker process
+# group and write a useful log entry before Claude tears down the hook process.
+# The 14s cap plus 1s input read and 1s TERM grace leaves at least four seconds
+# inside Claude's 20s outer budget for startup, logging, and SIGKILL cleanup.
+reap_timeout_secs="${AGENT_REAP_HOOK_TIMEOUT_SECS:-14}"
+if ! [[ "${reap_timeout_secs}" =~ ^[0-9]+$ ]] || ((reap_timeout_secs > 14)); then
+  reap_timeout_secs=14
+fi
+readonly REAP_TIMEOUT_SECS="${reap_timeout_secs}"
+readonly REAP_TERM_GRACE_SECS=1
 
 # No agent-reap (fresh machine, mid-install, or install skipped) — nothing to do.
-command -v agent-reap >/dev/null 2>&1 || exit 0
+agent_reap_bin="$(command -v agent-reap 2>/dev/null)" || exit 0
 
 # Hook payload arrives as JSON on stdin. Read it non-blockingly: if Claude Code
 # ever invokes this with no stdin, a bare `cat` would hang the session teardown.
 payload=""
-if read -r -t 2 -d '' payload <&0 2>/dev/null || [[ -n "$payload" ]]; then
+if read -r -t 1 -d '' payload <&0 2>/dev/null || [[ -n "$payload" ]]; then
   :
 fi
 [[ -n "$payload" ]] || exit 0
@@ -63,13 +73,54 @@ mkdir -p "${log%/*}" 2>/dev/null || true
 
 {
   printf '\n=== %s session-%s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$session_id"
-  # `timeout` is not on macOS by default; fall back to running bare rather than
-  # silently skipping the cleanup.
-  if command -v timeout >/dev/null 2>&1; then
-    timeout "$TIMEOUT_SECS" agent-reap reap --team "$session_id" --kill 2>&1
-  else
-    agent-reap reap --team "$session_id" --kill 2>&1
-  fi
+  # macOS ships neither `timeout` nor `gtimeout`. Python is already required
+  # above to parse the hook payload, so use it as a portable process-group
+  # watchdog instead of ever falling back to an unbounded command. agent-reap's
+  # Python worker separately bounds each tmux/ps subprocess it launches; this
+  # outer guard bounds the worker and every descendant as a final failsafe.
+  AGENT_REAP_BIN="$agent_reap_bin" \
+    AGENT_REAP_SESSION_ID="$session_id" \
+    AGENT_REAP_TIMEOUT_SECS="$REAP_TIMEOUT_SECS" \
+    AGENT_REAP_TERM_GRACE_SECS="$REAP_TERM_GRACE_SECS" \
+    /usr/bin/python3 - <<'PY'
+import os
+import signal
+import subprocess
+import sys
+
+command = [
+    os.environ["AGENT_REAP_BIN"],
+    "reap",
+    "--team",
+    os.environ["AGENT_REAP_SESSION_ID"],
+    "--kill",
+]
+timeout = int(os.environ["AGENT_REAP_TIMEOUT_SECS"])
+grace = int(os.environ["AGENT_REAP_TERM_GRACE_SECS"])
+
+try:
+    process = subprocess.Popen(command, start_new_session=True)
+    status = process.wait(timeout=timeout)
+except subprocess.TimeoutExpired:
+    print(f"agent-reap hook: timed out after {timeout}s; terminating worker group")
+    try:
+        os.killpg(process.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        pass
+    try:
+        status = process.wait(timeout=grace)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        status = process.wait()
+except Exception as error:
+    print(f"agent-reap hook: could not run worker: {error}")
+    status = 1
+
+sys.exit(status)
+PY
 } >>"$log" 2>&1 || true
 
 exit 0

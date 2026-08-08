@@ -12,6 +12,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Protocol
 
+COMMAND_TIMEOUT_SECONDS = 3.0
+
 
 @dataclass(frozen=True)
 class Result:
@@ -70,9 +72,15 @@ def subprocess_runner(argv: Sequence[str]) -> Result:
             capture_output=True,
             text=True,
             check=False,
+            timeout=COMMAND_TIMEOUT_SECONDS,
         )
     except (FileNotFoundError, PermissionError) as exc:
         return Result(returncode=127, stderr=str(exc))
+    except subprocess.TimeoutExpired:
+        return Result(
+            returncode=124,
+            stderr=f"command timed out after {COMMAND_TIMEOUT_SECONDS:g}s",
+        )
     return Result(
         returncode=proc.returncode,
         stdout=proc.stdout.strip("\n"),
