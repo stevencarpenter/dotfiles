@@ -21,6 +21,14 @@ assert_binding() {
 	actual="$(tmux -L "${socket_name}" list-keys -T prefix "${key}")"
 	if [[ "${actual}" != *"${expected}"* ]]; then
 		echo "tmux lifecycle contract: ${key} expected '${expected}', got '${actual}'" >&2
+		# An empty or surprising binding usually means the config never
+		# finished loading, so dump what the server actually saw.
+		echo "--- tmux -V ---" >&2
+		tmux -V >&2 || true
+		echo "--- prefix table ---" >&2
+		tmux -L "${socket_name}" list-keys -T prefix >&2 || true
+		echo "--- server messages ---" >&2
+		tmux -L "${socket_name}" show-messages -t contract >&2 || true
 		exit 1
 	fi
 }
