@@ -1,0 +1,192 @@
+#!/usr/bin/env python3
+"""Generate Worktrunk commit messages and reject malformed model output."""
+
+from __future__ import annotations
+
+import os
+import re
+import subprocess
+import sys
+from dataclasses import dataclass
+
+CONVENTIONAL_SUBJECT = re.compile(
+    r"^(?:build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)"
+    r"(?:\([A-Za-z0-9._/-]+\))?!?: \S.*$"
+)
+PROHIBITED_AI_REFERENCE = re.compile(
+    r"(?:"
+    r"co-authored-by|"
+    r"\b(?:Claude|Codex|Copilot|Gemini|OpenAI|ChatGPT|GPT-?\d[\w.-]*)\b|"
+    r"\b(?:generated|created|written|authored|produced)\s+by\s+"
+    r"(?:an?\s+)?(?:AI|Claude|Codex|Copilot|Gemini|assistant|agent|model|harness)\b|"
+    r"\bAI[- ](?:agent|assistant)\b|"
+    r"\bAI[- ]generated\b"
+    r")",
+    re.IGNORECASE,
+)
+CLAUDE_FLAGS = (
+    "-p",
+    "--no-session-persistence",
+    "--model=haiku",
+    "--tools=",
+    "--safe-mode",
+    "--disable-slash-commands",
+    "--setting-sources=user",
+    "--system-prompt=",
+)
+
+
+@dataclass(frozen=True)
+class ValidationResult:
+    """The normalized candidate and any validation failures."""
+
+    candidate: str
+    errors: tuple[str, ...]
+
+
+def delimiter_error(message: str) -> str | None:
+    """Return an error for unbalanced structural delimiters or quotes."""
+    pairs = {")": "(", "]": "[", "}": "{"}
+    openings = set(pairs.values())
+    stack: list[str] = []
+    quote: str | None = None
+    escaped = False
+
+    for index, character in enumerate(message):
+        if escaped:
+            escaped = False
+            continue
+        if character == "\\":
+            escaped = True
+            continue
+        if quote is not None:
+            if character == quote:
+                quote = None
+            continue
+        if character in {'"', "`"}:
+            quote = character
+            continue
+        if character in openings:
+            stack.append(character)
+        elif character in pairs and (not stack or stack.pop() != pairs[character]):
+            return f"unmatched delimiter: {character}"
+
+    if quote is not None:
+        return f"unmatched quote: {quote}"
+    if stack:
+        return f"unmatched delimiter: {stack[-1]}"
+    return None
+
+
+def validate(message: str) -> ValidationResult:
+    """Validate one generated commit message without rewriting its content."""
+    candidate = message.rstrip("\r\n")
+    errors: list[str] = []
+    lines = candidate.splitlines()
+    subject = lines[0] if lines else ""
+
+    if not CONVENTIONAL_SUBJECT.fullmatch(subject):
+        errors.append("first line must be a Conventional Commit subject")
+    if subject.endswith("."):
+        errors.append("subject must not end with a period")
+    if len(lines) > 1 and lines[1] != "":
+        errors.append("body or explanation must follow a blank line")
+    if PROHIBITED_AI_REFERENCE.search(candidate):
+        errors.append("message must not reference AI tools or attribution")
+    if error := delimiter_error(candidate):
+        errors.append(error)
+
+    return ValidationResult(candidate=candidate, errors=tuple(errors))
+
+
+def positive_attempt_count() -> int:
+    """Read the retry count and fail clearly on invalid configuration."""
+    raw = os.environ.get("WORKTRUNK_COMMIT_ATTEMPTS", "2")
+    try:
+        attempts = int(raw)
+    except ValueError:
+        attempts = 0
+    if attempts < 1:
+        raise ValueError("WORKTRUNK_COMMIT_ATTEMPTS must be a positive integer")
+    return attempts
+
+
+def claude_environment() -> dict[str, str]:
+    """Build the hermetic environment required by the existing safe invocation."""
+    environment = os.environ.copy()
+    environment["CLAUDECODE"] = ""
+    environment["MAX_THINKING_TOKENS"] = "0"
+    return environment
+
+
+def correction_prompt(prompt: str, errors: tuple[str, ...]) -> str:
+    """Append deterministic local feedback for the next generation attempt."""
+    details = "; ".join(errors)
+    return (
+        f"{prompt.rstrip()}\n\n"
+        "The previous candidate failed local validation: "
+        f"{details}. Return only a corrected commit message."
+    )
+
+
+def generate(prompt: str) -> int:
+    """Run Claude with retries, emitting only a locally validated candidate."""
+    try:
+        attempts = positive_attempt_count()
+    except ValueError as error:
+        print(f"worktrunk-commit-generator: {error}", file=sys.stderr)
+        return 2
+
+    claude_bin = os.environ.get("CLAUDE_BIN", "claude")
+    current_prompt = prompt
+    last_errors: tuple[str, ...] = ("generation did not run",)
+    for attempt in range(1, attempts + 1):
+        try:
+            result = subprocess.run(
+                (claude_bin, *CLAUDE_FLAGS),
+                input=current_prompt,
+                text=True,
+                capture_output=True,
+                check=False,
+                env=claude_environment(),
+            )
+        except OSError as error:
+            last_errors = (f"Claude invocation failed: {error}",)
+        else:
+            if result.returncode != 0:
+                last_errors = (f"Claude invocation exited {result.returncode}",)
+            else:
+                validation = validate(result.stdout)
+                if not validation.errors:
+                    print(validation.candidate)
+                    return 0
+                last_errors = validation.errors
+
+        if attempt < attempts:
+            current_prompt = correction_prompt(prompt, last_errors)
+
+    print(
+        "worktrunk-commit-generator: rejected generated commit message after "
+        f"{attempts} attempts: {'; '.join(last_errors)}",
+        file=sys.stderr,
+    )
+    return 1
+
+
+def main() -> int:
+    """Run generation or the deterministic stdin-only validation mode."""
+    if len(sys.argv) == 2 and sys.argv[1] == "--validate":
+        result = validate(sys.stdin.read())
+        if result.errors:
+            print("; ".join(result.errors), file=sys.stderr)
+            return 1
+        print(result.candidate)
+        return 0
+    if len(sys.argv) != 1:
+        print("usage: worktrunk-commit-generator [--validate]", file=sys.stderr)
+        return 2
+    return generate(sys.stdin.read())
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -8,11 +8,11 @@ from pathlib import Path
 
 import pytest
 
-from agent_reap.cli import cli
+from agent_reap.cli import _revalidate_candidate, build_report, cli
 from agent_reap.config import Config, load_config
 from agent_reap.runner import RecordingRunner, Result
 
-from .conftest import make_socket, pane_line, write_inbox
+from .conftest import NOW, make_socket, pane_line, write_inbox
 
 
 @dataclass(frozen=True)
@@ -77,7 +77,8 @@ def wired(
             f"tmux -S {sock_path} list-panes": Result(0, row),
             "ps -eo": Result(
                 0,
-                "200 100 400000 Ss+ 01:40:24 claude --agent-id docs-readme@session-abc123",
+                "200 100 200 200 400000 Ss+ 01:40:24 "
+                "claude --agent-id docs-readme@session-abc123",
             ),
             f"tmux -S {sock_path} kill-pane": Result(0),
         }
@@ -130,6 +131,96 @@ def test_reap_with_kill_flag_kills_by_pane_id(wired: Machine) -> None:
     assert kills[0][-1] == "%2"
 
 
+def test_revalidation_observes_activity_after_initial_report(wired: Machine) -> None:
+    """Fresh output between reporting and killing invalidates the candidate."""
+    config = load_config(wired.config_path).config
+    initial = build_report(config, wired.runner, now=NOW)
+    assert len(initial.candidates) == 1
+    wired.runner.responses[f"tmux -S {wired.socket} list-panes"] = Result(
+        0,
+        pane_line("%2", "devbox", 1, 2, 200, int(NOW), "2.1.221", "/repo"),
+    )
+
+    valid, reason = _revalidate_candidate(
+        initial.candidates[0],
+        config=config,
+        runner=wired.runner,
+        team_scope=None,
+        now=NOW,
+    )
+
+    assert valid is False
+    assert "window active" in reason
+
+
+def test_json_reap_failure_is_nonzero_and_socket_qualified(
+    wired: Machine, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Machine consumers can identify and reject a failed cross-socket kill."""
+    wired.runner.responses[f"tmux -S {wired.socket} kill-pane"] = Result(
+        1, stderr="simulated failure"
+    )
+
+    status = cli(
+        ["--config", str(wired.config_path), "--json", "reap", "--kill"],
+        runner=wired.runner,
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert status == 1
+    assert payload[0] == {
+        "pane_id": "%2",
+        "socket": str(wired.socket),
+        "target": "devbox:1.2",
+        "agent": "docs-readme",
+        "session": "abc123",
+        "killed": False,
+        "detail": "simulated failure",
+    }
+
+
+def test_team_kill_requires_unattended_policy(
+    wired: Machine, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The SessionEnd-style path cannot kill while its policy gate is disabled."""
+    status = cli(
+        [
+            "--config",
+            str(wired.config_path),
+            "reap",
+            "--team",
+            "abc123",
+            "--kill",
+        ],
+        runner=wired.runner,
+    )
+
+    assert status == 2
+    assert "kill_enabled" in capsys.readouterr().err
+    assert not any("kill-pane" in call for call in map(" ".join, wired.runner.calls))
+
+
+def test_team_kill_runs_when_unattended_policy_is_enabled(wired: Machine) -> None:
+    """An enabled targeted cleanup still revalidates and destroys its team pane."""
+    with wired.config_path.open("a", encoding="utf-8") as config_file:
+        config_file.write("\nkill_enabled = true\n")
+
+    status = cli(
+        [
+            "--config",
+            str(wired.config_path),
+            "reap",
+            "--team",
+            "abc123",
+            "--kill",
+        ],
+        runner=wired.runner,
+    )
+
+    assert status == 0
+    assert sum("kill-pane" in call for call in map(" ".join, wired.runner.calls)) == 1
+
+
 def test_idle_minutes_override_spares_a_fresh_inbox(
     wired: Machine, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -142,13 +233,37 @@ def test_idle_minutes_override_spares_a_fresh_inbox(
     assert "reapable teammates: 0" in capsys.readouterr().out
 
 
+def test_negative_idle_minutes_is_rejected(
+    wired: Machine, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A CLI override cannot turn every fresh teammate into an idle candidate."""
+    with pytest.raises(SystemExit) as raised:
+        cli(
+            [
+                "--config",
+                str(wired.config_path),
+                "--idle-minutes",
+                "-1",
+                "reap",
+                "--kill",
+            ],
+            runner=wired.runner,
+        )
+
+    assert raised.value.code == 2
+    assert "non-negative integer" in capsys.readouterr().err
+    assert not any("kill-pane" in call for call in map(" ".join, wired.runner.calls))
+
+
 def test_sockets_marks_the_current_server(
     wired: Machine,
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """``sockets`` shows every server and which one ``$TMUX`` points at."""
-    monkeypatch.setenv("TMUX", f"{wired.socket},7068,0")
+    """The current marker survives a /tmp-style symlink alias."""
+    alias = wired.socket.parent.parent / "socket-alias"
+    alias.symlink_to(wired.socket.parent, target_is_directory=True)
+    monkeypatch.setenv("TMUX", f"{alias / wired.socket.name},7068,0")
 
     cli(["--config", str(wired.config_path), "sockets"], runner=wired.runner)
 
@@ -200,6 +315,33 @@ def test_bad_field_types_fall_back_per_key(tmp_path: Path) -> None:
     assert loaded.config.teammate_idle_minutes == Config().teammate_idle_minutes
     assert loaded.config.interactive_idle_minutes == 15
     assert any("teammate_idle_minutes" in e for e in loaded.errors)
+
+
+def test_unknown_config_key_is_reported(tmp_path: Path) -> None:
+    """Typos cannot silently remove a safety policy from destructive runs."""
+    path = tmp_path / "config.toml"
+    path.write_text("deny_agent_name = []\n", encoding="utf-8")
+
+    loaded = load_config(path)
+
+    assert loaded.errors == ("unknown key: deny_agent_name",)
+
+
+def test_destructive_mode_fails_closed_on_config_error(
+    wired: Machine, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Reports may degrade, but a kill never runs with a partially trusted policy."""
+    with wired.config_path.open("a", encoding="utf-8") as config_file:
+        config_file.write("\nunknown_policy = true\n")
+
+    status = cli(
+        ["--config", str(wired.config_path), "reap", "--kill"],
+        runner=wired.runner,
+    )
+
+    assert status == 2
+    assert "invalid config" in capsys.readouterr().err
+    assert not any("kill-pane" in call for call in map(" ".join, wired.runner.calls))
 
 
 def test_socket_globs_substitute_the_uid() -> None:

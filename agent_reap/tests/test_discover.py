@@ -6,6 +6,7 @@ from pathlib import Path
 
 from agent_reap.discover import (
     ancestry,
+    descendants,
     find_sockets,
     list_panes,
     live_sockets,
@@ -140,19 +141,22 @@ def test_process_table_keeps_spaces_in_command() -> None:
     runner = RecordingRunner(
         responses={
             "ps -eo": Result(
-                0, "  200   100 400000 Ss+   01:40:24 claude --agent-id a@b"
+                0,
+                "  200 100 200 200 400000 Ss+ 01:40:24 claude --agent-id a@b",
             )
         }
     )
     table = process_table(runner)
     assert table[200].command == "claude --agent-id a@b"
     assert table[200].rss_kb == 400_000
+    assert table[200].pgid == 200
+    assert table[200].tpgid == 200
     assert table[200].sleeping is True
 
 
 def test_process_table_marks_running_processes_busy() -> None:
     """A running process is not considered idle."""
-    runner = RecordingRunner(responses={"ps -eo": Result(0, "1 0 10 R 00:01 busy")})
+    runner = RecordingRunner(responses={"ps -eo": Result(0, "1 0 1 1 10 R 00:01 busy")})
     assert process_table(runner)[1].sleeping is False
 
 
@@ -171,3 +175,17 @@ def test_ancestry_survives_a_parent_cycle() -> None:
     """A malformed table cannot hang the walk."""
     table = {2: make_process(pid=2, ppid=3), 3: make_process(pid=3, ppid=2)}
     assert ancestry(2, table) == {2, 3}
+
+
+def test_descendants_walks_children_and_survives_cycles() -> None:
+    """Descendant discovery covers nested work without looping on bad ps data."""
+    table = {
+        200: make_process(pid=200, ppid=1),
+        201: make_process(pid=201, ppid=200),
+        202: make_process(pid=202, ppid=201),
+        300: make_process(pid=300, ppid=301),
+        301: make_process(pid=301, ppid=300),
+    }
+
+    assert descendants(200, table) == {201, 202}
+    assert descendants(300, table) == {301}

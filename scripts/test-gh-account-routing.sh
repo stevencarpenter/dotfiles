@@ -85,6 +85,38 @@ check "caller GH_TOKEN wins" "caller-tok" \
 check "caller GITHUB_TOKEN wins" "<unset>" \
   "$(cd "${tmp}/repo" && GITHUB_TOKEN=ci-tok gh pr create 2>&1 | sed -n 's/^GH_TOKEN=//p')"
 
+# Explicit repository selectors outrank the current checkout. This is how
+# gh-axi and cross-repo gh commands target a repository, so routing from $PWD's
+# origin here would authenticate the requested repository as the wrong actor.
+check "-R work target overrides personal PWD" "<unset>" \
+  "$(token_for "${tmp}/repo" pr list -R Lumin-Digital/private)"
+check "--repo work target overrides personal PWD" "<unset>" \
+  "$(token_for "${tmp}/repo" pr list --repo Lumin-Digital/private)"
+check "--repo= work target overrides personal PWD" "<unset>" \
+  "$(token_for "${tmp}/repo" pr list --repo=Lumin-Digital/private)"
+check "GH_REPO work target overrides personal PWD" "<unset>" \
+  "$(cd "${tmp}/repo" && GH_REPO=Lumin-Digital/private gh pr list 2>&1 | sed -n 's/^GH_TOKEN=//p')"
+
+set_remote "git@github.com:Lumin-Digital/la-dotfiles.git"
+check "-R personal target routes from work PWD" "tok-for-stevencarpenter" \
+  "$(token_for "${tmp}/repo" pr list -R stevencarpenter/dotfiles)"
+check "host-qualified github.com target routes" "tok-for-stevencarpenter" \
+  "$(token_for "${tmp}/repo" pr list -R github.com/stevencarpenter/dotfiles)"
+check "host-qualified enterprise target does not receive github.com token" "<unset>" \
+  "$(token_for "${tmp}/repo" pr list -R github.example.com/stevencarpenter/dotfiles)"
+check "command-line repo overrides GH_REPO" "<unset>" \
+  "$(cd "${tmp}/repo" && GH_REPO=stevencarpenter/dotfiles gh pr list -R Lumin-Digital/private 2>&1 | sed -n 's/^GH_TOKEN=//p')"
+
+set_remote "git@github-dotfiles:stevencarpenter/dotfiles.git"
+check "non-github GH_HOST never receives github.com token" "<unset>" \
+  "$(cd "${tmp}/repo" && GH_HOST=github.example.com gh pr list 2>&1 | sed -n 's/^GH_TOKEN=//p')"
+
+set_remote "git@gitlab.com:stevencarpenter/dotfiles.git"
+check "same owner on a non-GitHub remote does not route" "<unset>" \
+  "$(token_for "${tmp}/repo" pr list)"
+
+set_remote "git@github-dotfiles:stevencarpenter/dotfiles.git"
+
 check "outside a git repo falls through" "<unset>" "$(token_for "${tmp}/norepo" pr list)"
 
 # Not being logged into the mapped account is not worth failing a command over.

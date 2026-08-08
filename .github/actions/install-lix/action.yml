@@ -1,0 +1,40 @@
+name: Install Lix
+description: >-
+  Install the Lix interpreter from a digest-pinned installer binary and put it
+  on PATH. Factored out of nix-flake-check.yml so both jobs install the same
+  build from one pin rather than two copies that can drift apart.
+
+runs:
+  using: composite
+  steps:
+    # modules/darwin/core.nix sets nix.package = pkgs.lix, so CI must evaluate
+    # and build under Lix too — not upstream/Determinate Nix. This step also
+    # supplies the experimental-features nix.conf that every later nix call
+    # needs: the installer writes `experimental-features = nix-command flakes`
+    # (enable_flakes defaults true), which is why no step passes it by hand.
+    #
+    # Pinned by digest rather than piping install.lix.systems/lix into a shell:
+    # that URL serves whatever is current, and the action this replaced was
+    # SHA-pinned in 615f9b0 for the same supply-chain reason the
+    # nixpkgs-unstable soak pin exists. Pinning the installer also pins the
+    # interpreter — this build embeds Lix 2.95.2.
+    #
+    # aarch64 is hardcoded deliberately: lib/machines.nix declares only
+    # aarch64-darwin hosts and the build targets that system.
+    #
+    # To bump: re-download, `shasum -a 256` it, update LIX_INSTALLER_SHA256.
+    # A mismatch fails the job closed rather than installing something new.
+    - name: Install Lix
+      shell: bash
+      env:
+        LIX_INSTALLER_URL: https://install.lix.systems/lix/lix-installer-aarch64-darwin
+        LIX_INSTALLER_SHA256: 3c71fdcfeddac8fa075b626b6e0ddd9ba73af930e47b4fa027e22c7279f596ae
+      run: |
+        set -euo pipefail
+        curl -sSf -L -o "$RUNNER_TEMP/lix-installer" "$LIX_INSTALLER_URL"
+        echo "${LIX_INSTALLER_SHA256}  $RUNNER_TEMP/lix-installer" | shasum -a 256 -c -
+        chmod +x "$RUNNER_TEMP/lix-installer"
+        # --no-confirm is required, not cosmetic: the installer aborts when
+        # stdin is not a TTY unless it is passed.
+        "$RUNNER_TEMP/lix-installer" install --no-confirm
+        echo "/nix/var/nix/profiles/default/bin" >> "$GITHUB_PATH"

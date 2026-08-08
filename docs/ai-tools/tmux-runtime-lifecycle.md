@@ -71,20 +71,16 @@ No Nix rebuild is needed for the raw file, but an already-running tmux server ne
 magic. `scripts/test-tmux-lifecycle-contract.sh` loads the config into an isolated server in CI and
 asserts the effective bindings, not merely the presence of matching text.
 
-## z4h automatic tmux and detach behavior
+## Explicit tmux startup and detach behavior
 
-The current z4h setting is `zstyle ':z4h:' start-tmux system`. z4h implements `system` as
-`exec tmux -u`: the tmux client replaces the terminal's login shell. `prefix d` still detaches and
-the shell inside the tmux pane remains alive, but the client exits into no outer shell, so the
-terminal tab closes. That is expected process topology, not tmux killing the pane shell.
+The current z4h setting is `zstyle ':z4h:' start-tmux no`. A terminal starts as a normal outer zsh;
+run `tmux` explicitly when a persistent session is wanted. `prefix d` then detaches back to that
+outer shell instead of closing the terminal tab. Explicit tmux still uses the default socket and
+loads `~/.config/tmux/tmux.conf`, including the `$HOME` cwd bindings and Claude state monitor.
 
-This setting was chosen to collapse z4h's per-terminal isolated sockets onto the default socket.
-It trades away an outer debugging shell. If this policy changes, verify both sides explicitly:
-
-- `start-tmux no` restores a normal outer shell but loses z4h's tmux-dependent screen behavior
-  outside manually started tmux.
-- `start-tmux system` keeps one automatically entered server but cannot detach back to an outer
-  shell because z4h uses `exec`.
+The rejected `start-tmux system` policy used `exec tmux -u`, replacing the terminal's login shell.
+The pane shell survived a detach, but the client had no outer shell to return to, so the terminal
+tab closed. That was process topology rather than tmux killing the pane.
 
 Do not remove the setting and assume that means "no tmux". z4h's unset default is isolated tmux,
 which creates the socket sprawl this configuration was intended to remove.
@@ -112,6 +108,15 @@ rg -n -C 4 'SessionEnd|agent-reap' ~/.claude/settings.json
 No log is not proof that installation failed; it can mean no qualifying team has ended. Conversely,
 a configured hook is not proof that it ran. Check the generated settings, hook log, socket report,
 and remaining panes together.
+
+The SessionEnd command handler has a 20-second Claude timeout. The hook also carries its own
+shorter process-group watchdog because macOS provides neither `timeout` nor `gtimeout`; it never
+falls back to an unbounded reap. The `agent-reap` worker separately bounds the individual tmux and
+process-inspection subprocesses it starts.
+
+The status monitor classifies a window only when its pane title begins with Claude's ✳ waiting
+marker or a braille working spinner. Arbitrary application titles such as `nvim` remain unclassified
+instead of being painted as active Claude work.
 
 `agent-reap strays` covers two state classes that pane teardown cannot: persistent SSH control
 masters and allowlisted user processes adopted by PID 1. These remain report-only because broad

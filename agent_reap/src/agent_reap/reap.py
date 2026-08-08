@@ -13,6 +13,7 @@ through.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Protocol
 
 from .classify import Candidate
 from .runner import Runner
@@ -33,6 +34,14 @@ class Outcome:
     detail: str = ""
 
 
+class Revalidator(Protocol):
+    """Callable that confirms a candidate is still safe to destroy."""
+
+    def __call__(self, candidate: Candidate) -> tuple[bool, str]:
+        """Return whether the candidate remains valid and any rejection reason."""
+        ...
+
+
 def kill_pane(socket: str, pane_id: str, runner: Runner) -> tuple[bool, str]:
     """Destroy one pane.
 
@@ -51,7 +60,10 @@ def kill_pane(socket: str, pane_id: str, runner: Runner) -> tuple[bool, str]:
 
 
 def reap(
-    candidates: tuple[Candidate, ...], runner: Runner, dry_run: bool = True
+    candidates: tuple[Candidate, ...],
+    runner: Runner,
+    dry_run: bool = True,
+    revalidator: Revalidator | None = None,
 ) -> list[Outcome]:
     """Reap candidates, or report what a reap would do.
 
@@ -59,6 +71,8 @@ def reap(
         candidates: Panes classified as reapable.
         runner: Command executor.
         dry_run: When True, nothing is killed and every outcome is a no-op.
+        revalidator: Fresh safety check run immediately before each real kill.
+            A real reap fails closed when no revalidator is provided.
 
     Returns:
         One outcome per candidate, in order.
@@ -68,6 +82,25 @@ def reap(
         if dry_run:
             outcomes.append(
                 Outcome(candidate=candidate, killed=False, detail="dry-run")
+            )
+            continue
+        if revalidator is None:
+            outcomes.append(
+                Outcome(
+                    candidate=candidate,
+                    killed=False,
+                    detail="revalidation unavailable; refusing to kill",
+                )
+            )
+            continue
+        valid, reason = revalidator(candidate)
+        if not valid:
+            outcomes.append(
+                Outcome(
+                    candidate=candidate,
+                    killed=False,
+                    detail=f"revalidation failed: {reason}",
+                )
             )
             continue
         killed, detail = kill_pane(

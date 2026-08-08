@@ -18,22 +18,22 @@ tmux set-option -gq window-status-current-style "bg=#2f383e"
 tmux set-option -gq window-status-current-format \
   '#[fg=#d3c6aa,bg=#2f383e,underscore,us=#83c092]#{?#{==:#{@claude_state},working},#[fg=#a7c080],#{?#{==:#{@claude_state},idle},#[fg=#dbbc7f],}} #W #[nounderscore]'
 
-# Update per-window Claude state
+# Update per-window Claude state. Claude marks its pane title with a leading
+# braille spinner while working or a leading ✳ while waiting. A title alone is
+# not evidence that a pane is Claude: editors and terminal applications routinely
+# set titles such as "nvim", and classifying every non-path title painted those
+# unrelated windows green.
 for win_id in $(tmux list-windows -F '#{window_id}' 2>/dev/null); do
     title=$(tmux display-message -t "$win_id" -p '#{pane_title}' 2>/dev/null) || continue
 
-    # Non-Claude panes have directory paths as titles
-    if [[ "$title" == ~* || "$title" == /* || -z "$title" ]]; then
-        tmux set-option -wq -t "$win_id" @claude_state ""
-        continue
-    fi
-
-    # Claude pane — detect state from pane title
-    # ✳ = waiting for input (yellow), braille spinner = actively working (green)
-    if [[ "$title" == *✳* ]]; then
+    # Claude pane — detect state only from its leading state marker.
+    # ✳ = waiting for input (yellow), braille spinner = actively working (green).
+    if [[ "$title" == ✳* ]]; then
         tmux set-option -wq -t "$win_id" @claude_state "idle"
-    else
+    elif [[ "$title" =~ ^[⠀-⣿][[:space:]] ]]; then
         tmux set-option -wq -t "$win_id" @claude_state "working"
+    else
+        tmux set-option -wq -t "$win_id" @claude_state ""
     fi
 done
 

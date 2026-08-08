@@ -63,8 +63,10 @@ source/deployment/runtime/process verification model and the other retained-stat
 
 A teammate pane is reaped only when **all** hold: its command carries
 `--agent-id <name>@session-<id>`; the team directory exists; its inbox is drained (an empty
-JSON container) **and** has been quiet past `teammate_idle_minutes`; the process is sleeping;
-and it is not yours. "Not yours" is three independent guards — process ancestry (the
+JSON container) **and** has been quiet past `teammate_idle_minutes`; the window has also been
+quiet past that threshold; the process is sleeping; no active or foreground descendant remains;
+and it is not yours. Every condition is checked again immediately before `kill-pane`. "Not yours"
+is three independent guards — process ancestry (the
 strongest, it works with no tmux environment at all), the current `TMUX_PANE`, and the
 caller's own team session.
 
@@ -96,14 +98,17 @@ question this category exists to answer.
 
 `~/.config/agent-reap/config.toml`, a live out-of-store symlink from the dotfiles repo. Every
 field has a working default and a missing file is normal. A malformed file degrades to
-defaults with a warning rather than aborting: a config typo must not stop you from seeing what
-is leaking.
+defaults with a warning for report-only commands: a config typo must not stop you from seeing what
+is leaking. Destructive commands fail closed on any config error. Explicit operator-driven
+`reap --kill` remains available regardless of `kill_enabled`; unattended `--team ... --kill`
+cleanup requires `kill_enabled = true`.
 
 ## Development
 
 ```bash
 uv run --project agent_reap --group dev ruff check agent_reap/src agent_reap/tests
 uv run --project agent_reap --group dev ruff format agent_reap/src agent_reap/tests
+uv run --project agent_reap --group dev mypy agent_reap/src agent_reap/tests
 uv run --project agent_reap --group dev pytest agent_reap/tests --cov=agent_reap
 ```
 

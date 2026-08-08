@@ -84,11 +84,27 @@ in
       # No nixpkgs equivalent; both are homebrew/core formulae.
       "herdr"
       "mole"
-      # charmbracelet/tap/crush. nixpkgs DOES package `crush`, but the flake
-      # tracks stable 26.05 while upstream ships roughly every four days, so
-      # the nix attr trails by months — the same trade that keeps `railway` a
-      # brew. Fully-qualified + `trusted` because Homebrew 6 requires explicit
-      # trust for third-party tap code (see the sketchybar/borders block).
+      # charmbracelet/tap/crush. Stays brew, but NOT for the reason this comment
+      # used to give ("the flake tracks stable 26.05, so the nix attr trails by
+      # months"). That reasoning is obsolete: `fastMovingPackages` in
+      # modules/home/packages.nix now takes named packages from
+      # nixpkgs-unstable, which is the escape hatch that argument called for.
+      #
+      # Re-evaluated 2026-08-07 against nixpkgs-unstable @ the pinned rev, and
+      # the real blockers are different ones:
+      #   - crush is UNFREE in nixpkgs (FSL-1.1-MIT, meta.license.free = false),
+      #     so promoting it means an allowUnfree carve-out on the pkgsFresh
+      #     instantiation, which today deliberately sets no nixpkgs.config at all.
+      #   - Unfree means Hydra does not build it, so there is no binary cache
+      #     entry (narinfo 404 — verified, not assumed). Every bump would be a
+      #     local source build.
+      #   - The pinned rev carries 0.86.0 (2026-07-20) against 0.88.0 installed,
+      #     so the move is an immediate downgrade of an actively-used tool.
+      # Brew also keeps it inside `just brew-upgrade`, which is where the
+      # AI-harness tools are meant to stay current.
+      #
+      # Fully-qualified + `trusted` because Homebrew 6 requires explicit trust
+      # for third-party tap code (see the sketchybar/borders block).
       {
         name = "charmbracelet/tap/crush";
         trusted = true;
@@ -123,7 +139,15 @@ in
       }
     ]
     ++ lib.optionals caps.dev [
-      # railway CLI: fast-moving vendor tool, nixpkgs lags — kept brew.
+      # railway CLI: kept brew, but this is a cadence trade, not an availability
+      # one — nixpkgs does package it, free and cached (narinfo 200, verified
+      # 2026-08-07). Promoting it to `fastMovingPackages` would work; it was
+      # measured and declined. At the pinned unstable rev the attr is 5.27.0
+      # (2026-07-17) against 5.31.0 from brew, and the 7-day soak window on that
+      # input (see flake.nix) puts steady state ~3-4 weeks behind. That is the
+      # whole cost — the upside would have been a lockfile-pinned version rather
+      # than whatever each machine last resolved. Revisit if the lag matters more
+      # than the currency.
       "railway"
       # Swift toolchain. These four DO exist in the locked nixpkgs, but
       # available != cached: a Swift build on aarch64-darwin can turn a switch
