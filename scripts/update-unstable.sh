@@ -124,7 +124,10 @@ else
 	# Guard the rewrite: exactly one line must have changed. A sed that matched
 	# nothing exits 0 and emits an unchanged file, which would otherwise sail
 	# through to a build that silently used the old rev.
-	changed="$(diff flake.nix "${tmp}" | grep -c '^<' || true)"
+	# --include-zero: rg omits the count entirely on no match, where grep -c
+	# prints 0. Without it the no-match case sets changed="" and the integer
+	# test below dies with "integer expected" instead of the message it owes.
+	changed="$(diff flake.nix "${tmp}" | rg -c --include-zero '^<' || true)"
 	if [ "${changed}" -ne 1 ]; then
 		echo "error: rewrite changed ${changed} lines, expected exactly 1 — aborting" >&2
 		exit 1
