@@ -20,6 +20,10 @@ on:
       - "modules/home/sync-hooks.nix"
       - ".github/workflows/mcp-sync-ci.yml"
 
+# Least privilege, declared in-tree rather than inherited from the repo default.
+permissions:
+  contents: read
+
 jobs:
   lint:
     runs-on: ubuntu-latest

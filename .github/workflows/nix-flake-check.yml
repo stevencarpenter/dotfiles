@@ -27,7 +27,13 @@ on:
       - "scripts/test-nix-review-regressions.sh"
       - "secrets/secrets.nix"
       - ".github/workflows/nix-flake-check.yml"
+  # `ready_for_review` is not one of the default activity types (opened,
+  # synchronize, reopened). Without it, marking a draft ready fires no run at
+  # all, so the build job's `draft == false` guard would skip forever — the PR
+  # could squash-merge having never built a closure, since main's ruleset
+  # requires no status checks.
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "flake.nix"
       - "flake.lock"
@@ -47,6 +53,11 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+# Least privilege, declared in-tree. The repo default is already `read`, but
+# that lives in a settings toggle no diff would show being flipped to `write`.
+permissions:
+  contents: read
 
 jobs:
   # ONLY steps that do not realize derivations — formatting and evaluation.
@@ -88,8 +99,8 @@ jobs:
 
   # Everything that realizes a derivation, so the closure is built exactly once
   # and the contract tests that follow reuse the warm store. ~30 minutes cold.
-  # Gated behind the fast job, and skipped for drafts: a draft is still being
-  # shaped, and file collisions surface once it is up for review.
+  # Skipped for drafts: a draft is still being shaped, and file collisions
+  # surface once it is up for review.
   build:
     name: Build system closures
     # No `needs: checks`. Chaining bought fail-fast when this job took 30
