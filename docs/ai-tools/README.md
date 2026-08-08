@@ -13,7 +13,7 @@ This directory contains documentation for integrating AI-powered development too
 - Experimental agent teams enabled (`teammateMode: tmux` in Claude Code settings)
 - Tmux status bar shows Claude state with everforest stoplight colors (green=working, yellow=waiting)
 - Monitor script: `home/.config/tmux/scripts/claude-pane-monitor.sh`
-- [Tmux runtime lifecycle](./tmux-runtime-lifecycle.md): cwd inheritance, z4h detach behavior,
+- [Tmux runtime lifecycle](./tmux-runtime-lifecycle.md): cwd inheritance, explicit tmux startup,
   socket/pane/process leaks, stateful plugin residue, and source-to-live verification
 
 ## Environment Variables

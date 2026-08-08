@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .config import Config
-from .discover import Pane, Process, Teammate, parse_teammate
+from .discover import Pane, Process, Teammate, descendants, parse_teammate
 from .teams import Inbox, read_inbox, session_exists
 
 # Command names a Claude pane leader reports. Claude Code shows its version as the
@@ -272,8 +272,48 @@ def classify(
         if not session_exists(root, teammate.session_id):
             skipped.append(Skipped(pane, "no team dir for session"))
             continue
+        window_idle_s = (
+            None
+            if pane.window_activity is None
+            else max(0.0, now - pane.window_activity)
+        )
+        if window_idle_s is None:
+            skipped.append(Skipped(pane, "window activity unavailable"))
+            continue
+        if window_idle_s < teammate_idle_s:
+            skipped.append(
+                Skipped(pane, f"teammate window active {int(window_idle_s)}s ago")
+            )
+            continue
         if not process.sleeping:
             skipped.append(Skipped(pane, f"process not idle (state {process.state})"))
+            continue
+
+        descendant_processes = [
+            processes[pid]
+            for pid in descendants(pane.pid, processes)
+            if pid in processes
+        ]
+        foreground = [
+            child
+            for child in descendant_processes
+            if process.tpgid > 0 and child.pgid == process.tpgid
+        ]
+        if foreground:
+            skipped.append(
+                Skipped(
+                    pane,
+                    "foreground descendant process group "
+                    f"{process.tpgid} still attached",
+                )
+            )
+            continue
+        active_descendants = [
+            child for child in descendant_processes if not child.sleeping
+        ]
+        if active_descendants:
+            pids = ",".join(str(child.pid) for child in active_descendants[:3])
+            skipped.append(Skipped(pane, f"active descendant process ({pids})"))
             continue
 
         inbox = read_inbox(root, teammate.session_id, teammate.agent_name)

@@ -33,6 +33,10 @@ jobs:
           uv run --group dev ruff check src tests
           uv run --group dev ruff format --check src tests
 
+      - name: Type-check with mypy
+        working-directory: agent_reap
+        run: uv run --group dev mypy src tests
+
   test:
     runs-on: ubuntu-latest
     steps:

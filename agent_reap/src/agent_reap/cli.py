@@ -1,9 +1,8 @@
 """Command-line interface.
 
-Report-only by default. Killing teammates needs ``--kill``; killing an interactive
-session needs the separate ``--kill-interactive``, because an abandoned Claude
-window may hold conversation context worth more than the memory it occupies, and
-that trade is the operator's call, not the tool's.
+Report-only by default. Killing teammates needs ``--kill``. Interactive sessions
+are inventory-only because an abandoned Claude window may hold conversation
+context worth more than the memory it occupies.
 """
 
 from __future__ import annotations
@@ -14,22 +13,35 @@ import os
 import sys
 import time
 from collections.abc import Sequence
+from dataclasses import replace
 from pathlib import Path
+from typing import TypedDict
 
-from .classify import Report, classify
+from .classify import Candidate, Report, classify
 from .config import Config, load_config
 from .discover import (
     Pane,
+    Process,
     ancestry,
     discover_panes,
     find_sockets,
     list_panes,
     live_sockets,
     process_table,
+    resolve_socket_path,
 )
 from .reap import Outcome, reap
 from .runner import Runner, subprocess_runner
 from .strays import ControlMaster, control_masters, disowned_descendants
+
+
+class SocketEntry(TypedDict):
+    """Machine-readable state for one discovered tmux socket."""
+
+    socket: str
+    live: bool
+    current: bool
+    sessions: list[str]
 
 
 def _mb(kb: int) -> str:
@@ -64,8 +76,8 @@ def _duration(seconds: float | None) -> str:
 
 
 def _self_context(
-    processes: dict, runner: Runner
-) -> tuple[set[int], set[str], set[str]]:
+    processes: dict[int, Process], runner: Runner
+) -> tuple[set[int], set[tuple[str, str]], set[str]]:
     """Determine what belongs to the caller and must never be reaped.
 
     Three independent guards, because any one of them can be absent: process
@@ -93,11 +105,7 @@ def _self_context(
     pane_env = os.environ.get("TMUX_PANE")
     if tmux_env and pane_env:
         socket_path = tmux_env.split(",", 1)[0]
-        try:
-            resolved = str(Path(socket_path).resolve())
-        except OSError:
-            resolved = socket_path
-        pane_ids.add((resolved, pane_env))
+        pane_ids.add((resolve_socket_path(socket_path), pane_env))
     sessions = {
         s
         for s in (
@@ -151,6 +159,65 @@ def build_report(
     )
 
 
+def _revalidate_candidate(
+    candidate: Candidate,
+    config: Config,
+    runner: Runner,
+    team_scope: str | None,
+    now: float | None = None,
+) -> tuple[bool, str]:
+    """Confirm a candidate still refers to the same safe-to-reap teammate.
+
+    Args:
+        candidate: Snapshot candidate selected by the initial report.
+        config: Effective settings.
+        runner: Command executor.
+        team_scope: Optional targeted teardown session.
+        now: Wall clock override for tests.
+
+    Returns:
+        Whether the candidate remains valid, plus a rejection reason.
+    """
+    fresh_pane = next(
+        (
+            pane
+            for pane in list_panes(candidate.pane.socket, runner)
+            if pane.pane_id == candidate.pane.pane_id
+        ),
+        None,
+    )
+    if fresh_pane is None:
+        return False, "pane no longer exists"
+    if fresh_pane.pid != candidate.pane.pid:
+        return False, "pane leader changed"
+
+    processes = process_table(runner)
+    if fresh_pane.pid not in processes:
+        return False, "pane leader is absent from the fresh process table"
+    protected_pids, protected_panes, protected_sessions = _self_context(
+        processes, runner
+    )
+    fresh_report = classify(
+        panes=[fresh_pane],
+        processes=processes,
+        config=config,
+        now=time.time() if now is None else now,
+        protected_pids=protected_pids,
+        protected_panes=protected_panes,
+        protected_sessions=protected_sessions,
+        team_scope=team_scope,
+    )
+    for fresh in fresh_report.candidates:
+        if (
+            fresh.teammate == candidate.teammate
+            and fresh.pane.pid == candidate.pane.pid
+        ):
+            return True, ""
+    if fresh_report.skipped:
+        return False, fresh_report.skipped[0].reason
+    return False, "pane no longer matches the teammate identity"
+
+
 def _print_report(report: Report, verbose: bool) -> None:
     """Render a report as text.
 
@@ -184,7 +251,7 @@ def _print_report(report: Report, verbose: bool) -> None:
             print(f"  {s.pane.pane_id:>5} {s.pane.target:<16} {s.reason}")
 
 
-def _report_json(report: Report) -> dict:
+def _report_json(report: Report) -> dict[str, object]:
     """Serialize a report.
 
     Args:
@@ -211,7 +278,9 @@ def _report_json(report: Report) -> dict:
         "interactive": [
             {
                 "pane_id": i.pane.pane_id,
+                "socket": i.pane.socket,
                 "target": i.pane.target,
+                "session": i.pane.session,
                 "pid": i.pane.pid,
                 "path": i.pane.path,
                 "idle_s": None if i.idle_s is None else int(i.idle_s),
@@ -220,7 +289,14 @@ def _report_json(report: Report) -> dict:
             for i in report.interactive
         ],
         "skipped": [
-            {"pane_id": s.pane.pane_id, "reason": s.reason} for s in report.skipped
+            {
+                "pane_id": s.pane.pane_id,
+                "socket": s.pane.socket,
+                "target": s.pane.target,
+                "session": s.pane.session,
+                "reason": s.reason,
+            }
+            for s in report.skipped
         ],
         "reclaimable_kb": report.reclaimable_kb,
     }
@@ -235,7 +311,6 @@ def _print_outcomes(outcomes: list[Outcome]) -> int:
     Returns:
         Process exit status: non-zero when any kill failed.
     """
-    failed = 0
     for outcome in outcomes:
         name = outcome.candidate.teammate.agent_name
         pane = outcome.candidate.pane
@@ -244,14 +319,27 @@ def _print_outcomes(outcomes: list[Outcome]) -> int:
         elif outcome.detail == "dry-run":
             print(f"would   {pane.pane_id:>5} {pane.target:<16} {name}")
         else:
-            failed += 1
             print(
                 f"FAILED  {pane.pane_id:>5} {pane.target:<16} {name}: {outcome.detail}"
             )
-    return 1 if failed else 0
+    return _outcome_status(outcomes)
 
 
-def _print_strays(masters: list[ControlMaster], disowned: list, verbose: bool) -> None:
+def _outcome_status(outcomes: list[Outcome]) -> int:
+    """Return non-zero when any requested kill failed safety or execution.
+
+    Args:
+        outcomes: Per-candidate results.
+
+    Returns:
+        Zero for kills and dry runs that completed as requested, otherwise one.
+    """
+    return 1 if any(not o.killed and o.detail != "dry-run" for o in outcomes) else 0
+
+
+def _print_strays(
+    masters: list[ControlMaster], disowned: list[Process], verbose: bool
+) -> None:
     """Render the stray inventory.
 
     Args:
@@ -287,6 +375,14 @@ def _print_strays(masters: list[ControlMaster], disowned: list, verbose: bool) -
         print(f"  pid {p.pid:<8} age {_duration(p.elapsed_s):>7}  {p.command[:90]}")
 
 
+def _nonnegative_int(value: str) -> int:
+    """Parse a CLI integer that cannot weaken an idle threshold below zero."""
+    parsed = int(value)
+    if parsed < 0:
+        raise argparse.ArgumentTypeError("must be a non-negative integer")
+    return parsed
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Construct the argument parser.
 
@@ -304,7 +400,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--idle-minutes",
-        type=int,
+        type=_nonnegative_int,
         help="override how long a teammate inbox must be quiet before reaping",
     )
     sub = parser.add_subparsers(dest="command")
@@ -349,20 +445,32 @@ def cli(argv: Sequence[str] | None = None, runner: Runner | None = None) -> int:
         print(f"config: {error}", file=sys.stderr)
 
     config = loaded.config
-    overrides = {}
     if args.idle_minutes is not None:
-        overrides["teammate_idle_minutes"] = args.idle_minutes
+        config = replace(config, teammate_idle_minutes=args.idle_minutes)
     if getattr(args, "include_lead", False):
-        overrides["include_lead"] = True
-    if overrides:
-        config = Config(**{**config.__dict__, **overrides})
+        config = replace(config, include_lead=True)
 
     command = args.command or "report"
+    team_scope: str | None = getattr(args, "team", None)
+    destructive = command == "reap" and bool(getattr(args, "kill", False))
+    if destructive and loaded.errors:
+        print(
+            "config: refusing destructive operation with invalid config",
+            file=sys.stderr,
+        )
+        return 2
+    if destructive and team_scope is not None and not config.kill_enabled:
+        print(
+            "config: unattended team cleanup requires kill_enabled = true",
+            file=sys.stderr,
+        )
+        return 2
 
     if command == "sockets":
         sockets = find_sockets(config.resolved_globs())
-        current = (os.environ.get("TMUX") or "").split(",")[0]
-        payload = []
+        current_raw = (os.environ.get("TMUX") or "").split(",")[0]
+        current = resolve_socket_path(current_raw) if current_raw else ""
+        payload: list[SocketEntry] = []
         for socket in sockets:
             listing = run(["tmux", "-S", socket, "list-sessions"])
             payload.append(
@@ -405,17 +513,30 @@ def cli(argv: Sequence[str] | None = None, runner: Runner | None = None) -> int:
             _print_strays(masters, disowned, args.verbose)
         return 0
 
-    report = build_report(config, run, team_scope=getattr(args, "team", None))
+    report = build_report(config, run, team_scope=team_scope)
 
     if command == "reap":
-        outcomes = reap(report.candidates, run, dry_run=not args.kill)
+        outcomes = reap(
+            report.candidates,
+            run,
+            dry_run=not args.kill,
+            revalidator=lambda candidate: _revalidate_candidate(
+                candidate,
+                config=config,
+                runner=run,
+                team_scope=team_scope,
+            ),
+        )
         if args.json:
             print(
                 json.dumps(
                     [
                         {
                             "pane_id": o.candidate.pane.pane_id,
+                            "socket": o.candidate.pane.socket,
+                            "target": o.candidate.pane.target,
                             "agent": o.candidate.teammate.agent_name,
+                            "session": o.candidate.teammate.session_id,
                             "killed": o.killed,
                             "detail": o.detail,
                         }
@@ -424,7 +545,7 @@ def cli(argv: Sequence[str] | None = None, runner: Runner | None = None) -> int:
                     indent=2,
                 )
             )
-            return 0
+            return _outcome_status(outcomes)
         if not outcomes:
             print("nothing to reap")
             return 0
@@ -442,7 +563,7 @@ def cli(argv: Sequence[str] | None = None, runner: Runner | None = None) -> int:
     return 0
 
 
-def _all_panes(config: Config, runner: Runner) -> list:
+def _all_panes(config: Config, runner: Runner) -> list[Pane]:
     """List panes across every live server.
 
     Args:

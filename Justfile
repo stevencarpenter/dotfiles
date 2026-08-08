@@ -26,7 +26,7 @@ op-adopt *FLAGS:
 
 # Evaluate every declared system closure without realizing it.
 check:
-    nix flake check --no-build --all-systems
+    nix flake check --no-update-lock-file --no-build --all-systems
 
 # Format all tracked Nix sources with the flake's canonical formatter.
 nix-fmt:
@@ -40,9 +40,9 @@ nix-fmt-check:
 nix-lint:
     statix check .
 
-# Bump nixpkgs-unstable to the channel rev as of DAYS ago (default 7), build the
-# result, and print the closure diff. Never switches — apply with ./rebuild.sh.
-# The soak window is a supply-chain control: see scripts/update-unstable.sh.
+# Record the current nixpkgs-unstable channel tip, then promote that exact rev
+# after DAYS have elapsed (default 7). Promotion builds and prints the closure
+# diff but never switches. See scripts/update-unstable.sh for the state machine.
 update-unstable *DAYS:
     scripts/update-unstable.sh {{ DAYS }}
 

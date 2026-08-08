@@ -112,6 +112,12 @@ jobs:
       - name: Validate gh account routing wrapper
         run: scripts/test-gh-account-routing.sh
 
+      - name: Validate Obsidian capture routing and retries
+        run: scripts/test-obsidian-capture.sh
+
+      - name: Validate Worktrunk commit generation
+        run: scripts/test-worktrunk-commit-generator.sh
+
       - name: Validate SketchyBar clock popup behavior
         run: scripts/test-sketchybar-clock-popup.sh
 

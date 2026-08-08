@@ -2,11 +2,20 @@
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
+from typing import Never
+
+import pytest
 
 from agent_reap.classify import Candidate
 from agent_reap.reap import kill_pane, reap
-from agent_reap.runner import RecordingRunner, Result
+from agent_reap.runner import (
+    COMMAND_TIMEOUT_SECONDS,
+    RecordingRunner,
+    Result,
+    subprocess_runner,
+)
 from agent_reap.strays import control_masters, disowned_descendants
 from agent_reap.teams import Inbox
 
@@ -32,6 +41,12 @@ def _candidate(pane_id: str = "%2", socket: str = "/tmp/s") -> Candidate:
         inbox=Inbox(path=Path("/tmp/inbox.json"), exists=True, size=2, mtime=0.0),
         idle_s=5400.0,
     )
+
+
+def _valid(candidate: Candidate) -> tuple[bool, str]:
+    """Approve a synthetic candidate after a fresh safety check."""
+    del candidate
+    return True, ""
 
 
 def test_kill_targets_pane_id_not_index() -> None:
@@ -60,7 +75,10 @@ def test_reap_kills_each_candidate_on_its_own_socket() -> None:
     runner = RecordingRunner(responses={"tmux -S": Result(0)})
 
     outcomes = reap(
-        (_candidate("%2", "/tmp/a"), _candidate("%9", "/tmp/b")), runner, dry_run=False
+        (_candidate("%2", "/tmp/a"), _candidate("%9", "/tmp/b")),
+        runner,
+        dry_run=False,
+        revalidator=_valid,
     )
 
     assert all(o.killed for o in outcomes)
@@ -71,10 +89,56 @@ def test_failed_kill_is_reported_not_swallowed() -> None:
     """A kill that fails surfaces its error text."""
     runner = RecordingRunner(default=Result(1, stderr="can't find pane"))
 
-    (outcome,) = reap((_candidate(),), runner, dry_run=False)
+    (outcome,) = reap((_candidate(),), runner, dry_run=False, revalidator=_valid)
 
     assert outcome.killed is False
     assert "can't find pane" in outcome.detail
+
+
+def test_real_reap_fails_closed_without_revalidation() -> None:
+    """No caller can accidentally bypass the immediate destructive safety check."""
+    runner = RecordingRunner(responses={"tmux -S": Result(0)})
+
+    (outcome,) = reap((_candidate(),), runner, dry_run=False)
+
+    assert outcome.killed is False
+    assert "revalidation unavailable" in outcome.detail
+    assert runner.calls == []
+
+
+def test_revalidation_rejection_prevents_kill() -> None:
+    """A candidate that became active after reporting is not destroyed."""
+    runner = RecordingRunner(responses={"tmux -S": Result(0)})
+
+    (outcome,) = reap(
+        (_candidate(),),
+        runner,
+        dry_run=False,
+        revalidator=lambda _candidate: (False, "window became active"),
+    )
+
+    assert outcome.killed is False
+    assert outcome.detail == "revalidation failed: window became active"
+    assert runner.calls == []
+
+
+def test_subprocess_runner_bounds_a_stuck_tmux_client(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A server that accepts but never responds cannot hang discovery forever."""
+    observed: dict[str, object] = {}
+
+    def time_out(*_args: object, **kwargs: object) -> Never:
+        observed.update(kwargs)
+        raise subprocess.TimeoutExpired("tmux", COMMAND_TIMEOUT_SECONDS)
+
+    monkeypatch.setattr("agent_reap.runner.subprocess.run", time_out)
+
+    result = subprocess_runner(["tmux", "-S", "/stuck", "list-sessions"])
+
+    assert observed["timeout"] == COMMAND_TIMEOUT_SECONDS
+    assert result.returncode == 124
+    assert "timed out" in result.stderr
 
 
 def test_control_master_socket_without_process_is_stale(short_tmp_path: Path) -> None:

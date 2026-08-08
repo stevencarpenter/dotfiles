@@ -12,7 +12,7 @@ cd "$repo_root"
 # derivation context; the .enable/.after/.source evals below cache fine and
 # keep their caching. CI never saw this because runners start cold.
 login_activation="$(
-  nix eval --no-eval-cache --raw \
+  nix eval --no-update-lock-file --no-eval-cache --raw \
     '.#darwinConfigurations.personal-mac.config.system.activationScripts.postActivation.text'
 )"
 # Anchored on the actual dscl commands, not on the words appearing somewhere.
@@ -60,14 +60,14 @@ for host in personal-mac; do
   # a broken flake — passing for entirely the wrong reason and silently stopping
   # covering its subject. So prove the surrounding path evaluates before
   # concluding anything from the failure of the age.secrets one.
-  if ! nix eval --json \
+  if ! nix eval --no-update-lock-file --json \
     ".#darwinConfigurations.${host}.config.home-manager.users.carpenter.home.stateVersion" \
     >/dev/null 2>&1; then
     echo "${host}: control eval failed — the attribute path is wrong, so the" >&2
     echo "  age.secrets assertion below would pass vacuously. Fix the path." >&2
     exit 1
   fi
-  if nix eval --json \
+  if nix eval --no-update-lock-file --json \
     ".#darwinConfigurations.${host}.config.home-manager.users.carpenter.age.secrets" \
     >/dev/null 2>&1; then
     echo "${host} still exposes age.secrets — the agenix module is imported again" >&2
@@ -78,7 +78,7 @@ done
 # skillsSync must still be ordered after writeBoundary (home.file symlinks must
 # exist before the fan-out reads them) — just no longer after a decrypt node.
 skills_after="$(
-  nix eval --json \
+  nix eval --no-update-lock-file --json \
     '.#darwinConfigurations.personal-mac.config.home-manager.users.carpenter.home.activation.skillsSync.after'
 )"
 if ! jq -e 'index("writeBoundary") != null' <<<"$skills_after" >/dev/null; then
@@ -134,7 +134,7 @@ expected_variants="$(
 while read -r host expected_variant; do
   [ -n "$host" ] || continue
   resolved="$(
-    nix eval --raw \
+    nix eval --no-update-lock-file --raw \
       ".#darwinConfigurations.${host}.config.home-manager.users.carpenter.home.file.\".config/atuin/config.toml\".source"
   )"
   # home-manager names the out-of-store symlink derivation after the source
@@ -177,4 +177,47 @@ if ! [[ "$unstable_ref" =~ ^[0-9a-f]{40}$ ]]; then
   exit 1
 fi
 
-echo "login-shell, Homebrew pin, no-age-secrets, atuin sync policy, atuin variant wiring, and nixpkgs-unstable soak pin contracts are emitted"
+# The URL pin and the exact lock node are one reviewed change. Without this
+# comparison, Nix may repair a stale lock during evaluation and let CI validate
+# a tree that is absent from the PR diff.
+unstable_locked_ref="$(jq -r '.nodes["nixpkgs-unstable"].locked.rev // empty' flake.lock)"
+if [ "$unstable_locked_ref" != "$unstable_ref" ]; then
+  echo "nixpkgs-unstable pin/lock mismatch:" >&2
+  echo "  flake.nix:  $unstable_ref" >&2
+  echo "  flake.lock: ${unstable_locked_ref:-<missing>}" >&2
+  echo "  Run 'nix flake update nixpkgs-unstable' and review both files." >&2
+  exit 1
+fi
+
+candidate_file="versions/nixpkgs-unstable-candidate.json"
+if ! jq -e '
+  .schema == 1
+  and .channel == "nixpkgs-unstable"
+  and (.status == "pending" or .status == "promoted")
+  and (.rev | type == "string" and test("^[0-9a-f]{40}$"))
+  and (.channelCommitDate | fromdateiso8601 | type == "number")
+  and (.firstSeen | fromdateiso8601 | type == "number")
+  and (.soakDays | type == "number" and floor == . and . >= 0 and . <= 3650)
+' "$candidate_file" >/dev/null 2>&1; then
+  echo "$candidate_file does not contain valid first-seen soak state" >&2
+  exit 1
+fi
+candidate_status="$(jq -r '.status' "$candidate_file")"
+candidate_rev="$(jq -r '.rev' "$candidate_file")"
+case "$candidate_status" in
+promoted)
+  if [ "$candidate_rev" != "$unstable_ref" ]; then
+    echo "promoted nixpkgs-unstable candidate does not match the reviewed pin" >&2
+    exit 1
+  fi
+  ;;
+pending)
+  if [ "$candidate_rev" = "$unstable_ref" ]; then
+    echo "pending nixpkgs-unstable candidate already equals the reviewed pin" >&2
+    echo "  This is an unsoaked or partially promoted state; refusing it." >&2
+    exit 1
+  fi
+  ;;
+esac
+
+echo "login-shell, Homebrew pin, no-age-secrets, atuin sync policy, atuin variant wiring, and nixpkgs-unstable soak/pin/lock contracts are emitted"

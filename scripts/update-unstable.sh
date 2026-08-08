@@ -1,37 +1,38 @@
 #!/usr/bin/env bash
-# Bump the nixpkgs-unstable input to the channel rev as of N days ago, build the
-# result WITHOUT switching, and print the closure diff for review.
+# Advance nixpkgs-unstable through a first-seen soak queue, build the result
+# WITHOUT switching, and print the closure diff for review.
 #
-# Why a soak window rather than the branch tip:
+# Why a first-seen queue rather than commit timestamps:
 #
-# flake.lock's narHash is content-addressing. It guarantees the tree you
-# evaluate is byte-identical to the tree you locked, which defeats MITM and a
-# retroactively force-pushed branch. It does NOT defend against malicious
-# content that was already in nixpkgs at lock time — the lock would pin that
-# faithfully and reproduce it identically on every machine. Reproducibility is
-# not safety; it is consistent safety-or-unsafety.
+# flake.lock's narHash proves that fetched content matches the locked tree. It
+# does not prove that the tree was benign when it was locked. Likewise, a
+# commit's author/committer timestamp does not say when the nixpkgs-unstable
+# channel first exposed that commit: timestamps can be old before a commit is
+# added to the channel. A GitHub `commits?until=...` query therefore is not a
+# soak window.
 #
-# Nothing cryptographic closes that gap. Only time (someone else finds it
-# first) and surface area (fewer things to be wrong) do. This script buys the
-# time. `nixpkgs-unstable` already lags its own master by a few days because
-# Hydra must build the jobset green before the branch pointer advances — that
-# is a BUILD gate, not a security review, and this adds a disclosure window on
-# top of it.
+# This script uses two deliberate invocations instead:
 #
-# Surface area is the other half, and it lives in modules/home/packages.nix:
-# only the names in `fastMovingPackages` come from this input. Note that
-# `pkgsFresh` is a full separate nixpkgs instantiation, so each of those
-# packages brings its own unstable runtime closure rather than just a leaf
-# derivation. Keep that list short and justified.
+#   1. Record the channel's current Hydra-certified tip and this machine's
+#      first-seen time in versions/nixpkgs-unstable-candidate.json.
+#   2. On a later invocation, promote that exact SHA only after the requested
+#      elapsed time and only if it is still an ancestor of the channel tip.
+#
+# The state file is reviewable policy evidence, not a cryptographic timestamp
+# authority. Do not hand-edit its firstSeen value. A hostile local operator can
+# bypass any local policy; this control prevents accidental immediate adoption
+# of a newly exposed, backdated channel commit.
+#
+# Only `fastMovingPackages` in modules/home/packages.nix consume this input.
+# Keep that allowlist short: each package brings its unstable runtime closure.
 #
 # Usage:
-#   scripts/update-unstable.sh              # default 7-day soak
+#   scripts/update-unstable.sh              # record/promote with 7-day soak
 #   scripts/update-unstable.sh 14           # wider window
 #   scripts/update-unstable.sh 7 personal-mac
 #
-# This script never switches. Applying the result is a separate, deliberate
-# `./rebuild.sh`. To abandon a bump after reviewing it:
-#   git checkout flake.nix flake.lock
+# A candidate-recording run does not evaluate or build. A promotion builds but
+# never switches. Applying the built result remains a separate `./rebuild.sh`.
 set -euo pipefail
 
 SOAK_DAYS="${1:-7}"
@@ -39,15 +40,202 @@ if ! [[ "${SOAK_DAYS}" =~ ^[0-9]+$ ]]; then
 	echo "error: soak days must be a non-negative integer, got '${SOAK_DAYS}'" >&2
 	exit 2
 fi
+if [ "${SOAK_DAYS}" -gt 3650 ]; then
+	echo "error: soak days must not exceed 3650, got '${SOAK_DAYS}'" >&2
+	exit 2
+fi
 
-# Lix 2.94 rejects a symlink as a flake root, so resolve the physical checkout
-# the same way rebuild.sh does.
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 cd "${REPO_ROOT}"
 
-# Host matcher duplicated from rebuild.sh rather than sourced: rebuild.sh ends
-# in `exec sudo darwin-rebuild`, so it cannot be sourced without switching. Keep
-# the two cases in sync when adding a machine.
+CANDIDATE_FILE="versions/nixpkgs-unstable-candidate.json"
+if { [ -n "${UPDATE_UNSTABLE_API_ROOT:-}" ] || [ -n "${UPDATE_UNSTABLE_NOW_EPOCH:-}" ]; } \
+	&& [ "${UPDATE_UNSTABLE_TEST_MODE:-}" != 1 ]; then
+	echo "error: UPDATE_UNSTABLE_API_ROOT/NOW_EPOCH are test-only overrides" >&2
+	exit 2
+fi
+API_ROOT="${UPDATE_UNSTABLE_API_ROOT:-https://api.github.com}"
+NOW_EPOCH="${UPDATE_UNSTABLE_NOW_EPOCH:-$(date -u +%s)}"
+if ! [[ "${NOW_EPOCH}" =~ ^[0-9]+$ ]]; then
+	echo "error: UPDATE_UNSTABLE_NOW_EPOCH must be an epoch integer" >&2
+	exit 2
+fi
+NOW_ISO="$(jq -nr --argjson now "${NOW_EPOCH}" '$now | strftime("%Y-%m-%dT%H:%M:%SZ")')"
+
+OLD_REV="$(sed -n 's|.*nixpkgs-unstable\.url = "github:NixOS/nixpkgs/\([^"]*\)".*|\1|p' flake.nix)"
+LOCKED_REV="$(jq -r '.nodes["nixpkgs-unstable"].locked.rev // empty' flake.lock)"
+if ! [[ "${OLD_REV}" =~ ^[0-9a-f]{40}$ ]]; then
+	echo "error: flake.nix pins nixpkgs-unstable to '${OLD_REV}', not a 40-char rev" >&2
+	exit 1
+fi
+if ! [[ "${LOCKED_REV}" =~ ^[0-9a-f]{40}$ ]]; then
+	echo "error: flake.lock has no exact nixpkgs-unstable locked rev" >&2
+	exit 1
+fi
+if [ "${OLD_REV}" != "${LOCKED_REV}" ]; then
+	echo "error: nixpkgs-unstable pin/lock mismatch; refusing to queue or promote" >&2
+	echo "       flake.nix=${OLD_REV}" >&2
+	echo "       flake.lock=${LOCKED_REV}" >&2
+	exit 1
+fi
+
+api_get() {
+	local url="$1"
+	local -a args=(-fsSL --retry 2 -H "Accept: application/vnd.github+json")
+	if [ -n "${GITHUB_TOKEN:-}" ]; then
+		args+=(-H "Authorization: Bearer ${GITHUB_TOKEN}")
+	fi
+	curl "${args[@]}" "${url}"
+}
+
+write_candidate() {
+	local status="$1"
+	local rev="$2"
+	local channel_date="$3"
+	local first_seen="$4"
+	local soak_days="$5"
+	local tmp
+
+	mkdir -p "$(dirname "${CANDIDATE_FILE}")"
+	tmp="$(mktemp "${CANDIDATE_FILE}.tmp.XXXXXX")"
+	jq -n \
+		--arg status "${status}" \
+		--arg rev "${rev}" \
+		--arg channel_date "${channel_date}" \
+		--arg first_seen "${first_seen}" \
+		--argjson soak_days "${soak_days}" \
+		'{
+          schema: 1,
+          channel: "nixpkgs-unstable",
+          status: $status,
+          rev: $rev,
+          channelCommitDate: $channel_date,
+          firstSeen: $first_seen,
+          soakDays: $soak_days
+        }' >"${tmp}"
+	mv "${tmp}" "${CANDIDATE_FILE}"
+}
+
+record_candidate() {
+	local reason="$1"
+	echo "==> ${reason}"
+	if [ "${CURRENT_REV}" = "${OLD_REV}" ]; then
+		write_candidate promoted "${CURRENT_REV}" "${CURRENT_DATE}" "${NOW_ISO}" "${SOAK_DAYS}"
+		echo "    ${CURRENT_REV} is already the reviewed pin; marked promoted."
+		return
+	fi
+	write_candidate pending "${CURRENT_REV}" "${CURRENT_DATE}" "${NOW_ISO}" "${SOAK_DAYS}"
+	echo "    candidate : ${CURRENT_REV} (${CURRENT_DATE})"
+	echo "    first seen: ${NOW_ISO}"
+	echo "    No flake input changed. Commit the candidate state, then run this"
+	echo "    command again after ${SOAK_DAYS} days to promote that exact rev."
+}
+
+TIP_RESPONSE="$(api_get "${API_ROOT}/repos/NixOS/nixpkgs/commits/nixpkgs-unstable")" || {
+	echo "error: could not resolve the current nixpkgs-unstable channel tip" >&2
+	exit 1
+}
+CURRENT_REV="$(jq -r '.sha // empty' <<<"${TIP_RESPONSE}")"
+CURRENT_DATE="$(jq -r '.commit.committer.date // empty' <<<"${TIP_RESPONSE}")"
+if ! [[ "${CURRENT_REV}" =~ ^[0-9a-f]{40}$ ]] || [ -z "${CURRENT_DATE}" ]; then
+	echo "error: GitHub returned an invalid nixpkgs-unstable channel tip" >&2
+	exit 1
+fi
+
+if [ ! -f "${CANDIDATE_FILE}" ]; then
+	record_candidate "Recording the current Hydra-certified channel tip"
+	exit 0
+fi
+
+if ! jq -e '
+  .schema == 1
+  and .channel == "nixpkgs-unstable"
+  and (.status == "pending" or .status == "promoted")
+  and (.rev | type == "string" and test("^[0-9a-f]{40}$"))
+  and (.channelCommitDate | type == "string" and (fromdateiso8601 | type == "number"))
+  and (.firstSeen | type == "string" and (fromdateiso8601 | type == "number"))
+  and (.soakDays | type == "number" and floor == . and . >= 0 and . <= 3650)
+' "${CANDIDATE_FILE}" >/dev/null 2>&1; then
+	echo "error: ${CANDIDATE_FILE} is malformed; refusing to replace or promote it" >&2
+	exit 1
+fi
+
+CANDIDATE_STATUS="$(jq -r '.status' "${CANDIDATE_FILE}")"
+CANDIDATE_REV="$(jq -r '.rev' "${CANDIDATE_FILE}")"
+CANDIDATE_DATE="$(jq -r '.channelCommitDate' "${CANDIDATE_FILE}")"
+FIRST_SEEN="$(jq -r '.firstSeen' "${CANDIDATE_FILE}")"
+FIRST_SEEN_EPOCH="$(jq -r '.firstSeen | fromdateiso8601' "${CANDIDATE_FILE}")"
+CANDIDATE_SOAK_DAYS="$(jq -r '.soakDays' "${CANDIDATE_FILE}")"
+
+if [ "${FIRST_SEEN_EPOCH}" -gt "${NOW_EPOCH}" ]; then
+	echo "error: candidate firstSeen ${FIRST_SEEN} is in the future" >&2
+	exit 1
+fi
+
+case "${CANDIDATE_STATUS}" in
+promoted)
+	if [ "${CANDIDATE_REV}" != "${OLD_REV}" ]; then
+		echo "error: promoted candidate does not match the reviewed pin" >&2
+		exit 1
+	fi
+	;;
+pending)
+	if [ "${CANDIDATE_REV}" = "${OLD_REV}" ]; then
+		echo "error: pending candidate already equals the reviewed pin; refusing bypass" >&2
+		exit 1
+	fi
+	;;
+esac
+
+if [ "${CANDIDATE_STATUS}" = promoted ]; then
+	if [ "${CURRENT_REV}" = "${CANDIDATE_REV}" ]; then
+		echo "==> Channel has not advanced beyond promoted rev ${CANDIDATE_REV}; nothing to do."
+		exit 0
+	fi
+	record_candidate "The channel advanced; recording its new tip"
+	exit 0
+fi
+
+# Compare immutable SHAs so a branch movement between the tip lookup and this
+# request cannot make the reachability answer refer to a different tree.
+COMPARE_RESPONSE="$(api_get "${API_ROOT}/repos/NixOS/nixpkgs/compare/${CANDIDATE_REV}...${CURRENT_REV}")" || {
+	echo "error: could not verify candidate reachability from the channel tip" >&2
+	exit 1
+}
+COMPARE_STATUS="$(jq -r '.status // empty' <<<"${COMPARE_RESPONSE}")"
+case "${COMPARE_STATUS}" in
+ahead | identical) ;;
+behind | diverged)
+	record_candidate "The pending candidate left channel ancestry; resetting the soak"
+	exit 0
+	;;
+*)
+	echo "error: GitHub returned invalid compare status '${COMPARE_STATUS}'" >&2
+	exit 1
+	;;
+esac
+
+# A later invocation may make an existing policy stricter, but a shorter CLI
+# argument never weakens the duration committed with the candidate.
+if [ "${SOAK_DAYS}" -gt "${CANDIDATE_SOAK_DAYS}" ]; then
+	CANDIDATE_SOAK_DAYS="${SOAK_DAYS}"
+	write_candidate pending "${CANDIDATE_REV}" "${CANDIDATE_DATE}" "${FIRST_SEEN}" "${CANDIDATE_SOAK_DAYS}"
+	echo "==> Extended candidate soak to ${CANDIDATE_SOAK_DAYS} days."
+elif [ "${SOAK_DAYS}" -lt "${CANDIDATE_SOAK_DAYS}" ]; then
+	echo "==> Candidate retains its committed ${CANDIDATE_SOAK_DAYS}-day soak; ignoring shorter ${SOAK_DAYS}-day request."
+fi
+
+AGE_SECONDS="$((NOW_EPOCH - FIRST_SEEN_EPOCH))"
+SOAK_SECONDS="$((CANDIDATE_SOAK_DAYS * 86400))"
+if [ "${AGE_SECONDS}" -lt "${SOAK_SECONDS}" ]; then
+	REMAINING_SECONDS="$((SOAK_SECONDS - AGE_SECONDS))"
+	echo "==> Candidate ${CANDIDATE_REV} is still soaking."
+	echo "    first seen: ${FIRST_SEEN}"
+	echo "    elapsed   : ${AGE_SECONDS}s"
+	echo "    remaining : ${REMAINING_SECONDS}s"
+	exit 0
+fi
+
 detect_host() {
 	case "$(scutil --get LocalHostName 2>/dev/null || true)" in
 	personal-mac | Stevens-MacBook-Pro) echo personal-mac ;;
@@ -60,98 +248,67 @@ if [ -z "${HOST:-}" ]; then
 	exit 1
 fi
 
-CUTOFF="$(date -u -v-"${SOAK_DAYS}"d +%Y-%m-%dT%H:%M:%SZ)"
-echo "==> Resolving nixpkgs-unstable as of ${CUTOFF} (${SOAK_DAYS}-day soak)"
-
-# The channel branch, not master: this is the rev Hydra last certified green.
-API="https://api.github.com/repos/NixOS/nixpkgs/commits?sha=nixpkgs-unstable&until=${CUTOFF}&per_page=1"
-response="$(curl -fsSL "${API}")" || {
-	echo "error: could not reach the GitHub commits API" >&2
-	exit 1
-}
-NEW_REV="$(jq -r '.[0].sha // empty' <<<"${response}")"
-NEW_DATE="$(jq -r '.[0].commit.committer.date // empty' <<<"${response}")"
-if [ -z "${NEW_REV}" ]; then
-	echo "error: no nixpkgs-unstable commit found at or before ${CUTOFF}" >&2
-	exit 1
-fi
-NEW_DATE="${NEW_DATE%%T*}"
-
-OLD_REV="$(sed -n 's|.*nixpkgs-unstable\.url = "github:NixOS/nixpkgs/\([^"]*\)".*|\1|p' flake.nix)"
-if [ -z "${OLD_REV}" ]; then
-	echo "error: could not read the nixpkgs-unstable input from flake.nix" >&2
-	exit 1
-fi
-
-# The lock is checked alongside flake.nix, not assumed to agree with it. A
-# hand-edited flake.nix leaves the two out of step, and short-circuiting on
-# flake.nix alone would then report "nothing to do" while the lock — the thing
-# that actually decides what gets built — still pointed at the old rev. That is
-# the exact silent-staleness failure this script exists to prevent, so it must
-# not be able to cause it (found while first running this, 2026-08-07).
-LOCKED_REV="$(
-	jq -r '.nodes | to_entries[] | select(.key | test("unstable")) | .value.locked.rev' flake.lock
-)"
-
+echo "==> Promoting first-seen candidate after ${CANDIDATE_SOAK_DAYS} days"
 echo "    flake.nix: ${OLD_REV}"
-echo "    flake.lock: ${LOCKED_REV:-<unreadable>}"
-echo "    target   : ${NEW_REV} (${NEW_DATE})"
+echo "    flake.lock: ${LOCKED_REV}"
+echo "    target    : ${CANDIDATE_REV} (${CANDIDATE_DATE})"
+echo "    first seen: ${FIRST_SEEN}"
 
-if [ "${OLD_REV}" = "${NEW_REV}" ] && [ "${LOCKED_REV}" = "${NEW_REV}" ]; then
-	echo "==> Already at the ${SOAK_DAYS}-day rev; nothing to do."
-	exit 0
-fi
+# Keep the reviewed pin and lock transactional. A failed lock update, build, or
+# closure comparison restores both files and leaves the candidate pending.
+promotion_tmp="$(mktemp -d "${TMPDIR:-/tmp}/update-unstable-promotion.XXXXXX")"
+cp -p flake.nix "${promotion_tmp}/flake.nix"
+cp -p flake.lock "${promotion_tmp}/flake.lock"
+promotion_complete=0
+finish_promotion() {
+	local status="$?"
+	if [ "${promotion_complete}" -ne 1 ]; then
+		cp -p "${promotion_tmp}/flake.nix" flake.nix || true
+		cp -p "${promotion_tmp}/flake.lock" flake.lock || true
+	fi
+	rm -rf -- "${promotion_tmp}"
+	exit "${status}"
+}
+trap finish_promotion EXIT
 
-# A branch name here means the soak policy was reverted — refuse rather than
-# silently rewriting it back, so the reversion gets noticed and discussed.
-if [[ "${OLD_REV}" =~ ^nixpkgs- ]] || [ "${#OLD_REV}" -ne 40 ]; then
-	echo "error: flake.nix pins nixpkgs-unstable to '${OLD_REV}', which is not a" >&2
-	echo "       40-char rev. The soak policy requires a rev pin — see the comment" >&2
-	echo "       in flake.nix. Fix that by hand before running this." >&2
-	exit 1
-fi
-
-if [ "${OLD_REV}" = "${NEW_REV}" ]; then
-	echo "==> flake.nix already names the target; re-locking to match."
-else
-	echo "==> Rewriting flake.nix"
-	tmp="$(mktemp)"
-	trap 'rm -f "${tmp}"' EXIT
+if [ "${OLD_REV}" != "${CANDIDATE_REV}" ]; then
+	tmp="${promotion_tmp}/flake.next"
 	sed \
-		-e "s|nixpkgs-unstable\.url = \"github:NixOS/nixpkgs/[^\"]*\";.*|nixpkgs-unstable.url = \"github:NixOS/nixpkgs/${NEW_REV}\"; # nixpkgs-unstable @ ${NEW_DATE}|" \
+		-e "s|nixpkgs-unstable\.url = \"github:NixOS/nixpkgs/[^\"]*\";.*|nixpkgs-unstable.url = \"github:NixOS/nixpkgs/${CANDIDATE_REV}\"; # nixpkgs-unstable @ ${CANDIDATE_DATE%%T*}|" \
 		flake.nix >"${tmp}"
-
-	# Guard the rewrite: exactly one line must have changed. A sed that matched
-	# nothing exits 0 and emits an unchanged file, which would otherwise sail
-	# through to a build that silently used the old rev.
-	# --include-zero: rg omits the count entirely on no match, where grep -c
-	# prints 0. Without it the no-match case sets changed="" and the integer
-	# test below dies with "integer expected" instead of the message it owes.
 	changed="$(diff flake.nix "${tmp}" | rg -c --include-zero '^<' || true)"
 	if [ "${changed}" -ne 1 ]; then
-		echo "error: rewrite changed ${changed} lines, expected exactly 1 — aborting" >&2
+		echo "error: rewrite changed ${changed} lines, expected exactly 1" >&2
 		exit 1
 	fi
+	chmod 0644 "${tmp}"
 	mv "${tmp}" flake.nix
-	trap - EXIT
 fi
 
-echo "==> Re-locking"
-nix flake lock
+if [ "${LOCKED_REV}" != "${CANDIDATE_REV}" ]; then
+	echo "==> Updating only the nixpkgs-unstable lock node"
+	nix flake update nixpkgs-unstable
+	LOCKED_REV="$(jq -r '.nodes["nixpkgs-unstable"].locked.rev // empty' flake.lock)"
+	if [ "${LOCKED_REV}" != "${CANDIDATE_REV}" ]; then
+		echo "error: flake.lock resolved ${LOCKED_REV:-<empty>}, expected ${CANDIDATE_REV}" >&2
+		exit 1
+	fi
+fi
 
 echo "==> Building ${HOST} (not switching)"
-out="$(nix build --no-link --print-out-paths ".#darwinConfigurations.${HOST}.system")"
+out="$(nix build --no-link --print-out-paths --no-update-lock-file ".#darwinConfigurations.${HOST}.system")"
 
 echo
 echo "==> Closure diff vs the running system"
 echo "    (an unexpected package name here is a real signal — review before switching)"
 nix store diff-closures /run/current-system "${out}"
 
+write_candidate promoted "${CANDIDATE_REV}" "${CANDIDATE_DATE}" "${FIRST_SEEN}" "${CANDIDATE_SOAK_DAYS}"
+promotion_complete=1
+
 cat <<EOF
 
-==> Built, not switched.
-    Review the diff above and \`git diff flake.nix flake.lock\`, then apply with:
+==> Built, not switched. Candidate marked promoted.
+    Review the closure and \`git diff flake.nix flake.lock ${CANDIDATE_FILE}\`, then apply with:
       ./rebuild.sh
-    Or abandon the bump with:
-      git checkout flake.nix flake.lock
 EOF

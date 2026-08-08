@@ -18,6 +18,8 @@ on:
     paths:
       - "flake.nix"
       - "flake.lock"
+      - "Justfile"
+      - "versions/nixpkgs-unstable-candidate.json"
       - "lib/**"
       - "hosts/**"
       - "modules/**"
@@ -25,7 +27,10 @@ on:
       - "home/.config/tmux/tmux.conf"
       - "scripts/test-external-overlay-contract.sh"
       - "scripts/test-nix-review-regressions.sh"
+      - "scripts/test-update-unstable-soak.sh"
+      - "scripts/update-unstable.sh"
       - "secrets/secrets.nix"
+      - ".github/actions/install-lix/**"
       - ".github/workflows/nix-flake-check.yml"
   # `ready_for_review` is not one of the default activity types (opened,
   # synchronize, reopened). Without it, marking a draft ready fires no run at
@@ -37,6 +42,8 @@ on:
     paths:
       - "flake.nix"
       - "flake.lock"
+      - "Justfile"
+      - "versions/nixpkgs-unstable-candidate.json"
       - "lib/**"
       - "hosts/**"
       - "modules/**"
@@ -44,7 +51,10 @@ on:
       - "home/.config/tmux/tmux.conf"
       - "scripts/test-external-overlay-contract.sh"
       - "scripts/test-nix-review-regressions.sh"
+      - "scripts/test-update-unstable-soak.sh"
+      - "scripts/update-unstable.sh"
       - "secrets/secrets.nix"
+      - ".github/actions/install-lix/**"
       - ".github/workflows/nix-flake-check.yml"
 
 # Superseding a push cancels the run it obsoletes. The closure build is the most
@@ -95,7 +105,10 @@ jobs:
       # this reaches every module's config.system.build.toplevel rather than
       # merely traversing the non-standard darwinConfigurations output.
       - name: Evaluate all flake checks
-        run: nix flake check --no-build --all-systems
+        run: nix flake check --no-update-lock-file --no-build --all-systems
+
+      - name: Validate nixpkgs-unstable first-seen soak
+        run: scripts/test-update-unstable-soak.sh
 
   # Everything that realizes a derivation, so the closure is built exactly once
   # and the contract tests that follow reuse the warm store. ~30 minutes cold.
@@ -140,7 +153,7 @@ jobs:
       # lib/machines.nix also needs a line here or it goes unbuilt.
       - name: Build nix-darwin systems
         run: |
-          nix build --no-link \
+          nix build --no-update-lock-file --no-link \
             '.#checks.aarch64-darwin.personal-mac' \
             '.#checks.aarch64-darwin.statix'
 

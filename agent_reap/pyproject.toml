@@ -11,6 +11,7 @@ agent-reap = "agent_reap.cli:cli"
 
 [dependency-groups]
 dev = [
+    "mypy",
     "pytest",
     "pytest-cov",
     "ruff",
@@ -18,6 +19,10 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
 
 # Pin first-party detection. Without this, isort infers it from the working
 # directory: run from the repo root (`ruff check agent_reap/src agent_reap/tests`,

@@ -89,6 +89,9 @@ class Process:
     Attributes:
         pid: Process id.
         ppid: Parent process id.
+        pgid: Process-group id.
+        tpgid: Foreground process-group id for the controlling terminal, or 0/-1
+            when no foreground group is available.
         rss_kb: Resident set size in kilobytes.
         state: Short state code from ``ps`` (``S``, ``R``, ``Z``...).
         elapsed_s: Seconds since the process started.
@@ -97,6 +100,8 @@ class Process:
 
     pid: int
     ppid: int
+    pgid: int
+    tpgid: int
     rss_kb: int
     state: str
     elapsed_s: int
@@ -182,12 +187,28 @@ def find_sockets(globs: Iterable[str]) -> list[str]:
     for pattern in globs:
         for hit in glob.glob(pattern):
             try:
-                path = Path(hit).resolve()
+                path = Path(resolve_socket_path(hit))
                 if stat.S_ISSOCK(path.stat().st_mode):
                     found.add(str(path))
             except OSError:
                 continue
     return sorted(found)
+
+
+def resolve_socket_path(path: str) -> str:
+    """Normalize a tmux socket path for identity comparisons.
+
+    Args:
+        path: Socket path as reported by tmux or supplied through ``$TMUX``.
+
+    Returns:
+        A symlink-resolved absolute path when resolution succeeds, otherwise the
+        original value.
+    """
+    try:
+        return str(Path(path).resolve())
+    except OSError:
+        return path
 
 
 def live_sockets(sockets: Sequence[str], runner: Runner) -> list[str]:
@@ -273,23 +294,35 @@ def process_table(runner: Runner) -> dict[int, Process]:
     Returns:
         Processes keyed by pid; empty when ``ps`` fails.
     """
-    result = runner(["ps", "-eo", "pid=,ppid=,rss=,state=,etime=,command="])
+    result = runner(
+        [
+            "ps",
+            "-eo",
+            "pid=,ppid=,pgid=,tpgid=,rss=,state=,etime=,command=",
+        ]
+    )
     if not result.ok:
         return {}
 
     table: dict[int, Process] = {}
     for line in result.stdout.splitlines():
-        parts = line.split(maxsplit=5)
-        if len(parts) < 6:
+        parts = line.split(maxsplit=7)
+        if len(parts) < 8:
             continue
-        pid_s, ppid_s, rss_s, state, etime_s, command = parts
+        pid_s, ppid_s, pgid_s, tpgid_s, rss_s, state, etime_s, command = parts
         try:
-            pid, ppid, rss = int(pid_s), int(ppid_s), int(rss_s)
+            pid = int(pid_s)
+            ppid = int(ppid_s)
+            pgid = int(pgid_s)
+            tpgid = int(tpgid_s)
+            rss = int(rss_s)
         except ValueError:
             continue
         table[pid] = Process(
             pid=pid,
             ppid=ppid,
+            pgid=pgid,
+            tpgid=tpgid,
             rss_kb=rss,
             state=state,
             elapsed_s=parse_etime(etime_s),
@@ -321,3 +354,30 @@ def ancestry(pid: int, table: dict[int, Process]) -> set[int]:
             break
         current = parent.ppid
     return seen
+
+
+def descendants(pid: int, table: dict[int, Process]) -> set[int]:
+    """Collect every process descended from a pid.
+
+    Args:
+        pid: Root process id, which is not included in the result.
+        table: Process table to walk.
+
+    Returns:
+        All reachable descendant pids. Malformed cycles terminate safely.
+    """
+    children: dict[int, list[int]] = {}
+    for process in table.values():
+        if process.pid == process.ppid:
+            continue
+        children.setdefault(process.ppid, []).append(process.pid)
+
+    found: set[int] = set()
+    pending = list(children.get(pid, ()))
+    while pending:
+        child = pending.pop()
+        if child in found or child == pid:
+            continue
+        found.add(child)
+        pending.extend(children.get(child, ()))
+    return found

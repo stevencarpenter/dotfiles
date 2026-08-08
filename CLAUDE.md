@@ -41,6 +41,8 @@ just reap-strays     # ssh control masters + disowned descendants (report-only)
 just reap-kill       # actually reap idle teammate panes
 
 uv run --project agent_reap --group dev ruff check agent_reap/src agent_reap/tests
+uv run --project agent_reap --group dev ruff format --check agent_reap/src agent_reap/tests
+uv run --project agent_reap --group dev mypy agent_reap/src agent_reap/tests
 uv run --project agent_reap --group dev pytest agent_reap/tests --cov=agent_reap
 ```
 
@@ -88,10 +90,10 @@ token-auditor --help                                                   # or `cod
 ./rebuild.sh              # Auto-detect host from LocalHostName, sudo darwin-rebuild switch
 ./rebuild.sh personal-mac # Force a specific host config
 just rebuild              # Same, via the task runner
-nix flake check --no-build --all-systems   # Evaluate explicit all-host closure checks
+nix flake check --no-update-lock-file --no-build --all-systems   # Evaluate all-host checks
 just check                   # Alias for the above
-just update-unstable         # Bump nixpkgs-unstable to the rev as of 7 days ago,
-                             #   build, print the closure diff. Never switches.
+just update-unstable         # Record today's nixpkgs-unstable tip; after 7 elapsed
+                             #   days promote/build it and print the closure diff.
 just update-unstable 14      # Wider soak window
 ./bootstrap.sh            # Fresh-machine setup (Lix, Homebrew, first switch, rustup)
 just sync                 # Full deploy: switch, then op-render secrets + git externals + agents
@@ -104,10 +106,11 @@ Raw configs under `home/` are out-of-store symlinks — editing them is live wit
 secret/hook declaration.
 
 `nixpkgs-unstable` is pinned to a **rev**, not to the branch, so `nix flake update` cannot move it
-and every bump is a reviewable `git diff`. The rev trails the channel by ~7 days on purpose: a
-lockfile's narHash proves the tree was not tampered with, not that it was benign when locked, and
-only elapsed time closes that gap. Bump it with `just update-unstable`, never by hand — a branch
-name in that input fails `scripts/test-nix-review-regressions.sh`. Rationale in full lives in
+and every bump is a reviewable `git diff`. `just update-unstable` first records the current channel
+tip and a local first-seen time, then promotes that exact rev only after the requested elapsed soak;
+it never infers channel age from a commit timestamp. A lockfile's narHash proves the tree was not
+tampered with, not that it was benign when locked. Never bump this input by hand — branch pins and
+pin/lock disagreement fail `scripts/test-nix-review-regressions.sh`. Rationale in full lives in
 `scripts/update-unstable.sh`; the exposed surface is the `fastMovingPackages` allowlist in
 `modules/home/packages.nix`.
 
@@ -261,8 +264,11 @@ sets per-window `@claude_state` options. The everforest color palette is defined
 plugin) so the monitor has full control over `window-status-format` and
 `window-status-current-format` with stoplight colors:
 
-- **Green** (`#a7c080`) — actively working (braille spinner in pane title)
-- **Yellow** (`#dbbc7f`) — waiting for input (pane title contains ✳)
+- **Green** (`#a7c080`) — actively working (pane title begins with a braille spinner)
+- **Yellow** (`#dbbc7f`) — waiting for input (pane title begins with ✳)
+
+Titles without one of those state markers, such as an editor-set `nvim` title, are not classified
+as Claude panes.
 
 Window names show `#{pane_title}` via `automatic-rename-format`, so tabs display Claude session
 names and state spinners instead of version numbers.

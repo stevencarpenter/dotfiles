@@ -24,10 +24,14 @@ exec_scripts=(
   home/.config/aerospace/layouts/workspace-8-comms.sh
   home/.config/tmux/scripts/claude-pane-monitor.sh
   home/.local/bin/gh
+  home/.local/bin/obsidian-capture
+  home/.local/bin/worktrunk-commit-generator
   scripts/host-capability.sh
   scripts/sync-side-channels.sh
   scripts/update-unstable.sh
   scripts/test-gh-account-routing.sh
+  scripts/test-obsidian-capture.sh
+  scripts/test-worktrunk-commit-generator.sh
   scripts/test-ssh-controlpath-identity.sh
   scripts/test-atuin-filter-parity.sh
   scripts/test-atuin-filter-parity-mutations.sh
@@ -38,6 +42,7 @@ exec_scripts=(
   scripts/test-railway-psql-errors.sh
   scripts/test-sync-capability-gating.sh
   scripts/test-tmux-lifecycle-contract.sh
+  scripts/test-update-unstable-soak.sh
 )
 
 failures=0

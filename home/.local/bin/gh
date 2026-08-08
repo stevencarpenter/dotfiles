@@ -99,6 +99,15 @@ if [ -n "${GH_TOKEN:-}" ] || [ -n "${GITHUB_TOKEN:-}" ]; then
   exec "${real_gh}" "$@"
 fi
 
+# GH_TOKEN is the github.com token variable. Never inject one while gh is
+# explicitly targeting a GitHub Enterprise host: even if the command later
+# overrides its repository, passing an unrelated full-write credential into
+# that process violates the wrapper's account/host boundary.
+case "${GH_HOST:-github.com}" in
+github.com) ;;
+*) exec "${real_gh}" "$@" ;;
+esac
+
 # ---- owner -> account -------------------------------------------------------
 # Owners absent from this map fall through to whatever account is active, so a
 # work repo needs no entry and gets no surprises. This is the ONLY owner map —
@@ -111,22 +120,87 @@ account_for_owner() {
   esac
 }
 
-url="$(git remote get-url origin 2>/dev/null)" || url=""
-[ -n "${url}" ] || exec "${real_gh}" "$@"
+# Print "host<TAB>owner" for an explicit gh repository selector. gh accepts
+# OWNER/REPO and HOST/OWNER/REPO for GH_REPO and -R/--repo.
+explicit_repo_identity() {
+  local repo="$1" first second third rest
+  IFS='/' read -r first second third rest <<<"${repo}"
+  if [ -n "${first}" ] && [ -n "${second}" ] && [ -z "${third}" ]; then
+    printf 'github.com\t%s\n' "${first}"
+  elif [ -n "${first}" ] && [ -n "${second}" ] && [ -n "${third}" ] && [ -z "${rest}" ]; then
+    printf '%s\t%s\n' "${first}" "${second}"
+  else
+    return 1
+  fi
+}
 
-# Strip the .git suffix BEFORE matching, and keep the pattern greedy-only.
-# Handles every remote spelling in use: scp-like with or without user@
-# (github-dotfiles:owner/repo.git, git@github.com:owner/repo.git), https://,
-# and ssh://.
-slug="${url%.git}"
-[[ ${slug} =~ [:/]([^/:]+)/([^/:]+)$ ]] || exec "${real_gh}" "$@"
-owner="${BASH_REMATCH[1]}"
+# Print "host<TAB>owner" for the current repository's origin. Unlike the old
+# suffix-only regex, this also proves the remote is github.com (or the explicit
+# personal SSH alias) before a github.com token enters the child environment.
+origin_identity() {
+  local url slug authority host path owner repo
+  url="$(git remote get-url origin 2>/dev/null)" || return 1
+  [ -n "${url}" ] || return 1
+  slug="${url%.git}"
+  case "${slug}" in
+  *://*)
+    authority="${slug#*://}"
+    host="${authority%%/*}"
+    path="${authority#*/}"
+    host="${host##*@}"
+    host="${host%%:*}"
+    ;;
+  *:*)
+    authority="${slug%%:*}"
+    path="${slug#*:}"
+    host="${authority##*@}"
+    ;;
+  *) return 1 ;;
+  esac
+  owner="${path%%/*}"
+  repo="${path#*/}"
+  [ -n "${owner}" ] && [ -n "${repo}" ] && [ "${repo}" != "${path}" ] || return 1
+  case "${host}" in
+  github.com | github-dotfiles) printf 'github.com\t%s\n' "${owner}" ;;
+  *) return 1 ;;
+  esac
+}
+
+# Command-line -R/--repo overrides GH_REPO, and either overrides $PWD. This is
+# load-bearing for gh-axi and for `gh -R other-owner/repo ...`: choosing the
+# account from the current checkout would authenticate the explicit target as
+# the wrong actor.
+explicit_repo=""
+args=("$@")
+for ((i = 0; i < ${#args[@]}; i++)); do
+  case "${args[i]}" in
+  --) break ;;
+  -R | --repo)
+    if ((i + 1 < ${#args[@]})); then
+      explicit_repo="${args[i + 1]}"
+    fi
+    ;;
+  --repo=*) explicit_repo="${args[i]#--repo=}" ;;
+  -R?*) explicit_repo="${args[i]#-R}" ;;
+  esac
+done
+[ -n "${explicit_repo}" ] || explicit_repo="${GH_REPO:-}"
+
+identity=""
+if [ -n "${explicit_repo}" ]; then
+  identity="$(explicit_repo_identity "${explicit_repo}")" || exec "${real_gh}" "$@"
+else
+  identity="$(origin_identity)" || exec "${real_gh}" "$@"
+fi
+host="${identity%%$'\t'*}"
+owner="${identity#*$'\t'}"
+[ "${host}" = github.com ] || exec "${real_gh}" "$@"
 
 account="$(account_for_owner "${owner}")" || exec "${real_gh}" "$@"
 
 # The machine may simply not be logged into the mapped account. That is not
 # worth interrupting a command over — fall through to the active account.
-token="$("${real_gh}" auth token --user "${account}" 2>/dev/null)" || token=""
+token="$(GH_HOST=github.com "${real_gh}" auth token --user "${account}" --hostname github.com 2>/dev/null)" || token=""
 [ -n "${token}" ] || exec "${real_gh}" "$@"
 
 GH_TOKEN="${token}" exec "${real_gh}" "$@"

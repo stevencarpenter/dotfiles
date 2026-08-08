@@ -55,9 +55,8 @@ json-schema = 2
 stage = "all"      # What to stage before commit: "all", "tracked", or "none"
 
 [commit.generation]
-# `--safe-mode` and `--no-session-persistence` were missing, and `--setting-sources`
-# was empty rather than `user`, all three diverging from worktrunk's documented
-# invocation (see its llm-commits reference). What each buys:
+# The local wrapper retains Worktrunk's documented safe Claude invocation and
+# rejects invalid output before Worktrunk can pass it to Git. What the flags buy:
 #   --safe-mode              hermetic: no hooks, plugins, MCP, skills, or CLAUDE.md.
 #                            Without it this call ingests whatever CLAUDE.md sits above
 #                            the repo — instructions written for PR bodies ("include
@@ -68,11 +67,17 @@ stage = "all"      # What to stage before commit: "all", "tracked", or "none"
 #   --no-session-persistence keeps generated-commit turns out of `claude --continue`.
 #   --setting-sources=user   the documented value; empty can break setups that
 #                            authenticate through apiKeyHelper rather than OAuth.
-# `CLAUDECODE=` (unset, not a value) is kept deliberately: it clears the harness's
+# `CLAUDECODE=` (empty, not inherited) is kept deliberately: it clears the harness's
 # nested-invocation guard so this works when `wt` is driven from inside a session.
 # `--disable-slash-commands` is also kept — a diff line beginning with `/` must not be
 # read as a command, and --safe-mode does not cover that.
-command = "CLAUDECODE= MAX_THINKING_TOKENS=0 claude -p --no-session-persistence --model=haiku --tools='' --safe-mode --disable-slash-commands --setting-sources='user' --system-prompt=''"
+command = "\"$HOME/.local/bin/worktrunk-commit-generator\""
+
+# The wrapper validates locally, retries once with exact validation feedback,
+# then fails closed without printing rejected output. `--validate` exposes the
+# same deterministic check for tests and manual diagnosis. Bodies remain valid,
+# but must start after a blank line; prose before the Conventional subject is
+# rejected rather than silently rearranged.
 
 # Style guidance is APPENDED to worktrunk's own prompts rather than replacing them.
 # This block previously carried a full inline copy of the default squash-template,
@@ -90,13 +95,15 @@ command = "CLAUDECODE= MAX_THINKING_TOKENS=0 claude -p --no-session-persistence 
 # into the body, and unbalanced trailing `)` on two others. `template-append` is marked
 # experimental upstream; if it is ever dropped, these move into a full template override.
 template-append = """
-- Subject MUST use a Conventional Commit prefix: feat:, fix:, chore:, docs:, refactor:, test:
+- Subject MUST use a lowercase Conventional Commit prefix: build:, chore:, ci:, docs:,
+  feat:, fix:, perf:, refactor:, revert:, style:, test:
 - The subject is the change in imperative mood, never an explanatory sentence about it.
   Any explanation belongs in the body, after a blank line — never on the subject line.
 - No trailing period on the subject
-- Every parenthesis, bracket, quote and backtick must be balanced; emit no stray `)`
-- Never mention an AI agent, assistant, model or harness anywhere in the message,
-  and never add a Co-Authored-By trailer
+- Every parenthesis, bracket, brace, double quote and backtick must be balanced;
+  emit no stray `)`
+- Never claim that an AI/assistant/agent/model/harness generated or authored the
+  message, and never add a Co-Authored-By trailer
 """
 
 # #### Squash template

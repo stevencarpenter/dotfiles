@@ -1,25 +1,38 @@
 #!/usr/bin/env bash
-# Load the real tmux config into an isolated server and assert the effective
-# cwd bindings. Text-only checks miss later duplicate binds that override the
-# intended command, which is the slow regression this contract prevents.
+# Load the real tmux config into an isolated server and assert effective cwd,
+# pane-classification, and SessionEnd cleanup behavior. Text-only checks miss
+# later overrides and cannot expose socket or process leaks.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-socket_name="dotfiles-lifecycle-${$}"
+test_root="$(mktemp -d /tmp/dotfiles-tmux-lifecycle.XXXXXX)"
+socket_path="${test_root}/tmux.sock"
+server_started=0
 
 cleanup() {
-	tmux -L "${socket_name}" kill-server >/dev/null 2>&1 || true
+	if [[ "${server_started}" -eq 1 ]]; then
+		if ! tmux -S "${socket_path}" kill-server >/dev/null 2>&1; then
+			echo "tmux lifecycle cleanup: could not stop ${socket_path}; leaving socket reachable" >&2
+			return
+		fi
+		server_started=0
+	fi
+	# tmux normally unlinks an explicit socket when the server exits, but remove
+	# this exact test socket as well so a failed config load cannot leak it.
+	rm -f -- "${socket_path}"
+	rm -rf -- "${test_root}"
 }
 trap cleanup EXIT
 
 XDG_CONFIG_HOME="${repo_root}/home/.config" \
-	tmux -L "${socket_name}" -f "${repo_root}/home/.config/tmux/tmux.conf" \
-	new-session -d -s contract -c "${repo_root}"
+		tmux -S "${socket_path}" -f "${repo_root}/home/.config/tmux/tmux.conf" \
+		new-session -d -s contract -c "${repo_root}" "sleep 30"
+server_started=1
 
 # Dump the whole table once and match fields here rather than asking tmux to
 # look up a single key: `list-keys -T prefix <key>` silently returns nothing on
 # tmux 3.7, and `-` as a bare argument invites getopt ambiguity on any version.
-prefix_table="$(tmux -L "${socket_name}" list-keys -T prefix)"
+prefix_table="$(tmux -S "${socket_path}" list-keys -T prefix)"
 
 assert_binding() {
 	local key="$1" expected="$2" actual
@@ -40,7 +53,7 @@ assert_binding() {
 		echo "--- prefix table ---" >&2
 		echo "${prefix_table}" >&2
 		echo "--- server messages ---" >&2
-		tmux -L "${socket_name}" show-messages -t contract >&2 || true
+		tmux -S "${socket_path}" show-messages -t contract >&2 || true
 		exit 1
 	fi
 }
@@ -49,7 +62,117 @@ assert_binding c "new-window -c ${HOME}"
 assert_binding '|' "split-window -h -c ${HOME}"
 assert_binding - "split-window -v -c ${HOME}"
 
+# z4h must not silently reintroduce automatic or isolated tmux startup. Keep the
+# explicit value in the shell source: deleting it activates z4h's isolated
+# default, while `system` replaces the outer shell with `exec tmux`.
+if ! rg -Fq "zstyle ':z4h:' start-tmux no" \
+	"${repo_root}/home/.config/zsh/.zshrc"; then
+	echo "tmux lifecycle contract: z4h automatic tmux startup is not explicitly disabled" >&2
+	exit 1
+fi
+
+# A pane title is not sufficient evidence that Claude owns the pane. Exercise
+# the monitor against the isolated server with one negative control and both
+# recognized state-marker forms.
+create_titled_window() {
+	local title="$1" window_id pane_id
+	window_id="$(
+		tmux -S "${socket_path}" new-window -d -P -F '#{window_id}' \
+			-t contract: -c "${repo_root}" "sleep 30"
+	)"
+	pane_id="$(tmux -S "${socket_path}" list-panes -t "${window_id}" -F '#{pane_id}')"
+	tmux -S "${socket_path}" select-pane -t "${pane_id}" -T "${title}"
+	printf '%s\n' "${window_id}"
+}
+
+nvim_window="$(create_titled_window 'nvim')"
+working_window="$(create_titled_window '⠴ Claude contract')"
+idle_window="$(create_titled_window '✳ Claude contract')"
+server_pid="$(tmux -S "${socket_path}" display-message -p '#{pid}')"
+
+TMUX="${socket_path},${server_pid},0" CLAUDE_TEAMMATE_WARN=999 \
+	"${repo_root}/home/.config/tmux/scripts/claude-pane-monitor.sh" >/dev/null
+
+assert_window_state() {
+	local window_id="$1" expected="$2" label="$3" actual
+	actual="$(tmux -S "${socket_path}" show-option -wqv -t "${window_id}" @claude_state)"
+	if [[ "${actual}" != "${expected}" ]]; then
+		echo "tmux lifecycle contract: ${label} state expected '${expected}', got '${actual}'" >&2
+		exit 1
+	fi
+}
+
+assert_window_state "${nvim_window}" "" "arbitrary nvim title"
+assert_window_state "${working_window}" "working" "braille working title"
+assert_window_state "${idle_window}" "idle" "star waiting title"
+
+# Claude's own command-handler timeout is the outer teardown bound. The hook's
+# internal watchdog finishes first and remains effective when macOS has neither
+# timeout nor gtimeout.
+settings_base="${repo_root}/home/.claude/settings-base.json"
+if ! jq -e '
+  [.hooks.SessionEnd[]?.hooks[]?
+   | select(.type == "command"
+       and .command == "~/.claude/hooks/agent-reap-session-end.sh")]
+  | length == 1 and .[0].timeout == 20
+' "${settings_base}" >/dev/null; then
+	echo "tmux lifecycle contract: SessionEnd agent-reap handler must have timeout 20" >&2
+	exit 1
+fi
+
+hook_home="${test_root}/hook-home"
+fake_bin="${test_root}/fake-bin"
+mkdir -p "${hook_home}/.claude/teams/session-deadbeef" "${fake_bin}"
+cat >"${fake_bin}/agent-reap" <<'SH'
+#!/bin/bash
+printf '%s\n' "$*" >"${HOME}/agent-reap-args"
+printf '%s\n' "$$" >"${HOME}/agent-reap-pid"
+trap 'exit 0' TERM INT
+/bin/sleep 30
+SH
+chmod +x "${fake_bin}/agent-reap"
+
+SECONDS=0
+printf '%s\n' '{"session_id":"deadbeef-0000-0000-0000-000000000000"}' | \
+	HOME="${hook_home}" \
+	PATH="${fake_bin}:/usr/bin:/bin" \
+	AGENT_REAP_HOOK_TIMEOUT_SECS=1 \
+	"${repo_root}/home/.claude/hooks/agent-reap-session-end.sh"
+hook_elapsed="${SECONDS}"
+
+if (( hook_elapsed >= 8 )); then
+	echo "tmux lifecycle contract: portable hook watchdog took ${hook_elapsed}s" >&2
+	exit 1
+fi
+if [[ "$(<"${hook_home}/agent-reap-args")" != "reap --team deadbeef --kill" ]]; then
+	echo "tmux lifecycle contract: SessionEnd hook invoked the wrong agent-reap command" >&2
+	exit 1
+fi
+if ! rg -Fq 'timed out after 1s; terminating worker group' \
+	"${hook_home}/.claude/logs/agent-reap-session-end.log"; then
+	echo "tmux lifecycle contract: portable hook watchdog did not report its timeout" >&2
+	exit 1
+fi
+hook_worker_pid="$(<"${hook_home}/agent-reap-pid")"
+if kill -0 "${hook_worker_pid}" >/dev/null 2>&1; then
+	echo "tmux lifecycle contract: timed-out agent-reap worker ${hook_worker_pid} survived" >&2
+	exit 1
+fi
+
 rg -Fq '[Tmux runtime lifecycle](./tmux-runtime-lifecycle.md)' \
 	"${repo_root}/docs/ai-tools/README.md"
 
-echo "tmux-lifecycle-contract: effective cwd bindings and runbook link passed"
+# Stop the isolated server now, then remove the exact socket even if this tmux
+# version leaves it behind. The EXIT trap repeats this cleanup on earlier errors.
+if ! tmux -S "${socket_path}" kill-server >/dev/null 2>&1; then
+	echo "tmux lifecycle contract: could not stop isolated server ${socket_path}" >&2
+	exit 1
+fi
+server_started=0
+rm -f -- "${socket_path}"
+if [[ -e "${socket_path}" ]]; then
+	echo "tmux lifecycle contract: isolated socket leaked at ${socket_path}" >&2
+	exit 1
+fi
+
+echo "tmux-lifecycle-contract: cwd, explicit startup, pane state, bounded hook, and socket cleanup passed"
