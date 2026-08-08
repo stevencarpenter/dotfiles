@@ -16,17 +16,29 @@ XDG_CONFIG_HOME="${repo_root}/home/.config" \
 	tmux -L "${socket_name}" -f "${repo_root}/home/.config/tmux/tmux.conf" \
 	new-session -d -s contract -c "${repo_root}"
 
+# Dump the whole table once and match fields here rather than asking tmux to
+# look up a single key: `list-keys -T prefix <key>` silently returns nothing on
+# tmux 3.7, and `-` as a bare argument invites getopt ambiguity on any version.
+prefix_table="$(tmux -L "${socket_name}" list-keys -T prefix)"
+
 assert_binding() {
 	local key="$1" expected="$2" actual
-	actual="$(tmux -L "${socket_name}" list-keys -T prefix "${key}")"
+	actual="$(
+		awk -v key="${key}" \
+			'$1 == "bind-key" && $2 == "-T" && $3 == "prefix" && $4 == key {
+				$1 = $2 = $3 = $4 = ""
+				sub(/^ +/, "")
+				print
+			}' <<<"${prefix_table}"
+	)"
 	if [[ "${actual}" != *"${expected}"* ]]; then
 		echo "tmux lifecycle contract: ${key} expected '${expected}', got '${actual}'" >&2
-		# An empty or surprising binding usually means the config never
-		# finished loading, so dump what the server actually saw.
+		# A missing binding usually means the config never finished loading,
+		# so dump what the server actually saw.
 		echo "--- tmux -V ---" >&2
 		tmux -V >&2 || true
 		echo "--- prefix table ---" >&2
-		tmux -L "${socket_name}" list-keys -T prefix >&2 || true
+		echo "${prefix_table}" >&2
 		echo "--- server messages ---" >&2
 		tmux -L "${socket_name}" show-messages -t contract >&2 || true
 		exit 1
