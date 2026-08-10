@@ -105,8 +105,14 @@ def _semantic_drift(spec: PatchSpec, master: JsonDict, home: Path) -> DriftEntry
     deployed, expected = rendered
     if deployed == expected:
         return DriftEntry(spec.name, spec.path, "clean")
-    deployed_text = json.dumps(deployed, indent=2, sort_keys=True) + "\n"
-    expected_text = json.dumps(expected, indent=2, sort_keys=True) + "\n"
+    # ensure_ascii=False to match _write_json: the reported diff should read
+    # the way the file on disk reads, not in \uXXXX escapes.
+    deployed_text = (
+        json.dumps(deployed, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
+    )
+    expected_text = (
+        json.dumps(expected, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
+    )
     return DriftEntry(
         spec.name,
         spec.path,
@@ -129,7 +135,13 @@ def drift_report(master: JsonDict, home: Path) -> list[DriftEntry]:
 
     for target in _build_targets(home):
         expected = (
-            json.dumps(target.build(master, home=home), indent=2, sort_keys=True) + "\n"
+            json.dumps(
+                target.build(master, home=home),
+                indent=2,
+                sort_keys=True,
+                ensure_ascii=False,
+            )
+            + "\n"
         )
         entries.append(_compare_text(target.name, target.destination, expected))
 

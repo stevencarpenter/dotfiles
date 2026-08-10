@@ -103,9 +103,28 @@ mcp-test *FLAGS:
 mcp-fmt:
     uv run --project mcp_sync --group dev ruff format mcp_sync/src mcp_sync/tests
 
-# Run mcp sync manually
+# Run mcp sync manually.
+#
+# The machine overlay is NOT optional. `sync-mcp-configs` with no
+# --machine-config regenerates every target from the master alone, which
+# DELETES the overlay-only servers (hippo, kaneo on personal) from the
+# deployed configs rather than leaving them alone — a silent downgrade that
+# still reports `[ok] Synced` for every path.
+#
+# The mcpSync activation hook in modules/home/sync-hooks.nix selects the
+# overlay by `identity` at nix eval time. This recipe has no eval context, so
+# it reads the single overlay dotfiles.nix deployed for this host and refuses
+# to guess if it ever finds more than one.
 mcp-sync:
-    uv run --project mcp_sync sync-mcp-configs
+    #!/usr/bin/env bash
+    set -euo pipefail
+    shopt -s nullglob
+    overlays=("$HOME"/.config/mcp/machine/*.json)
+    case "${#overlays[@]}" in
+      0) uv run --project mcp_sync sync-mcp-configs ;;
+      1) uv run --project mcp_sync sync-mcp-configs --machine-config "${overlays[0]}" ;;
+      *) printf 'error: multiple machine overlays deployed: %s\n' "${overlays[*]}" >&2; exit 1 ;;
+    esac
 
 # ── Agent Reap ───────────────────────────────────────────
 

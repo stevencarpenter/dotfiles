@@ -975,6 +975,63 @@ def test_patch_claude_preserves_key_order(temp_home, monkeypatch_home):
     assert text.index('"version"') < text.index('"enabledPlugins"')
 
 
+def test_patch_claude_preserves_non_ascii_verbatim(temp_home, monkeypatch_home):
+    """patch_claude_code_config must NOT escape non-ASCII in ~/.claude.json.
+
+    Claude Code writes this file with JS ``JSON.stringify``, which emits
+    non-ASCII literally. Python's ``json.dumps`` defaults to
+    ``ensure_ascii=True``, so a sync would rewrite every em-dash Claude
+    authored as a ``\\u2014`` escape. That is JSON-equivalent and harmless to
+    parse, but it rewrites unrelated keys on every run, which makes the file
+    oscillate between two writers and buries real mcpServers drift under a
+    wall of escaping noise. Same class of bug as key ordering above.
+    """
+    claude_path = temp_home / ".claude.json"
+    initial = {
+        "companion": {"personality": "no chill—screams about bugs"},
+        "promo": "through Aug 19 · clau.de",
+        "mcpServers": {},
+    }
+    claude_path.write_text(
+        json.dumps(initial, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+
+    patch_claude_code_config({"servers": {"s": {"command": "x", "args": []}}})
+
+    text = claude_path.read_text(encoding="utf-8")
+    assert "—" in text, "em-dash was escaped rather than written through"
+    assert "·" in text, "middot was escaped rather than written through"
+    assert "\\u2014" not in text
+    assert "\\u00b7" not in text
+    # Escaped or not, the decoded values must be unchanged.
+    result = json.loads(text)
+    assert result["companion"] == initial["companion"]
+    assert result["promo"] == initial["promo"]
+
+
+def test_trailing_newline_only_on_files_the_tool_owns(temp_home, monkeypatch_home):
+    """Generated files end with a newline; co-owned files match their owner.
+
+    Claude Code rewrites ``~/.claude.json`` with no trailing newline, so
+    appending one leaves the file oscillating by a byte between the two
+    writers. Files this tool generates from scratch keep the POSIX trailing
+    newline — ``drift.py`` byte-compares those against ``json.dumps(...) +
+    "\\n"``, so dropping it there would report permanent false drift.
+    """
+    owned = temp_home / ".config" / "owned" / "mcp.json"
+    sync_to_locations({"mcpServers": {}}, owned)
+    assert owned.read_text(encoding="utf-8").endswith("}\n")
+
+    claude_path = temp_home / ".claude.json"
+    claude_path.write_text(json.dumps({"mcpServers": {}}, indent=2), encoding="utf-8")
+    patch_claude_code_config({"servers": {"s": {"command": "x", "args": []}}})
+
+    text = claude_path.read_text(encoding="utf-8")
+    assert not text.endswith("\n"), "co-owned file gained a trailing newline"
+    assert text.endswith("}")
+    assert json.loads(text)["mcpServers"]["s"]["command"] == "x"
+
+
 def test_patch_claude_managed_server_replaces_existing_entry(
     temp_home, monkeypatch_home, claude_config_template
 ):
