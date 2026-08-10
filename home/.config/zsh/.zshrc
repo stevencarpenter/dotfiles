@@ -404,6 +404,16 @@ function goops() {
     echo "goops: cannot reach HEAD~$n on $source_branch" >&2
     return 1
   fi
+  # The reset below is --hard, so uncommitted tracked changes are destroyed with
+  # no object in the repo to recover them from — the commits it moves are safe
+  # (git branch runs first), but staged and unstaged work is not. Refuse instead.
+  # Untracked files survive --hard, so they are deliberately not grounds to stop.
+  if ! git diff-index --quiet HEAD -- 2>/dev/null; then
+    echo "goops: refusing to move commits — the hard reset would destroy uncommitted changes:" >&2
+    git status --short --untracked-files=no >&2
+    echo "goops: commit or stash them first" >&2
+    return 1
+  fi
   git branch "$branch" && git reset --hard "HEAD~$n" && git checkout "$branch" || return
   if (( squash )); then
     git reset --soft "$source_branch" && git commit
