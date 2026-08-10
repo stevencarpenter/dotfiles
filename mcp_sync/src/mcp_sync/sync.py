@@ -515,19 +515,38 @@ def _load_json_object(path: Path) -> JsonDict:
     return payload
 
 
-def _write_json(path: Path, payload: JsonDict, *, sort_keys: bool = True) -> None:
+def _write_json(
+    path: Path,
+    payload: JsonDict,
+    *,
+    sort_keys: bool = True,
+    trailing_newline: bool = True,
+) -> None:
     """Write JSON to ``path`` atomically via a tempfile + rename.
 
     By default keys are alphabetized for deterministic output (good for
     files we own end-to-end). Pass ``sort_keys=False`` for files where a
     third-party tool also writes/reads the document and key ordering
     carries meaning or churns diffs (e.g. ``~/.claude.json``).
+
+    ``ensure_ascii=False`` for the same reason: the other writers of these
+    documents (Claude Code's JS ``JSON.stringify``, for one) emit non-ASCII
+    literally, so escaping it to ``\\uXXXX`` here would rewrite unrelated
+    keys on every sync and leave the file oscillating between two writers.
+    The bytes are UTF-8 encoded below either way; escaping only changes
+    which spelling of an identical string lands on disk.
+
+    ``trailing_newline=False`` completes the same set. Files this tool
+    generates end with a newline (POSIX convention, and ``drift.py``
+    byte-compares them against ``json.dumps(...) + "\\n"``), but a co-owned
+    file must match whatever its owner writes — Claude Code emits none, so
+    adding one makes the last byte flip back and forth on every sync.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
-    serialized = json.dumps(payload, indent=2, sort_keys=sort_keys)
+    serialized = json.dumps(payload, indent=2, sort_keys=sort_keys, ensure_ascii=False)
     fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
     try:
-        os.write(fd, (serialized + "\n").encode("utf-8"))
+        os.write(fd, (serialized + ("\n" if trailing_newline else "")).encode("utf-8"))
         os.fsync(fd)
     finally:
         os.close(fd)
@@ -746,7 +765,7 @@ def _sync_patch_spec(spec: PatchSpec, master: JsonDict, home: Path) -> None:
     if cfg is None:
         log_info(f"Skipping: {spec.path} (file not found)")
         return
-    _write_json(spec.path, cfg, sort_keys=False)
+    _write_json(spec.path, cfg, sort_keys=False, trailing_newline=False)
     log_success(f"Synced: {spec.path}")
 
 
