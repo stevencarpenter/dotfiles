@@ -1,6 +1,21 @@
 {
   "$schema": "https://modelcontextprotocol.io/schema/config.json",
   "servers": {
+    "kaneo": {
+      "type": "http",
+      "url": "https://kaneo.snugmarina.org/api/mcp",
+      "autoApprove": [
+        "whoami",
+        "list_workspaces",
+        "list_projects",
+        "get_project",
+        "list_tasks",
+        "get_task",
+        "list_task_comments",
+        "list_workspace_labels",
+        "get_task_relations"
+      ]
+    },
     "hippo": {
       "type": "stdio",
       "command": "uv",
