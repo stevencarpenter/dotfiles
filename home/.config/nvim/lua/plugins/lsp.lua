@@ -54,7 +54,6 @@ return {
             "mason-org/mason-lspconfig.nvim",
         },
         opts = {
-            autoformat = true,
             servers = {
                 nil_ls = false,
                 nixd = vim.fn.executable("nixd") == 1 and {

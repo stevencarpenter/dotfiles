@@ -14,3 +14,8 @@ vim.keymap.set({ "n", "v" }, "C", '"_C', { desc = "Change to end of line without
 vim.keymap.set({ "n", "v" }, "s", '"_s', { desc = "Substitute without yanking" })
 ---@diagnostic disable-next-line: undefined-global
 vim.keymap.set({ "n", "v" }, "S", '"_S', { desc = "Substitute line without yanking" })
+
+-- IntelliJ-style explicit cleanup: update the buffer, but never save it.
+vim.keymap.set("n", "<leader>cf", function()
+  require("config.cleanup").run()
+end, { desc = "Fix, organize imports, format, and lint" })

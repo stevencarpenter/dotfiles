@@ -4,9 +4,14 @@
 
 local opt = vim.opt
 
+-- Saving writes the buffer exactly as edited. Formatting and cleanup are
+-- explicit operations on <leader>cf, never side effects of :write.
+vim.g.autoformat = false
+
 opt.clipboard = "unnamedplus"
 opt.cursorline = true
 opt.expandtab = true
+opt.fixendofline = false
 opt.guicursor = "n-v-c:block-Cursor/lCursor,i-ci-ve:ver25,r-cr:hor20,o:hor50"
 opt.hidden = true
 opt.hlsearch = true
