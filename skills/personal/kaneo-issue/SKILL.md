@@ -34,6 +34,7 @@ remote of the working directory; ask only if the remote is absent or ambiguous.
 
 | Repo | Project | Slug |
 |---|---|---|
+| `carpenter` (meta workspace) | Carpenter | `CARP` |
 | `sluice` | Sluice | `SLU` |
 | `hippo` | Hippo | `HIPO` |
 | `homelab` | homelab | `HOME` |

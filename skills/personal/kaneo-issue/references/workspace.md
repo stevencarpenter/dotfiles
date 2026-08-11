@@ -24,6 +24,7 @@ IDs (`HOME-1`).
 | Project | Slug | `projectId` | Scope |
 |---|---|---|---|
 | Snugmarina | `SNUG` | `f4ww6cb482sfi7olt8yyouxt` | Household-OS iOS app + server |
+| Carpenter | `CARP` | `vlqya8k5c0aegkyfx2bqm6e7` | Meta-workspace repo (coordination, plans, workspace tooling). Kaneo-native, created 2026-08-11 — legacy Linear `CARP-*` IDs in migrated bodies do NOT refer to this board |
 | Whistlepost — Full Vision | `WPFV` | `je7viaubbnripmb7ves6gah5` | Rail sighting journal, post-launch vision |
 | Whistlepost | `WP` | `yukuvlygrt8un3zcyw4zh8a9` | Rail sighting journal, launch sprint |
 | Sluice | `SLU` | `rqqqk70o40v9sk1wcklxwh9a` | CDC pipeline (Rust workspace) |
