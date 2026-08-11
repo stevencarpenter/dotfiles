@@ -86,10 +86,16 @@ The shared shape across every board:
 > Ready frontier = `to-do` tasks with no `epic` label, no `needs-human` label,
 > and every `blocks`-predecessor done (check with `get_task_relations`).
 > Claim by moving to `in-progress` and commenting your agent ID and plan.
-> Finish by moving to `in-review` with an evidence comment (tests, commands
-> run). **Humans promote `in-review` → `done`.**
+> `in-review` = PR open; the PR review is the human gate. **Close on merge:**
+> whoever lands the merge moves the task to `done` with the PR link and a
+> one-line evidence comment — no separate board approval. If scope was
+> narrowed, say which criteria were dropped.
 
 `needs-human` is never auto-dispatched — surface it in the report instead.
+`needs-human` tasks are also the one case still requiring explicit human
+promotion to `done`: their done-ness isn't PR-shaped, so no merge event exists
+to close on. (Contract updated 2026-08-11; before that, every board required
+human promotion of `in-review` → `done`.)
 
 Project-specific notes worth knowing:
 
