@@ -20,7 +20,7 @@ type Transform = Callable[[JsonDict], JsonDict]
 TEMPLATES_DIR = Path(__file__).with_name("templates")
 CODEX_MCP_BEGIN_MARKER = "# MCP Servers - BEGIN Codex"
 CODEX_MCP_END_MARKER = "# MCP Servers - END Codex"
-RETIRED_MCP_SERVER_NAMES = frozenset({"github", "xcode"})
+RETIRED_MCP_SERVER_NAMES = frozenset({"github", "xcode", "awslabs-ccapi-mcp-server"})
 
 # Timeout stamped onto local servers in the opencode output (milliseconds).
 _OPENCODE_TIMEOUT_MS = 30_000
@@ -485,7 +485,7 @@ def _render_codex_mcp_section(servers: JsonDict) -> str:
             env_parts = [
                 f"{key} = {toml_string(str(value))}" for key, value in env.items()
             ]
-            lines.append(f"environment = {{ {', '.join(env_parts)} }}")
+            lines.append(f"env = {{ {', '.join(env_parts)} }}")
 
     lines.append("")
     lines.append(CODEX_MCP_END_MARKER)

@@ -209,6 +209,10 @@ def test_patch_claude_code_config_removes_retired_servers(
     template["mcpServers"] = {
         "github": {"command": "uv", "args": ["run", "github-mcp"]},
         "xcode": {"type": "http", "url": "http://localhost:9876/mcp"},
+        "awslabs-ccapi-mcp-server": {
+            "command": "uvx",
+            "args": ["awslabs.ccapi-mcp-server@1.0.18", "--readonly"],
+        },
         "old_server": {"command": "old", "args": ["old"]},
     }
     claude_path.write_text(json.dumps(template, indent=2), encoding="utf-8")
@@ -218,6 +222,7 @@ def test_patch_claude_code_config_removes_retired_servers(
     result = json.loads(claude_path.read_text())
     assert "github" not in result["mcpServers"]
     assert "xcode" not in result["mcpServers"]
+    assert "awslabs-ccapi-mcp-server" not in result["mcpServers"]
     assert "old_server" in result["mcpServers"]
 
 
@@ -670,6 +675,18 @@ def test_sync_codex_mcp_url_server(temp_home, monkeypatch_home):
     assert "command =" not in remote_block
     assert "args =" not in remote_block
     assert "environment =" not in remote_block
+
+
+def test_sync_codex_mcp_uses_codex_env_key(temp_home, monkeypatch_home, master_config):
+    """Stdio environment variables use Codex's supported ``env`` field."""
+    sync_codex_mcp(master_config)
+
+    result = (temp_home / ".codex" / "config.toml").read_text(encoding="utf-8")
+    parsed = tomllib.loads(result)
+
+    assert parsed["mcp_servers"]["env-server"]["env"] == {
+        "ENV_SERVER_TOKEN": "${ENV_SERVER_TOKEN}"
+    }
 
 
 def test_sync_codex_mcp_mixed_stdio_and_url(temp_home, monkeypatch_home, master_config):
