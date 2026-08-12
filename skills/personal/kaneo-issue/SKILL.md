@@ -34,6 +34,7 @@ remote of the working directory; ask only if the remote is absent or ambiguous.
 
 | Repo | Project | Slug |
 |---|---|---|
+| `carpenter` (meta workspace) | Carpenter | `CARP` |
 | `sluice` | Sluice | `SLU` |
 | `hippo` | Hippo | `HIPO` |
 | `homelab` | homelab | `HOME` |
@@ -226,10 +227,19 @@ Reference the task from the work with the display ID in the commit body
 move the column yourself when the PR merges. Keep the branch name on the repo's
 own `type/kebab-case` convention.
 
-Closing a task a merged PR resolved: set `done`, comment with the PR link and
-one line on what shipped. If you closed it without implementing everything the
-description asked for, say which criteria you dropped and why — a silently
-narrowed task reads as fully delivered later.
+**The merge is the promotion.** The PR review is where the human gate lives —
+once a PR merges, whoever lands the merge (usually the agent in that session)
+moves the task straight to `done`; there is no separate board approval to wait
+for. Close it with the PR link and one line on what shipped. If you closed it
+without implementing everything the description asked for, say which criteria
+you dropped and why — a silently narrowed task reads as fully delivered later.
+The exception is `needs-human` tasks, whose done-ness isn't PR-shaped (device,
+console, or credential work): those still wait for explicit human promotion.
+
+Also close on behalf of dead sessions: if you find an open task whose work
+demonstrably merged (a `Closes <ID>` footer, a matching PR), close it with the
+evidence rather than leaving it to rot — stale board state is the failure mode
+this rule exists to prevent.
 
 ## 7. Epics and hierarchy
 

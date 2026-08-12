@@ -24,6 +24,7 @@ IDs (`HOME-1`).
 | Project | Slug | `projectId` | Scope |
 |---|---|---|---|
 | Snugmarina | `SNUG` | `f4ww6cb482sfi7olt8yyouxt` | Household-OS iOS app + server |
+| Carpenter | `CARP` | `vlqya8k5c0aegkyfx2bqm6e7` | Meta-workspace repo (coordination, plans, workspace tooling). Kaneo-native, created 2026-08-11 — legacy Linear `CARP-*` IDs in migrated bodies do NOT refer to this board |
 | Whistlepost — Full Vision | `WPFV` | `je7viaubbnripmb7ves6gah5` | Rail sighting journal, post-launch vision |
 | Whistlepost | `WP` | `yukuvlygrt8un3zcyw4zh8a9` | Rail sighting journal, launch sprint |
 | Sluice | `SLU` | `rqqqk70o40v9sk1wcklxwh9a` | CDC pipeline (Rust workspace) |
@@ -86,10 +87,16 @@ The shared shape across every board:
 > Ready frontier = `to-do` tasks with no `epic` label, no `needs-human` label,
 > and every `blocks`-predecessor done (check with `get_task_relations`).
 > Claim by moving to `in-progress` and commenting your agent ID and plan.
-> Finish by moving to `in-review` with an evidence comment (tests, commands
-> run). **Humans promote `in-review` → `done`.**
+> `in-review` = PR open; the PR review is the human gate. **Close on merge:**
+> whoever lands the merge moves the task to `done` with the PR link and a
+> one-line evidence comment — no separate board approval. If scope was
+> narrowed, say which criteria were dropped.
 
 `needs-human` is never auto-dispatched — surface it in the report instead.
+`needs-human` tasks are also the one case still requiring explicit human
+promotion to `done`: their done-ness isn't PR-shaped, so no merge event exists
+to close on. (Contract updated 2026-08-11; before that, every board required
+human promotion of `in-review` → `done`.)
 
 Project-specific notes worth knowing:
 
