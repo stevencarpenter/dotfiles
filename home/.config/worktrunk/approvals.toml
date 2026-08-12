@@ -1,0 +1,4 @@
+[projects."github.com/Lumin-Digital/bulk-data-export"]
+approved-commands = [
+    ".config/wt-hooks/post-start.sh {{ branch }}",
+]
