@@ -152,18 +152,51 @@ in
     # (encrypted_* block + execute-template validation) that are inert under nix,
     # leaving only the personal hippo SessionStart hook as live content. Generated
     # rather than symlinked so the hippo path binds to this machine's homeDir.
+    #
+    # The codebase-memory-mcp entries are adopted from its installer: the file is
+    # a read-only store symlink, so `codebase-memory-mcp install` cannot merge
+    # them in itself and aborts (exit 1) when they are absent. With the entries
+    # already present its presence-check passes and it leaves the file alone.
+    # Keep the command strings byte-identical to what the installer writes
+    # (single-quoted binary path, command_windows variant, timeout 5).
     (lib.optionalAttrs (identity == "personal") {
       ".codex/hooks.json".text = builtins.toJSON {
-        hooks.SessionStart = [
-          {
-            hooks = [
-              {
-                type = "command";
-                command = "${config.home.homeDirectory}/.local/share/hippo-brain/shell/claude-session-hook.sh";
-              }
-            ];
-          }
-        ];
+        hooks = {
+          SessionStart = [
+            {
+              hooks = [
+                {
+                  type = "command";
+                  command = "${config.home.homeDirectory}/.local/share/hippo-brain/shell/claude-session-hook.sh";
+                }
+              ];
+            }
+            {
+              matcher = "startup|resume|clear|compact";
+              hooks = [
+                {
+                  type = "command";
+                  command = "'${config.home.homeDirectory}/.local/bin/codebase-memory-mcp' hook-augment";
+                  command_windows = "& '${config.home.homeDirectory}/.local/bin/codebase-memory-mcp' hook-augment";
+                  timeout = 5;
+                }
+              ];
+            }
+          ];
+          SubagentStart = [
+            {
+              matcher = "*";
+              hooks = [
+                {
+                  type = "command";
+                  command = "'${config.home.homeDirectory}/.local/bin/codebase-memory-mcp' hook-augment";
+                  command_windows = "& '${config.home.homeDirectory}/.local/bin/codebase-memory-mcp' hook-augment";
+                  timeout = 5;
+                }
+              ];
+            }
+          ];
+        };
       };
     })
 
