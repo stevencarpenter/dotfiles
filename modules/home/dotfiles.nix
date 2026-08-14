@@ -108,6 +108,11 @@ in
       # invalid model output is retried once, then rejected before Git sees it.
       ".local/bin/worktrunk-commit-generator"
 
+      # Re-seed the tmux server's frozen global env from a pristine login
+      # shell without restarting the server (report-only; --apply executes).
+      # Ungated like the tmux config itself: inert without a server.
+      ".local/bin/tmux-refresh-env"
+
       # Claude Code statusline + hooks. NOTE: settings.json is NOT linked here —
       # it is jq-merged by an activation script in ai-stack.nix so Claude's own
       # in-tool edits survive. CLAUDE.md is deployed per the locked gating map
