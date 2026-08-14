@@ -1,12 +1,12 @@
 [inference]
 base_url = "http://127.0.0.1:42069/v1" # oMLX local server (LM Studio: :1234)
-timeout_secs = 300                    # HTTP timeout for chat/embed calls
+timeout_secs = 300                     # HTTP timeout for chat/embed calls
 
 [models]
 # ── Chat / enrichment models ──────────────────────────────────────────
-enrichment = "Qwen3.6-35B-A3B-MLX-8bit"            # Unified local MoE, 35B total, 3B active; 8-bit MLX build
-enrichment_bulk = "Qwen3.6-35B-A3B-MLX-8bit"       # Same local model for bulk enrichment
-query = "Qwen3.6-35B-A3B-MLX-8bit"                 # Same local model for query reformulation
+enrichment = "Qwen3.6-35B-A3B-Uncensored-Heretic-MLX-8bit"      # Unified local MoE, 35B total, 3B active; 8-bit MLX build
+enrichment_bulk = "Qwen3.6-35B-A3B-Uncensored-Heretic-MLX-8bit" # Same local model for bulk enrichment
+query = "Qwen3.6-35B-A3B-Uncensored-Heretic-MLX-8bit"          # Same local model for query reformulation
 # enrichment = "DeepSeek-V4-Flash-2bit-DQ"          # DeepSeek V4 Flash, 2bit DQ — fast but lower quality
 # enrichment_bulk = "DeepSeek-V4-Flash-2bit-DQ"
 # query = "DeepSeek-V4-Flash-2bit-DQ"
@@ -32,7 +32,7 @@ query = "Qwen3.6-35B-A3B-MLX-8bit"                 # Same local model for query 
 # enrichment_bulk = "MarkItDown"
 # query = "MarkItDown"
 # ── Embedding model ───────────────────────────────────────────────────
-embedding = "nomicai-modernbert-embed-base-8bit"    # 768d MLX embedding (ModernBERT, nomic lineage)
+embedding = "nomicai-modernbert-embed-base-8bit" # 768d MLX embedding (ModernBERT, nomic lineage)
 # embedding = "MarkItDown"                          # Document → Markdown converter (not an embedding model)
 
 [daemon]

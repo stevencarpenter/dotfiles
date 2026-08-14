@@ -8,6 +8,6 @@
     "record-decision": { "source": "personal" },
     "record-todo": { "source": "personal" },
     "wrap-session": { "source": "personal" },
-    "linear-issue": { "source": "personal" }
+    "kaneo-issue": { "source": "personal" }
   }
 }

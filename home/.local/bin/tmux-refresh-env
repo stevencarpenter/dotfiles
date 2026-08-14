@@ -1,0 +1,141 @@
+#!/usr/bin/env bash
+# tmux-refresh-env — re-seed the tmux server's global environment from a
+# pristine login shell, without restarting the server (and without killing
+# long-running TUIs in existing panes).
+#
+# Why this exists: the tmux server snapshots the environment of whichever
+# shell first ran `tmux new`, and every new pane inherits that snapshot.
+# Only the vars in `update-environment` (TERM/TERM_PROGRAM + tmux's SSH/
+# display defaults) are ever refreshed, so rebuild-delivered env changes —
+# and any project secrets exported in the launching shell — persist in the
+# server until it dies. See docs/ai-tools/tmux-runtime-lifecycle.md.
+#
+# Report-only by default (names only — values are never printed, since the
+# whole point is often evicting secrets). Pass --apply to execute.
+#
+# The pristine environment comes from `env -i ... zsh -l -i`: an empty
+# environment rebuilt by the full login+interactive startup chain
+# (/etc/zshenv -> /etc/zprofile+path_helper -> z4h). A login shell started
+# normally inside tmux would inherit the pane env and defeat the purpose.
+#
+# Known limitation: vars whose values contain newlines are handled on the
+# fresh side (env -0) but not parseable from `tmux show-environment` line
+# output; their continuation lines are ignored, which at worst re-sets the
+# same var on every run.
+set -euo pipefail
+
+# Per-process/per-shell ephemerals: never synced in either direction. TERM
+# is here because tmux owns per-pane TERM via default-terminal, and the
+# pristine shell only ever sees this script's fallback value.
+# Tune this list, not the logic.
+EXCLUDE_RE='^(PWD|OLDPWD|SHLVL|_|TTY|TERM|TERM_SESSION_ID|GPG_TTY|HIPPO_SESSION_ID|ATUIN_.*|TMUX|TMUX_PANE)$'
+
+# Never pruned from the server env: tmux refreshes the first group into the
+# session env on client attach (its default update-environment list), and
+# the rest is launchd / terminal-app / tpm plumbing that a pristine `env -i`
+# shell cannot reproduce but new panes genuinely want (TMPDIR is the
+# per-user /var/folders path; GHOSTTY_* pairs with the running terminal;
+# TMUX_PLUGIN_MANAGER_PATH was set by tmux.conf itself).
+PROTECT_RE='^(DISPLAY|KRB5CCNAME|SSH_ASKPASS|SSH_AUTH_SOCK|SSH_AGENT_PID|SSH_CONNECTION|WINDOWID|XAUTHORITY|TERM_PROGRAM|TERM_PROGRAM_VERSION|TMPDIR|LANG|COLORTERM|GHOSTTY_.*|TMUX_PLUGIN_MANAGER_PATH)$'
+
+apply=0
+case "${1:-}" in
+  --apply) apply=1 ;;
+  "") ;;
+  -h | --help)
+    echo "usage: tmux-refresh-env [--apply]"
+    echo "Diff the tmux server's global env against a fresh login shell."
+    echo "Default is a names-only plan; --apply rewrites the server env."
+    exit 0
+    ;;
+  *)
+    echo "tmux-refresh-env: unknown argument: $1" >&2
+    exit 2
+    ;;
+esac
+
+if ! tmux show-environment -g >/dev/null 2>&1; then
+  echo "tmux-refresh-env: no tmux server reachable on the default socket." >&2
+  exit 1
+fi
+
+fresh_file=$(mktemp)
+trap 'rm -f "$fresh_file"' EXIT
+
+/usr/bin/env -i \
+  HOME="$HOME" USER="$USER" LOGNAME="${LOGNAME:-$USER}" \
+  SHELL="${SHELL:-/bin/zsh}" TERM="${TERM:-xterm-256color}" \
+  /bin/zsh -l -i -c "/usr/bin/env -0 > ${fresh_file@Q}" </dev/null >/dev/null 2>&1
+
+if [ ! -s "$fresh_file" ]; then
+  echo "tmux-refresh-env: pristine login shell produced no environment." >&2
+  exit 1
+fi
+
+declare -A fresh
+while IFS= read -r -d '' entry; do
+  name=${entry%%=*}
+  [[ $name =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
+  [[ $name =~ $EXCLUDE_RE ]] && continue
+  fresh[$name]=${entry#*=}
+done <"$fresh_file"
+
+declare -A server
+while IFS= read -r line; do
+  [[ $line =~ ^([A-Za-z_][A-Za-z0-9_]*)=(.*)$ ]] || continue
+  # Capture both groups NOW: the =~ in the exclude check below clobbers
+  # BASH_REMATCH. ${..:-}: an empty value leaves [2] unset under `set -u`.
+  name=${BASH_REMATCH[1]} value=${BASH_REMATCH[2]:-}
+  [[ $name =~ $EXCLUDE_RE ]] && continue
+  server[$name]=$value
+done < <(tmux show-environment -g)
+
+to_set=()
+for name in "${!fresh[@]}"; do
+  if [ ! "${server[$name]+x}" ] || [ "${server[$name]}" != "${fresh[$name]}" ]; then
+    to_set+=("$name")
+  fi
+done
+
+to_unset=()
+for name in "${!server[@]}"; do
+  [[ $name =~ $PROTECT_RE ]] && continue
+  if [ ! "${fresh[$name]+x}" ]; then
+    to_unset+=("$name")
+  fi
+done
+
+if [ ${#to_set[@]} -eq 0 ] && [ ${#to_unset[@]} -eq 0 ]; then
+  echo "tmux server global env already matches a fresh login shell."
+  exit 0
+fi
+
+verb_set="would set" verb_unset="would unset"
+[ $apply -eq 1 ] && verb_set="set" verb_unset="unset"
+
+if [ ${#to_set[@]} -gt 0 ]; then
+  echo "$verb_set (${#to_set[@]}):"
+  printf '  %s\n' "${to_set[@]}" | sort
+fi
+if [ ${#to_unset[@]} -gt 0 ]; then
+  echo "$verb_unset (${#to_unset[@]}):"
+  printf '  %s\n' "${to_unset[@]}" | sort
+fi
+
+if [ $apply -eq 0 ]; then
+  echo
+  echo "Plan only. Re-run with --apply to rewrite the tmux server env."
+  exit 0
+fi
+
+for name in "${to_set[@]}"; do
+  tmux set-environment -g "$name" "${fresh[$name]}"
+done
+for name in "${to_unset[@]}"; do
+  tmux set-environment -gu "$name"
+done
+
+echo
+echo "Done. New panes now inherit the refreshed environment."
+echo 'Existing shells: eval "$(tmux show-environment -g -s)"'
+echo "(Running TUIs keep their env until restarted — that is per-process and unfixable.)"

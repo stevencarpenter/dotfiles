@@ -31,6 +31,7 @@
 {
   config,
   lib,
+  pkgs,
   caps,
   identity,
   ...
@@ -108,6 +109,11 @@ in
       # invalid model output is retried once, then rejected before Git sees it.
       ".local/bin/worktrunk-commit-generator"
 
+      # Re-seed the tmux server's frozen global env from a pristine login
+      # shell without restarting the server (report-only; --apply executes).
+      # Ungated like the tmux config itself: inert without a server.
+      ".local/bin/tmux-refresh-env"
+
       # Claude Code statusline + hooks. NOTE: settings.json is NOT linked here —
       # it is jq-merged by an activation script in ai-stack.nix so Claude's own
       # in-tool edits survive. CLAUDE.md is deployed per the locked gating map
@@ -142,25 +148,14 @@ in
       ".config/hippo" # local LM brain client config (config.toml + redact.toml)
     ]))
 
-    # Codex hooks.json (personal only). The chezmoi source deployed this on every
-    # machine, but its PreToolUse/PostToolUse hooks were chezmoi-template guards
-    # (encrypted_* block + execute-template validation) that are inert under nix,
-    # leaving only the personal hippo SessionStart hook as live content. Generated
-    # rather than symlinked so the hippo path binds to this machine's homeDir.
-    (lib.optionalAttrs (identity == "personal") {
-      ".codex/hooks.json".text = builtins.toJSON {
-        hooks.SessionStart = [
-          {
-            hooks = [
-              {
-                type = "command";
-                command = "${config.home.homeDirectory}/.local/share/hippo-brain/shell/claude-session-hook.sh";
-              }
-            ];
-          }
-        ];
-      };
-    })
+    # NOTE: ~/.codex/hooks.json is deliberately NOT declared here. It was
+    # briefly a generated home.file, byte-mirroring the codebase-memory-mcp
+    # installer's hook entries — but that installer canonicalizes and REWRITES
+    # the file on every `install` (its own key order, which builtins.toJSON's
+    # alphabetical serialization can never match), so a read-only store symlink
+    # makes every install abort. The file is now a writable real file owned by
+    # the installer; the codexHooksMerge activation below only guarantees the
+    # personal hippo SessionStart hook is present in it.
 
     # ---- NOT work (homelab access over Tailscale: personal only) ---------
     (lib.optionalAttrs (identity != "work") (mkLinks [
@@ -371,6 +366,42 @@ in
       mv "$tmp" "$OUT"
     ) || true
   '';
+
+  # Guarantee the personal hippo SessionStart hook exists in ~/.codex/hooks.json
+  # WITHOUT owning the file. The codebase-memory-mcp installer canonicalizes and
+  # rewrites this file on every `install`, so it must stay a writable real file
+  # (see the NOTE at the removed home.file block above). Merge semantics: create
+  # the file if absent, prepend the hippo entry if missing, touch nothing else.
+  # A leftover store symlink from the old generated-file era is materialized
+  # into a real file first so the installer can write through it ever after.
+  home.activation.codexHooksMerge = lib.mkIf (identity == "personal") (
+    lib.hm.dag.entryAfter [ "linkGeneration" ] ''
+      (
+        set -u
+        HOOKS="$HOME/.codex/hooks.json"
+        hippo="$HOME/.local/share/hippo-brain/shell/claude-session-hook.sh"
+        mkdir -p "$HOME/.codex"
+
+        if [ -L "$HOOKS" ]; then
+          content="$(cat "$HOOKS" 2>/dev/null || printf '{"hooks":{}}')"
+          rm -f "$HOOKS"
+          printf '%s' "$content" > "$HOOKS"
+        fi
+        [ -f "$HOOKS" ] || printf '{"hooks":{}}' > "$HOOKS"
+
+        if merged="$(${pkgs.jq}/bin/jq --arg cmd "$hippo" '
+              .hooks //= {} |
+              if ([.hooks.SessionStart[]?.hooks[]?.command] | index($cmd)) != null then .
+              else .hooks.SessionStart = [{hooks: [{type: "command", command: $cmd}]}]
+                     + (.hooks.SessionStart // [])
+              end' "$HOOKS")"; then
+          printf '%s\n' "$merged" > "$HOOKS.hm-tmp" && mv "$HOOKS.hm-tmp" "$HOOKS"
+        else
+          echo "Warning: could not merge hippo hook into $HOOKS; leaving it alone." >&2
+        fi
+      ) || true
+    ''
+  );
 
   # One link deliberately routed through the public rawDotfiles API so the
   # in-repo build exercises the same code path external wrappers use.
