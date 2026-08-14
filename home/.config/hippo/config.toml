@@ -4,9 +4,9 @@ timeout_secs = 300                     # HTTP timeout for chat/embed calls
 
 [models]
 # ── Chat / enrichment models ──────────────────────────────────────────
-enrichment = "mlx-community/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-bf16"      # Unified local MoE, 35B total, 3B active; 8-bit MLX build
-enrichment_bulk = "mlx-community/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-bf16" # Same local model for bulk enrichment
-query = "mlx-community/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-bf16"           # Same local model for query reformulation
+enrichment = "Qwen3.6-35B-A3B-Uncensored-Heretic-MLX-8bit"      # Unified local MoE, 35B total, 3B active; 8-bit MLX build
+enrichment_bulk = "Qwen3.6-35B-A3B-Uncensored-Heretic-MLX-8bit" # Same local model for bulk enrichment
+query = "Qwen3.6-35B-A3B-Uncensored-Heretic-MLX-8bit"          # Same local model for query reformulation
 # enrichment = "DeepSeek-V4-Flash-2bit-DQ"          # DeepSeek V4 Flash, 2bit DQ — fast but lower quality
 # enrichment_bulk = "DeepSeek-V4-Flash-2bit-DQ"
 # query = "DeepSeek-V4-Flash-2bit-DQ"
