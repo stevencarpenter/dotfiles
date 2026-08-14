@@ -83,6 +83,11 @@
     "/bin/zsh"
   ];
 
+  # nix-darwin ships EDITOR = mkDefault "nano" in its environment module and
+  # exports it from /etc/zshenv ahead of z4h and every raw dotfile, so the
+  # override has to live here in nix, not in the shell config.
+  environment.variables.EDITOR = "nvim";
+
   system = {
     # Required by recent nix-darwin so user-scoped system.defaults and the
     # homebrew module know which user to act as.
