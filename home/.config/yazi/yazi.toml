@@ -18,4 +18,3 @@ prepend_previewers = [
 ratio = [1, 1, 5]
 show_hidden = true
 show_symlinks = true
-

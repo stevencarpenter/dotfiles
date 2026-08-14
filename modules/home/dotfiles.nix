@@ -61,347 +61,349 @@ let
   overlay = "${identity}.json";
 in
 {
-  home.file = lib.mkMerge [
-    # ---- all machines -----------------------------------------------------
-    (mkLinks [
-      # z4h shell stack (z4h owns lifecycle; keep every file raw — see shell.nix).
-      ".zshenv"
-      ".config/zsh/.zshenv"
-      ".config/zsh/.zshrc"
-      ".config/zsh/.zprofile"
-      ".config/zsh/.p10k.zsh"
-      ".config/zsh/lib" # rebuild.zsh (replaces the retired chezmoi-apply lib)
-      ".config/zsh/profile.d/worktrunk-aliases.zsh"
-      ".config/zsh/profile.d/common-env.zsh" # non-secret flags (was the zsh-env age secret; WS1)
+  home = {
+    file = lib.mkMerge [
+      # ---- all machines -----------------------------------------------------
+      (mkLinks [
+        # z4h shell stack (z4h owns lifecycle; keep every file raw — see shell.nix).
+        ".zshenv"
+        ".config/zsh/.zshenv"
+        ".config/zsh/.zshrc"
+        ".config/zsh/.zprofile"
+        ".config/zsh/.p10k.zsh"
+        ".config/zsh/lib" # rebuild.zsh (replaces the retired chezmoi-apply lib)
+        ".config/zsh/profile.d/worktrunk-aliases.zsh"
+        ".config/zsh/profile.d/common-env.zsh" # non-secret flags (was the zsh-env age secret; WS1)
 
-      # Editor / TUI / terminal configs.
-      ".config/nvim" # stock LazyVim tree; LazyVim rewrites lazy-lock.json in place
-      ".config/yazi"
-      ".config/tmux"
-      ".config/ghostty" # harmless everywhere; link always regardless of gui cap
-      ".ideavimrc"
+        # Editor / TUI / terminal configs.
+        ".config/nvim" # stock LazyVim tree; LazyVim rewrites lazy-lock.json in place
+        ".config/yazi"
+        ".config/tmux"
+        ".config/ghostty" # harmless everywhere; link always regardless of gui cap
+        ".ideavimrc"
 
-      # Dev tooling configs (mise config itself is generated in dev-tools.nix).
-      ".config/git" # config (renamed from config.tmpl by dev-tools) + .gitignore_global
-      # Link only the config: jj writes mutable repository metadata beneath
-      # ~/.config/jj/repos, which must not land in the dotfiles checkout.
-      ".config/jj/config.toml"
-      ".config/dev-container"
-      ".config/nushell/config.nu" # link the file, not the dir (nushell writes history/env.nu there)
+        # Dev tooling configs (mise config itself is generated in dev-tools.nix).
+        ".config/git" # config (renamed from config.tmpl by dev-tools) + .gitignore_global
+        # Link only the config: jj writes mutable repository metadata beneath
+        # ~/.config/jj/repos, which must not land in the dotfiles checkout.
+        ".config/jj/config.toml"
+        ".config/dev-container"
+        ".config/nushell/config.nu" # link the file, not the dir (nushell writes history/env.nu there)
 
-      # Copilot IntelliJ instructions (single file; copilot writes runtime state in the dir).
-      ".config/github-copilot/intellij/global-copilot-instructions.md"
+        # Copilot IntelliJ instructions (single file; copilot writes runtime state in the dir).
+        ".config/github-copilot/intellij/global-copilot-instructions.md"
 
-      # gh account router. Deliberately on PATH rather than only a zsh function:
-      # ~/.local/bin precedes the mise shim dir, so this shadows `gh` for EVERY
-      # caller including subprocesses — which is the whole point, since a shell
-      # function is invisible to the non-interactive bash that coding agents and
-      # `npx gh-axi` run through. Ungated: the dual-account problem it solves is
-      # worst on the work machine, which is logged into both accounts.
-      ".local/bin/gh"
+        # gh account router. Deliberately on PATH rather than only a zsh function:
+        # ~/.local/bin precedes the mise shim dir, so this shadows `gh` for EVERY
+        # caller including subprocesses — which is the whole point, since a shell
+        # function is invisible to the non-interactive bash that coding agents and
+        # `npx gh-axi` run through. Ungated: the dual-account problem it solves is
+        # worst on the work machine, which is logged into both accounts.
+        ".local/bin/gh"
 
-      # AeroSpace's Obsidian capture bindings call this by path. The personal
-      # config supplies its known vault; the externally-consumed work config
-      # intentionally follows the focused vault instead of naming personal data.
-      ".local/bin/obsidian-capture"
+        # AeroSpace's Obsidian capture bindings call this by path. The personal
+        # config supplies its known vault; the externally-consumed work config
+        # intentionally follows the focused vault instead of naming personal data.
+        ".local/bin/obsidian-capture"
 
-      # Worktrunk commit generation is prompt-assisted but locally enforced:
-      # invalid model output is retried once, then rejected before Git sees it.
-      ".local/bin/worktrunk-commit-generator"
+        # Worktrunk commit generation is prompt-assisted but locally enforced:
+        # invalid model output is retried once, then rejected before Git sees it.
+        ".local/bin/worktrunk-commit-generator"
 
-      # Re-seed the tmux server's frozen global env from a pristine login
-      # shell without restarting the server (report-only; --apply executes).
-      # Ungated like the tmux config itself: inert without a server.
-      ".local/bin/tmux-refresh-env"
+        # Re-seed the tmux server's frozen global env from a pristine login
+        # shell without restarting the server (report-only; --apply executes).
+        # Ungated like the tmux config itself: inert without a server.
+        ".local/bin/tmux-refresh-env"
 
-      # Claude Code statusline + hooks. NOTE: settings.json is NOT linked here —
-      # it is jq-merged by an activation script in ai-stack.nix so Claude's own
-      # in-tool edits survive. CLAUDE.md is deployed per the locked gating map
-      # (see report note: phase1 flagged the old chezmoi setup ignored it).
-      ".claude/statusline-command.sh"
-      ".claude/CLAUDE.md"
-      ".claude/hooks/agent-journal-stop.sh"
-      ".claude/hooks/emit-routing-context.sh"
-      ".claude/hooks/wt-create.sh"
-      ".claude/hooks/wt-remove.sh"
+        # Claude Code statusline + hooks. NOTE: settings.json is NOT linked here —
+        # it is jq-merged by an activation script in ai-stack.nix so Claude's own
+        # in-tool edits survive. CLAUDE.md is deployed per the locked gating map
+        # (see report note: phase1 flagged the old chezmoi setup ignored it).
+        ".claude/statusline-command.sh"
+        ".claude/CLAUDE.md"
+        ".claude/hooks/agent-journal-stop.sh"
+        ".claude/hooks/emit-routing-context.sh"
+        ".claude/hooks/wt-create.sh"
+        ".claude/hooks/wt-remove.sh"
 
-      # Codex CLI: shared agent instructions + worktree hooks. AGENTS.md is
-      # machine-invariant (it renders the shared global-agent-instructions body
-      # with no per-host conditionals). The two hook scripts are byte-identical
-      # to the Claude ones above. hooks.json is NOT linked here — it is generated
-      # personal-only below (its only live hook is the personal hippo session
-      # hook; the old chezmoi PreToolUse/PostToolUse template guards are dead).
-      # NOTE: .codex/AGENTS.md is deliberately NOT linked here. It is assembled
-      # at activation from this body plus ~/.codex/AGENTS.d/*.md — see the
-      # codexAgentsAssemble hook below for why.
-      ".codex/hooks/wt-create.sh"
-      ".codex/hooks/wt-remove.sh"
-    ])
+        # Codex CLI: shared agent instructions + worktree hooks. AGENTS.md is
+        # machine-invariant (it renders the shared global-agent-instructions body
+        # with no per-host conditionals). The two hook scripts are byte-identical
+        # to the Claude ones above. hooks.json is NOT linked here — it is generated
+        # personal-only below (its only live hook is the personal hippo session
+        # hook; the old chezmoi PreToolUse/PostToolUse template guards are dead).
+        # NOTE: .codex/AGENTS.md is deliberately NOT linked here. It is assembled
+        # at activation from this body plus ~/.codex/AGENTS.d/*.md — see the
+        # codexAgentsAssemble hook below for why.
+        ".codex/hooks/wt-create.sh"
+        ".codex/hooks/wt-remove.sh"
+      ])
 
-    # ---- identity: personal ----------------------------------------------
-    (lib.optionalAttrs (identity == "personal") (mkLinks [
-      ".config/zsh/profile.d/personal-shell-functions.zsh"
-      ".config/zsh/profile.d/personal-secrets.zsh" # sources ~/.config/zsh/.personal.env (op-rendered)
-      ".config/op/render-manifest" # op-render reads this at its default path (WS1)
-      ".config/op/adopt-policy.json" # exact allowlist for names-only reverse adoption
-      ".local/bin/op-adopt" # guarded live secret -> 1Password adoption; dry-run by default
-      ".config/hippo" # local LM brain client config (config.toml + redact.toml)
-    ]))
+      # ---- identity: personal ----------------------------------------------
+      (lib.optionalAttrs (identity == "personal") (mkLinks [
+        ".config/zsh/profile.d/personal-shell-functions.zsh"
+        ".config/zsh/profile.d/personal-secrets.zsh" # sources ~/.config/zsh/.personal.env (op-rendered)
+        ".config/op/render-manifest" # op-render reads this at its default path (WS1)
+        ".config/op/adopt-policy.json" # exact allowlist for names-only reverse adoption
+        ".local/bin/op-adopt" # guarded live secret -> 1Password adoption; dry-run by default
+        ".config/hippo" # local LM brain client config (config.toml + redact.toml)
+      ]))
 
-    # NOTE: ~/.codex/hooks.json is deliberately NOT declared here. It was
-    # briefly a generated home.file, byte-mirroring the codebase-memory-mcp
-    # installer's hook entries — but that installer canonicalizes and REWRITES
-    # the file on every `install` (its own key order, which builtins.toJSON's
-    # alphabetical serialization can never match), so a read-only store symlink
-    # makes every install abort. The file is now a writable real file owned by
-    # the installer; the codexHooksMerge activation below only guarantees the
-    # personal hippo SessionStart hook is present in it.
+      # NOTE: ~/.codex/hooks.json is deliberately NOT declared here. It was
+      # briefly a generated home.file, byte-mirroring the codebase-memory-mcp
+      # installer's hook entries — but that installer canonicalizes and REWRITES
+      # the file on every `install` (its own key order, which builtins.toJSON's
+      # alphabetical serialization can never match), so a read-only store symlink
+      # makes every install abort. The file is now a writable real file owned by
+      # the installer; the codexHooksMerge activation below only guarantees the
+      # personal hippo SessionStart hook is present in it.
 
-    # ---- NOT work (homelab access over Tailscale: personal only) ---------
-    (lib.optionalAttrs (identity != "work") (mkLinks [
-      ".config/zsh/profile.d/tailscale.zsh"
-    ]))
+      # ---- NOT work (homelab access over Tailscale: personal only) ---------
+      (lib.optionalAttrs (identity != "work") (mkLinks [
+        ".config/zsh/profile.d/tailscale.zsh"
+      ]))
 
-    # ---- atuin ------------------------------------------------------------
-    # Deployed on EVERY machine; caps.atuin selects only WHICH variant. The
-    # capability means "sync history to the self-hosted server" — it does not
-    # mean "have a config at all". history_filter and the tmux popup are not
-    # sync concerns, so they ship in both variants.
-    #
-    # An absent config is never a neutral state: atuin then runs on its own
-    # defaults, which include a PUBLIC sync_address and no history_filter at
-    # all. `atuin init zsh` also reads [tmux].enabled at init time and emits
-    # ATUIN_TMUX_POPUP=false when it is missing, so the search UI renders
-    # inline rather than in a popup.
-    #
-    # mkDefault leaves the external work wrapper room to outrank this, per the
-    # override seam below and the aerospace precedent in tiling.nix.
-    # Link only the config file; atuin writes history.db into the same dir.
-    {
-      ".config/atuin/config.toml".source = lib.mkDefault (
-        link ".config/atuin/config.${if caps.atuin then "sync" else "local"}.toml"
-      );
-    }
-
-    # Whole-file override seam for tools without native include support.
-    # An external module's ordinary source definition outranks this default.
-    {
-      ".config/worktrunk".source = lib.mkDefault (link ".config/worktrunk");
-    }
-
-    # ---- caps.mcp ---------------------------------------------------------
-    # Master config + this machine's overlay. sync-mcp-configs (sync-hooks.nix)
-    # reads these at activation time and also consults ~/.config/mcp/overrides/
-    # if present — so guarantee that dir exists via a store-linked .keep marker
-    # (sync globs overrides/*.json, so .keep is ignored).
-    (lib.optionalAttrs caps.mcp (mkLinks [
-      ".config/mcp/mcp-master.json"
-
-      # AI CLI tool configs gated with the MCP fan-out (matches .chezmoiignore:
-      # these are dropped on machines without the mcp cap). Each tool writes its
-      # own runtime state into the surrounding dir but not into these managed
-      # files, so a single-file out-of-store symlink is safe (copilot -> other
-      # files in ~/.copilot; cursor -> other files in ~/.cursor). OpenCode's
-      # live config is generated by mcp_sync; the old rules.toml is ignored by
-      # current OpenCode and is intentionally not carried into the Nix layout.
-      ".copilot/settings.json"
-      ".cursor/cli-config.json"
-    ]))
-    (lib.optionalAttrs caps.mcp {
-      ".config/mcp/overrides/.keep".text = "";
-      # mkDefault: an external overlay repo may take ownership of this
-      # machine's overlay (LOCKED contract — declared seam).
-      ".config/mcp/machine/${overlay}".source = lib.mkDefault (link ".config/mcp/machine/${overlay}");
-    })
-
-    # ---- caps.skills ------------------------------------------------------
-    # Manifest + this machine's overlay; sync-skills (sync-hooks.nix) reads them.
-    (lib.optionalAttrs caps.skills (mkLinks [
-      ".config/skills/skills-master.json"
-    ]))
-    (lib.optionalAttrs caps.skills {
-      # mkDefault: an external overlay repo may take ownership (LOCKED contract — declared seam).
-      ".config/skills/machine/${overlay}".source = lib.mkDefault (
-        link ".config/skills/machine/${overlay}"
-      );
-    })
-    # Personal skill links previously pointed into the retired chezmoi source
-    # tree. Own each tool-native link explicitly so deleting that checkout does
-    # not strand Codex, Cursor, Copilot, OpenCode, or Junie.
-    (lib.optionalAttrs (caps.skills && identity == "personal") {
-      # NOTE: use-railway is vendored as a STATIC local copy under
-      # skills/personal/use-railway and linked out-of-store below. Do NOT wire
-      # the upstream railwayapp/railway-skills repo in as a pinned git source in
-      # skills-master.json (the auto-refresh design discussed) until the upstream
-      # PR that restores the removed injection guards is addressed — a 2026-07
-      # `railway skills update --force` shipped a shell-injection (dal.py) and a
-      # SQL-injection (pg-extensions.py) regression, both reverted here. Keeping
-      # the copy static means no CLI/upstream refresh can silently overwrite it.
-      ".config/opencode/skills/use-railway" = forcedRepoLink "skills/personal/use-railway";
-      ".codex/skills/playwright" = forcedRepoLink "skills/personal/playwright";
-      ".codex/skills/use-railway" = forcedRepoLink "skills/personal/use-railway";
-      ".cursor/skills/use-railway" = forcedRepoLink "skills/personal/use-railway";
-      ".copilot/skills/use-railway" = forcedRepoLink "skills/personal/use-railway";
-      ".junie/skills/clerk" = forcedRepoLink "skills/personal/clerk";
-      ".junie/skills/clerk-testing" = forcedRepoLink "skills/personal/clerk-testing";
-      ".junie/skills/clerk-webhooks" = forcedRepoLink "skills/personal/clerk-webhooks";
-      ".junie/skills/design-an-interface" = forcedRepoLink "skills/personal/design-an-interface";
-      ".junie/skills/domain-model" = forcedRepoLink "skills/personal/domain-model";
-      ".junie/skills/gh-axi" = forcedRepoLink "skills/personal/gh-axi";
-      ".junie/skills/github-triage" = forcedRepoLink "skills/personal/github-triage";
-      ".junie/skills/request-refactor-plan" = forcedRepoLink "skills/personal/request-refactor-plan";
-      ".junie/skills/ubiquitous-language" = forcedRepoLink "skills/personal/ubiquitous-language";
-    })
-
-    # ---- caps.agent_journal ----------------------------------------------
-    (lib.optionalAttrs caps.agent_journal (mkLinks [
-      ".config/agent-journal" # config.toml + workstreams.toml (plain out-of-store symlinks)
-      ".local/bin/agent-journal"
-      ".local/bin/agent-note"
-    ]))
-
-    # ---- agent-reap SessionEnd teardown hook (all machines) ---------------
-    # Disbands a Claude agent team when its session ends, closing the lifecycle
-    # gap that let 19 teammates survive at 7.18 GB. Wired in
-    # home/.claude/settings-base.json under SessionEnd; inert without agent-reap
-    # on PATH, so it is safe to link before `just sync` installs the tool.
-    (mkLinks [
-      ".claude/hooks/agent-reap-session-end.sh"
-    ])
-
-    # ---- agent-reap (all machines) ----------------------------------------
-    # Config only. The CLI itself is a uv tool installed by `just sync`
-    # (scripts/sync-side-channels.sh), which owns ~/.local/bin/agent-reap — so
-    # nothing is linked there or the shim and the symlink would collide.
-    #
-    # Ungated on purpose: agent-reap is inert without a tmux server or a team
-    # directory, so a capability would gate nothing real. Per CLAUDE.md, a
-    # capability without a consumer is not worth adding.
-    (mkLinks [
-      ".config/agent-reap" # config.toml (plain out-of-store symlink; edits are live)
-    ])
-
-    # ---- ssh tier 1: universal base (all machines) -------------------------
-    # mkDefault so an external overlay can take the whole file over if it ever
-    # needs to; the expectation is that it drops a config.d fragment instead.
-    {
-      ".ssh/config".source = lib.mkDefault (link ".ssh/config");
-    }
-
-    # ---- extension seam dirs (all machines) --------------------------------
-    {
-      # Real, neutral overlay roots avoid nesting external home.file entries
-      # beneath the out-of-store .config/git and .config/tmux parent symlinks.
+      # ---- atuin ------------------------------------------------------------
+      # Deployed on EVERY machine; caps.atuin selects only WHICH variant. The
+      # capability means "sync history to the self-hosted server" — it does not
+      # mean "have a config at all". history_filter and the tmux popup are not
+      # sync concerns, so they ship in both variants.
       #
-      # ~/.ssh/config.d is now a live seam, not just a placeholder: tier-2
-      # personal fragments are op-rendered into it and tier-3 work fragments
-      # come from the external overlay. ~/.ssh/config includes it above every
-      # Host block, so fragments win on first match.
-      ".ssh/config.d/.keep".text = "";
-      ".config/external-overlays/git/.keep".text = "";
-      ".config/external-overlays/tmux/.keep".text = "";
+      # An absent config is never a neutral state: atuin then runs on its own
+      # defaults, which include a PUBLIC sync_address and no history_filter at
+      # all. `atuin init zsh` also reads [tmux].enabled at init time and emits
+      # ATUIN_TMUX_POPUP=false when it is missing, so the search UI renders
+      # inline rather than in a popup.
+      #
+      # mkDefault leaves the external work wrapper room to outrank this, per the
+      # override seam below and the aerospace precedent in tiling.nix.
+      # Link only the config file; atuin writes history.db into the same dir.
+      {
+        ".config/atuin/config.toml".source = lib.mkDefault (
+          link ".config/atuin/config.${if caps.atuin then "sync" else "local"}.toml"
+        );
+      }
 
-      # ~/.claude/settings.d is the fragment seam for the Claude settings
-      # merge (ai-stack.nix's claudeSettingsMerge activation): external
-      # overlay repos drop JSON fragments here that deep-merge over the
-      # managed block. Materialize the dir with a real .keep so it exists
-      # even with no fragments present yet.
-      ".claude/settings.d/.keep".text = "";
+      # Whole-file override seam for tools without native include support.
+      # An external module's ordinary source definition outranks this default.
+      {
+        ".config/worktrunk".source = lib.mkDefault (link ".config/worktrunk");
+      }
 
-      # ~/.codex/AGENTS.d is the fragment seam for the Codex agent-instruction
-      # assembly (codexAgentsAssemble below) — the AGENTS.md analogue of
-      # settings.d. Same reason for a real .keep: the dir must exist before any
-      # overlay has dropped a fragment into it.
-      ".codex/AGENTS.d/.keep".text = "";
-    }
-  ];
+      # ---- caps.mcp ---------------------------------------------------------
+      # Master config + this machine's overlay. sync-mcp-configs (sync-hooks.nix)
+      # reads these at activation time and also consults ~/.config/mcp/overrides/
+      # if present — so guarantee that dir exists via a store-linked .keep marker
+      # (sync globs overrides/*.json, so .keep is ignored).
+      (lib.optionalAttrs caps.mcp (mkLinks [
+        ".config/mcp/mcp-master.json"
 
-  # ~/.codex/AGENTS.md is ASSEMBLED here, not symlinked, because Codex has no
-  # include directive — concatenation is the only way an external overlay can
-  # contribute global agent instructions. home.file cannot do it: nix would have
-  # to glob a fragment that another repo drops during this same activation. So
-  # the assembly is an activation step, and this hook is the file's SINGLE
-  # writer.
-  #
-  # That single-writer property is the whole point. Previously the base linked
-  # AGENTS.md and the work overlay ran a marker-block merge over it, whose
-  # `mv tmp file` replaced the symlink with a regular file. The first switch
-  # survived; every switch after it aborted in checkLinkTargets, because the
-  # backup slot (home-manager.backupFileExtension) was already occupied and
-  # home-manager refuses to clobber a backup.
-  #
-  # Cost, accepted deliberately: the body loses the edit-live property the rest
-  # of home/ keeps — editing home/.codex/AGENTS.md now needs a switch to take
-  # effect, where before it was instant.
-  # entryAfter "linkGeneration", NOT "writeBoundary". linkGeneration is itself
-  # an entryAfter-writeBoundary node, so two writeBoundary dependants have no
-  # defined order relative to each other — and this one sorted FIRST, running
-  # before any symlink existed. The seam glob then matched nothing and the
-  # output was silently the bare body: no error, just missing fragments.
-  home.activation.codexAgentsAssemble = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
-    (
-      set -u
-      BODY="${dotfiles}/home/.codex/AGENTS.md"
-      OUT="$HOME/.codex/AGENTS.md"
+        # AI CLI tool configs gated with the MCP fan-out (matches .chezmoiignore:
+        # these are dropped on machines without the mcp cap). Each tool writes its
+        # own runtime state into the surrounding dir but not into these managed
+        # files, so a single-file out-of-store symlink is safe (copilot -> other
+        # files in ~/.copilot; cursor -> other files in ~/.cursor). OpenCode's
+        # live config is generated by mcp_sync; the old rules.toml is ignored by
+        # current OpenCode and is intentionally not carried into the Nix layout.
+        ".copilot/settings.json"
+        ".cursor/cli-config.json"
+      ]))
+      (lib.optionalAttrs caps.mcp {
+        ".config/mcp/overrides/.keep".text = "";
+        # mkDefault: an external overlay repo may take ownership of this
+        # machine's overlay (LOCKED contract — declared seam).
+        ".config/mcp/machine/${overlay}".source = lib.mkDefault (link ".config/mcp/machine/${overlay}");
+      })
 
-      if [ ! -f "$BODY" ]; then
-        echo "Warning: Codex AGENTS body not found at $BODY; leaving $OUT alone." >&2
-        exit 0
-      fi
+      # ---- caps.skills ------------------------------------------------------
+      # Manifest + this machine's overlay; sync-skills (sync-hooks.nix) reads them.
+      (lib.optionalAttrs caps.skills (mkLinks [
+        ".config/skills/skills-master.json"
+      ]))
+      (lib.optionalAttrs caps.skills {
+        # mkDefault: an external overlay repo may take ownership (LOCKED contract — declared seam).
+        ".config/skills/machine/${overlay}".source = lib.mkDefault (
+          link ".config/skills/machine/${overlay}"
+        );
+      })
+      # Personal skill links previously pointed into the retired chezmoi source
+      # tree. Own each tool-native link explicitly so deleting that checkout does
+      # not strand Codex, Cursor, Copilot, OpenCode, or Junie.
+      (lib.optionalAttrs (caps.skills && identity == "personal") {
+        # NOTE: use-railway is vendored as a STATIC local copy under
+        # skills/personal/use-railway and linked out-of-store below. Do NOT wire
+        # the upstream railwayapp/railway-skills repo in as a pinned git source in
+        # skills-master.json (the auto-refresh design discussed) until the upstream
+        # PR that restores the removed injection guards is addressed — a 2026-07
+        # `railway skills update --force` shipped a shell-injection (dal.py) and a
+        # SQL-injection (pg-extensions.py) regression, both reverted here. Keeping
+        # the copy static means no CLI/upstream refresh can silently overwrite it.
+        ".config/opencode/skills/use-railway" = forcedRepoLink "skills/personal/use-railway";
+        ".codex/skills/playwright" = forcedRepoLink "skills/personal/playwright";
+        ".codex/skills/use-railway" = forcedRepoLink "skills/personal/use-railway";
+        ".cursor/skills/use-railway" = forcedRepoLink "skills/personal/use-railway";
+        ".copilot/skills/use-railway" = forcedRepoLink "skills/personal/use-railway";
+        ".junie/skills/clerk" = forcedRepoLink "skills/personal/clerk";
+        ".junie/skills/clerk-testing" = forcedRepoLink "skills/personal/clerk-testing";
+        ".junie/skills/clerk-webhooks" = forcedRepoLink "skills/personal/clerk-webhooks";
+        ".junie/skills/design-an-interface" = forcedRepoLink "skills/personal/design-an-interface";
+        ".junie/skills/domain-model" = forcedRepoLink "skills/personal/domain-model";
+        ".junie/skills/gh-axi" = forcedRepoLink "skills/personal/gh-axi";
+        ".junie/skills/github-triage" = forcedRepoLink "skills/personal/github-triage";
+        ".junie/skills/request-refactor-plan" = forcedRepoLink "skills/personal/request-refactor-plan";
+        ".junie/skills/ubiquitous-language" = forcedRepoLink "skills/personal/ubiquitous-language";
+      })
 
-      mkdir -p "$HOME/.codex"
-      tmp="$OUT.hm-tmp"
-      cat "$BODY" > "$tmp"
+      # ---- caps.agent_journal ----------------------------------------------
+      (lib.optionalAttrs caps.agent_journal (mkLinks [
+        ".config/agent-journal" # config.toml + workstreams.toml (plain out-of-store symlinks)
+        ".local/bin/agent-journal"
+        ".local/bin/agent-note"
+      ]))
 
-      # Fragment seam (LOCKED contract): overlay repos drop *.md into
-      # ~/.codex/AGENTS.d/ and they append in lexical order. `.keep` is not
-      # matched by *.md, so an empty seam appends nothing and the output is
-      # exactly the body.
-      for frag in "$HOME"/.codex/AGENTS.d/*.md; do
-        [ -f "$frag" ] || continue
-        printf '\n' >> "$tmp"
-        cat "$frag" >> "$tmp"
-      done
+      # ---- agent-reap SessionEnd teardown hook (all machines) ---------------
+      # Disbands a Claude agent team when its session ends, closing the lifecycle
+      # gap that let 19 teammates survive at 7.18 GB. Wired in
+      # home/.claude/settings-base.json under SessionEnd; inert without agent-reap
+      # on PATH, so it is safe to link before `just sync` installs the tool.
+      (mkLinks [
+        ".claude/hooks/agent-reap-session-end.sh"
+      ])
 
-      mv "$tmp" "$OUT"
-    ) || true
-  '';
+      # ---- agent-reap (all machines) ----------------------------------------
+      # Config only. The CLI itself is a uv tool installed by `just sync`
+      # (scripts/sync-side-channels.sh), which owns ~/.local/bin/agent-reap — so
+      # nothing is linked there or the shim and the symlink would collide.
+      #
+      # Ungated on purpose: agent-reap is inert without a tmux server or a team
+      # directory, so a capability would gate nothing real. Per CLAUDE.md, a
+      # capability without a consumer is not worth adding.
+      (mkLinks [
+        ".config/agent-reap" # config.toml (plain out-of-store symlink; edits are live)
+      ])
 
-  # Guarantee the personal hippo SessionStart hook exists in ~/.codex/hooks.json
-  # WITHOUT owning the file. The codebase-memory-mcp installer canonicalizes and
-  # rewrites this file on every `install`, so it must stay a writable real file
-  # (see the NOTE at the removed home.file block above). Merge semantics: create
-  # the file if absent, prepend the hippo entry if missing, touch nothing else.
-  # A leftover store symlink from the old generated-file era is materialized
-  # into a real file first so the installer can write through it ever after.
-  home.activation.codexHooksMerge = lib.mkIf (identity == "personal") (
-    lib.hm.dag.entryAfter [ "linkGeneration" ] ''
+      # ---- ssh tier 1: universal base (all machines) -------------------------
+      # mkDefault so an external overlay can take the whole file over if it ever
+      # needs to; the expectation is that it drops a config.d fragment instead.
+      {
+        ".ssh/config".source = lib.mkDefault (link ".ssh/config");
+      }
+
+      # ---- extension seam dirs (all machines) --------------------------------
+      {
+        # Real, neutral overlay roots avoid nesting external home.file entries
+        # beneath the out-of-store .config/git and .config/tmux parent symlinks.
+        #
+        # ~/.ssh/config.d is now a live seam, not just a placeholder: tier-2
+        # personal fragments are op-rendered into it and tier-3 work fragments
+        # come from the external overlay. ~/.ssh/config includes it above every
+        # Host block, so fragments win on first match.
+        ".ssh/config.d/.keep".text = "";
+        ".config/external-overlays/git/.keep".text = "";
+        ".config/external-overlays/tmux/.keep".text = "";
+
+        # ~/.claude/settings.d is the fragment seam for the Claude settings
+        # merge (ai-stack.nix's claudeSettingsMerge activation): external
+        # overlay repos drop JSON fragments here that deep-merge over the
+        # managed block. Materialize the dir with a real .keep so it exists
+        # even with no fragments present yet.
+        ".claude/settings.d/.keep".text = "";
+
+        # ~/.codex/AGENTS.d is the fragment seam for the Codex agent-instruction
+        # assembly (codexAgentsAssemble below) — the AGENTS.md analogue of
+        # settings.d. Same reason for a real .keep: the dir must exist before any
+        # overlay has dropped a fragment into it.
+        ".codex/AGENTS.d/.keep".text = "";
+      }
+    ];
+
+    # ~/.codex/AGENTS.md is ASSEMBLED here, not symlinked, because Codex has no
+    # include directive — concatenation is the only way an external overlay can
+    # contribute global agent instructions. home.file cannot do it: nix would have
+    # to glob a fragment that another repo drops during this same activation. So
+    # the assembly is an activation step, and this hook is the file's SINGLE
+    # writer.
+    #
+    # That single-writer property is the whole point. Previously the base linked
+    # AGENTS.md and the work overlay ran a marker-block merge over it, whose
+    # `mv tmp file` replaced the symlink with a regular file. The first switch
+    # survived; every switch after it aborted in checkLinkTargets, because the
+    # backup slot (home-manager.backupFileExtension) was already occupied and
+    # home-manager refuses to clobber a backup.
+    #
+    # Cost, accepted deliberately: the body loses the edit-live property the rest
+    # of home/ keeps — editing home/.codex/AGENTS.md now needs a switch to take
+    # effect, where before it was instant.
+    # entryAfter "linkGeneration", NOT "writeBoundary". linkGeneration is itself
+    # an entryAfter-writeBoundary node, so two writeBoundary dependants have no
+    # defined order relative to each other — and this one sorted FIRST, running
+    # before any symlink existed. The seam glob then matched nothing and the
+    # output was silently the bare body: no error, just missing fragments.
+    activation.codexAgentsAssemble = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
       (
         set -u
-        HOOKS="$HOME/.codex/hooks.json"
-        hippo="$HOME/.local/share/hippo-brain/shell/claude-session-hook.sh"
+        BODY="${dotfiles}/home/.codex/AGENTS.md"
+        OUT="$HOME/.codex/AGENTS.md"
+
+        if [ ! -f "$BODY" ]; then
+          echo "Warning: Codex AGENTS body not found at $BODY; leaving $OUT alone." >&2
+          exit 0
+        fi
+
         mkdir -p "$HOME/.codex"
+        tmp="$OUT.hm-tmp"
+        cat "$BODY" > "$tmp"
 
-        if [ -L "$HOOKS" ]; then
-          content="$(cat "$HOOKS" 2>/dev/null || printf '{"hooks":{}}')"
-          rm -f "$HOOKS"
-          printf '%s' "$content" > "$HOOKS"
-        fi
-        [ -f "$HOOKS" ] || printf '{"hooks":{}}' > "$HOOKS"
+        # Fragment seam (LOCKED contract): overlay repos drop *.md into
+        # ~/.codex/AGENTS.d/ and they append in lexical order. `.keep` is not
+        # matched by *.md, so an empty seam appends nothing and the output is
+        # exactly the body.
+        for frag in "$HOME"/.codex/AGENTS.d/*.md; do
+          [ -f "$frag" ] || continue
+          printf '\n' >> "$tmp"
+          cat "$frag" >> "$tmp"
+        done
 
-        if merged="$(${pkgs.jq}/bin/jq --arg cmd "$hippo" '
-              .hooks //= {} |
-              if ([.hooks.SessionStart[]?.hooks[]?.command] | index($cmd)) != null then .
-              else .hooks.SessionStart = [{hooks: [{type: "command", command: $cmd}]}]
-                     + (.hooks.SessionStart // [])
-              end' "$HOOKS")"; then
-          printf '%s\n' "$merged" > "$HOOKS.hm-tmp" && mv "$HOOKS.hm-tmp" "$HOOKS"
-        else
-          echo "Warning: could not merge hippo hook into $HOOKS; leaving it alone." >&2
-        fi
+        mv "$tmp" "$OUT"
       ) || true
-    ''
-  );
+    '';
+
+    # Guarantee the personal hippo SessionStart hook exists in ~/.codex/hooks.json
+    # WITHOUT owning the file. The codebase-memory-mcp installer canonicalizes and
+    # rewrites this file on every `install`, so it must stay a writable real file
+    # (see the NOTE at the removed home.file block above). Merge semantics: create
+    # the file if absent, prepend the hippo entry if missing, touch nothing else.
+    # A leftover store symlink from the old generated-file era is materialized
+    # into a real file first so the installer can write through it ever after.
+    activation.codexHooksMerge = lib.mkIf (identity == "personal") (
+      lib.hm.dag.entryAfter [ "linkGeneration" ] ''
+        (
+          set -u
+          HOOKS="$HOME/.codex/hooks.json"
+          hippo="$HOME/.local/share/hippo-brain/shell/claude-session-hook.sh"
+          mkdir -p "$HOME/.codex"
+
+          if [ -L "$HOOKS" ]; then
+            content="$(cat "$HOOKS" 2>/dev/null || printf '{"hooks":{}}')"
+            rm -f "$HOOKS"
+            printf '%s' "$content" > "$HOOKS"
+          fi
+          [ -f "$HOOKS" ] || printf '{"hooks":{}}' > "$HOOKS"
+
+          if merged="$(${pkgs.jq}/bin/jq --arg cmd "$hippo" '
+                .hooks //= {} |
+                if ([.hooks.SessionStart[]?.hooks[]?.command] | index($cmd)) != null then .
+                else .hooks.SessionStart = [{hooks: [{type: "command", command: $cmd}]}]
+                       + (.hooks.SessionStart // [])
+                end' "$HOOKS")"; then
+            printf '%s\n' "$merged" > "$HOOKS.hm-tmp" && mv "$HOOKS.hm-tmp" "$HOOKS"
+          else
+            echo "Warning: could not merge hippo hook into $HOOKS; leaving it alone." >&2
+          fi
+        ) || true
+      ''
+    );
+  };
 
   # One link deliberately routed through the public rawDotfiles API so the
   # in-repo build exercises the same code path external wrappers use.
