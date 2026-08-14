@@ -64,7 +64,6 @@ in
       ( set -uo pipefail
         brew="/opt/homebrew/bin/brew"
         sketchybar="/opt/homebrew/bin/sketchybar"
-        borders="/opt/homebrew/bin/borders"
         aerospace="/Applications/AeroSpace.app/Contents/MacOS/AeroSpace"
         aerospace_cli="/opt/homebrew/bin/aerospace"
 
@@ -97,18 +96,14 @@ in
         fi
 
         # ── borders ─────────────────────────────────────────────────────
-        # Same brew-services management as sketchybar; without this, borders
-        # config changes only apply after a manual restart and a fresh machine
-        # never registers the service at all.
-        if [ -x "$borders" ] && [ -x "$brew" ]; then
-          if brew_services list | ${pkgs.ripgrep}/bin/rg -q '^borders.*started'; then
-            brew_services restart borders
-          else
-            brew_services start borders
-          fi
-        else
-          echo "tiling-stack: borders not installed yet — skipping" >&2
-        fi
+        # Deliberately NOT brew-services managed: aerospace owns borders.
+        # aerospace.toml's after-startup-command runs bordersrc, and its
+        # on-focus-changed width toggle auto-spawns an instance whenever none
+        # is running (JankyBorders is single-instance: called with args it
+        # forwards and exits, called with none running it becomes the
+        # instance). A launchd copy alongside that one always dies with
+        # "instance already running" (exit 1), leaving brew status `error`
+        # and a bootstrap EIO on the next switch. One owner only.
 
         # ── aerospace ────────────────────────────────────────────────────
         # Installed as a cask (not a brew formula), so Homebrew services
