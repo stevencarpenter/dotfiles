@@ -153,3 +153,4 @@ echo "    Manual first-run steps (TCC-protected, cannot be scripted):"
 echo "      - Accessibility → Display → Reduce transparency"
 echo "      - Keyboard → Modifier Keys → remap Caps Lock"
 echo "      - Privacy & Security → Accessibility: grant AeroSpace + SketchyBar"
+
