@@ -3,7 +3,8 @@ name: kaneo-issue
 description: >
   File, update, or close Kaneo tasks for any repo tracked in the self-hosted
   Kaneo workspace (sluice, hippo, homelab, snugmarina, snugmarina-base,
-  dotfiles, gringotts, whistlepost, stevectl, gitdiff). Encodes project
+  dotfiles, gringotts, whistlepost, stevectl, gitdiff, ski-area-tycoon).
+  Encodes project
   routing, the label set, the task body template, and the column ladder. Use
   whenever work should be tracked or its tracking state changed: "file an
   issue", "open a ticket", "add this to the backlog", "track this follow-up",
@@ -45,6 +46,7 @@ remote of the working directory; ask only if the remote is absent or ambiguous.
 | `whistlepost` | Whistlepost *or* Whistlepost — Full Vision | `WP` / `WPFV` |
 | `stevectl` | Stevectl | `SCTL` |
 | `gitdiff` | gitdiff | `GITD` |
+| `ski-area-tycoon` | Ski Area Tycoon | `SKI` |
 
 A repo with no row isn't onboarded — ask rather than guessing a project.
 
