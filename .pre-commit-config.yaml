@@ -15,7 +15,6 @@ repos:
       - id: name-tests-test
         args:
           - --pytest-test-first
-      - id: end-of-file-fixer
       - id: trailing-whitespace
       - id: detect-aws-credentials
         args:

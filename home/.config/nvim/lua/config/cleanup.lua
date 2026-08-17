@@ -101,6 +101,32 @@ local function apply_source_actions(bufnr, kind, done)
   end)
 end
 
+-- 'fixendofline' is off globally so saves stay byte-exact; the final-newline
+-- guarantee lives here instead. Trim trailing blank lines, then assert 'eol'
+-- so the next write ends the file with exactly one newline. Conform never
+-- touches the eol flag (it pads both sides of its diff), so nothing downstream
+-- undoes this.
+---@param bufnr integer
+function M.ensure_single_final_newline(bufnr)
+  if vim.bo[bufnr].binary then
+    return
+  end
+
+  local last = vim.api.nvim_buf_line_count(bufnr)
+  while last > 1 and vim.api.nvim_buf_get_lines(bufnr, last - 1, last, true)[1]:match("^%s*$") do
+    last = last - 1
+  end
+  if last < vim.api.nvim_buf_line_count(bufnr) then
+    vim.api.nvim_buf_set_lines(bufnr, last, -1, true, {})
+  end
+
+  -- An empty buffer stays a zero-byte file; everything else gets a final EOL.
+  local only_line_empty = last == 1 and vim.api.nvim_buf_get_lines(bufnr, 0, 1, true)[1] == ""
+  if not only_line_empty and not vim.bo[bufnr].endofline then
+    vim.bo[bufnr].endofline = true
+  end
+end
+
 ---@param bufnr integer
 local function format_and_lint(bufnr)
   if not vim.api.nvim_buf_is_valid(bufnr) then
@@ -108,6 +134,7 @@ local function format_and_lint(bufnr)
   end
 
   LazyVim.format({ buf = bufnr, force = true })
+  M.ensure_single_final_newline(bufnr)
 
   vim.api.nvim_buf_call(bufnr, function()
     local ok, lint = pcall(require, "lint")

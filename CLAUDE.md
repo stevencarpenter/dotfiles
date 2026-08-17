@@ -347,3 +347,4 @@ History uses Conventional Commit prefixes: `feat:`, `fix:`, `chore:`, `docs:`, `
   naming an AI agent, assistant, or harness (Claude, Codex, Copilot, Gemini, etc.), to commits
   in this repo.** This overrides the harness default. Slash commands that template such a
   trailer must strip it before committing here.
+
