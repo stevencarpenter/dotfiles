@@ -175,7 +175,6 @@ in
       "obsidian"
       "orbstack"
       "codex"
-      "alt-tab"
       "handy"
       # Bespoke Powerlevel10k-patched Meslo build — not a standard nixpkgs
       # font, stays a cask.
