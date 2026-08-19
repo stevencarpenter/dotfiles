@@ -122,6 +122,7 @@ in
         ".claude/statusline-command.sh"
         ".claude/CLAUDE.md"
         ".claude/hooks/agent-journal-stop.sh"
+        ".claude/hooks/no-em-dash-commit.sh"
         ".claude/hooks/emit-routing-context.sh"
         ".claude/hooks/wt-create.sh"
         ".claude/hooks/wt-remove.sh"
@@ -186,8 +187,16 @@ in
 
       # Whole-file override seam for tools without native include support.
       # An external module's ordinary source definition outranks this default.
+      #
+      # Link only config.toml, per the atuin precedent above. worktrunk writes
+      # its own runtime state beside it: approvals.toml (the per-repo hook trust
+      # ledger, keyed by remote identifier and pinned to the exact approved
+      # command string) plus approvals.toml.lock. Linking the whole directory
+      # sent those writes into this repo's working tree, where a work repo's
+      # identifier would be published from a public tree and the ledger would be
+      # shared across machines that never granted it.
       {
-        ".config/worktrunk".source = lib.mkDefault (link ".config/worktrunk");
+        ".config/worktrunk/config.toml".source = lib.mkDefault (link ".config/worktrunk/config.toml");
       }
 
       # ---- caps.mcp ---------------------------------------------------------

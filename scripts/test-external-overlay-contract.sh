@@ -73,8 +73,8 @@ let
       ({ config, ... }: {
         home.file.\".config/external-overlays/git/work.inc\".text = \"[user]\";
         home.file.\".config/external-overlays/tmux/work.conf\".text = \"set -g @contract-test yes\";
-        home.file.\".config/worktrunk\".source =
-          config.lib.file.mkOutOfStoreSymlink \"/tmp/external-worktrunk\";
+        home.file.\".config/worktrunk/config.toml\".source =
+          config.lib.file.mkOutOfStoreSymlink \"/tmp/external-worktrunk.toml\";
       })
     ];
   };

@@ -90,3 +90,14 @@ result-*
 # ~/.ssh/config is now a TRACKED universal base (home/.ssh/config), not a
 # rendered secret. Only the tier-2 personal fragment is op-rendered.
 /home/.ssh/config.d/10-homelab.conf
+
+# worktrunk runtime state, never tracked. `approvals.toml` is the per-repo hook
+# trust ledger: `wt` records the exact command string a repo's committed project
+# config asked to run, keyed by the remote identifier, and re-prompts when that
+# string changes. It cannot be generalized. A `[projects."*"]` key would work
+# (worktrunk matches `approved-commands` through the same wildcard as any other
+# project setting) but converts a per-repo, content-pinned prompt into a standing
+# grant to execute any clone's hook script unprompted. `.lock` is the save lock.
+# dotfiles.nix links only config.toml, so these should no longer appear here.
+/home/.config/worktrunk/approvals.toml
+/home/.config/worktrunk/approvals.toml.lock

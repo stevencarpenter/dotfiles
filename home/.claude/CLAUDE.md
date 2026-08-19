@@ -22,7 +22,7 @@
 
 **Prose that lands in an artifact: docs, wiki pages, tickets, PRs, commit messages, code comments.**
 
-- **No em dashes.** Use a period, comma, colon, or parentheses. Same for an en dash used as a separator. This one is absolute; I will notice every time.
+- **No em dashes.** Use a period, comma, colon, or parentheses. Same for an en dash used as a separator. This one is absolute; I will notice every time. Enforced mechanically for commits and PRs by `~/.claude/hooks/no-em-dash-commit.sh` (a PreToolUse Bash gate that also strips AI attribution); prefix a command with `ALLOW_EM_DASH=1` only to keep a verbatim quote exact.
 - No lead-ins that announce structure. "Three reasons, for a warehouse dedicated to one product:" costs a line and adds nothing, because the numbered list already shows there are three. Same for "Two supporting points:", "It is worth noting that", "Note that", "Keep in mind".
 - No self-reference. A document does not talk about itself: "this is the one worth reading", "as stated above", "this section covers", "as we will see".
 - Cut qualifiers and intensifiers: actually, really, quite, fairly, simply, clearly, of course, importantly, deliberately (unless deliberateness is the claim).
