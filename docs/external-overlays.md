@@ -63,7 +63,7 @@ work config needs to edit a file this repo owns, that is a contract violation
 | `~/.config/mcp/machine/<identity>.json` | mcp_sync overlay merge (master → machine → overrides) | exists; ownership yields via `mkDefault` |
 | `~/.config/skills/machine/<identity>.json` | skills overlay merge | exists; ownership yields via `mkDefault` |
 | Claude settings fragment | activation-time jq merge (extends the existing `ai-stack.nix` base+variant pattern) | exists |
-| Whole-file overrides (`aerospace.<identity>.toml`, worktrunk config, other no-include tools) | identity-selected symlink declared with `lib.mkDefault` | exists |
+| Whole-file overrides (`aerospace.<identity>.toml`, `worktrunk/config.toml`, other no-include tools) | identity-selected symlink declared with `lib.mkDefault` | exists |
 
 ### Implementation notes (m5, 2026-07-18)
 
