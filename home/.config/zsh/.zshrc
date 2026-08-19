@@ -309,7 +309,7 @@ alias lzd='lazydocker'
 alias dots='cd ~/.dotfiles/'
 alias zshrc='nvim $ZDOTDIR/.zshrc'
 alias zprofile='nvim $ZDOTDIR/.zprofile'
-alias ez='exec zsh'
+alias ez='eval "$(tmux show-environment -g -s)" && exec zsh'
 
 # Worktrunk log viewer (tails the log file for a given hook)
 function wtlog() { tail -f "$(wt config state logs get --hook="$1")"; }
