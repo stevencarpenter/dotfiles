@@ -1,6 +1,24 @@
 {
   "$schema": "https://modelcontextprotocol.io/schema/config.json",
   "servers": {
+    "codebase-memory-mcp": {
+      "type": "stdio",
+      "command": "/Users/carpenter/.local/bin/codebase-memory-mcp",
+      "args": [],
+      "autoApprove": [
+        "list_projects",
+        "index_status",
+        "search_graph",
+        "search_code",
+        "trace_path",
+        "get_code_snippet",
+        "get_graph_schema",
+        "get_architecture",
+        "query_graph",
+        "check_index_coverage",
+        "detect_changes"
+      ]
+    },
     "kaneo": {
       "type": "http",
       "url": "https://kaneo.snugmarina.org/api/mcp",

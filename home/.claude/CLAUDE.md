@@ -41,9 +41,9 @@ This user has spent significant effort configuring MCP servers, plugins, skills,
 
 ### Tool Priority Order (highest to lowest)
 
-1. **Skills.** Check available skills before starting ANY task. Invoke via the `Skill` tool before acting. A 1% chance a skill applies means you must check.
-2. **MCP servers.** Use `mcp__idea__*` (IntelliJ, always running), `mcp__grafana__*`, etc. when the operation maps to one of these.
-3. **Specialized agents.** Use Explore, Plan, code-reviewer, and other Agent subtypes for tasks matching their descriptions.
+1. **Specialized agents.** Use Explore, Plan, code-reviewer, and other Agent subtypes for tasks matching their descriptions.
+2. **Skills.** Check available skills before starting ANY task. Invoke via the `Skill` tool before acting.
+3. **MCP servers.** Use `mcp__codebase-memory-mcp__*` (structural code questions), `mcp__idea__*` (IntelliJ, always running), `mcp__grafana__*`, etc. when the operation maps to one of these.
 4. **Built-in tools** (Read, Grep, Glob, Edit, Write, Bash). **Last resort only**, when no MCP tool, skill, or agent covers the need.
 
 ### Git Operations
@@ -65,9 +65,38 @@ This user has spent significant effort configuring MCP servers, plugins, skills,
 
 Also use the `LSP` tool for language-server-level diagnostics, hover info, go-to-definition, and references. This gives semantic understanding beyond text search. Language-specific LSP plugins: **Python (pyright), Go (gopls), Rust (rust-analyzer)** are enabled on every machine; **Swift, TypeScript, Lua** only on dev machines (the `dev` capability). Use LSP before falling back to `rg` for symbol resolution, type checking, or finding references.
 
+### Codebase Memory for structural code intelligence (`mcp__codebase-memory-mcp__*`)
+
+The default for structural code questions in any repo, on every machine. A graph query answers in ~500 tokens what a grep-and-read loop answers in tens of thousands.
+
+Session discipline:
+
+- On entering a repo, check `list_projects` / `index_status`. If the repo is not indexed, run `index_repository` once (`~/.local/bin/codebase-memory-mcp cli index_repository --repo-path <path>` from the shell).
+- `auto_index` is off by design: it previously indexed session cwds like Documents and scratch dirs. Never re-enable it, and never index scratch, tmp, or non-repo directories.
+- Indexed repos stay fresh via the background git watcher (`auto_watch`). Re-index manually only after a large external change (big pull, mass generation). Use `detect_changes` to map uncommitted work to affected symbols.
+
+Route by question:
+
+| Question                              | Tool                                        |
+| ------------------------------------- | ------------------------------------------- |
+| Who calls X / what does X call        | `trace_path` (`direction="both"` for full context) |
+| Find a symbol by name pattern         | `search_graph(name_pattern=...)`            |
+| Exact source of a symbol              | `get_code_snippet`                          |
+| Multi-hop or cross-edge patterns      | `query_graph` (Cypher)                      |
+| Orientation in an unfamiliar repo     | `get_architecture`                          |
+| Impact of local uncommitted changes   | `detect_changes`                            |
+| Dead code, high fan-in/fan-out        | `search_graph` degree filters               |
+
+Evidence discipline:
+
+- Call `check_index_coverage` for every file a conclusion relies on. For partial, skipped, or excluded coverage, read/grep the reported ranges directly.
+- Never make absence, exhaustive, or dead-code claims from the graph alone; coverage is best-effort, not proof of completeness.
+- Persist durable architecture findings with `manage_adr` so they carry across sessions.
+- `rg`/`Read` remain correct for literals, configs, and non-code files; the graph does not index them.
+
 ### Codegraph for code exploration (when `mcp__codegraph__*` is available)
 
-**Hybrid strategy:** Start with `codegraph_explore` for "how does X work / trace X / where is X" questions over indexed source (Rust, TS, etc.), typically 2-5 calls vs. 30+ for grep+read. Fall back to `rg`/`Read` only for non-indexed artifacts: `.plist`, YAML, Python, shell scripts. Codegraph is blind to config/data files.
+Complements codebase-memory; both may index the same repo. `codegraph_explore` is the better first call for one-shot "how does X work / where is X" questions because it returns verbatim source grouped by file in a single call. Codebase-memory wins for caller/callee tracing, change impact, dead-code and degree analysis, Cypher queries, cross-repo edges, and any claim that needs coverage verification. Codegraph is blind to config/data files; fall back to `rg`/`Read` for `.plist`, YAML, and other non-indexed artifacts.
 
 ### Shell tooling
 
