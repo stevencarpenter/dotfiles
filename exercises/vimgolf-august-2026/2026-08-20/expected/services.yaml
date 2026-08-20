@@ -1,0 +1,4 @@
+services:
+  api: { host: "127.0.0.1", port: "8088", protocol: "http" }
+  db: { host: "127.0.0.1", port: "5433", protocol: "postgres" }
+  cache: { host: "127.0.0.1", port: "6380", protocol: "redis" }

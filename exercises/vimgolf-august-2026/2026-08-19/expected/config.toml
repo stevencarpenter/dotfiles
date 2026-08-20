@@ -1,0 +1,9 @@
+[editor]
+line_numbers = "relative"
+cursor_shape = "block"
+tab_width = 4
+insert_spaces = true
+
+[backup]
+enabled = true
+directory = "~/.local/state/editor/backups"

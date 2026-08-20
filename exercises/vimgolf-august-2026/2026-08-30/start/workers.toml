@@ -1,0 +1,6 @@
+worker = { name = "api",      enabled = false, timeout = 10, concurrency = 4 }
+worker = { name = "events",   enabled = false, timeout = 10, concurrency = 2 }
+worker = { name = "mail",     enabled = false, timeout = 10, concurrency = 1 }
+worker = { name = "billing",  enabled = false, timeout = 10, concurrency = 2 }
+worker = { name = "cleanup",  enabled = false, timeout = 10, concurrency = 1 }
+worker = { name = "backfill", enabled = false, timeout = 10, concurrency = 8 }

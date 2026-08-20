@@ -1,0 +1,7 @@
+[api]
+host = "old.internal"
+port = 8080
+
+[events]
+host = "old.internal"
+port = 8081

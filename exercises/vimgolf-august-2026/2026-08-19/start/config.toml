@@ -1,0 +1,9 @@
+[editor]
+line_numbers = "relative"
+cursor_shape = "beam"
+tab_width = 2
+insert_spaces = true
+
+[backup]
+enabled = true
+directory = "~/.cache/editor/backups"

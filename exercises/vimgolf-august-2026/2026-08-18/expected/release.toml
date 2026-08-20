@@ -1,0 +1,15 @@
+[meta]
+revision = 42
+env = "PROD"
+
+[run]
+args = "serve --graceful"
+
+[debug]
+# trace = true
+# dump_heap = true
+
+[firewall]
+allow = "10.0.0.0/8" # reviewed
+allow = "172.16.0.0/12" # reviewed
+allow = "192.168.0.0/16" # reviewed

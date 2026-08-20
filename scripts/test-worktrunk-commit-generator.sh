@@ -5,11 +5,8 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 generator="${repo_root}/home/.local/bin/worktrunk-commit-generator"
 [ -x "${generator}" ] || { echo "FAIL: ${generator} is not executable" >&2; exit 1; }
-config="${repo_root}/home/.config/worktrunk/config.toml"
-if ! rg -Fxq 'command = "\"$HOME/.local/bin/worktrunk-commit-generator\""' "${config}"; then
-  echo "FAIL: Worktrunk config does not route generation through the validator" >&2
-  exit 1
-fi
+# The worktrunk config left managed dotfiles (15d41bb); routing through the
+# validator is now the external config's concern. Only the generator is tested here.
 
 fixture="$(mktemp -d)"
 trap 'rm -rf "${fixture}"' EXIT

@@ -1,0 +1,6 @@
+[service]
+description = "object storage gateway for the lab"
+command = "minio server /srv/data"
+
+[limits]
+memory = "2G"

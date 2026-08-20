@@ -1,0 +1,192 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly SCRIPT_DIR
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+readonly REPO_ROOT
+readonly CHALLENGE_ROOT="$REPO_ROOT/exercises/vimgolf-august-2026"
+readonly STATE_ROOT="${VIMGOLF_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles-vimgolf-august-2026}"
+
+usage() {
+  printf '%s\n' \
+    'usage: scripts/vim-golf-august [play|check|diff|reset|show|copy|list|audit] [DAY]' \
+    '' \
+    'DAY may be 19, 2026-08-19, or omitted for today.'
+}
+
+resolve_day() {
+  local requested="${1:-$(date +%Y-%m-%d)}"
+  if [[ "$requested" =~ ^[0-9]{1,2}$ ]]; then
+    printf '2026-08-%02d\n' "$((10#$requested))"
+    return
+  fi
+  printf '%s\n' "$requested"
+}
+
+challenge_dir() {
+  local day="$1"
+  local directory="$CHALLENGE_ROOT/$day"
+  if [[ ! -d "$directory" ]]; then
+    printf 'error: no challenge for %s\n' "$day" >&2
+    exit 2
+  fi
+  printf '%s\n' "$directory"
+}
+
+work_dir() {
+  printf '%s/%s/work\n' "$STATE_ROOT" "$1"
+}
+
+init_work() {
+  local day="$1"
+  local challenge="$2"
+  local work
+  work="$(work_dir "$day")"
+  if [[ ! -d "$work" ]]; then
+    mkdir -p "$work"
+    cp -R "$challenge/start/." "$work/"
+  fi
+  printf '%s\n' "$work"
+}
+
+is_correct() {
+  local challenge="$1"
+  local work="$2"
+  diff -qr "$challenge/expected" "$work" >/dev/null
+}
+
+check_result() {
+  local challenge="$1"
+  local work="$2"
+  if is_correct "$challenge" "$work"; then
+    printf 'correct\n'
+    return 0
+  fi
+  printf 'not correct\n' >&2
+  diff -ru "$challenge/expected" "$work" || true
+  return 1
+}
+
+play() {
+  local day="$1"
+  local challenge="$2"
+  local work entrypoint keylog score best_file best
+  work="$(init_work "$day" "$challenge")"
+  entrypoint="$(<"$challenge/entrypoint")"
+  keylog="$STATE_ROOT/$day/keys.log"
+  best_file="$STATE_ROOT/$day/best"
+
+  sed -n '1,240p' "$challenge/challenge.md"
+  printf '\nworktree: %s\n' "$work"
+  if [[ -t 0 ]]; then
+    read -rsp $'\nRead the brief, then press Enter to open Neovim (rerun it later with: show '"${day#2026-08-}"$')...\n'
+  fi
+  (
+    cd "$work"
+    nvim -W "$keylog" "$entrypoint"
+  )
+
+  if check_result "$challenge" "$work"; then
+    score="$(wc -c < "$keylog" | tr -d ' ')"
+    if [[ ! -f "$best_file" ]] || ((score < $(<"$best_file"))); then
+      printf '%s\n' "$score" > "$best_file"
+    fi
+    best="$(<"$best_file")"
+    printf 'raw-input score: %s bytes (best: %s)\n' "$score" "$best"
+  fi
+}
+
+list_challenges() {
+  local challenge day title work status
+  for challenge in "$CHALLENGE_ROOT"/2026-08-*; do
+    day="${challenge##*/}"
+    title="$(sed -n '1s/^# //p' "$challenge/challenge.md")"
+    work="$(work_dir "$day")"
+    status=' '
+    if [[ -d "$work" ]] && is_correct "$challenge" "$work"; then
+      status='x'
+    fi
+    printf '[%s] %s  %s\n' "$status" "$day" "$title"
+  done
+}
+
+audit_fixtures() {
+  local challenge failures=0
+  for challenge in "$CHALLENGE_ROOT"/2026-08-*; do
+    for required in challenge.md entrypoint start expected; do
+      if [[ ! -e "$challenge/$required" ]]; then
+        printf 'missing: %s/%s\n' "$challenge" "$required" >&2
+        failures=$((failures + 1))
+      fi
+    done
+    if diff -qr "$challenge/start" "$challenge/expected" >/dev/null; then
+      printf 'start already equals expected: %s\n' "$challenge" >&2
+      failures=$((failures + 1))
+    fi
+    if [[ -f "$challenge/entrypoint" ]] && [[ ! -f "$challenge/start/$(<"$challenge/entrypoint")" ]]; then
+      printf 'bad entrypoint: %s\n' "$challenge" >&2
+      failures=$((failures + 1))
+    fi
+  done
+  if ((failures > 0)); then
+    return 1
+  fi
+  printf 'all challenge fixtures are valid\n'
+}
+
+command="${1:-play}"
+if (($# > 0)); then shift; fi
+day="$(resolve_day "${1:-}")"
+
+case "$command" in
+  list)
+    list_challenges
+    ;;
+  audit)
+    audit_fixtures
+    ;;
+  play)
+    challenge="$(challenge_dir "$day")"
+    play "$day" "$challenge"
+    ;;
+  check)
+    challenge="$(challenge_dir "$day")"
+    work="$(init_work "$day" "$challenge")"
+    check_result "$challenge" "$work"
+    ;;
+  diff)
+    challenge="$(challenge_dir "$day")"
+    work="$(init_work "$day" "$challenge")"
+    diff -ru "$challenge/expected" "$work" || true
+    ;;
+  reset)
+    challenge_dir "$day" >/dev/null
+    target="$STATE_ROOT/$day"
+    if [[ -d "$target" ]]; then
+      rm -rf "$target"
+      printf 'reset %s\n' "$day"
+    fi
+    ;;
+  show)
+    challenge="$(challenge_dir "$day")"
+    sed -n '1,240p' "$challenge/challenge.md"
+    ;;
+  copy)
+    challenge="$(challenge_dir "$day")"
+    if [[ ! -f "$challenge/clipboard.txt" ]]; then
+      printf 'error: %s has no pasteboard payload\n' "$day" >&2
+      exit 2
+    fi
+    payload="$(<"$challenge/clipboard.txt")"
+    printf '%s' "$payload" | pbcopy
+    printf 'copied the %s payload to the macOS pasteboard\n' "$day"
+    ;;
+  -h|--help|help)
+    usage
+    ;;
+  *)
+    usage >&2
+    exit 2
+    ;;
+esac
