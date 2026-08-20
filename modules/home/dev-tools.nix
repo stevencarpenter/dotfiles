@@ -39,7 +39,7 @@ in
     })
     # mkDefault: caps.infra tooling is corporate-access flavored (teleport-ent,
     # ops databases), so an external overlay may want to own the list. Same seam
-    # pattern as the atuin/worktrunk/mcp/skills defaults in dotfiles.nix.
+    # pattern as the atuin/mcp/skills defaults in dotfiles.nix.
     (lib.mkIf caps.infra {
       ".config/mise/conf.d/infra.toml".source = lib.mkDefault (link ".config/mise/conf.d/infra.toml");
     })
