@@ -1,0 +1,11 @@
+[features]
+fast_search = false
+structured_logs = false
+shell_history = false
+project_picker = false
+yank_history = false
+relative_numbers = false
+dangerous_cleanup = false
+
+[telemetry]
+telemetry_sample_rate = 0.05

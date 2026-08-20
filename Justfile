@@ -9,6 +9,14 @@ TOKEN_AUDITOR_VERSION := `tr -d '\n' < versions/token-auditor`
 default:
     @just --list
 
+# Open and validate a dated Vim Golf challenge (defaults to today).
+vim-golf *DAY:
+    scripts/vim-golf-august play {{ DAY }}
+
+# Show progress across the August Vim Golf curriculum.
+vim-golf-list:
+    scripts/vim-golf-august list
+
 # ── Nix (build / switch) ─────────────────────────────────
 
 # Rebuild and switch this host's nix-darwin + home-manager config.

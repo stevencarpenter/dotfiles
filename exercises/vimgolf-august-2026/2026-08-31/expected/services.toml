@@ -1,0 +1,7 @@
+[api]
+host = "edge.internal"
+port = 8080
+
+[events]
+host = "edge.internal"
+port = 8081

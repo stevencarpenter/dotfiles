@@ -1,0 +1,9 @@
+seed:
+  - "alpha"
+  - "beta"
+  - "gamma"
+
+deployments:
+  api: { ring: "TODO", replicas: 3 }
+  worker: { ring: "TODO", replicas: 4 }
+  events: { ring: "TODO", replicas: 2 }

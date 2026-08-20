@@ -1,0 +1,13 @@
+[features]
+fast_search = true
+structured_logs = true
+shell_history = true
+project_picker = true
+yank_history = true
+relative_numbers = true
+dangerous_cleanup = false
+
+[telemetry]
+telemetry_sample_rate = 0.05
+telemetry_sample_rate = 0.05
+telemetry_sample_rate = 0.05

@@ -1,0 +1,4 @@
+deployments:
+  api: { ring: "alpha", replicas: 3 }
+  worker: { ring: "beta", replicas: 4 }
+  events: { ring: "gamma", replicas: 2 }

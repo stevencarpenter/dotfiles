@@ -1,0 +1,8 @@
+# canonical timeout
+canonical: 30
+
+timeouts:
+  connect: 5
+  read: 45
+  write: 60
+  shutdown: 120
