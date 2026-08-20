@@ -1,0 +1,4 @@
+toolchain   1.80.0   stable
+runtime     2.14.0   pinned
+compiler    2.14.1   pinned
+linker      2.15.0   pinned

@@ -1,0 +1,8 @@
+services:
+  web:
+    image: nginx
+    ports:
+      - "80:80"
+  worker:
+    image: sidekiq
+    replicas: 2
