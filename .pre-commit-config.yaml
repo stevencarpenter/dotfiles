@@ -2,8 +2,12 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
+      # Vim-golf fixtures are deliberately malformed mid-edit states
+      # (wrapped strings, duplicate keys); format validity is not their contract.
       - id: check-yaml
+        exclude: ^exercises/vimgolf-august-2026/
       - id: check-toml
+        exclude: ^exercises/vimgolf-august-2026/
       - id: check-json
         exclude: ^mcp_sync/tests/test_data/malformed_json\.json$
       - id: check-added-large-files
