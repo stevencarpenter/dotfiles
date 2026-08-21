@@ -21,3 +21,5 @@ node_modules/
 .vscode/
 
 **/.claude/.cc-writes/
+
+**/.claude/settings.local.json

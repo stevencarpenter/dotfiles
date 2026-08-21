@@ -5,7 +5,8 @@
     "CLAUDE_CODE_NO_FLICKER": "1",
     "ENABLE_LSP_TOOL": "1",
     "CLAUDE_CODE_FORK_SUBAGENTS": "1",
-    "CLAUDE_CODE_WORKFLOWS": "1"
+    "CLAUDE_CODE_WORKFLOWS": "1",
+    "CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS": "64"
   },
   "permissions": {
     "defaultMode": "auto"
