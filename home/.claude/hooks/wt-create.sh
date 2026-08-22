@@ -11,7 +11,9 @@ command -v jq >/dev/null 2>&1 || { echo "wt-create.sh: jq not on PATH; hook cann
 payload="$(cat)"
 
 # Derive a unique suffix. If Claude proposed a path, reuse its tail; otherwise
-# fall back to timestamp + PID for uniqueness across concurrent subagents.
+# fall back to a human-readable local timestamp plus a short random tag for
+# uniqueness across concurrent subagents (e.g. "260822-1447-a3f2", not a raw
+# unix epoch + full PID).
 proposed=$(printf '%s' "$payload" | jq -r '.worktree_path // ""' 2>/dev/null || true)
 
 suffix=""
@@ -26,7 +28,7 @@ if [ -n "$proposed" ]; then
   fi
 fi
 
-[ -z "$suffix" ] && suffix="$(date +%s)-$$"
+[ -z "$suffix" ] && suffix="$(date +%y%m%d-%H%M)-$(printf '%04x' "$RANDOM")"
 
 branch="claude/${suffix}"
 

@@ -1,22 +1,16 @@
 #!/usr/bin/env bash
-# Assert the two atuin config variants stay in sync where they must, and stay
+# Assert the two atuin config variants stay in sync where they must and
 # different where they must.
 #
-# Why: caps.atuin used to gate the whole config file, so machines with the
-# capability off got no atuin config at all and ran on atuin's defaults — no
-# history_filter, and no [tmux].enabled (which makes `atuin init zsh` emit
-# ATUIN_TMUX_POPUP=false, rendering ctrl-r and up-arrow inline instead of in a
-# popup). Splitting the file fixed that but duplicated the filter list, so the
-# redaction patterns can now drift between variants. This test makes that
-# drift a CI failure.
+# Why: caps.atuin used to gate the file, so machines with the cap off ran with
+# no history_filter + no [tmux].enabled (ctrl-r/up-arrow rendered inline, not in
+# a popup). Splitting fixed that but duplicated the filter list — now it can
+# drift. This test makes that drift a CI failure.
 #
-# Assertions are TOML-table-aware on purpose. An earlier draft matched bare
-# substrings and was defeated by three realistic edits: moving `enabled = true`
-# out of [tmux] (which reproduces the original bug verbatim — atuin silently
-# ignores unknown top-level keys), deleting history_filter from BOTH files
-# (identical absence still compares equal), and reformatting `enabled=true`
-# without spaces.
-#
+# Assertions are TOML-table-aware: an earlier substring draft was defeated by
+# moving `enabled = true` out of [tmux] (atuin silently ignores unknown keys),
+# deleting history_filter from BOTH files (identical absence still compares
+# equal), and reformatting `enabled=true` without spaces.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

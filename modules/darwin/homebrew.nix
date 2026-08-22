@@ -84,25 +84,11 @@ in
       # No nixpkgs equivalent; both are homebrew/core formulae.
       "herdr"
       "mole"
-      # charmbracelet/tap/crush. Stays brew, but NOT for the reason this comment
-      # used to give ("the flake tracks stable 26.05, so the nix attr trails by
-      # months"). That reasoning is obsolete: `fastMovingPackages` in
-      # modules/home/packages.nix now takes named packages from
-      # nixpkgs-unstable, which is the escape hatch that argument called for.
-      #
-      # Re-evaluated 2026-08-07 against nixpkgs-unstable @ the pinned rev, and
-      # the real blockers are different ones:
-      #   - crush is UNFREE in nixpkgs (FSL-1.1-MIT, meta.license.free = false),
-      #     so promoting it means an allowUnfree carve-out on the pkgsFresh
-      #     instantiation, which today deliberately sets no nixpkgs.config at all.
-      #   - Unfree means Hydra does not build it, so there is no binary cache
-      #     entry (narinfo 404 — verified, not assumed). Every bump would be a
-      #     local source build.
-      #   - The pinned rev carries 0.86.0 (2026-07-20) against 0.88.0 installed,
-      #     so the move is an immediate downgrade of an actively-used tool.
-      # Brew also keeps it inside `just brew-upgrade`, which is where the
-      # AI-harness tools are meant to stay current.
-      #
+      # charmbracelet/tap/crush. Stays brew: it is UNFREE in nixpkgs (FSL-1.1),
+      # so Hydra never builds it (no binary cache → local source build on every
+      # bump), and the pinned nixpkgs-unstable rev carries 0.86.0 against the
+      # 0.88.0 installed (a downgrade). Brew also keeps it inside `just brew-upgrade`,
+      # where AI-harness tools stay current.
       # Fully-qualified + `trusted` because Homebrew 6 requires explicit trust
       # for third-party tap code (see the sketchybar/borders block).
       {

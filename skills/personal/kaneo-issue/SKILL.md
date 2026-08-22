@@ -43,17 +43,19 @@ remote of the working directory; ask only if the remote is absent or ambiguous.
 | `snugmarina-base` (server) | Snugmarina | `SNUG` |
 | `dotfiles` | Dotfiles | `DOT` |
 | `gringotts` | Gringotts | `GG` |
-| `whistlepost` | Whistlepost *or* Whistlepost — Full Vision | `WP` / `WPFV` |
+| `whistlepost` | Whistlepost | `WP` |
 | `stevectl` | Stevectl | `SCTL` |
 | `gitdiff` | gitdiff | `GITD` |
 | `ski-area-tycoon` | Ski Area Tycoon | `SKI` |
 
 A repo with no row isn't onboarded — ask rather than guessing a project.
 
-**Whistlepost has two boards.** `WP` is the launch-readiness sprint (what ships
-next); `WPFV` is the full product vision (everything after). Route by horizon:
-if it gates launch it belongs on `WP`. When genuinely unsure, ask — a task on
-the wrong board is invisible to the person planning that horizon.
+**Whistlepost is one board again.** The launch-sprint (`WP`) and full-vision
+(`WPFV`) projects were merged on 2026-08-20 into a single Whistlepost project
+that kept the vision board's identity and numbering: an old `WPFV-n` reference
+is today's `WP-n`, and old launch `WP-n` tasks were renumbered to `n + 260`
+with a "Consolidated from launch board WP-n" provenance line in each body. The
+emptied launch project was renamed `WPOLD` pending deletion — never file there.
 
 **Snugmarina's server split is transitional.** `snugmarina-base` was extracted
 from `homelab` with history preserved, but deploy wiring hasn't moved — the

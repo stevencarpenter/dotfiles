@@ -185,10 +185,19 @@ in
         );
       }
 
-      # worktrunk config left managed dotfiles (15d41bb): the tool's config and
-      # runtime state (approvals.toml trust ledger) are the external config's
-      # concern now. An external module may still define
-      # home.file.".config/worktrunk/config.toml" itself; no in-repo default.
+      # Whole-file override seam for tools without native include support.
+      # An external module's ordinary source definition outranks this default.
+      #
+      # Link only config.toml, per the atuin precedent above. worktrunk writes
+      # its own runtime state beside it: approvals.toml (the per-repo hook trust
+      # ledger, keyed by remote identifier and pinned to the exact approved
+      # command string) plus approvals.toml.lock. Linking the whole directory
+      # sent those writes into this repo's working tree, where a work repo's
+      # identifier would be published from a public tree and the ledger would be
+      # shared across machines that never granted it.
+      {
+        ".config/worktrunk/config.toml".source = lib.mkDefault (link ".config/worktrunk/config.toml");
+      }
 
       # ---- caps.mcp ---------------------------------------------------------
       # Master config + this machine's overlay. sync-mcp-configs (sync-hooks.nix)
@@ -317,28 +326,16 @@ in
       }
     ];
 
-    # ~/.codex/AGENTS.md is ASSEMBLED here, not symlinked, because Codex has no
-    # include directive — concatenation is the only way an external overlay can
-    # contribute global agent instructions. home.file cannot do it: nix would have
-    # to glob a fragment that another repo drops during this same activation. So
-    # the assembly is an activation step, and this hook is the file's SINGLE
-    # writer.
-    #
-    # That single-writer property is the whole point. Previously the base linked
-    # AGENTS.md and the work overlay ran a marker-block merge over it, whose
-    # `mv tmp file` replaced the symlink with a regular file. The first switch
-    # survived; every switch after it aborted in checkLinkTargets, because the
-    # backup slot (home-manager.backupFileExtension) was already occupied and
-    # home-manager refuses to clobber a backup.
-    #
-    # Cost, accepted deliberately: the body loses the edit-live property the rest
-    # of home/ keeps — editing home/.codex/AGENTS.md now needs a switch to take
-    # effect, where before it was instant.
-    # entryAfter "linkGeneration", NOT "writeBoundary". linkGeneration is itself
-    # an entryAfter-writeBoundary node, so two writeBoundary dependants have no
-    # defined order relative to each other — and this one sorted FIRST, running
-    # before any symlink existed. The seam glob then matched nothing and the
-    # output was silently the bare body: no error, just missing fragments.
+    # ~/.codex/AGENTS.md is ASSEMBLED (not symlinked) because Codex lacks an
+    # include directive — concatenation is the only way external overlays can
+    # contribute global agent instructions, and home.file cannot glob fragments
+    # another repo drops during THIS activation. This hook is the file's SINGLE
+    # writer: a previous marker-block-merge approach replaced the symlink with a
+    # regular file, which collided with home-manager's backup slot on every
+    # subsequent switch. The cost: AGENTS.md body edits need a `switch` to take
+    # effect (no edit-live). Uses entryAfter "linkGeneration" — two
+    # writeBoundary dependants have no defined order, and this one sorted FIRST
+    # (before symlinks existed), silently emitting the bare body.
     activation.codexAgentsAssemble = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
       (
         set -u

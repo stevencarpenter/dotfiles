@@ -25,8 +25,7 @@ IDs (`HOME-1`).
 |---|---|---|---|
 | Snugmarina | `SNUG` | `f4ww6cb482sfi7olt8yyouxt` | Household-OS iOS app + server |
 | Carpenter | `CARP` | `vlqya8k5c0aegkyfx2bqm6e7` | Meta-workspace repo (coordination, plans, workspace tooling). Kaneo-native, created 2026-08-11 — legacy Linear `CARP-*` IDs in migrated bodies do NOT refer to this board |
-| Whistlepost — Full Vision | `WPFV` | `je7viaubbnripmb7ves6gah5` | Rail sighting journal, post-launch vision |
-| Whistlepost | `WP` | `yukuvlygrt8un3zcyw4zh8a9` | Rail sighting journal, launch sprint |
+| Whistlepost | `WP` | `je7viaubbnripmb7ves6gah5` | Rail sighting journal, single product board (launch + vision merged 2026-08-20) |
 | Sluice | `SLU` | `rqqqk70o40v9sk1wcklxwh9a` | CDC pipeline (Rust workspace) |
 | Gringotts | `GG` | `qnr68a6537658jy4ys85f8x6` | Secret/config control plane |
 | gitdiff | `GITD` | `j3ds6o3vs7s6gujeibl91brb` | Code-review view-transform tool |
@@ -111,8 +110,13 @@ Project-specific notes worth knowing:
   gates; read `docs/runbooks/` before touching a service.
 - **Dotfiles** — repo is `~/.dotfiles`; read its CLAUDE.md first. Secrets work
   must follow the dotfiles-secret-authoring skill (op-render, never plaintext).
-- **Whistlepost** — epic DAG via `blocks`: WP-49→{52,53}, WP-50→{51,55},
-  WP-51→{54,56}, WP-56→{57,58}. Launch gate: WP-36 blocks WP-39.
+- **Whistlepost** — single board since the 2026-08-20 merge of the former
+  launch (`WP`) and full-vision (`WPFV`) projects. Old `WPFV-n` = today's
+  `WP-n`; old launch tasks were renumbered `n + 260` with a "Consolidated from
+  launch board WP-n" provenance line. Epic list, standing owner decisions, and
+  the human launch-gate index live in the project description. The emptied
+  launch project (`yukuvlygrt8un3zcyw4zh8a9`) was renamed `WPOLD` and awaits
+  manual deletion in the UI — never file there.
 - **Gringotts** — flat backlog, no epics or DAG. ADR numbers in titles refer to
   the gringotts repo's ADR corpus.
 - **Snugmarina** — holds both the migrated backlog and the Kaneo-native M1–M5

@@ -59,21 +59,13 @@
     };
   };
 
-  # Login-shell pin. The primary account is a pre-existing macOS admin user,
-  # not a nix-darwin-owned user: the pinned nix-darwin release only applies
-  # users.users.* properties to users.knownUsers, and explicitly warns not to
-  # add the admin user there. postActivation below therefore owns the actual
-  # Directory Services update instead of pretending users.users.* is enough.
-  #
-  # The pin is the LITERAL /bin/zsh, not pkgs.zsh: the retired script existed
-  # because a non-OS shell path (Homebrew cellar, and equally a nix store
-  # path) can dangle across upgrades/GC and brick login — /bin/zsh is the one
-  # shell Apple guarantees. Interactive shell richness comes from z4h config,
-  # not the login-shell binary.
-  #
-  # Home metadata remains necessary because nix-darwin's Home Manager bridge
-  # reads it for system.primaryUser. This does not opt the admin account into
-  # users.knownUsers or claim nix-darwin manages its Directory Services fields.
+  # Login-shell pin. The primary account is a pre-existing macOS admin user
+  # (nix-darwin explicitly warns against adding it to knownUsers), so
+  # postActivation below owns the Directory Services update, not users.users.*.
+  # Pinned to the LITERAL /bin/zsh, not pkgs.zsh: a nix store / Homebrew path
+  # can dangle across upgrades and brick login — /bin/zsh is the one shell
+  # Apple guarantees. Interactive richness comes from z4h config, not the
+  # login binary. Home is still needed for system.primaryUser.
   users.users.${user}.home = "/Users/${user}";
 
   # /bin/zsh is already in /etc/shells; keep pkgs.zsh registered too so a

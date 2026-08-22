@@ -7,17 +7,13 @@
 }:
 
 # Declarative port of .chezmoiscripts/darwin/run_onchange_configure-macos-defaults.sh.
-# Each `defaults write` maps to a typed system.defaults.* option where one
-# exists, else to system.defaults.CustomUserPreferences.<domain>. The two
-# non-defaults side effects (screenshots dir, Spotlight sentinels) become a
-# small activation snippet. The original script's trailing `killall` is dropped:
-# nix-darwin runs `activateSettings -u` after writing defaults, which refreshes
-# the affected agents. If a reviewer finds a managed key not taking effect until
-# logout on the pinned release, re-add a killall of Dock/Finder/SystemUIServer
-# to system.activationScripts.postActivation.text.
-#
-# Original commands are quoted in comments next to any mapping that is not an
-# obvious 1:1, or that the phase-1 SME flagged for release verification.
+# Each `defaults write` maps to a typed system.defaults.* option where one exists,
+# else to system.defaults.CustomUserPreferences.<domain>. The two non-defaults
+# side effects (screenshots dir, Spotlight sentinels) become an activation snippet.
+# The original's trailing `killall` is dropped — nix-darwin runs `activateSettings
+# -u` after writing defaults. Re-add killall Dock/Finder/SystemUIServer to
+# postActivation only if a key doesn't take effect until logout on the pinned release.
+# Original commands are quoted next to non-obvious mappings.
 {
   system.defaults = {
     # ─── 1. General / UI (NSGlobalDomain) ─────────────────────────────────

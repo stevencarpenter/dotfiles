@@ -1,25 +1,17 @@
-# Imperative sync hooks (bucket B: offline / fast / idempotent working-tree work
-# run at every switch as home.activation entries after writeBoundary).
-#
-# Ports the chezmoi post-apply hooks:
-#   .chezmoiscripts/run_after_sync-mcp.sh.tmpl      -> mcpSync
-#   .chezmoiscripts/run_after_sync-skills.sh.tmpl   -> skillsSync
-#   .chezmoitemplates/sync-hook-body.sh             -> shared preamble below
-#
-# The vendored mcp_sync project has NO runtime deps and
-# targets Python 3.14+, so activation invokes its modules directly with the
-# nix-provided interpreter and an explicit PYTHONPATH. This deliberately avoids
-# uv editable environments: their .pth files embed the checkout path and break
-# after a worktree move. Every entry:
-#   - runs after writeBoundary (so home.file symlinks exist),
-#   - runs after writeBoundary only (no secret-decryption node exists),
-#   - uses the nix-store Python directly with user site-packages disabled,
-#   - is wrapped in a subshell ending `|| true` so a failure warns but NEVER
-#     fails the switch (parity with the chezmoi fail_or_warn default; setting
-#     MCP_SYNC_STRICT had no persistent analog — activation must not abort).
-#
-# Overlay selection is by `identity` (personal/work/lab), matching the overlay
-# filenames, chosen at eval time — never by whatever file sorts first on disk.
+# Imperative sync hooks run at every switch as home.activation entries
+# after writeBoundary (so home.file symlinks exist — no secret-decryption node
+# is a dependant). Ports the retired chezmoi post-apply hooks:
+#   mcpSync      <- run_after_sync-mcp.sh.tmpl
+#   skillsSync    <- run_after_sync-skills.sh.tmpl
+#   (shared preamble <- sync-hook-body.sh)
+# mcp_sync has NO runtime deps and targets Python 3.14+, so activation calls
+# its modules directly with the nix-store interpreter + explicit PYTHONPATH.
+# Deliberately avoids uv editable installs: their .pth files embed the checkout
+# path and break after a worktree move. Every entry is wrapped in
+# `|| true` — failures warn but NEVER abort the switch (activation must not
+# abort; MCP_SYNC_STRICT has no persistent analog).
+# Overlay selection is by `identity` (personal/work/lab) at eval time, never
+# by whatever file sorts first on disk.
 {
   config,
   pkgs,
