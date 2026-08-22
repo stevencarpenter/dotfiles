@@ -1,24 +1,20 @@
 #!/usr/bin/env bash
-# Assert the ControlPath contract in home/.ssh/config: every Host block that
-# pins its own IdentityFile must also pin its own ControlPath, and no two of
-# them may resolve to the same socket.
+# Assert: every Host block pinning its own IdentityFile also pins its own
+# ControlPath, and no two resolve to the same socket.
 #
-# THE BUG THIS GUARDS: %C hashes %l%h%p%r — local host, RESOLVED hostname, port,
-# remote user. It does not vary by alias. So `Host github-dotfiles` with
-# `HostName github.com` and any block claiming `github.com` share one socket
-# under the default `ControlPath ~/.ssh/cm-%C`. Two blocks written specifically
-# to use different keys then collapse onto one multiplexed connection and the
-# first to authenticate wins for both.
+# THE BUG: %C hashes %l%h%p%r (local host, RESOLVED hostname, port, remote
+# user) — it does not vary by alias. So `Host github-dotfiles` (HostName
+# github.com) and any block claiming `github.com` share one socket under the
+# default `ControlPath ~/.ssh/cm-%C`. Two blocks meant to use different keys
+# collapse onto one multiplexed connection; the first to authenticate wins.
 #
-# The symptom is remote, delayed, and points away from the cause: GitHub answers
-# as the wrong account and reports a readable repo as "Repository not found",
-# while `ssh -G` shows the correct IdentityFile. Config resolution and the live
-# connection disagree, so every debugging step that inspects config looks fine.
+# Symptom is remote and points away from the cause: GitHub answers as the wrong
+# account and reports a readable repo as "Repository not found", while
+# `ssh -G` shows the correct IdentityFile — config and live connection disagree.
 #
-# Also checks length. The fix must NOT be %n: it would distinguish aliases but
-# reintroduce the 104-char unix-socket limit that %C exists to dodge — the
-# prefix plus 40 hex digits leaves ~37 characters, and Teleport hostnames here
-# are 44. Short literal prefixes stay bounded regardless of hostname.
+# The fix must NOT use %n: it distinguishes aliases but reintroduces the 104-char
+# unix-socket limit that %C exists to dodge — prefix + 40 hex < 67 chars;
+# Teleport hostnames here are 44, and a literal prefix keeps it bounded.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

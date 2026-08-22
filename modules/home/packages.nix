@@ -21,31 +21,17 @@
 # unconfirmed fonts remain Homebrew casks (see homebrew.nix).
 
 let
-  # ─── Fast-moving packages: a per-package escape from the stable pin ───────
+  # ─── Fast-moving packages: per-package escape from the stable pin ────────
   # nixpkgs is pinned to 26.05 (flake.nix:8). That line backports fixes but not
-  # new upstream releases, so a tool shipping every few days drifts arbitrarily
-  # far behind while a tool shipping a few times a year stays current.
+  # new upstream releases, so high-cadence tools drift arbitrarily far behind.
   # Everything NOT named here stays on the stable pin — including transitive
-  # build inputs, which is exactly why this is explicit selection rather than an
-  # overlay. An overlay would rewrite pkgs.<name> globally, so any stable
-  # package merely *depending* on ripgrep/fzf would rebuild against unstable and
-  # lose its binary-cache hit.
-  #
-  # Measured 2026-07-26, stable 26.05 → upstream latest:
-  #   mise     2026.5.12 → 2026.7.13  (~2 months, ~15 releases)
-  #   uv       0.11.21   → 0.11.32    (11 patch releases)
-  #   fzf      0.72.0    → 0.74.1
-  #   lazygit  0.61.1    → 0.63.1
-  #   zoxide   0.9.9     → 0.10.0
-  #   ripgrep  15.1.0    → 15.2.0
-  #   atuin    18.15.2   → 18.19.0    (measured 2026-08-07; ~4 months)
-  # For contrast, gh / yazi / neovim / delta / bat / fd / btop were all exactly
-  # current on stable and are deliberately NOT listed. The lag is a cadence
-  # mismatch in specific tools, not a general property of the channel.
-  #
-  # To add a tool: append its nixpkgs attr name here AND delete it from the
-  # stable list below. The assertion at the bottom fails the build if you forget
-  # the second half.
+  # build inputs, which is exactly why this is explicit selection and not an
+  # overlay: an overlay would rewrite pkgs.<name> globally, rebuilding dependent
+  # stable packages and losing binary-cache hits. gh/yazi/neovim/delta/bat/fd/
+  # btop already match stable and are deliberately unlisted — the lag is a
+  # cadence mismatch in specific tools, not the channel.
+  # To add a tool: append here AND move it to fastMovingPackages below. The
+  # assertion at the bottom fails the build if you forget the second half.
   fastMovingPackages = [
     "mise" # runtime manager; its config stays a raw symlinked dotfile
     "uv" # also drives the mcpSync activation hook in sync-hooks.nix

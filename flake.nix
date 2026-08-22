@@ -15,27 +15,16 @@
 
     # Escape hatch for tools whose upstream release cadence outruns the stable
     # channel's backport window — the allowlist lives in
-    # modules/home/packages.nix. Deliberately does NOT set
-    # `inputs.nixpkgs.follows`: tracking a different channel is the entire
-    # point, and unlike nix-darwin/home-manager this input has no nixpkgs
-    # input of its own — it IS nixpkgs.
+    # modules/home/packages.nix. This input IS nixpkgs (no separate input), so
+    # no `follows` is set.
     #
-    # Pinned to a REV, not to the `nixpkgs-unstable` branch, and that is
-    # load-bearing in two ways:
-    #
-    #   1. Soak window. The updater records a Hydra-certified channel tip and
-    #      its local first-seen time, then promotes that exact rev only after
-    #      ~7 elapsed days. Commit timestamps are deliberately not trusted as
-    #      channel-observation timestamps. The lock's narHash proves the tree
-    #      was not altered; it says nothing about whether the original tree was
-    #      benign. Rationale and state machine: scripts/update-unstable.sh.
-    #   2. A bare `nix flake update` cannot move this input while it names a
-    #      rev. Bumping is therefore always a deliberate act with a reviewable
-    #      `git diff`, never a side effect of refreshing something else.
-    #
-    # Run `just update-unstable` once to record and later to promote (default
-    # 7 days). Reverting this to a branch name silently disables both properties
-    # and fails the assertion in scripts/test-nix-review-regressions.sh.
+    # Pinned to a REV, not the branch, for two load-bearing reasons: (1) the
+    # updater soak-window in scripts/update-unstable.sh needs a fixed rev to
+    # record first-seen time before promoting ~7 days later — commit timestamps
+    # are not trusted as channel tips; and (2) a rev cannot be moved by a bare
+    # `nix flake update`, so bumping is always deliberate + reviewable. Reverting
+    # to a branch name silently disables both and fails the assertion in
+    # scripts/test-nix-review-regressions.sh.
     nixpkgs-unstable.url = "github:NixOS/nixpkgs/3f50310a736e4e954194338709c3ad75c50acc20"; # nixpkgs-unstable @ 2026-07-31
   };
 

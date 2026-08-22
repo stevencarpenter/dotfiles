@@ -11,8 +11,8 @@ import time
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import urlsplit
 from typing import Any
+from urllib.parse import urlsplit
 
 from .sync import deep_merge, log_error, log_info, log_success
 
@@ -24,22 +24,17 @@ _DURATION_RE = re.compile(r"^(\d+)([smhd])$")
 DEFAULT_REFRESH = "168h"
 DEFAULT_REF = "main"
 
-# Git skill sources are LIVE tracking clones: ensure_git_source fetches a ref and
-# `reset --hard FETCH_HEAD`, then the skill directory is copied into
-# ~/.claude/skills where an agent loads it. Whoever controls that repository
-# therefore controls code the agent executes. Every git source must resolve to a
-# repository the operator owns.
+# Git skill sources are LIVE tracking clones (ensure_git_source fetches +
+# reset --hard, then the skill dir is copied into ~/.claude/skills where an
+# agent loads it). The remote owner therefore controls executed code, so every
+# git source must resolve to a repository the operator owns.
 #
-# The allowlist is "<host>/<owner>", compared on the parsed hostname and the
-# first path segment — never by substring — so a lookalike host
-# (github.com.evil.tld), an owner-shaped path segment under a foreign host
-# (evil.tld/github.com/owner), an owner prefix (owner-evil), and a userinfo
-# trick (https://github.com@evil.tld/owner) are all rejected.
-#
-# This repo's default names only the maintainer's own forge account. A machine
-# overlay extends the list via `allowedGitOwners` (overlays deep-merge into the
-# manifest), so a private repo can permit its own organization without that
-# organization's name living in this public tree.
+# The allowlist is "<host>/<owner>", compared on the PARSED hostname and first
+# path segment — never by substring — so lookalike hosts (github.com.evil.tld),
+# owner-shaped foreign paths, owner prefixes (owner-evil), and userinfo tricks
+# (https://github.com@evil.tld/owner) are all rejected.
+# Default names only the maintainer's forge account; a machine overlay extends
+# the list via `allowedGitOwners` (deep-merged into the manifest).
 DEFAULT_ALLOWED_GIT_OWNERS = ("github.com/stevencarpenter",)
 
 # scp-style remote: user@host:path (no scheme). Anchored so it cannot match a
