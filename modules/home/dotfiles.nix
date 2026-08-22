@@ -185,10 +185,19 @@ in
         );
       }
 
-      # worktrunk config left managed dotfiles (15d41bb): the tool's config and
-      # runtime state (approvals.toml trust ledger) are the external config's
-      # concern now. An external module may still define
-      # home.file.".config/worktrunk/config.toml" itself; no in-repo default.
+      # Whole-file override seam for tools without native include support.
+      # An external module's ordinary source definition outranks this default.
+      #
+      # Link only config.toml, per the atuin precedent above. worktrunk writes
+      # its own runtime state beside it: approvals.toml (the per-repo hook trust
+      # ledger, keyed by remote identifier and pinned to the exact approved
+      # command string) plus approvals.toml.lock. Linking the whole directory
+      # sent those writes into this repo's working tree, where a work repo's
+      # identifier would be published from a public tree and the ledger would be
+      # shared across machines that never granted it.
+      {
+        ".config/worktrunk/config.toml".source = lib.mkDefault (link ".config/worktrunk/config.toml");
+      }
 
       # ---- caps.mcp ---------------------------------------------------------
       # Master config + this machine's overlay. sync-mcp-configs (sync-hooks.nix)
