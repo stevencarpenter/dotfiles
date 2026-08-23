@@ -114,6 +114,8 @@
       }
     }
   },
+  "outputStyle": "Concise",
+  "verbose": false,
   "autoDreamEnabled": true,
   "skipDangerousModePermissionPrompt": true,
   "skipAutoPermissionPrompt": true,
