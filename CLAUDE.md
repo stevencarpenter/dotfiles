@@ -1,25 +1,26 @@
 # CLAUDE.md
 
 Guidance for Claude Code (claude.ai/code) and Codex (`AGENTS.md` is a symlink to this file) when
-working in this repo. Global personal preferences live in `~/.claude/CLAUDE.md`; do not duplicate
+working in this repo. Global personal preferences are in `~/.claude/CLAUDE.md`; do not duplicate
 them here.
 
-## What This Is
+## Repository
 
-A personal macOS dotfiles repository built as a **nix-darwin + home-manager flake** in a "thin
-wrapper" shape: nix owns packages, macOS defaults, capability gating, and orchestration, while the
-raw config files live under `home/` (real dotted names) and are symlinked into place **out of the
-nix store** through `~/.dotfiles` — so editing a raw config is live immediately, no rebuild needed.
-One flake drives its hosts (currently just `personal-mac`) from a single
-capability table (`lib/machines.nix`); modules gate on caps/identity, never on hostname. Secrets
-render directly from 1Password via `op-render`; this repo declares zero `age.secrets` on every
-identity and does not depend on agenix. Secrets for an externally-owned host are that wrapper's
-custody. The repo also vendors two small Python tools
-(`mcp_sync/`, `agent_reap/`). Two former tools were extracted to their own public repos and
-install as standalone
-uv tools: `token-auditor` (github.com/stevencarpenter/token-auditor, via `just sync`) and
-`aws_config_gen` (github.com/stevencarpenter/aws-config-generator; the external work wrapper now
-owns AWS profile generation, so this repo dropped it and the `aws_sso` capability).
+This is a personal macOS dotfiles repository implemented as a nix-darwin and home-manager flake.
+Nix manages packages, macOS defaults, capability gating, and orchestration. Raw configuration files
+retain their dotted names under `home/` and are symlinked through `~/.dotfiles` without entering the
+Nix store. Edits to raw configuration files take effect without a rebuild.
+
+`lib/machines.nix` defines the capability table for all hosts, currently only `personal-mac`.
+Modules select behavior by capability and identity, not hostname. `op-render` renders secrets from
+1Password. No identity declares `age.secrets`, and the repository does not depend on agenix.
+Externally managed hosts keep their secrets in their own flakes.
+
+The repository includes the Python tools `mcp_sync/` and `agent_reap/`. Two other Python tools are
+installed from separate public repositories: `token-auditor`
+(github.com/stevencarpenter/token-auditor, installed by `just sync`) and `aws_config_gen`
+(github.com/stevencarpenter/aws-config-generator). The external work flake manages AWS profile
+generation, so this repository does not define the `aws_sso` capability.
 
 ## Commands
 
@@ -36,7 +37,7 @@ team leads and idle interactive sessions are never killed without a further expl
 
 ```bash
 just reap            # report (kills nothing)
-just reap-sockets    # every tmux server — shows why `tmux kill-server` missed one
+just reap-sockets    # every tmux server; shows why `tmux kill-server` missed one
 just reap-strays     # ssh control masters + disowned descendants (report-only)
 just reap-kill       # actually reap idle teammate panes
 
@@ -46,9 +47,9 @@ uv run --project agent_reap --group dev mypy agent_reap/src agent_reap/tests
 uv run --project agent_reap --group dev pytest agent_reap/tests --cov=agent_reap
 ```
 
-Installed unconditionally as a uv tool from the local path by `just sync`
-(`scripts/sync-side-channels.sh`) — it is inert without a tmux server or a team directory, so
-it carries no capability gate. `just sync` owns `~/.local/bin/agent-reap`; only
+`just sync` installs the local uv tool through `scripts/sync-side-channels.sh` on every machine.
+Without a tmux server or team directory, the tool exits without action. No capability gate is
+required. `just sync` manages `~/.local/bin/agent-reap`; only
 `~/.config/agent-reap/config.toml` is symlinked by `modules/home/dotfiles.nix`.
 It is not a daemon: automatic cleanup is the Claude `SessionEnd` hook, and solo sessions do not
 create a hook log. See `docs/ai-tools/tmux-runtime-lifecycle.md` before diagnosing tmux cwd,
@@ -69,15 +70,15 @@ uv run --project mcp_sync --group dev pytest mcp_sync/tests/test_sync_mcp_config
 uv run --project mcp_sync sync-mcp-configs
 ```
 
-### Token Auditor (external — `token-auditor` uv tool)
+### Token Auditor (external `token-auditor` uv tool)
 
-`token-auditor` (the auditor behind the `codax`/`claade`/`opencade` wrappers) now lives in its own
+`token-auditor` (the auditor behind the `codax`/`claade`/`opencade` wrappers) is maintained in its own
 repo: <https://github.com/stevencarpenter/token-auditor>. Lint/type/test run there, not here. The
 dotfiles pin it in `versions/token-auditor` (read by both the Justfile and direct sync script) and
 install it via `just sync`. The install is **unconditional** on
 every machine by design; the former `token_auditor` capability was dropped (2026-07-17) because no
-consumer read it. Re-add the cap with real plumbing (see the machine.env pattern in `tiling.nix`)
-only if a host ever needs an opt-out.
+consumer read it. Re-add the capability only with a module that reads it. The `machine.env` pattern
+in `tiling.nix` provides an example.
 
 ```bash
 uv tool install git+https://github.com/stevencarpenter/token-auditor   # manual install / upgrade
@@ -97,22 +98,22 @@ just update-unstable         # Record today's nixpkgs-unstable tip; after 7 elap
 just update-unstable 14      # Wider soak window
 ./bootstrap.sh            # Fresh-machine setup (Lix, Homebrew, first switch, rustup)
 just sync                 # Full deploy: switch, then op-render secrets + git externals + agents
-                          #   + token-auditor. One command; the order is load-bearing.
+                          #   + token-auditor. The sequence is required.
 just sync-side-channels   # Side channels only, skipping the rebuild
 ```
 
-Raw configs under `home/` are out-of-store symlinks — editing them is live with no rebuild. A
-`darwin-rebuild switch` is only needed for changes nix owns: packages, macOS defaults, gating, or a
+Raw configs under `home/` are out-of-store symlinks. Edits take effect without a rebuild. A
+`darwin-rebuild switch` is only needed for changes Nix manages: packages, macOS defaults, gating, or a
 secret/hook declaration.
 
 `nixpkgs-unstable` is pinned to a **rev**, not to the branch, so `nix flake update` cannot move it
 and every bump is a reviewable `git diff`. `just update-unstable` first records the current channel
 tip and a local first-seen time, then promotes that exact rev only after the requested elapsed soak;
 it never infers channel age from a commit timestamp. A lockfile's narHash proves the tree was not
-tampered with, not that it was benign when locked. Never bump this input by hand — branch pins and
-pin/lock disagreement fail `scripts/test-nix-review-regressions.sh`. Rationale in full lives in
-`scripts/update-unstable.sh`; the exposed surface is the `fastMovingPackages` allowlist in
-`modules/home/packages.nix`.
+tampered with, not that it was benign when locked. Do not bump this input by hand. Branch pins and
+pin/lock disagreement fail `scripts/test-nix-review-regressions.sh`.
+`scripts/update-unstable.sh` documents the rationale. The package allowlist is
+`fastMovingPackages` in `modules/home/packages.nix`.
 
 ### Pre-commit
 
@@ -126,8 +127,8 @@ pre-commit run --all-files
 
 ```
 flake.nix                 # inputs + mkHost fold → darwinConfigurations.<host>
-lib/machines.nix          # capability table (the single source of per-host variance)
-hosts/*.nix               # thin per-host shims; host-scoped declarations only
+lib/machines.nix          # complete capability table for per-host variance
+hosts/*.nix               # host-scoped declarations only
 modules/darwin/*.nix      # system scope (specialArgs): core, macos-defaults, homebrew
 modules/home/*.nix        # home scope (extraSpecialArgs): dotfiles, shell, packages,
                           #   tiling, dev-tools, ai-stack, sync-hooks
@@ -136,25 +137,25 @@ secrets/                  # documentation only; no ciphertext, no age secrets
 ```
 
 Conventions:
-- **No hostname checks in modules.** All per-host variance flows from `lib/machines.nix` through
-  `specialArgs` (darwin) / `extraSpecialArgs` (home-manager) as `{ inputs; hostName; user; caps;
-  identity; }`. Modules take only what they use and gate on `caps.<x>` / `identity`.
+- **No hostname checks in modules.** `lib/machines.nix` defines all per-host variance.
+  `specialArgs` (darwin) and `extraSpecialArgs` (home-manager) pass `{ inputs; hostName; user; caps;
+  identity; }` to modules. Modules take only what they use and gate on `caps.<x>` or `identity`.
 - **Raw dotfiles are out-of-store symlinks.** `modules/home/dotfiles.nix` links each `home/<path>`
   via `config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/home/<path>"`,
-  gated by caps/identity. Editing the target is live — no rebuild.
+  gated by caps/identity. Target edits take effect without a rebuild.
 - **Adopting a new tool's config** (promote a test-driven config into the repo): follow
-  `docs/adopting-a-config.md` — copy under `home/`, choose file-vs-directory linking, add the
+  `docs/adopting-a-config.md`. Copy it under `home/`, choose file or directory linking, add the
   `mkLinks` entry, clear the collision, rebuild. Claude Code has the `adopt-config` skill for this.
 - **Templates were resolved at port time.** What used to be `.tmpl` is now either a static per-host
   file selected by `identity` (e.g. `aerospace.{personal,work}.toml` in `tiling.nix`) or a small
   nix-generated `home.file.<x>.text` (e.g. `sketchybar/machine.env` from
   `caps.sketchybar_workspace_badges`).
-- **Nix owns packages & system state**, not in-shell init: `home.packages` (CLI + fonts),
+- **Nix manages packages and system state**, not in-shell initialization: `home.packages` (CLI + fonts),
   `modules/darwin/homebrew.nix` (GUI casks + macOS-native tooling), `system.defaults.*` (macOS
-  prefs), `launchd` agents, and the login-shell pin. z4h owns the shell (`programs.zsh.enable =
+  preferences), `launchd` agents, and the login-shell pin. z4h manages the shell (`programs.zsh.enable =
   false`); all zsh files stay raw symlinks.
 
-**Adding a machine:** copy a row in `lib/machines.nix`, flip caps, add the name to the
+**Adding a machine:** copy a row in `lib/machines.nix`, set its capabilities, add the name to the
 `detect_host` map in `bootstrap.sh` / `rebuild.sh`. **Adding a capability:** add the key to *every*
 row (`flake.nix` asserts the row shape) and gate the owning module on `caps.<capability>`.
 
@@ -162,77 +163,80 @@ row (`flake.nix` asserts the row shape) and gate the owning module on `caps.<cap
 
 The sync tool reads `home/.config/mcp/mcp-master.json` and generates tool-specific configs:
 
-- **Master config**: `home/.config/mcp/mcp-master.json` — shared servers deployed to all machines
-- **Machine overlays**: `home/.config/mcp/machine/{personal,work,lab}.json` — machine-type-specific
+- **Master config**: `home/.config/mcp/mcp-master.json`, with shared servers deployed to all machines
+- **Machine overlays**: `home/.config/mcp/machine/{personal,work,lab}.json`, with machine-type-specific
   servers (e.g., AWS MCP on work only). Static files now (the old `.tmpl` overlays were resolved at
   port time); `modules/home/dotfiles.nix` symlinks the overlay for this host's `identity`.
-- **Templates**: `mcp_sync/src/mcp_sync/templates/` — base config templates per tool
+- **Templates**: `mcp_sync/src/mcp_sync/templates/`, with base config templates per tool
 - **Transform functions** in `sync.py`: `transform_to_copilot_format()`, `transform_to_identity_format()`,
   `transform_to_mcpservers_format()`, `transform_to_opencode_format()`
-- **Merge order**: base template + master + machine overlay + per-tool overrides (later values win).
-  The overrides layer is wired in `sync.py` — each target reads `~/.config/mcp/overrides/<key>.json`
-  at sync time — but no override files are managed in-repo yet (`dotfiles.nix` links a `.keep`
+- **Merge order**: base template + master + machine overlay + per-tool overrides. Later values
+  override earlier values.
+  `sync.py` implements the overrides layer. Each target reads `~/.config/mcp/overrides/<key>.json`
+  at sync time. No override files are managed in the repository (`dotfiles.nix` links a `.keep`
   marker so `~/.config/mcp/overrides/` exists but is otherwise empty).
 
 The sync runs automatically after every `darwin-rebuild switch` via the `mcpSync`
 `home.activation` entry in `modules/home/sync-hooks.nix` (gated on `caps.mcp`). The hook selects
 the overlay for this host's `identity` (`~/.config/mcp/machine/<identity>.json`) at nix eval time
-and passes it via `--machine-config` — it does not glob whatever overlay sorts first on disk. It
-uses the nix-store `uv`/`python314`, runs after `writeBoundary`, and warns-but-never-fails the
-switch. Run it by hand with `just mcp-sync`.
+and passes it via `--machine-config`. It does not select an overlay by filename sort order. It uses
+the Nix store `uv` and `python314`, runs after `writeBoundary`, and reports failures without failing
+the switch. Run it manually with `just mcp-sync`.
 
 #### Machine-Type Gating
 
-All per-host variance flows from the `caps` set + `identity` string in `lib/machines.nix`, threaded
-into modules via specialArgs. Gating replaced two chezmoi mechanisms with one: a `.chezmoiignore`
+The `caps` set and `identity` string in `lib/machines.nix` define all per-host variance.
+`specialArgs` passes both values to modules. Gating replaced two chezmoi mechanisms with one: a
+`.chezmoiignore`
 `hasPrefix`/`(index .machines .machine).<cap>` line becomes a `lib.mkIf caps.<x>` /
-`lib.optionalAttrs (identity == "…")` in the module that owns the thing. There is exactly one gate
-site per concern, and `nix flake check` fails evaluation if a gate references an undefined
-capability. The full per-capability rationale lives as comments in `lib/machines.nix`; the table is
-in `README.md`. Where each capability is enforced:
+`lib.optionalAttrs (identity == "…")` in the module that manages the configuration. There is
+exactly one gate site per concern. `nix flake check` fails evaluation if a gate references an
+undefined capability. Comments in `lib/machines.nix` document each capability. `README.md`
+contains the capability table. Each capability is enforced at these locations:
 
-- **`tiling`** — `modules/home/tiling.nix` (aerospace/sketchybar/borders symlinks + restart
+- **`tiling`**: `modules/home/tiling.nix` (aerospace/sketchybar/borders symlinks + restart
   activation) and `modules/darwin/homebrew.nix` (WM tap/brew/cask block, `font-sketchybar-app-font`).
-- **`sketchybar_workspace_badges`** — `modules/home/tiling.nix` generates
+- **`sketchybar_workspace_badges`**: `modules/home/tiling.nix` generates
   `~/.config/sketchybar/machine.env` (`SKETCHYBAR_WORKSPACE_BADGES=0/1`).
-- **`atuin`** — `modules/home/dotfiles.nix` links `~/.config/atuin/config.toml` on *every* machine;
+- **`atuin`**: `modules/home/dotfiles.nix` links `~/.config/atuin/config.toml` on *every* machine;
   the capability selects which variant (`config.sync.toml` with the self-hosted `sync_address`, vs
-  `config.local.toml` with `auto_sync = false`). Both carry `history_filter` and `[tmux] enabled`.
+  `config.local.toml` with `auto_sync = false`). Both include `history_filter` and `[tmux] enabled`.
   `scripts/test-atuin-filter-parity.sh` keeps the two filter lists identical.
-- **`mcp`** — `modules/home/dotfiles.nix` (master config + overlay + overrides `.keep`) and the
+- **`mcp`**: `modules/home/dotfiles.nix` (master config + overlay + overrides `.keep`) and the
   `mcpSync` hook in `modules/home/sync-hooks.nix`. (No github MCP server ships anywhere: `mcp_sync`
   strips a `github` server via `RETIRED_MCP_SERVER_NAMES`, and the `github@claude-plugins-official`
-  plugin — which bundles a remote GitHub MCP server — is pinned `false` in
+  plugin, which bundles a remote GitHub MCP server, is pinned `false` in
   `home/.claude/settings-base.json`. `gh-axi` is used for GitHub instead.)
-- **`skills`** — `modules/home/dotfiles.nix` (manifest + overlay) and the `skillsSync` hook.
-  **Git-source provenance is enforced in code**, not just by review: a git skill source is a live
+- **`skills`**: `modules/home/dotfiles.nix` (manifest + overlay) and the `skillsSync` hook.
+  **Git-source provenance is enforced in code**, not just by review: a git skill source is a
   tracking clone (`fetch` + `reset --hard FETCH_HEAD`) whose contents an agent then executes, so
   `resolve_skills` rejects any source whose `<host>/<owner>` is not in an allowlist
-  (`DEFAULT_ALLOWED_GIT_OWNERS` in `mcp_sync/src/mcp_sync/skills.py`). It fails closed — an empty or
+  (`DEFAULT_ALLOWED_GIT_OWNERS` in `mcp_sync/src/mcp_sync/skills.py`). An empty or
   malformed `allowedGitOwners` is an error, never allow-all. This repo's default names only the
   maintainer's own forge account; a machine overlay extends the list via `allowedGitOwners` (it
-  deep-merges into the manifest), so a private overlay can permit its own organization without that
-  organization's name living in this public tree.
-- **`gui`** — `modules/darwin/homebrew.nix` (GUI casks) and `modules/home/packages.nix` (display
+  deep-merges into the manifest). A private overlay can permit its own organization without adding
+  that organization's name to this public repository.
+- **`gui`**: `modules/darwin/homebrew.nix` (GUI casks) and `modules/home/packages.nix` (display
   fonts). CLI casks like `1password-cli` stay outside this gate.
-- **`dev`** — `modules/home/dev-tools.nix` (mise `conf.d/dev.toml`), `modules/home/packages.nix`
+- **`dev`**: `modules/home/dev-tools.nix` (mise `conf.d/dev.toml`), `modules/home/packages.nix`
   (dev fonts), `modules/darwin/homebrew.nix` (railway CLI + dev font casks), and
   `home/.claude/settings-base.json` variant (dev-only LSP plugins, resolved in `ai-stack.nix`).
-- **`infra`** — `modules/home/dev-tools.nix` (mise `conf.d/infra.toml`).
-- **`agent_journal`** — `modules/home/dotfiles.nix` (config + `~/.local/bin/{agent-journal,agent-note}`).
-- **`agents`** — capability-aware personal registry clone, install, routing-cache refresh, and
+- **`infra`**: `modules/home/dev-tools.nix` (mise `conf.d/infra.toml`).
+- **`agent_journal`**: `modules/home/dotfiles.nix` (config + `~/.local/bin/{agent-journal,agent-note}`).
+- **`agents`**: capability-aware personal registry clone, install, routing-cache refresh, and
   validation in `just sync`; the `emit-routing-context.sh` SessionStart hook is unioned in
   `ai-stack.nix`. A work-host sync never contacts the personal registry remote.
 - token-auditor is **not capability-gated**: `just sync` installs it unconditionally (release in
-  `versions/token-auditor`; public https repo). The former orphan `token_auditor` cap
+  `versions/token-auditor`; public https repo). The unused `token_auditor` capability
   was dropped 2026-07-17.
 
-Identity-flavored splits (personal/work/lab shell profiles, hippo, homelab-over-Tailscale for
-`!= "work"`) live in `modules/home/dotfiles.nix` and `modules/home/secrets.nix` as
+Identity-specific configurations (personal/work/lab shell profiles, hippo, and
+homelab-over-Tailscale for `!= "work"`) are defined in `modules/home/dotfiles.nix` and
+`modules/home/secrets.nix` as
 `lib.optionalAttrs (identity == "…")`.
 
-> No `wireguard` capability is defined. The home network uses Tailscale (WireGuard under the hood);
-> if a future device needs a raw WG tunnel, add the capability then with a real consumer in tree.
+> No `wireguard` capability is defined. The home network uses Tailscale, which uses WireGuard;
+> if a future device needs a raw WG tunnel, add the capability with a module that reads it.
 > See `docs/networking.md`.
 
 **Adding a machine:** add a row to `lib/machines.nix` and the `detect_host` map in `bootstrap.sh` /
@@ -241,31 +245,33 @@ and gate the owning module on `caps.<capability>`.
 
 ### Key Directories
 
-- `flake.nix` — inputs + `mkHost` fold → `darwinConfigurations.<host>`
-- `lib/machines.nix` — per-machine capability table (single source of truth for gating)
-- `hosts/*.nix` — thin per-host shims; host-scoped declarations only
-- `modules/darwin/` — system scope: `core.nix`, `macos-defaults.nix`, `homebrew.nix`
-- `modules/home/` — home scope: `dotfiles`, `shell`, `packages`, `tiling`, `dev-tools`, `ai-stack`, `sync-hooks`
-- `home/` — raw dotfiles (real dotted names), symlinked out-of-store through `~/.dotfiles`
-- `home/.config/mcp/` — master MCP config + per-machine overlays (override layer wired in `sync.py`; no override files managed in-repo yet)
-- `home/.config/nvim/` — Neovim config (LazyVim)
-- `secrets/` — documentation only; no ciphertext is tracked and no host declares age secrets
-- `mcp_sync/` — MCP + skills fan-out tool (uv project, Python 3.14+, no runtime deps)
-- `agent_reap/` — idle Claude teammate reaper (uv project, Python 3.14+, no runtime deps)
-- `bootstrap.sh` / `rebuild.sh` — fresh-machine setup / routine switch (host auto-detect)
-- `Justfile` — nix/python/sync recipes (`versions/token-auditor` owns the tool release)
-- `scripts/` — hygiene test scripts (statusline, sketchybar, claude-settings-order, mcp-sync) + `strip-claude-trailer.sh`
-- `docs/ai-tools/` — Setup guides for MCP, Copilot, etc.
+- `flake.nix`: inputs and `mkHost` fold to `darwinConfigurations.<host>`
+- `lib/machines.nix`: complete per-machine capability table
+- `hosts/*.nix`: host-scoped declarations
+- `modules/darwin/`: system scope (`core.nix`, `macos-defaults.nix`, `homebrew.nix`)
+- `modules/home/`: home scope (`dotfiles`, `shell`, `packages`, `tiling`, `dev-tools`, `ai-stack`,
+  `sync-hooks`)
+- `home/`: raw dotfiles with their real names, symlinked out of store through `~/.dotfiles`
+- `home/.config/mcp/`: master MCP config and per-machine overlays; `sync.py` implements overrides
+- `home/.config/nvim/`: Neovim config (LazyVim)
+- `secrets/`: documentation only; no ciphertext or age secrets
+- `mcp_sync/`: MCP and skills config generator (uv project, Python 3.14+, no runtime dependencies)
+- `agent_reap/`: idle Claude teammate reaper (uv project, Python 3.14+, no runtime dependencies)
+- `bootstrap.sh` / `rebuild.sh`: new-machine setup and routine switch with host auto-detection
+- `Justfile`: Nix, Python, and sync recipes; `versions/token-auditor` specifies the tool release
+- `scripts/`: hygiene tests and `strip-claude-trailer.sh`
+- `docs/ai-tools/`: setup guides for MCP, Copilot, and related tools, plus
+  `hippo-usage-measurement.md` (hippo recall baseline, re-measure dates, and query constraints)
 
 ### Tmux Status Bar Integration
 
 A monitor script (`home/.config/tmux/scripts/claude-pane-monitor.sh`) runs every status-interval and
-sets per-window `@claude_state` options. The everforest color palette is defined inline (no theme
-plugin) so the monitor has full control over `window-status-format` and
-`window-status-current-format` with stoplight colors:
+sets per-window `@claude_state` options. The everforest color palette is defined inline without a
+theme plugin. The monitor sets `window-status-format` and `window-status-current-format` using
+state colors:
 
-- **Green** (`#a7c080`) — actively working (pane title begins with a braille spinner)
-- **Yellow** (`#dbbc7f`) — waiting for input (pane title begins with ✳)
+- **Green** (`#a7c080`): actively working (pane title begins with a braille spinner)
+- **Yellow** (`#dbbc7f`): waiting for input (pane title begins with ✳)
 
 Titles without one of those state markers, such as an editor-set `nvim` title, are not classified
 as Claude panes.
@@ -273,19 +279,19 @@ as Claude panes.
 Window names show `#{pane_title}` via `automatic-rename-format`, so tabs display Claude session
 names and state spinners instead of version numbers.
 
-The cwd contract is separate from window identity: `prefix c`, `prefix |`, and `prefix -` pass
-`-c "$HOME"` so a long-lived foreground agent cannot leak its launch directory into a new shell.
-The hygiene test loads the real config into an isolated tmux server and checks the effective final
-bindings, catching later overrides as well as missing lines. The full live-state debugging and
-cleanup runbook is `docs/ai-tools/tmux-runtime-lifecycle.md`.
+The cwd contract is separate from window identity. `prefix c`, `prefix |`, and `prefix -` pass
+`-c "$HOME"` so a new shell does not inherit a foreground agent's launch directory. The hygiene
+test loads the configuration into an isolated tmux server and checks the effective final bindings,
+including later overrides. Runtime debugging and cleanup procedures are in
+`docs/ai-tools/tmux-runtime-lifecycle.md`.
 
 ### Secrets
 
-Personal and work secret authoring deliberately differ:
+Personal and work secrets use different workflows:
 
 - **Personal:** add an `op://` reference to the appropriate template under `home/`, keep the target
   in `home/.config/op/render-manifest`, run `just sync` (or `op-render` directly), and verify mode
-  `0600`, structural parity, no unresolved references, and a fresh `.last-render` sentinel.
+  `0600`, structural parity, no unresolved references, and an updated `.last-render` sentinel.
   op-render must run from an interactive terminal: `just sync` runs `eval "$(op signin)"` right
   before it (TTY-guarded, since `op signin` blocks on input) because op sessions expire after ~30
   minutes. Activation only runs `op-render --warn-stale-only`.
@@ -293,21 +299,24 @@ Personal and work secret authoring deliberately differ:
   names-only plan and let the user run `just op-adopt --apply` after review. Never run the apply
   path on the user's behalf. Adoption is limited to exact mappings in
   `home/.config/op/adopt-policy.json`; Login items and SSH config remain manual/render-only.
-- **Work:** not this repo's concern. The age bridge (ciphertexts, recipient file, and
-  `modules/home/secrets.nix`) was removed; no host declares `age.secrets` or an age identity.
-  Secrets for an externally-owned host are administered by that wrapper's own flake.
+- **Work:** work-host secrets are managed outside this repository. The age bridge (ciphertexts,
+  recipient file, and `modules/home/secrets.nix`) was removed; no host declares `age.secrets` or an
+  age identity. The external host's flake manages its secrets.
 
-Never add an age secret back to this repo, and never `builtins.readFile` a decrypted value —
-that would bake plaintext into the public Nix store. Full workflows are in `secrets/README.md`
+Do not add an age secret to this repository or pass a decrypted value to `builtins.readFile`.
+Either action would include plaintext in the public Nix store. Procedures are in `secrets/README.md`
 and the project secret-authoring skill.
 
 ## CI
 
 GitHub Actions in `.github/workflows/`:
-- `mcp-sync-ci.yml` — lint + test for the vendored `mcp_sync` tool (token-auditor and aws_config_gen CI live in their own repos now)
-- `agent-reap-ci.yml` — lint + test for the vendored `agent_reap` tool
-- `nix-flake-check.yml` — formats Nix, evaluates explicit `checks.<system>.<host>` closures, and builds both Darwin systems on `macos-latest`
-- `dotfiles-hygiene-ci.yml` — repo-wide hygiene: pre-commit, MCP master-config structure, shell `bash -n` syntax, and the statusline / sketchybar / claude-settings-order test scripts
+- `mcp-sync-ci.yml`: lint and test for `mcp_sync`; token-auditor and aws_config_gen run CI in their
+  repositories
+- `agent-reap-ci.yml`: lint and test for `agent_reap`
+- `nix-flake-check.yml`: Nix formatting, explicit `checks.<system>.<host>` evaluation, and both
+  Darwin builds on `macos-latest`
+- `dotfiles-hygiene-ci.yml`: pre-commit, MCP master-config structure, shell `bash -n` syntax, and
+  configuration test scripts
 
 ## Style
 
@@ -320,19 +329,19 @@ GitHub Actions in `.github/workflows/`:
 - Tests: `test_*.py` filenames and `test_*` function names (enforced by pre-commit)
 - Nix: `nixfmt` via `nix fmt`; 2-space indentation; keep modules small and readable, with comments
   that explain constraints
-- Raw dotfiles: live under `home/` with their real dotted names (no `dot_`/`encrypted_` prefixes);
+- Raw dotfiles: store them under `home/` with their real dotted names (no `dot_`/`encrypted_` prefixes);
   gating is nix (`mkIf`/`optionalAttrs`), not filename convention
 - Prefer small, focused edits; keep scripts idempotent and safe to re-run
 
 ## IntelliJ MCP in this repo
 
-The `mcp__idea__*` tools need explicit targeting — called bare they fail with "Unable to
+The `mcp__idea__*` tools require explicit targeting. Without target arguments they fail with "Unable to
 determine the target project for the current MCP tool call" or "No argument is passed for
 required parameter 'pathInProject'". When using them in this repo, always pass
 `projectPath=~/.dotfiles`, a **repo-relative** `pathInProject`
 (e.g. `mcp_sync/src/mcp_sync/sync.py`), and the **exact** current `oldText` for replacements.
-The global `~/.claude/CLAUDE.md` covers *preferring* these tools; this note is the
-repo-specific targeting that makes them resolve.
+The global `~/.claude/CLAUDE.md` defines tool priority. These repository-specific arguments are
+required for project resolution.
 
 ## Commits & Pull Requests
 
@@ -347,4 +356,3 @@ History uses Conventional Commit prefixes: `feat:`, `fix:`, `chore:`, `docs:`, `
   naming an AI agent, assistant, or harness (Claude, Codex, Copilot, Gemini, etc.), to commits
   in this repo.** This overrides the harness default. Slash commands that template such a
   trailer must strip it before committing here.
-
