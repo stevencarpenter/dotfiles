@@ -10,9 +10,12 @@ readonly STATE_ROOT="${VIMGOLF_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/
 
 usage() {
   printf '%s\n' \
-    'usage: scripts/vim-golf-august [play|check|diff|reset|show|copy|list|audit] [DAY]' \
+    'usage: scripts/vim-golf-august [play|check|diff|reset|show|brief|copy|list|audit] [DAY]' \
     '' \
-    'DAY may be 19, 2026-08-19, or omitted for today.'
+    'DAY may be 19, 2026-08-19, or omitted for today.' \
+    '' \
+    'brief pages the challenge.md for the day play last registered in this tmux' \
+    'session (falling back to DAY/today); the prefix+g tmux popup calls it.'
 }
 
 resolve_day() {
@@ -79,8 +82,14 @@ play() {
 
   sed -n '1,240p' "$challenge/challenge.md"
   printf '\nworktree: %s\n' "$work"
+  if [[ -n "${TMUX:-}" ]]; then
+    # Register the active brief so the prefix+g display-popup binding (which
+    # runs `brief`) shows this day even after nvim opens. Left set on exit:
+    # the popup stays useful while reviewing check/diff output.
+    tmux set-environment VIMGOLF_BRIEF "$challenge/challenge.md"
+  fi
   if [[ -t 0 ]]; then
-    read -rsp $'\nRead the brief, then press Enter to open Neovim (rerun it later with: show '"${day#2026-08-}"$')...\n'
+    read -rsp $'\nRead the brief, then press Enter to open Neovim (prefix+g pops the brief back up; rerun in a shell with: show '"${day#2026-08-}"$')...\n'
   fi
   (
     cd "$work"
@@ -137,7 +146,8 @@ audit_fixtures() {
 
 command="${1:-play}"
 if (($# > 0)); then shift; fi
-day="$(resolve_day "${1:-}")"
+requested_day="${1:-}"
+day="$(resolve_day "$requested_day")"
 
 case "$command" in
   list)
@@ -171,6 +181,21 @@ case "$command" in
   show)
     challenge="$(challenge_dir "$day")"
     sed -n '1,240p' "$challenge/challenge.md"
+    ;;
+  brief)
+    # An explicit DAY always wins; otherwise prefer the brief the last `play`
+    # registered in this tmux session, so a popup opened mid-challenge shows
+    # the day being played rather than today's.
+    brief_file=''
+    if [[ -z "$requested_day" && -n "${TMUX:-}" ]]; then
+      # show-environment exits nonzero when the variable was never set.
+      env_line="$(tmux show-environment VIMGOLF_BRIEF 2>/dev/null || true)"
+      brief_file="${env_line#VIMGOLF_BRIEF=}"
+    fi
+    if [[ ! -f "$brief_file" ]]; then
+      brief_file="$(challenge_dir "$day")/challenge.md"
+    fi
+    exec less "$brief_file"
     ;;
   copy)
     challenge="$(challenge_dir "$day")"
