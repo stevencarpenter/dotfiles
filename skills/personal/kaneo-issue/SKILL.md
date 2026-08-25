@@ -65,8 +65,15 @@ Snugmarina work; build, deploy, ingress and observability are homelab work.
 Both share the `SNUG` board except the homelab half, which goes to `HOME`.
 Never edit `homelab/services/snugmarina/` directly, or the two copies fork.
 
-**One repo per task.** Work spanning two repos becomes two tasks on their own
-boards, joined with a `related` relation.
+**A multi-phase epic touching 2+ repos stays whole on its owning product
+board** (e.g. Snugmarina's offline-first sync epic and all its phases live on
+`SNUG`, not split across boards by repo count). Note which repo(s) each
+phase touches in its body instead of relocating it. Route to `CARP` only
+work that has no single owning product board: standalone infra/ops spanning
+repos (e.g. CARP-5), or this meta repo's own tooling (e.g. CARP-8). A single
+task that's genuinely two independent, separately-landable pieces of work
+(not phases of one epic) can still become two tasks joined with a `related`
+relation.
 
 ## 2. Know which ID you're holding
 
