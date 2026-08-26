@@ -10,9 +10,11 @@ fixture="$(mktemp -d)"
 trap 'rm -rf "${fixture}"' EXIT
 
 # Copy the script into the fixture so repo_root resolves there, mirroring how
-# test-update-unstable-soak.sh isolates update-unstable.sh.
+# test-update-unstable-soak.sh isolates update-unstable.sh. The reminder
+# sources the shared soak-state readers, so the fixture must carry them too.
 mkdir -p "${fixture}/scripts" "${fixture}/versions"
 cp "${repo_root}/scripts/unstable-reminder.sh" "${fixture}/scripts/unstable-reminder.sh"
+cp "${repo_root}/scripts/unstable-state.sh" "${fixture}/scripts/unstable-state.sh"
 chmod +x "${fixture}/scripts/unstable-reminder.sh"
 
 pin_rev="cccccccccccccccccccccccccccccccccccccccc"
@@ -120,4 +122,11 @@ out="$(run_reminder "$((first_epoch + 7 * 86400))" "${pin_rev}" \
 	"$(candidate_json pending "${ten_days_ago_iso}" 7)")"
 [ -n "${out}" ] || fail "exact-boundary soak did not fire"
 
-echo "unstable-reminder: OK (9 contract cases)"
+# 10. Unparseable flake.nix pin: silent. The candidate is otherwise due (same
+# state as case 1), so this isolates the pin guard — an unreadable pin must
+# never noise a rebuild over state the reminder cannot interpret.
+out="$(run_reminder "${now}" "not-a-hex-rev" \
+	"$(candidate_json pending "${ten_days_ago_iso}" 7)")"
+assert_silent "${out}"
+
+echo "unstable-reminder: OK (10 contract cases)"
