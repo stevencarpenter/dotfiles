@@ -156,7 +156,7 @@ Conventions:
   false`); all zsh files stay raw symlinks.
 
 **Adding a machine:** copy a row in `lib/machines.nix`, set its capabilities, add the name to the
-`detect_host` map in `bootstrap.sh` / `rebuild.sh`. **Adding a capability:** add the key to *every*
+shared detect map in `scripts/host-detect.sh`. **Adding a capability:** add the key to *every*
 row (`flake.nix` asserts the row shape) and gate the owning module on `caps.<capability>`.
 
 ### MCP Sync System (`mcp_sync/`)
@@ -231,16 +231,18 @@ contains the capability table. Each capability is enforced at these locations:
   was dropped 2026-07-17.
 
 Identity-specific configurations (personal/work/lab shell profiles, hippo, and
-homelab-over-Tailscale for `!= "work"`) are defined in `modules/home/dotfiles.nix` and
-`modules/home/secrets.nix` as
-`lib.optionalAttrs (identity == "…")`.
+homelab-over-Tailscale for `!= "work"`) are defined as
+`lib.optionalAttrs (identity == "…")` blocks across the home modules — chiefly
+`modules/home/dotfiles.nix`, with identity-based file selection in
+`tiling.nix` (aerospace variants) and identity/capability gating in
+`ai-stack.nix`. There is no secrets module: the age bridge was removed.
 
 > No `wireguard` capability is defined. The home network uses Tailscale, which uses WireGuard;
 > if a future device needs a raw WG tunnel, add the capability with a module that reads it.
 > See `docs/networking.md`.
 
-**Adding a machine:** add a row to `lib/machines.nix` and the `detect_host` map in `bootstrap.sh` /
-`rebuild.sh`. **Adding a capability:** add the key to every row (`flake.nix` asserts the row shape)
+**Adding a machine:** add a row to `lib/machines.nix` and the shared detect map in
+`scripts/host-detect.sh`. **Adding a capability:** add the key to every row (`flake.nix` asserts the row shape)
 and gate the owning module on `caps.<capability>`.
 
 ### Key Directories

@@ -9,6 +9,8 @@ trap 'rm -rf "${fixture}"' EXIT
 mkdir -p "${fixture}/scripts" "${fixture}/versions" "${fixture}/bin"
 cp "${repo_root}/scripts/update-unstable.sh" "${fixture}/scripts/update-unstable.sh"
 chmod +x "${fixture}/scripts/update-unstable.sh"
+# update-unstable.sh sources the shared matcher; the fixture must carry it.
+cp "${repo_root}/scripts/host-detect.sh" "${fixture}/scripts/host-detect.sh"
 
 old_rev="cccccccccccccccccccccccccccccccccccccccc"
 candidate_rev="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"

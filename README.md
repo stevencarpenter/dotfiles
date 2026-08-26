@@ -20,13 +20,13 @@ regenerates machine-specific AI-tool config after every switch.
 ```
 flake.nix                 # inputs + one-screen mkHost fold (darwinConfigurations.<host>)
 lib/machines.nix          # capability table — the single source of per-host variance
-hosts/                    # {personal,work}-mac.nix — thin shims; host-scoped decls only
+hosts/personal-mac.nix    # thin shim, host-scoped decls only (other hosts: external wrapper flakes)
 modules/
   darwin/                 # system scope (specialArgs): core, macos-defaults, homebrew
   home/                   # home scope (extraSpecialArgs): dotfiles, shell, packages,
-                          #   tiling, dev-tools, ai-stack, secrets, sync-hooks
+                          #   tiling, dev-tools, ai-stack, sync-hooks
 home/                     # raw dotfiles (live, symlinked out-of-store through ~/.dotfiles)
-secrets/                  # age ciphertext + secrets.nix recipients (see secrets/README.md)
+secrets/                  # documentation only — no ciphertext, no age secrets
 mcp_sync/                 # vendored uv tool — MCP + skills fan-out
 bootstrap.sh  rebuild.sh  # fresh-machine setup / routine switch (host auto-detect)
 Justfile                  # nix + python + sync task runner
@@ -42,7 +42,7 @@ Justfile                  # nix + python + sync task runner
   set of booleans. Modules gate on `caps.<x>` / `identity` — never on hostname.
 - **`hosts/*.nix`** — deliberately thin. They import `modules/darwin` and hold only genuinely
   host-scoped declarations. All real variance flows from the caps table.
-- **`modules/darwin/`** — system scope. `core.nix` (nix-daemon ownership, unfree policy, login
+- **`modules/darwin/`** — system scope. `core.nix` (nix-daemon ownership, login
   shell pin, `maxfiles` launchd agent, `stateVersion`), `macos-defaults.nix` (declarative
   `system.defaults.*`), `homebrew.nix` (declarative taps/brews/casks against an independent, self-updating brew install,
   gated per caps).
@@ -81,7 +81,7 @@ shell profiles + hippo, work-only shell/AWS profiles, homelab-over-Tailscale (`!
 is the daily driver. Both current machines are `aarch64-darwin`.
 
 **Adding a machine:** copy a row in `lib/machines.nix`, rename it, flip the caps you don't want,
-and add the name to the `detect_host` map in `bootstrap.sh` / `rebuild.sh`.
+and add the name to the shared detect map in `scripts/host-detect.sh`.
 **Adding a capability:** add the key to *every* row (`flake.nix` asserts the row shape) and gate
 the owning module on `caps.<capability>`.
 

@@ -13,13 +13,9 @@ if [ "$(realpath "$HOME/.dotfiles" 2>/dev/null || true)" != "$REPO_ROOT" ]; then
 	exit 1
 fi
 
-# Map LocalHostName to a flake config name. Tune the matchers per box.
-detect_host() {
-	case "$(scutil --get LocalHostName 2>/dev/null || true)" in
-	personal-mac | Stevens-MacBook-Pro) echo personal-mac ;;
-	*) return 1 ;;
-	esac
-}
+# Map LocalHostName to a flake config name. The matcher list is shared across
+# every host-resolving script; add machines in scripts/host-detect.sh only.
+source "${REPO_ROOT}/scripts/host-detect.sh"
 
 # $DOTFILES_HOST is the same override scripts/host-capability.sh honors; accept
 # it here too so an explicitly-hosted deploy resolves identically on both sides
@@ -34,6 +30,12 @@ fi
 # recovers a machine whose currently-running daemon still has sandbox=true:
 # the new nix.conf cannot be built unless the trusted rebuild request disables
 # that broken sandbox first.
+# Surface a due nixpkgs-unstable promotion at the moment of a rebuild (see
+# scripts/unstable-reminder.sh). Best-effort by contract: never blocks.
+if [ -x "${REPO_ROOT}/scripts/unstable-reminder.sh" ]; then
+	"${REPO_ROOT}/scripts/unstable-reminder.sh" || true
+fi
+
 exec sudo darwin-rebuild switch \
 	--flake "$REPO_ROOT#${HOST}" \
 	--option sandbox false

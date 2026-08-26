@@ -43,6 +43,8 @@ exec_scripts=(
   scripts/test-sync-capability-gating.sh
   scripts/test-tmux-lifecycle-contract.sh
   scripts/test-update-unstable-soak.sh
+  scripts/test-unstable-reminder.sh
+  scripts/unstable-reminder.sh
 )
 
 failures=0

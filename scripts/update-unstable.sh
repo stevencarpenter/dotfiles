@@ -236,12 +236,10 @@ if [ "${AGE_SECONDS}" -lt "${SOAK_SECONDS}" ]; then
 	exit 0
 fi
 
-detect_host() {
-	case "$(scutil --get LocalHostName 2>/dev/null || true)" in
-	personal-mac | Stevens-MacBook-Pro) echo personal-mac ;;
-	*) return 1 ;;
-	esac
-}
+# Host detection shares the repo-wide matcher; add machines in
+# scripts/host-detect.sh only.
+# shellcheck source=scripts/host-detect.sh
+source "${REPO_ROOT}/scripts/host-detect.sh"
 HOST="${2:-${DOTFILES_HOST:-$(detect_host || true)}}"
 if [ -z "${HOST:-}" ]; then
 	echo "unknown host; pass explicitly: update-unstable.sh <days> <personal-mac>" >&2
