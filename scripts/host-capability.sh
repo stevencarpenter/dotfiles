@@ -5,6 +5,10 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 capability="${1:-}"
 
+# Shared LocalHostName matcher (single place to add a machine).
+# shellcheck source=scripts/host-detect.sh
+source "${repo_root}/scripts/host-detect.sh"
+
 # `--identity` prints the host's identity string instead of a 0/1 capability.
 # identity is a peer of caps in lib/machines.nix (some gates are
 # `optionalAttrs (identity == "…")`, not `mkIf caps.x`), so callers outside nix
@@ -23,9 +27,7 @@ if [ "$mode" = capability ] && [[ ! "$capability" =~ ^[a-z][a-z0-9_]*$ ]]; then
 fi
 
 if [ -z "$host" ]; then
-  case "$(scutil --get LocalHostName 2>/dev/null || true)" in
-    personal-mac | Stevens-MacBook-Pro) host=personal-mac ;;
-  esac
+  host="$(detect_host || true)"
 fi
 
 case "$host" in

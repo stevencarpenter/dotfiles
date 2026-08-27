@@ -157,8 +157,10 @@ let
 
     # ─── Language / secrets / runtime managers ──────────────────────────
     # NOTE: `uv` and `mise` are declared in fastMovingPackages above, not here.
-    # python314: pin to Python 3.14+ per the vendored tools' requirement. If
-    # the pinned nixpkgs lacks `python314`, fall back to `python3`.
+    # python314: pinned interpreter for the vendored tools (requires-python
+    # >= 3.14). Hard requirement with NO fallback: sync-hooks.nix references
+    # the same store path, so if a future pin ever drops the attr, both sites
+    # must move together — eval fails loudly here first.
     python314
     age # age encryption CLI, for manual use (no age secrets are declared here)
   ];
