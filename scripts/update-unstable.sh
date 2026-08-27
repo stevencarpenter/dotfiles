@@ -48,6 +48,11 @@ fi
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 cd "${REPO_ROOT}"
 
+# Pin/candidate readers shared with the fail-silent reminder; soak validity is
+# defined once in the library so the two halves cannot drift.
+# shellcheck source=scripts/unstable-state.sh
+source "${REPO_ROOT}/scripts/unstable-state.sh"
+
 CANDIDATE_FILE="versions/nixpkgs-unstable-candidate.json"
 if { [ -n "${UPDATE_UNSTABLE_API_ROOT:-}" ] || [ -n "${UPDATE_UNSTABLE_NOW_EPOCH:-}" ]; } \
 	&& [ "${UPDATE_UNSTABLE_TEST_MODE:-}" != 1 ]; then
@@ -62,12 +67,13 @@ if ! [[ "${NOW_EPOCH}" =~ ^[0-9]+$ ]]; then
 fi
 NOW_ISO="$(jq -nr --argjson now "${NOW_EPOCH}" '$now | strftime("%Y-%m-%dT%H:%M:%SZ")')"
 
-OLD_REV="$(sed -n 's|.*nixpkgs-unstable\.url = "github:NixOS/nixpkgs/\([^"]*\)".*|\1|p' flake.nix)"
-LOCKED_REV="$(jq -r '.nodes["nixpkgs-unstable"].locked.rev // empty' flake.lock)"
-if ! [[ "${OLD_REV}" =~ ^[0-9a-f]{40}$ ]]; then
+# The reader prints the raw extraction even on failure so this message can
+# name it; the exit status carries valid/invalid.
+if ! OLD_REV="$(unstable_pinned_rev flake.nix)"; then
 	echo "error: flake.nix pins nixpkgs-unstable to '${OLD_REV}', not a 40-char rev" >&2
 	exit 1
 fi
+LOCKED_REV="$(jq -r '.nodes["nixpkgs-unstable"].locked.rev // empty' flake.lock)"
 if ! [[ "${LOCKED_REV}" =~ ^[0-9a-f]{40}$ ]]; then
 	echo "error: flake.lock has no exact nixpkgs-unstable locked rev" >&2
 	exit 1
@@ -147,25 +153,11 @@ if [ ! -f "${CANDIDATE_FILE}" ]; then
 	exit 0
 fi
 
-if ! jq -e '
-  .schema == 1
-  and .channel == "nixpkgs-unstable"
-  and (.status == "pending" or .status == "promoted")
-  and (.rev | type == "string" and test("^[0-9a-f]{40}$"))
-  and (.channelCommitDate | type == "string" and (fromdateiso8601 | type == "number"))
-  and (.firstSeen | type == "string" and (fromdateiso8601 | type == "number"))
-  and (.soakDays | type == "number" and floor == . and . >= 0 and . <= 3650)
-' "${CANDIDATE_FILE}" >/dev/null 2>&1; then
+if ! CANDIDATE_FIELDS="$(unstable_read_candidate "${CANDIDATE_FILE}")"; then
 	echo "error: ${CANDIDATE_FILE} is malformed; refusing to replace or promote it" >&2
 	exit 1
 fi
-
-CANDIDATE_STATUS="$(jq -r '.status' "${CANDIDATE_FILE}")"
-CANDIDATE_REV="$(jq -r '.rev' "${CANDIDATE_FILE}")"
-CANDIDATE_DATE="$(jq -r '.channelCommitDate' "${CANDIDATE_FILE}")"
-FIRST_SEEN="$(jq -r '.firstSeen' "${CANDIDATE_FILE}")"
-FIRST_SEEN_EPOCH="$(jq -r '.firstSeen | fromdateiso8601' "${CANDIDATE_FILE}")"
-CANDIDATE_SOAK_DAYS="$(jq -r '.soakDays' "${CANDIDATE_FILE}")"
+IFS=$'\t' read -r CANDIDATE_STATUS CANDIDATE_REV CANDIDATE_DATE FIRST_SEEN FIRST_SEEN_EPOCH CANDIDATE_SOAK_DAYS <<<"${CANDIDATE_FIELDS}"
 
 if [ "${FIRST_SEEN_EPOCH}" -gt "${NOW_EPOCH}" ]; then
 	echo "error: candidate firstSeen ${FIRST_SEEN} is in the future" >&2
@@ -236,12 +228,10 @@ if [ "${AGE_SECONDS}" -lt "${SOAK_SECONDS}" ]; then
 	exit 0
 fi
 
-detect_host() {
-	case "$(scutil --get LocalHostName 2>/dev/null || true)" in
-	personal-mac | Stevens-MacBook-Pro) echo personal-mac ;;
-	*) return 1 ;;
-	esac
-}
+# Host detection shares the repo-wide matcher; add machines in
+# scripts/host-detect.sh only.
+# shellcheck source=scripts/host-detect.sh
+source "${REPO_ROOT}/scripts/host-detect.sh"
 HOST="${2:-${DOTFILES_HOST:-$(detect_host || true)}}"
 if [ -z "${HOST:-}" ]; then
 	echo "unknown host; pass explicitly: update-unstable.sh <days> <personal-mac>" >&2
