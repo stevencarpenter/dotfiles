@@ -8,14 +8,11 @@ set -euo pipefail
 # replace the link with a self-reference (`~/.dotfiles -> ~/.dotfiles`).
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 
-# Map the machine's LocalHostName to a flake config name. Tune the matchers per
-# box as machines are added to lib/machines.nix.
-detect_host() {
-  case "$(scutil --get LocalHostName 2>/dev/null || true)" in
-    personal-mac | Stevens-MacBook-Pro) echo personal-mac ;;
-    *) return 1 ;;
-  esac
-}
+# Map the machine's LocalHostName to a flake config name. The matcher list is
+# shared across every host-resolving script; add machines in
+# scripts/host-detect.sh only.
+# shellcheck source=scripts/host-detect.sh
+source "${REPO_ROOT}/scripts/host-detect.sh"
 
 # ── 0. Xcode Command Line Tools ──────────────────────────────────────────
 # nix-darwin has no option for CLT; they must exist before nix can build
@@ -99,6 +96,10 @@ fi
 
 # ── 5. First switch ──────────────────────────────────────────────────────
 # darwin-rebuild is not on PATH yet, so run it straight from the flake input.
+# The nix-darwin BRANCH ref is deliberate for this one-shot context: a fresh
+# machine has no trustworthy local lock yet, and the branch tracks the same
+# release line flake.nix pins (nix-darwin-26.05). Everything after the first
+# switch resolves through this repo's own lockfile instead.
 echo "==> Building initial configuration #$HOST ..."
 # --extra-experimental-features so this first switch does not depend on the
 # Lix installer's default nix.conf having flakes enabled; nix-darwin pins them

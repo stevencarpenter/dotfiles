@@ -13,13 +13,10 @@ if [ "$(realpath "$HOME/.dotfiles" 2>/dev/null || true)" != "$REPO_ROOT" ]; then
 	exit 1
 fi
 
-# Map LocalHostName to a flake config name. Tune the matchers per box.
-detect_host() {
-	case "$(scutil --get LocalHostName 2>/dev/null || true)" in
-	personal-mac | Stevens-MacBook-Pro) echo personal-mac ;;
-	*) return 1 ;;
-	esac
-}
+# Map LocalHostName to a flake config name. The matcher list is shared across
+# every host-resolving script; add machines in scripts/host-detect.sh only.
+# shellcheck source=scripts/host-detect.sh
+source "${REPO_ROOT}/scripts/host-detect.sh"
 
 # $DOTFILES_HOST is the same override scripts/host-capability.sh honors; accept
 # it here too so an explicitly-hosted deploy resolves identically on both sides
@@ -28,6 +25,12 @@ HOST="${1:-${DOTFILES_HOST:-$(detect_host || true)}}"
 if [ -z "${HOST:-}" ]; then
 	echo "unknown host; pass explicitly: rebuild.sh <personal-mac>" >&2
 	exit 1
+fi
+
+# Surface a due nixpkgs-unstable promotion at the moment of a rebuild (see
+# scripts/unstable-reminder.sh). Best-effort by contract: never blocks.
+if [ -x "${REPO_ROOT}/scripts/unstable-reminder.sh" ]; then
+	"${REPO_ROOT}/scripts/unstable-reminder.sh" || true
 fi
 
 # Pass the declared macOS 27 compatibility setting as a build flag too. This

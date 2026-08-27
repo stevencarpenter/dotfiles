@@ -16,10 +16,11 @@
 # confusing "does not provide attribute" error.
 # Resolution order:
 #   1. $DOTFILES_HOST, if set (explicit override — always wins).
-#   2. `scutil --get LocalHostName`, matched against the patterns below.
-# Edit the case patterns to match your machines' actual LocalHostName values
-# (see `scutil --get LocalHostName`); until then, set DOTFILES_HOST in your
-# environment. Prints the resolved host on stdout, or nothing + nonzero on miss.
+#   2. `scutil --get LocalHostName` via the SHARED matcher in
+#      scripts/host-detect.sh — the single place machine names are added. This
+#      wrapper previously kept its own `*personal*` substring match, which
+#      failed to resolve the `Stevens-MacBook-Pro` alias the bash side accepted.
+# Prints the resolved host on stdout, or nothing + nonzero on miss.
 function _rebuild_detect_host() {
   emulate -L zsh
 
@@ -28,13 +29,11 @@ function _rebuild_detect_host() {
     return 0
   fi
 
-  local local_host
-  local_host="$(scutil --get LocalHostName 2>/dev/null)"
-
-  case "${local_host:l}" in
-    *personal*) print -r -- "personal-mac" ;;
-    *) return 1 ;;
-  esac
+  # The host-detect.sh body (case/echo/return) is valid zsh, so source the
+  # shared matcher rather than keep a second one. A missing file (a checkout
+  # that predates it) reads as a detection miss, not a syntax error.
+  source "${HOME}/.dotfiles/scripts/host-detect.sh" 2>/dev/null || return 1
+  detect_host
 }
 
 # darwin-rebuild switch for this machine's flake config.
