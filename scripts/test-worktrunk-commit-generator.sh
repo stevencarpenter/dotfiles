@@ -4,9 +4,27 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 generator="${repo_root}/home/.local/bin/worktrunk-commit-generator"
+config="${repo_root}/home/.config/worktrunk/config.toml"
 [ -x "${generator}" ] || { echo "FAIL: ${generator} is not executable" >&2; exit 1; }
-# The worktrunk config left managed dotfiles (15d41bb); routing through the
-# validator is now the external config's concern. Only the generator is tested here.
+[ -f "${config}" ] || { echo "FAIL: ${config} is not a regular file" >&2; exit 1; }
+[ ! -L "${config}" ] || { echo "FAIL: ${config} must not be a symlink" >&2; exit 1; }
+
+# Parse the checked-in config independently of the installed Worktrunk version.
+# These assertions catch a store path accidentally committed as file contents
+# and preserve the settings whose absence changes worktree and merge behavior.
+WORKTRUNK_CONFIG="${config}" python3 <<'PY'
+import os
+import pathlib
+import tomllib
+
+config = tomllib.loads(pathlib.Path(os.environ["WORKTRUNK_CONFIG"]).read_text())
+assert config["worktree-path"] == "{{ repo_path }}/../{{ repo }}-{{ branch | sanitize }}"
+assert config["pre-start"] == [{"copy": "wt step copy-ignored"}]
+assert config["list"]["json-schema"] == 2
+assert config["commit"]["stage"] == "all"
+assert config["commit"]["generation"]["command"]
+assert config["merge"] == {"squash": True, "commit": True}
+PY
 
 fixture="$(mktemp -d)"
 trap 'rm -rf "${fixture}"' EXIT
