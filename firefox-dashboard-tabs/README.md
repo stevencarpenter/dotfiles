@@ -13,19 +13,39 @@ scoped to *cross-browser* extensions. This one cannot be cross-browser: it is
 built on `tabGroups`, which Safari does not implement, and it is a personal
 startup helper that will never be submitted to a store. WXT would add an npm
 toolchain and a fourth CI lane to a repo whose CI is Nix, uv, and shell, in
-exchange for a manifest this extension can state in 20 lines. Plain MV3 it is.
+exchange for a manifest this extension can state in 30 lines. Plain MV3 it is.
 
 ## Layout
 
 ```
 firefox-dashboard-tabs/
-  sources.json               # which repos to read, group titles, colors, base URLs
+  sources.json               # which repos to read, group ids, titles, colors, base URLs
   generate.py                # sources.json + provisioned JSON → extension/dashboards.json
+  pyproject.toml             # uv project for the generator and its tests
+  uv.lock
   extension/
     manifest.json
     background.js
     dashboards.json          # GENERATED, do not hand-edit
+  tests/
+    test_generate.py         # generator: parsing, ordering, validation, failure modes
+    background.test.js       # extension logic against stubbed WebExtension APIs
+    fixtures/
+      dashboard-snapshot.json
 ```
+
+## Configuration
+
+`sources.json` describes one entry per tab group:
+
+| Field | Meaning |
+| --- | --- |
+| `id` | Stable group identity. **Persistent state is keyed on this**, so renaming `title` keeps the group; changing `id` orphans it. |
+| `title` | Group name shown on the tab strip |
+| `color` | A `tabGroups.Color` value: `blue`, `cyan`, `grey`, `green`, `orange`, `pink`, `purple`, `red`, `yellow` |
+| `base_url` | Grafana origin the group's dashboards live on |
+| `dashboard_dir` | Directory of provisioned dashboard JSON to read |
+| `first` | Dashboard uids to pin to the front of the group, in order |
 
 ## Regenerating the tab list
 
@@ -48,6 +68,40 @@ repositories checked out on the machine where the manifest is regenerated.
 
 URLs are emitted as `/d/<uid>` with no slug. Grafana redirects to the canonical
 slugged URL, so a renamed dashboard keeps working without regeneration.
+
+`background.js` re-validates `dashboards.json` at load and refuses to touch a
+single tab if the file is malformed, so a bad generation cannot half-apply.
+
+## Development
+
+```bash
+just dashboard-tabs-lint    # ruff check, ruff format --check, mypy --strict
+just dashboard-tabs-test    # pytest + node --test
+just dashboard-tabs-fmt     # ruff format
+```
+
+All three are wired into the aggregate `just lint`, `just test`, and `just fmt`.
+CI runs the same gates in `.github/workflows/dashboard-tabs-ci.yml` on any push
+touching `firefox-dashboard-tabs/**` or the `Justfile`.
+
+`tests/background.test.js` evaluates the real `background.js` in a `vm` context
+against stubbed `browser.*` APIs. It proves the extension's own logic. It
+cannot prove Firefox's behavior, so an install check is still required after
+changing anything in `extension/`.
+
+## Permissions
+
+| Permission | Why |
+| --- | --- |
+| `tabGroups` | Create groups, set title/color, collapse them |
+| `sessions` | Stamp an extension-private marker on each tab it owns |
+| `storage` | Remember which groups it manages, and the startup probe state |
+| `alarms` | Schedule the startup restore-stability probes |
+
+`host_permissions` is limited to the two Grafana origins. Note the absence of
+the broad `tabs` permission: ownership is tracked with `sessions` tab markers
+instead of by reading every tab's URL, so the extension never sees browsing
+outside its own tabs.
 
 ## Installing
 
@@ -80,11 +134,14 @@ install that. Until then, use the toolbar button.
   suspended between probes and a slow restore gets additional probes. Firefox
   exposes no session-restore-complete event, so the check is conservative but
   cannot promise a browser-internal completion boundary.
+- **Failures roll back.** If grouping or a group update fails, the tabs just
+  created are removed rather than left loose in the tab strip.
 - **Auth.** Hippo's Grafana runs with `GF_AUTH_ANONYMOUS_ENABLED=true`, so
   those 4 load without a login. The homelab instance requires a session cookie.
 
 ## Requirements
 
-Firefox 140+ for the `tabGroups` API (`collapsed`, `title`, `color`) and
-Firefox's built-in data-collection declaration. Verified against Developer
-Edition 155.
+Firefox 140+ on desktop for the `tabGroups` API (`collapsed`, `title`, `color`)
+and the `data_collection_permissions` declaration; Firefox 142+ on Android.
+Verified against Developer Edition 155. The generator needs Python 3.14+ and
+`uv`; the test suite additionally needs `node`.
