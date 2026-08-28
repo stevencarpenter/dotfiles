@@ -1,6 +1,7 @@
 {
   "groups": [
     {
+      "id": "hippo-otel",
       "title": "Hippo OTel",
       "color": "purple",
       "tabs": [
@@ -23,6 +24,7 @@
       ]
     },
     {
+      "id": "homelab",
       "title": "Homelab",
       "color": "blue",
       "tabs": [

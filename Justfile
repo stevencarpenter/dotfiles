@@ -171,16 +171,31 @@ reap-kill:
 dashboard-tabs:
     python3 firefox-dashboard-tabs/generate.py
 
+# Lint the Firefox dashboard generator and its tests.
+dashboard-tabs-lint:
+    uv run --project firefox-dashboard-tabs --group dev ruff check firefox-dashboard-tabs/generate.py firefox-dashboard-tabs/tests
+    uv run --project firefox-dashboard-tabs --group dev ruff format --check firefox-dashboard-tabs/generate.py firefox-dashboard-tabs/tests
+    uv run --project firefox-dashboard-tabs --group dev mypy --strict firefox-dashboard-tabs/generate.py
+
+# Test the Firefox dashboard generator and extension behavior.
+dashboard-tabs-test:
+    uv run --project firefox-dashboard-tabs --group dev pytest firefox-dashboard-tabs/tests
+    node --test firefox-dashboard-tabs/tests/background.test.js
+
+# Format the Firefox dashboard generator and its tests.
+dashboard-tabs-fmt:
+    uv run --project firefox-dashboard-tabs --group dev ruff format firefox-dashboard-tabs/generate.py firefox-dashboard-tabs/tests
+
 # ── All Python projects ──────────────────────────────────
 
 # Lint all Python projects
-lint: mcp-lint reap-lint
+lint: mcp-lint reap-lint dashboard-tabs-lint
 
 # Test all Python projects
-test: mcp-test reap-test
+test: mcp-test reap-test dashboard-tabs-test
 
 # Format all Python projects
-fmt: mcp-fmt reap-fmt
+fmt: mcp-fmt reap-fmt dashboard-tabs-fmt
 
 # Run all Python checks (lint + test). Nix flake checks live under `just check`.
 py-check: lint test

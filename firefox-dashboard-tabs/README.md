@@ -41,9 +41,10 @@ repositories, so the tab list is derived rather than hand-maintained:
 just dashboard-tabs      # → firefox-dashboard-tabs/extension/dashboards.json
 ```
 
-Add a dashboard to either repo, re-run, reload the extension. A machine that
-does not check out one of those repos silently drops that group; a machine with
-neither gets a non-zero exit and no file written, rather than an empty one.
+Add a dashboard to either repo, re-run, and reload the extension. Generation
+fails without replacing the previous manifest if any configured source is
+missing, unreadable, malformed, or contains duplicate UIDs. Keep both source
+repositories checked out on the machine where the manifest is regenerated.
 
 URLs are emitted as `/d/<uid>` with no slug. Grafana redirects to the canonical
 slugged URL, so a renamed dashboard keeps working without regeneration.
@@ -69,15 +70,21 @@ install that. Until then, use the toolbar button.
   dashboards show placeholders rather than connection errors when the OTel
   stack is down. Firefox only honors a caller-supplied tab `title` on a
   discarded tab, which is why every tab carries its dashboard name.
-- **Re-running is safe.** A group whose exact title is already open is left
-  alone, so session restore plus this extension does not double up.
-- **Startup waits 2.5s.** `runtime.onStartup` can fire before session restore
-  finishes rebuilding groups; acting immediately would miss them and duplicate
-  all 13 tabs.
+- **Re-running reconciles.** The extension owns tabs with extension-private
+  markers and normalized dashboard URLs, not by title alone. It adds newly
+  configured dashboards, removes stale dashboard tabs, and leaves unrelated
+  same-titled groups alone.
+- **Startup waits for restore stability.** `runtime.onStartup` schedules
+  repeated one-shot Firefox alarms about 2.5 seconds apart. The event page
+  persists two identical tab/group snapshots before reconciling, so it can be
+  suspended between probes and a slow restore gets additional probes. Firefox
+  exposes no session-restore-complete event, so the check is conservative but
+  cannot promise a browser-internal completion boundary.
 - **Auth.** Hippo's Grafana runs with `GF_AUTH_ANONYMOUS_ENABLED=true`, so
   those 4 load without a login. The homelab instance requires a session cookie.
 
 ## Requirements
 
-Firefox 139+ for the `tabGroups` API (`collapsed`, `title`, `color`). Verified
-against Developer Edition 155.
+Firefox 140+ for the `tabGroups` API (`collapsed`, `title`, `color`) and
+Firefox's built-in data-collection declaration. Verified against Developer
+Edition 155.

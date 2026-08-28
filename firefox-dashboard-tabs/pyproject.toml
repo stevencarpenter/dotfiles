@@ -1,0 +1,19 @@
+[project]
+name = "firefox-dashboard-tabs"
+version = "0.1.0"
+description = "Generate the Firefox Grafana dashboard tab manifest."
+requires-python = ">=3.14"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "mypy",
+    "pytest",
+    "ruff",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.uv]
+package = false

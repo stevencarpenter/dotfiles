@@ -1,6 +1,7 @@
 {
   "groups": [
     {
+      "id": "hippo-otel",
       "title": "Hippo OTel",
       "color": "purple",
       "base_url": "http://localhost:3030",
@@ -8,6 +9,7 @@
       "first": ["hippo-overview"]
     },
     {
+      "id": "homelab",
       "title": "Homelab",
       "color": "blue",
       "base_url": "https://grafana.snugmarina.org",
