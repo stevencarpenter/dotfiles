@@ -1,2 +1,60 @@
-/nix/store/0z97kxl61m54ps2djcjcr0f70j9r7kad-home-manager-files/.config/worktrunk/config.toml
+# # User Configuration
+#
+# Create with `wt config create`.
+#
+# Location:
+#
+# - macOS/Linux: `~/.config/worktrunk/config.toml` (or `$XDG_CONFIG_HOME` if set)
+# - Windows: `%APPDATA%\worktrunk\config.toml`
+#
+# ## Worktree path template
+#
+# Controls where new worktrees are created.
+#
+# **Variables:**
+#
+# - `{{ repo_path }}`: absolute path to the repository
+# - `{{ repo }}`: repository directory name
+# - `{{ branch }}`: raw branch name
+# - `{{ branch | sanitize }}`: filesystem-safe branch name
+#
+# Worktrees are sibling directories named `<repo>-<branch>`.
+worktree-path = "{{ repo_path }}/../{{ repo }}-{{ branch | sanitize }}"
 
+[[pre-start]]
+copy = "wt step copy-ignored"
+
+[list]
+summary = true
+full = true
+branches = true
+json-schema = 2
+
+[commit]
+stage = "all"
+
+[commit.generation]
+# The wrapper invokes Claude in safe mode and validates Conventional Commit
+# output before Worktrunk can pass it to Git.
+command = "\"$HOME/.local/bin/worktrunk-commit-generator\""
+
+# Append local style rules to Worktrunk's maintained default templates. A full
+# template override would fork upstream defaults and disable this append layer.
+template-append = """
+- Subject MUST use a lowercase Conventional Commit prefix: build:, chore:, ci:, docs:,
+  feat:, fix:, perf:, refactor:, revert:, style:, test:
+- The subject is the change in imperative mood, never an explanatory sentence about it.
+  Any explanation belongs in the body, after a blank line, never on the subject line.
+- No trailing period on the subject
+- Every parenthesis, bracket, brace, double quote and backtick must be balanced;
+  emit no stray `)`
+- Never claim that an AI/assistant/agent/model/harness generated or authored the
+  message, and never add a Co-Authored-By trailer
+"""
+
+[merge]
+squash = true
+commit = true
+
+[switch.picker]
+pager = "delta --paging=never"
