@@ -165,6 +165,12 @@ reap-strays:
 reap-kill:
     uv run --project agent_reap agent-reap reap --kill
 
+# ── Firefox dashboard tabs ──────────────────
+
+# Regenerate extension/dashboards.json from the provisioned Grafana JSON
+dashboard-tabs:
+    python3 firefox-dashboard-tabs/generate.py
+
 # ── All Python projects ──────────────────────────────────
 
 # Lint all Python projects
