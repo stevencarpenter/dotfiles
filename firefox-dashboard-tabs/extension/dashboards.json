@@ -1,0 +1,68 @@
+{
+  "groups": [
+    {
+      "title": "Hippo OTel",
+      "color": "purple",
+      "tabs": [
+        {
+          "title": "Hippo Overview",
+          "url": "http://localhost:3030/d/hippo-overview"
+        },
+        {
+          "title": "Hippo Daemon",
+          "url": "http://localhost:3030/d/hippo-daemon"
+        },
+        {
+          "title": "Hippo Enrichment Pipeline",
+          "url": "http://localhost:3030/d/hippo-enrichment"
+        },
+        {
+          "title": "Hippo Processes",
+          "url": "http://localhost:3030/d/hippo-processes"
+        }
+      ]
+    },
+    {
+      "title": "Homelab",
+      "color": "blue",
+      "tabs": [
+        {
+          "title": "Homelab Overview",
+          "url": "https://grafana.snugmarina.org/d/homelab-overview"
+        },
+        {
+          "title": "Observability Stack",
+          "url": "https://grafana.snugmarina.org/d/observability-stack"
+        },
+        {
+          "title": "AdGuard Home Exporter",
+          "url": "https://grafana.snugmarina.org/d/AdGuard-Home-Exporter"
+        },
+        {
+          "title": "Caddy Monitoring",
+          "url": "https://grafana.snugmarina.org/d/bdh0qkohvn5s0a"
+        },
+        {
+          "title": "cadvisor dashboard",
+          "url": "https://grafana.snugmarina.org/d/9AJV_mnIk"
+        },
+        {
+          "title": "Logging Dashboard via Loki v2",
+          "url": "https://grafana.snugmarina.org/d/5rnLQdJVk"
+        },
+        {
+          "title": "macOS Node (i9)",
+          "url": "https://grafana.snugmarina.org/d/3az8Y2-LB"
+        },
+        {
+          "title": "PostgreSQL Exporter",
+          "url": "https://grafana.snugmarina.org/d/v5ciIbUZz"
+        },
+        {
+          "title": "Snugmarina Ask Pipeline",
+          "url": "https://grafana.snugmarina.org/d/snugmarina-ask-pipeline"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Dashboard Tabs",
+  "version": "1.0.0",
+  "description": "Opens each Grafana dashboard set as its own collapsed tab group at browser startup.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "dashboard-tabs@sjcarpenter.com",
+      "strict_min_version": "139.0"
+    }
+  },
+  "permissions": ["tabs", "tabGroups"],
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "action": {
+    "default_title": "Open dashboard tab groups"
+  }
+}
