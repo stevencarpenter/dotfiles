@@ -4,7 +4,7 @@ Self-hosted Kaneo at `https://kaneo.snugmarina.org`, tailnet-only (see
 `homelab: docs/runbooks/kaneo.md` for MCP wiring and the epic/DAG pattern).
 Workspace `carpenter`, ID `7tMuvznyx3ZOUb2boKJQbakZi44sT0eU`.
 
-Verified 2026-08-10. Re-derive with `list_workspaces`, `list_projects`,
+Verified 2026-08-28. Re-derive with `list_workspaces`, `list_projects`,
 `list_workspace_labels` if anything here doesn't match — IDs are stable but
 task counts move constantly.
 
@@ -36,6 +36,17 @@ IDs (`HOME-1`).
 | Ski Area Tycoon | `SKI` | `rs9nm9hgw6glgsbn6awyzkl5` | ski-area-tycoon repo, created 2026-08-14, fresh project (no migrated history) |
 
 There are no teams — projects are flat and are the only routing dimension.
+
+### Snugmarina server split
+
+`snugmarina-base` owns the API source, schemas, migrations and workers. Its CI
+tests, builds and publishes the image to GHCR. `homelab/services/snugmarina/`
+consumes that image by immutable digest and owns Compose, PostgreSQL, deployment,
+Caddy ingress, secret materialization and backups.
+
+Route API implementation work to `SNUG`. Route homelab Compose, ingress, secret,
+backup and deployment work to `HOME`. Do not edit the homelab checkout for API
+source changes; edit it when the task changes homelab deployment configuration.
 
 ## Columns
 
