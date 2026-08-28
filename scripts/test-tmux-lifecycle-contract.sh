@@ -119,6 +119,15 @@ if ! jq -e '
 	echo "tmux lifecycle contract: SessionEnd agent-reap handler must have timeout 20" >&2
 	exit 1
 fi
+if ! jq -e '
+  [.hooks.SubagentStop[]?.hooks[]?
+   | select(.type == "command"
+       and .command == "~/.claude/hooks/agent-reap-subagent-stop.sh")]
+  | length == 1 and .[0].timeout == 20
+' "${settings_base}" >/dev/null; then
+	echo "tmux lifecycle contract: SubagentStop agent-reap handler must have timeout 20" >&2
+	exit 1
+fi
 
 hook_home="${test_root}/hook-home"
 fake_bin="${test_root}/fake-bin"
@@ -148,6 +157,10 @@ if [[ "$(<"${hook_home}/agent-reap-args")" != "reap --team deadbeef --kill" ]]; 
 	echo "tmux lifecycle contract: SessionEnd hook invoked the wrong agent-reap command" >&2
 	exit 1
 fi
+if [[ ! -d "${hook_home}/.claude/teams/session-deadbeef" ]]; then
+	echo "tmux lifecycle contract: timed-out SessionEnd hook removed team state" >&2
+	exit 1
+fi
 if ! rg -Fq 'timed out after 1s; terminating worker group' \
 	"${hook_home}/.claude/logs/agent-reap-session-end.log"; then
 	echo "tmux lifecycle contract: portable hook watchdog did not report its timeout" >&2
@@ -156,6 +169,45 @@ fi
 hook_worker_pid="$(<"${hook_home}/agent-reap-pid")"
 if kill -0 "${hook_worker_pid}" >/dev/null 2>&1; then
 	echo "tmux lifecycle contract: timed-out agent-reap worker ${hook_worker_pid} survived" >&2
+	exit 1
+fi
+
+success_bin="${test_root}/success-bin"
+mkdir -p "${hook_home}/.claude/teams/session-success01" "${success_bin}"
+cat >"${success_bin}/agent-reap" <<'SH'
+#!/bin/bash
+printf '%s\n' "$*" >"${HOME}/agent-reap-success-args"
+exit 0
+SH
+chmod +x "${success_bin}/agent-reap"
+printf '%s\n' '{"session_id":"success01-0000-0000-0000-000000000000"}' | \
+	HOME="${hook_home}" \
+	PATH="${success_bin}:/usr/bin:/bin" \
+	"${repo_root}/home/.claude/hooks/agent-reap-session-end.sh"
+if [[ "$(<"${hook_home}/agent-reap-success-args")" != "reap --team success01 --kill" ]]; then
+	echo "tmux lifecycle contract: successful SessionEnd hook invoked the wrong agent-reap command" >&2
+	exit 1
+fi
+if [[ -d "${hook_home}/.claude/teams/session-success01" ]]; then
+	echo "tmux lifecycle contract: successful SessionEnd hook left team state behind" >&2
+	exit 1
+fi
+
+mkdir -p "${hook_home}/.claude/teams/session-livecafe"
+printf '%s\n' '{"hook_event_name":"SubagentStop","agent_id":"docs-readme@session-livecafe","parent_session_id":"livecafe-0000-0000-0000-000000000000"}' | \
+	HOME="${hook_home}" \
+	PATH="${fake_bin}:/usr/bin:/bin" \
+	AGENT_REAP_HOOK_TIMEOUT_SECS=1 \
+		"${repo_root}/home/.claude/hooks/agent-reap-subagent-stop.sh"
+if [[ "$(<"${hook_home}/agent-reap-args")" != "reap --live-team livecafe --completed-agent docs-readme --kill" ]]; then
+	echo "tmux lifecycle contract: SubagentStop hook invoked the wrong agent-reap command" >&2
+	exit 1
+fi
+if rg -Fq 'agent-reap SubagentStop hook: timed out after 1s; terminating worker group' \
+	"${hook_home}/.claude/logs/agent-reap-subagent-stop.log"; then
+	:
+else
+	echo "tmux lifecycle contract: SubagentStop hook watchdog did not report its timeout" >&2
 	exit 1
 fi
 
