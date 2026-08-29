@@ -108,6 +108,18 @@ else
   echo "==> Skipping personal agent-registry (agents capability disabled)"
 fi
 
+# lefthook — wire .git/hooks to lefthook.yml. Idempotent, and safe to re-run:
+# `lefthook install` rewrites the hook files from the config every time. Done
+# here rather than in home.activation because it writes into THIS checkout's
+# .git, which activation has no business touching. A machine that never syncs
+# simply has no hooks, which is the pre-existing behavior.
+if command -v lefthook >/dev/null 2>&1; then
+  echo "==> Installing git hooks (lefthook)"
+  (cd "$repo_root" && lefthook install)
+else
+  echo "warning: lefthook not found; git hooks not installed (run 'just sync' after a rebuild)" >&2
+fi
+
 # token-auditor — standalone uv tool from its own public repo. --force makes
 # re-install idempotent and upgrades in place on a version bump.
 if command -v "$uv_bin" >/dev/null 2>&1; then

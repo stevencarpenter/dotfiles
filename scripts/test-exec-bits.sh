@@ -26,7 +26,7 @@ exec_scripts=(
   home/.local/bin/gh
   home/.local/bin/obsidian-capture
   home/.local/bin/worktrunk-commit-generator
-  # PEP 723 uv scripts exec'd by path (CI steps, the Justfile, pre-commit,
+  # PEP 723 uv scripts exec'd by path (CI steps, the Justfile, lefthook jobs,
   # and the shell test wrappers all rely on the `uv run --script` shebang).
   home/.local/bin/op-adopt
   firefox-dashboard-tabs/generate.py
@@ -36,6 +36,7 @@ exec_scripts=(
   scripts/atuin-parity-mutate.py
   scripts/check-agent-tools-allowlist.py
   scripts/validate-mcp-master.py
+  scripts/hook-text-files.py
   .claude/skills/mcp-sync-verify/scripts/list_targets.py
   .claude/skills/mcp-sync-verify/scripts/print_target_paths.py
   scripts/host-capability.sh
@@ -56,6 +57,7 @@ exec_scripts=(
   scripts/test-sync-capability-gating.sh
   scripts/test-tmux-lifecycle-contract.sh
   scripts/test-update-inputs.sh
+  scripts/test-lefthook-hooks.sh
   scripts/test-update-unstable-soak.sh
   scripts/test-unstable-reminder.sh
   scripts/unstable-reminder.sh

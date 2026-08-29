@@ -22,7 +22,7 @@
 #                                       hook semantics (foreign self-registered
 #                                       hooks survive; managed/marker/capability-
 #                                       off hooks are re-added or swept), seed
-#                                       model/effort, ensure ~/.cache/pre-commit +
+#                                       model/effort, ensure ~/.cache/uv +
 #                                       ~/projects/agents sandbox-write.
 #
 # BOUNDARY: this module owns ONLY the settings.json merge. The raw dotfiles it
@@ -215,12 +215,13 @@ in
         (if .model == null then .model = "opusplan" else . end)
         | (if .effortLevel == null then .effortLevel = "xhigh" else . end)')"
 
-      # Ensure ~/.cache/pre-commit stays sandbox-writable, and ~/projects/agents
-      # too so jj/uv/git writes under the agents registry working copy run inside
-      # the sandbox (append-if-absent so /sandbox additions survive; allowWrite
-      # normalized to an array first).
+      # Ensure ~/.cache/uv stays sandbox-writable (lefthook's file checks run
+      # through uvx, which populates it), and ~/projects/agents too so jj/uv/git
+      # writes under the agents registry working copy run inside the sandbox
+      # (append-if-absent so /sandbox additions survive; allowWrite normalized
+      # to an array first).
       merged="$(printf '%s\n' "$merged" | ${jq} \
-        --arg p1 "$HOME/.cache/pre-commit" \
+        --arg p1 "$HOME/.cache/uv" \
         --arg p2 "$HOME/projects/agents" '
         reduce ($p1, $p2) as $p (.;
           (.sandbox.filesystem.allowWrite // [] | if type == "array" then . else [] end) as $aw

@@ -118,11 +118,25 @@ pin/lock disagreement fail `scripts/test-nix-review-regressions.sh`.
 `scripts/update-unstable.sh` documents the rationale. The package allowlist is
 `fastMovingPackages` in `modules/home/packages.nix`.
 
-### Pre-commit
+### Git hooks (lefthook)
+
+`lefthook.yml` defines the `pre-commit` and `commit-msg` jobs; it replaced
+`.pre-commit-config.yaml` on 2026-08-29. The language-agnostic file checks are the same
+`pre-commit-hooks` 6.0.0 entry points, run through `uvx` instead of pre-commit's own env
+management, so nothing needs a global install beyond `lefthook`, `gitleaks`, and `uv`.
 
 ```bash
-pre-commit run --all-files
+just lefthook            # run every pre-commit job against all files, as CI does
+just lefthook-install    # wire .git/hooks (also done by `just sync`)
+lefthook run pre-commit  # staged files only, exactly what a commit triggers
+lefthook validate        # config sanity
 ```
+
+`lefthook install` runs from `scripts/sync-side-channels.sh`, so a machine that has run
+`just sync` has its hooks wired. lefthook has no equivalent of pre-commit's
+`types: [text]` filter, so a job that rewrites files pipes its list through
+`scripts/hook-text-files.py` first (handing a PNG to the whitespace fixer corrupts it).
+The `gitleaks` job scans staged changes only; the whole-tree scan runs in CI.
 
 ## Architecture
 
@@ -320,7 +334,8 @@ GitHub Actions in `.github/workflows/`:
 - `agent-reap-ci.yml`: lint and test for `agent_reap`
 - `nix-flake-check.yml`: Nix formatting, explicit `checks.<system>.<host>` evaluation, and both
   Darwin builds on `macos-latest`
-- `dotfiles-hygiene-ci.yml`: pre-commit, MCP master-config structure, shell `bash -n` syntax, and
+- `dotfiles-hygiene-ci.yml`: lefthook pre-commit jobs, whole-tree gitleaks scan, MCP
+  master-config structure, shell `bash -n` syntax, and
   configuration test scripts
 
 ## Style
@@ -341,7 +356,8 @@ GitHub Actions in `.github/workflows/`:
     hooks and must stay 3.9-compatible. Session teardown runs under a 20s Claude cap and cannot
     depend on uv resolving an environment; the shebang there is for manual runs only.
 - Package manager: uv (not pip/poetry)
-- Tests: `test_*.py` filenames and `test_*` function names (enforced by pre-commit)
+- Tests: `test_*.py` filenames and `test_*` function names (enforced by the lefthook
+  `name-tests-test` job)
 - Nix: `nixfmt` via `nix fmt`; 2-space indentation; keep modules small and readable, with comments
   that explain constraints
 - Raw dotfiles: store them under `home/` with their real dotted names (no `dot_`/`encrypted_` prefixes);

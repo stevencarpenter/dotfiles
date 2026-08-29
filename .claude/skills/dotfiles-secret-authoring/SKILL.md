@@ -6,7 +6,7 @@ description: Apply authoring-time secret judgment in this public Nix dotfiles re
 # Dotfiles secret authoring
 
 This repository is public. A credential committed to history is effectively permanent.
-Pre-commit scanning is the backstop; this workflow makes the design decision before a
+Git-hook scanning is the backstop; this workflow makes the design decision before a
 secret reaches the working tree.
 
 ## Choose the storage path
@@ -42,7 +42,7 @@ secret reaches the working tree.
    bash .claude/skills/dotfiles-secret-authoring/scripts/sibling_sweep.sh '<exact value>'
    ```
 
-3. Run `pre-commit run --all-files` before committing.
+3. Run `just lefthook` (every pre-commit job against all files) before committing.
 
 Never use `builtins.readFile` on a secret value: that would copy plaintext into the
 world-readable Nix store.

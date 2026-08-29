@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# pre-commit commit-msg hook: strip Co-Authored-By: Claude trailers.
+# lefthook commit-msg job: strip Co-Authored-By: Claude trailers.
 #
 # dot_claude/CLAUDE.md prohibits Claude attribution in commits, but the
 # Claude Code harness default still appends `Co-Authored-By: Claude ...`

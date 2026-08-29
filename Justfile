@@ -204,8 +204,12 @@ fmt: mcp-fmt reap-fmt dashboard-tabs-fmt
 # Run all Python checks (lint + test). Nix flake checks live under `just check`.
 py-check: lint test
 
-# ── Pre-commit ───────────────────────────────────────────
+# ── Git hooks (lefthook) ─────────────────────────────────
 
-# Run pre-commit on all files
-pre-commit:
-    pre-commit run --all-files
+# Run every lefthook pre-commit job against all files, as CI does
+lefthook:
+    lefthook run pre-commit --all-files
+
+# Wire .git/hooks to lefthook.yml (also done by `just sync`)
+lefthook-install:
+    lefthook install

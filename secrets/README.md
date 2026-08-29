@@ -93,7 +93,7 @@ configuration with an injected value and is not safe to reverse-import.
 
 This is an accidental-leak and drift guard, not a hostile-maintainer boundary. A maintainer who
 can change the template, policy, checker, and CI together can bypass it. Exact allowlisting,
-rendered-target ignore rules, pre-commit policy validation, gitleaks, review, and 1Password item
+rendered-target ignore rules, lefthook policy validation, gitleaks, review, and 1Password item
 history provide layered protection without claiming that arbitrary strings can be proven
 non-secret.
 
