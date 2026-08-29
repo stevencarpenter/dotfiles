@@ -1,3 +1,11 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.14"
+# dependencies = ["mcp-sync"]
+#
+# [tool.uv.sources]
+# mcp-sync = { path = "../../../../mcp_sync" }
+# ///
 """Print the set of paths mcp_sync will (over)write, discovered dynamically.
 
 Reads ``mcp_sync.sync._build_targets`` plus the three special-cased
@@ -5,7 +13,7 @@ sync functions (codex, claude.json patch, copilot-cli) so this never
 goes stale when a new target is added in sync.py.
 
 Usage:
-    uv run --project mcp_sync python .claude/skills/mcp-sync-verify/scripts/list_targets.py
+    .claude/skills/mcp-sync-verify/scripts/list_targets.py
 """
 
 from __future__ import annotations

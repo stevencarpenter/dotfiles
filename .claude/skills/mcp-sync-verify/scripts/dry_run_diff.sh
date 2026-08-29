@@ -63,21 +63,7 @@ echo
 
 # Discover targets dynamically from sync.py rather than hard-coding paths.
 mapfile -t REL_PATHS < <(
-  cd "$REPO_ROOT" && uv run --project mcp_sync python - <<'PY'
-from pathlib import Path
-from mcp_sync.sync import _build_targets
-
-home = Path.home()
-seen = set()
-for t in _build_targets(home):
-    seen.add(str(t.destination.relative_to(home)))
-# Special-cased writers
-seen.add(".codex/config.toml")
-seen.add(".claude.json")
-seen.add(".config/.copilot/config.json")
-for p in sorted(seen):
-    print(p)
-PY
+  cd "$REPO_ROOT" && .claude/skills/mcp-sync-verify/scripts/print_target_paths.py
 )
 
 # A crash in the introspection above exits the process substitution, which

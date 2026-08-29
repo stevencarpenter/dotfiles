@@ -26,6 +26,18 @@ exec_scripts=(
   home/.local/bin/gh
   home/.local/bin/obsidian-capture
   home/.local/bin/worktrunk-commit-generator
+  # PEP 723 uv scripts exec'd by path (CI steps, the Justfile, pre-commit,
+  # and the shell test wrappers all rely on the `uv run --script` shebang).
+  home/.local/bin/op-adopt
+  firefox-dashboard-tabs/generate.py
+  scripts/test_op_adopt.py
+  scripts/assert-railway-psql-errors.py
+  scripts/assert-worktrunk-config.py
+  scripts/atuin-parity-mutate.py
+  scripts/check-agent-tools-allowlist.py
+  scripts/validate-mcp-master.py
+  .claude/skills/mcp-sync-verify/scripts/list_targets.py
+  .claude/skills/mcp-sync-verify/scripts/print_target_paths.py
   scripts/host-capability.sh
   scripts/sync-side-channels.sh
   scripts/update-inputs.sh

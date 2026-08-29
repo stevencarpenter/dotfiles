@@ -330,6 +330,16 @@ GitHub Actions in `.github/workflows/`:
   - 4-space indentation, `snake_case` for modules/functions, `PascalCase` for classes
   - Verbose Google-style docstrings on classes/functions with typed `Args:` / `Returns:` sections;
     include `Raises:` when relevant
+  - **No inline Python.** A heredoc or `python -c` body belongs in its own file, next to the
+    caller, which then execs it by path. Shell scripts, hooks, and CI steps call the file.
+  - Every standalone script (anything outside `mcp_sync/`, `agent_reap/`, and the
+    `firefox-dashboard-tabs/` package body) starts with `#!/usr/bin/env -S uv run --script`
+    followed by a PEP 723 `# /// script` block enumerating `requires-python` and `dependencies`,
+    even when the list is empty. A script importing a repo project names it in `dependencies`
+    with a `[tool.uv.sources]` path relative to the script's own directory.
+  - Exception: `home/.claude/hooks/lib/*.py` is exec'd as `/usr/bin/python3 <path>` by the reap
+    hooks and must stay 3.9-compatible. Session teardown runs under a 20s Claude cap and cannot
+    depend on uv resolving an environment; the shebang there is for manual runs only.
 - Package manager: uv (not pip/poetry)
 - Tests: `test_*.py` filenames and `test_*` function names (enforced by pre-commit)
 - Nix: `nixfmt` via `nix fmt`; 2-space indentation; keep modules small and readable, with comments

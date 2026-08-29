@@ -51,6 +51,14 @@ jobs:
         with:
           python-version: "3.14"
 
+      # Every standalone Python script in this repo is a PEP 723 uv script
+      # (`#!/usr/bin/env -S uv run --script`), so the tests that exec one by
+      # path need uv on the runner.
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.14"
+
       # bash: modules/darwin/homebrew.nix installs this on every real machine,
       # replacing Apple's frozen /usr/bin/bash 3.2 (GPLv2 license freeze) with
       # a modern one on the front of PATH. Scripts like sketchybar's
@@ -67,29 +75,7 @@ jobs:
         run: pre-commit run --all-files
 
       - name: Validate MCP master config structure
-        run: |
-          python - <<'PY'
-          import json
-          from pathlib import Path
-
-          path = Path("home/.config/mcp/mcp-master.json")
-          data = json.loads(path.read_text(encoding="utf-8"))
-
-          if not isinstance(data, dict):
-              raise SystemExit("mcp-master.json must be a JSON object")
-
-          # Master may define zero shared servers; the per-machine servers
-          # live in machine overlays (home/.config/mcp/machine/*.json).
-          servers = data.get("servers")
-          if not isinstance(servers, dict):
-              raise SystemExit("mcp-master.json must define a 'servers' object")
-
-          for server_name, server_config in servers.items():
-              if not isinstance(server_config, dict):
-                  raise SystemExit(f"Server '{server_name}' must be a JSON object")
-              if server_config.get("type") == "stdio" and not server_config.get("command"):
-                  raise SystemExit(f"Server '{server_name}' uses stdio but has no 'command'")
-          PY
+        run: scripts/validate-mcp-master.py
 
       - name: Shell syntax checks
         run: |
@@ -134,7 +120,7 @@ jobs:
         run: scripts/test-op-render.sh
 
       - name: Validate guarded 1Password reverse adoption
-        run: python scripts/test_op_adopt.py
+        run: scripts/test_op_adopt.py
 
       - name: Validate direct activation entry points
         run: scripts/test-sync-hook-runtime.sh

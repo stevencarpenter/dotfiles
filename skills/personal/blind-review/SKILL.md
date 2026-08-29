@@ -31,7 +31,7 @@ base ref, branch, or PR instead; resolve PRs to a local ref first.
 ### 2. Strip
 
 ```bash
-python3 <this-skill-dir>/scripts/strip_context.py diff \
+<this-skill-dir>/scripts/strip_context.py diff \
   --repo <repo> --base <ref> --out <scratchpad>/blind-review-<short-id>
 ```
 
@@ -91,7 +91,7 @@ output, and evidence the context pass was talked out of a real bug.
 ### 6. Log the pair record (both modes, including sidecar)
 
 ```bash
-python3 <this-skill-dir>/scripts/log_pair.py <record.json>
+<this-skill-dir>/scripts/log_pair.py <record.json>
 ```
 
 Record shape (append-only JSONL at `~/.local/share/blind-review/pairs.jsonl`):

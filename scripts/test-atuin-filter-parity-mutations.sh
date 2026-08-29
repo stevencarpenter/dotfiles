@@ -12,8 +12,8 @@
 # fails, with the RIGHT message. Cases marked PASS are valid-but-unusual inputs
 # that must not trip it — false positives erode trust just as fast.
 #
-# Mutations go through python3 rather than `sed -i`, whose in-place flag takes
-# an argument on BSD and not on GNU; this runs on both.
+# The mutation ops live in scripts/atuin-parity-mutate.py (Python rather than
+# `sed -i`, whose in-place flag takes an argument on BSD and not on GNU).
 set -uo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -31,63 +31,6 @@ done
 work="$(mktemp -d "${TMPDIR:-/tmp}/parity-mutations.XXXXXX")"
 trap 'rm -rf "${work}"' EXIT
 
-cat >"${work}/mutate.py" <<'PYEOF'
-import sys, os
-
-op, path = sys.argv[1], sys.argv[2]
-rest = sys.argv[3:]
-s = open(path).read()
-
-if op == "sub":                       # sub <file> <old> <new>  (must be unique)
-    old, new = rest
-    assert s.count(old) == 1, f"{path}: expected 1 occurrence of {old!r}, found {s.count(old)}"
-    s = s.replace(old, new)
-elif op == "delline":                 # delline <file> <substring>
-    needle = rest[0]
-    s = "\n".join(l for l in s.split("\n") if needle not in l)
-elif op == "subline":                 # subline <file> <exact-line> <replacement>
-    # Line-exact, for keys whose text also appears in prose above them —
-    # `auto_sync = false` is both an assignment and part of its own comment.
-    old, new = rest
-    lines = s.split("\n")
-    hits = [i for i, l in enumerate(lines) if l == old]
-    assert len(hits) == 1, f"{path}: expected 1 line == {old!r}, found {len(hits)}"
-    lines[hits[0]] = new
-    s = "\n".join(lines)
-elif op == "delexact":                # delexact <file> <exact-line>
-    old = rest[0]
-    lines = s.split("\n")
-    hits = [i for i, l in enumerate(lines) if l == old]
-    assert len(hits) == 1, f"{path}: expected 1 line == {old!r}, found {len(hits)}"
-    s = "\n".join(l for i, l in enumerate(lines) if i != hits[0])
-elif op == "shrink":                  # shrink <file> <n>  -> n placeholder patterns
-    n = int(rest[0])
-    lines = s.split("\n")
-    b = next(i for i, l in enumerate(lines) if l.startswith("# --- BEGIN history_filter"))
-    e = next(i for i, l in enumerate(lines) if l.startswith("# --- END history_filter"))
-    body = ["history_filter = ["] + [f'    "PAT{i}",' for i in range(n)] + ["]"]
-    s = "\n".join(lines[:b + 1] + body + lines[e:])
-elif op == "addpat":                  # addpat <file>  -> one extra pattern
-    s = s.replace('    "AKIA', '    "MUTATION_ONLY",\n    "AKIA', 1)
-elif op == "swap":                    # swap <file> <substrA> <substrB>
-    a, b = rest
-    lines = s.split("\n")
-    i = next(n for n, l in enumerate(lines) if a in l)
-    j = next(n for n, l in enumerate(lines) if b in l)
-    lines[i], lines[j] = lines[j], lines[i]
-    s = "\n".join(lines)
-elif op == "append":                  # append <file> <text>
-    s = s + rest[0] + "\n"
-elif op == "padto":                   # padto <file> <other-file>  -> equal byte size
-    other = os.path.getsize(rest[0])
-    cur = len(s.encode())
-    if other > cur:
-        s = s + "#" + " " * (other - cur - 2) + "\n"
-else:
-    raise SystemExit(f"unknown op {op}")
-
-open(path, "w").write(s)
-PYEOF
 
 ok=0
 bad=0
@@ -99,7 +42,7 @@ fresh() {
   cp "${repo_root}/${sync_rel}" "${work}/w/${sync_rel}"
   cp "${repo_root}/${local_rel}" "${work}/w/${local_rel}"
 }
-mut() { python3 "${work}/mutate.py" "$@"; }
+mut() { "${repo_root}/scripts/atuin-parity-mutate.py" "$@"; }
 SYNC="${work}/w/${sync_rel}"
 LOCAL="${work}/w/${local_rel}"
 

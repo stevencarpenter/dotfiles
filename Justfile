@@ -30,7 +30,7 @@ verify-live:
 
 # Show a names-only plan for adopting reviewed personal env changes into 1Password.
 op-adopt *FLAGS:
-    python3 home/.local/bin/op-adopt {{ FLAGS }}
+    home/.local/bin/op-adopt {{ FLAGS }}
 
 # Evaluate every declared system closure without realizing it.
 check:
@@ -173,7 +173,7 @@ reap-kill:
 
 # Regenerate extension/dashboards.json from the provisioned Grafana JSON
 dashboard-tabs:
-    python3 firefox-dashboard-tabs/generate.py
+    firefox-dashboard-tabs/generate.py
 
 # Lint the Firefox dashboard generator and its tests.
 dashboard-tabs-lint:

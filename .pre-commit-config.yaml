@@ -35,7 +35,7 @@ repos:
         name: Validate 1Password secret source and rendered-target boundaries
         description: Require exact approved references and forbid tracked rendered secret files
         language: system
-        entry: python3 home/.local/bin/op-adopt --check-policy --policy home/.config/op/adopt-policy.json --repo-root .
+        entry: home/.local/bin/op-adopt --check-policy --policy home/.config/op/adopt-policy.json --repo-root .
         pass_filenames: false
         always_run: true
 

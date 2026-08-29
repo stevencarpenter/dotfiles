@@ -40,7 +40,7 @@ fix the test first.
 ### 3. List the deployment targets (sanity check before diffing)
 
 ```bash
-uv run --project mcp_sync python .claude/skills/mcp-sync-verify/scripts/list_targets.py
+.claude/skills/mcp-sync-verify/scripts/list_targets.py
 ```
 
 Targets are discovered dynamically from `mcp_sync.sync._build_targets` plus the three

@@ -1,4 +1,8 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
 """strip_context.py — PoC comment/docstring/doc stripper for blind code review.
 
 Produces a scratch workspace whose files have identical line and column

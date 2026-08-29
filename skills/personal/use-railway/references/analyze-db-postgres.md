@@ -290,7 +290,7 @@ VACUUM FREEZE "TableName";
 If these conditions are met, tell the user to run (do NOT execute with Bash):
 
 ```
-python3 scripts/enable-pg-stats.py --service <name>
+scripts/enable-pg-stats.py --service <name>
 ```
 
 This may require a brief restart.

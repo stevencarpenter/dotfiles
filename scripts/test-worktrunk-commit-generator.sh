@@ -12,19 +12,7 @@ config="${repo_root}/home/.config/worktrunk/config.toml"
 # Parse the checked-in config independently of the installed Worktrunk version.
 # These assertions catch a store path accidentally committed as file contents
 # and preserve the settings whose absence changes worktree and merge behavior.
-WORKTRUNK_CONFIG="${config}" python3 <<'PY'
-import os
-import pathlib
-import tomllib
-
-config = tomllib.loads(pathlib.Path(os.environ["WORKTRUNK_CONFIG"]).read_text())
-assert config["worktree-path"] == "{{ repo_path }}/../{{ repo }}-{{ branch | sanitize }}"
-assert config["pre-start"] == [{"copy": "wt step copy-ignored"}]
-assert config["list"]["json-schema"] == 2
-assert config["commit"]["stage"] == "all"
-assert config["commit"]["generation"]["command"]
-assert config["merge"] == {"squash": True, "commit": True}
-PY
+"${repo_root}/scripts/assert-worktrunk-config.py" "${config}"
 
 fixture="$(mktemp -d)"
 trap 'rm -rf "${fixture}"' EXIT

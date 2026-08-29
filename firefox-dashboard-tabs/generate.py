@@ -1,4 +1,8 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.14"
+# dependencies = []
+# ///
 """Generate the Dashboard Tabs extension manifest from provisioned Grafana JSON.
 
 Both Grafana instances provision their dashboards from JSON checked into their

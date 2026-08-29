@@ -306,9 +306,9 @@ These commands modify database state and require the user to run them directly i
 
 | Command | Why user-only |
 |---------|---------------|
-| `python3 scripts/enable-pg-stats.py --service <name>` | Modifies shared_preload_libraries, may restart database |
-| `python3 scripts/pg-extensions.py --service <name> install <ext>` | Installs database extension |
-| `python3 scripts/pg-extensions.py --service <name> uninstall <ext>` | Removes database extension |
+| `scripts/enable-pg-stats.py --service <name>` | Modifies shared_preload_libraries, may restart database |
+| `scripts/pg-extensions.py --service <name> install <ext>` | Installs database extension |
+| `scripts/pg-extensions.py --service <name> uninstall <ext>` | Removes database extension |
 | `ALTER SYSTEM SET ...` | Changes PostgreSQL configuration |
 | `DROP EXTENSION ...` | Removes database extension |
 | `CREATE EXTENSION ...` | Installs database extension |
