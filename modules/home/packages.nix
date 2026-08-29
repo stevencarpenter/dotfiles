@@ -48,12 +48,18 @@ let
     # running a pre-18.12 installer copy). Config without the matching binary is
     # not a working contract, so nix owns both or neither.
     "atuin"
+    # 26.05 (f6107e54, 2026-08-28) ships statix-0-unstable-2026-05-14 whose
+    # checkPhase fails on Darwin: cargo insta snapshot collapsible_let_in
+    # against the channel rustc. Unstable has 0.5.8-unstable-2026-07-17,
+    # hydra-cached. Drop when 26.05 builds pkgs.statix unmodified
+    # (NixOS/nixpkgs#524695 is on master; not backported as of this pin).
+    "statix" # Nix linter used by LazyVim's Nix extra and flake checks
   ];
 
   # A second nixpkgs that deliberately does not follow the stable input. No
   # `config` argument is needed: this repo sets no `nixpkgs.config` anywhere
   # (no allowUnfree, no overlay stack), so the defaults already match.
-  pkgsFresh = import inputs.nixpkgs-unstable { inherit (pkgs) system; };
+  pkgsFresh = import inputs.nixpkgs-unstable { system = pkgs.stdenv.hostPlatform.system; };
 
   freshPackages = map (name: pkgsFresh.${name}) fastMovingPackages;
 
@@ -110,7 +116,6 @@ let
     tmux # binary only; tmux config stays a raw symlinked dotfile
     nixd # Nix LSP, including flake-provided nix-darwin/HM option sets
     nixfmt # formatter used by LazyVim's Nix extra and nixd
-    statix # Nix linter used by LazyVim's Nix extra
     cmake
     ninja
     lychee # link checker

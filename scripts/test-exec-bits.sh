@@ -28,6 +28,7 @@ exec_scripts=(
   home/.local/bin/worktrunk-commit-generator
   scripts/host-capability.sh
   scripts/sync-side-channels.sh
+  scripts/update-inputs.sh
   scripts/update-unstable.sh
   scripts/test-gh-account-routing.sh
   scripts/test-obsidian-capture.sh
@@ -42,6 +43,7 @@ exec_scripts=(
   scripts/test-railway-psql-errors.sh
   scripts/test-sync-capability-gating.sh
   scripts/test-tmux-lifecycle-contract.sh
+  scripts/test-update-inputs.sh
   scripts/test-update-unstable-soak.sh
   scripts/test-unstable-reminder.sh
   scripts/unstable-reminder.sh

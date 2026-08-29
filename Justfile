@@ -48,6 +48,10 @@ nix-fmt-check:
 nix-lint:
     statix check .
 
+# Bump 26.05 inputs, unstable soak, and Homebrew. Never switches.
+update *ARGS:
+    scripts/update-inputs.sh {{ ARGS }}
+
 # Record the current nixpkgs-unstable channel tip, then promote that exact rev
 # after DAYS have elapsed (default 7). Promotion builds and prints the closure
 # diff but never switches. See scripts/update-unstable.sh for the state machine.
