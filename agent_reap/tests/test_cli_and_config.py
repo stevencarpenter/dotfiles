@@ -245,7 +245,7 @@ def test_completion_event_kill_requires_unattended_policy(
 
 
 def test_completion_event_kills_only_the_confirmed_agent(wired: Machine) -> None:
-    """A SubagentStop-targeted reap bypasses age thresholds after revalidation."""
+    """A SubagentStop-targeted reap uses the completion grace, not the 30m window."""
     with wired.config_path.open("a", encoding="utf-8") as config_file:
         config_file.write("\nkill_enabled = true\n")
 

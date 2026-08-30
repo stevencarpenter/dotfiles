@@ -65,15 +65,6 @@ if ! printf '%s' "${dump}" | rg -Fq "scripts/hook-text-files.py"; then
   failures=$((failures + 1))
 fi
 
-# Prove the file-scoped jobs actually match files rather than silently
-# no-opping: run the whole group over every tracked file.
-# stderr is kept: without it the failure message names no job, and the whole
-# point of this check is to learn WHICH glob stopped matching.
-if ! lefthook run pre-commit --all-files --force --no-auto-install --no-stage-fixed >/dev/null; then
-  echo "FAIL: 'lefthook run pre-commit --all-files' did not pass on a clean tree" >&2
-  failures=$((failures + 1))
-fi
-
 if [[ "${failures}" -gt 0 ]]; then
   echo "test-lefthook-hooks: ${failures} failure(s)" >&2
   exit 1

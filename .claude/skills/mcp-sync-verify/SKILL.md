@@ -43,9 +43,10 @@ fix the test first.
 .claude/skills/mcp-sync-verify/scripts/list_targets.py
 ```
 
-Targets are discovered dynamically from `mcp_sync.sync._build_targets` plus the three
-special-cased writers (codex, claude.json patch, copilot-cli auth-preserving patch).
-This list will not go stale when a target is added in `sync.py`.
+Targets come from `mcp_sync.sync.sync_destinations`: `_build_targets` (wholesale
+files, including Copilot CLI at `~/.copilot/mcp-config.json`) plus the Codex TOML
+patch plus `patch_specs` (`~/.claude.json`). This list will not go stale when a
+target is added in `sync.py`.
 
 ### 4. Dry-run + diff
 
@@ -64,8 +65,8 @@ What the script does:
 3. Auto-detect the deployed machine overlay at `~/.config/mcp/machine/*.json` and pass
    it via `--machine-config` (matching what the `mcpSync` activation hook in
    `modules/home/sync-hooks.nix` does at rebuild time). Override by passing a path: `bash .../dry_run_diff.sh /path/to/overlay.json`.
-4. Mirror `~/.claude.json` and `~/.config/.copilot/config.json` into the sandbox so the
-   in-place patchers have something to patch.
+4. Mirror in-place patch targets (`~/.claude.json`, `~/.codex/config.toml`) into the
+   sandbox so the patchers have something to rewrite.
 5. Run `uv run --project mcp_sync sync-mcp-configs --home "$SANDBOX" --machine-config ...`.
 6. `diff -u` every generated path against the deployed copy under `$HOME`.
 
@@ -121,5 +122,6 @@ re-runs `sync-mcp-configs` against the real `$HOME` after every switch.)
 
 ## Reference files
 
-- `scripts/list_targets.py` — print all deployment paths via dynamic introspection.
-- `scripts/dry_run_diff.sh` — sandbox sync + per-target diff.
+- `.claude/skills/mcp-sync-verify/scripts/list_targets.py` — print all deployment paths via `sync_destinations`.
+- `.claude/skills/mcp-sync-verify/scripts/print_target_paths.py` — same set, one path per line.
+- `.claude/skills/mcp-sync-verify/scripts/dry_run_diff.sh` — sandbox sync + per-target diff.

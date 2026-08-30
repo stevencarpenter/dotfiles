@@ -45,7 +45,8 @@ agent-reap -v report       # include the reason every pane was excluded
 event-driven: the generated Claude settings register
 `~/.claude/hooks/agent-reap-subagent-stop.sh` for `SubagentStop` and
 `~/.claude/hooks/agent-reap-session-end.sh` for `SessionEnd`. The former receives the completed
-agent and parent team from the event, bypasses only time thresholds for that exact teammate, and
+agent and parent team from the event, shortens inbox-age to `completion_grace_seconds`
+for that exact teammate (window idle is skipped), and
 keeps the drained-inbox and process-safety checks. The latter runs a team-scoped reap for an ended
 team and removes that exact team's state directory afterward. Solo sessions exit without creating
 either log.

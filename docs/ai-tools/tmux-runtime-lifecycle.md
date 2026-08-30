@@ -94,9 +94,10 @@ ordinary shells or Codex agent processes.
 There is no `agent-reap` daemon or launchd job. Cleanup has three entry points:
 
 - `~/.claude/hooks/agent-reap-subagent-stop.sh` receives the completed `agent_id` and
-  `parent_session_id` from a `SubagentStop` event, then reaps only that named teammate. It skips
-  the time thresholds, but still requires a live session directory, a drained inbox, a sleeping
-  process, no active or foreground descendants, and the normal pane and ancestry guards.
+  `parent_session_id` from a `SubagentStop` event, then reaps only that named teammate. It
+  skips window-activity idle (the event already proves the turn ended) and shortens inbox-age
+  to `completion_grace_seconds`. It still requires a live session directory, a drained inbox, a
+  sleeping process, no active or foreground descendants, and the normal pane and ancestry guards.
 - `~/.claude/hooks/agent-reap-session-end.sh` runs a team-scoped reap after a qualifying Claude
   `SessionEnd` event, then removes that ended session's exact `session-*` state directory.
 - `just reap`, `just reap-sockets`, `just reap-strays`, and `just reap-kill` provide manual audit

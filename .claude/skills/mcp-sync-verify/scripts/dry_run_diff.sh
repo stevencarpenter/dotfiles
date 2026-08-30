@@ -38,20 +38,24 @@ if [[ -d "$REPO_ROOT/home/.config/mcp/overrides" ]]; then
   cp -R "$REPO_ROOT/home/.config/mcp/overrides/." "$SANDBOX/.config/mcp/overrides/"
 fi
 
-# Mirror the deployed Claude/Copilot/Codex files so the in-place patchers have
-# something to patch (otherwise they log "skipping: file not found", and codex
-# falls back to the fresh-seed template path, making its diff meaningless).
-if [[ -f "$REAL_HOME/.claude.json" ]]; then
-  cp "$REAL_HOME/.claude.json" "$SANDBOX/.claude.json"
+# Mirror in-place patch targets so the patchers have something to rewrite.
+# Wholesale targets are generated from templates and need no seed.
+# Paths come from sync_destinations (kind=patch): currently .claude.json and
+# .codex/config.toml. There is no ~/.config/.copilot/config.json writer.
+mapfile -t PATCH_PATHS < <(
+  cd "$REPO_ROOT" && .claude/skills/mcp-sync-verify/scripts/print_target_paths.py --kind patch
+)
+if [[ ${#PATCH_PATHS[@]} -eq 0 ]]; then
+  echo "==> ERROR: patch-target discovery produced no paths" >&2
+  exit 1
 fi
-if [[ -f "$REAL_HOME/.config/.copilot/config.json" ]]; then
-  mkdir -p "$SANDBOX/.config/.copilot"
-  cp "$REAL_HOME/.config/.copilot/config.json" "$SANDBOX/.config/.copilot/config.json"
-fi
-if [[ -f "$REAL_HOME/.codex/config.toml" ]]; then
-  mkdir -p "$SANDBOX/.codex"
-  cp "$REAL_HOME/.codex/config.toml" "$SANDBOX/.codex/config.toml"
-fi
+for rel in "${PATCH_PATHS[@]}"; do
+  deployed="$REAL_HOME/$rel"
+  if [[ -f "$deployed" ]]; then
+    mkdir -p "$SANDBOX/$(dirname "$rel")"
+    cp "$deployed" "$SANDBOX/$rel"
+  fi
+done
 
 echo "==> Running mcp_sync against sandbox HOME=$SANDBOX"
 ( cd "$REPO_ROOT" && uv run --project mcp_sync sync-mcp-configs --home "$SANDBOX" "${MACHINE_ARG[@]}" )

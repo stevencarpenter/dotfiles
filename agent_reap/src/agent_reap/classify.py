@@ -197,8 +197,10 @@ def classify(
         live_team_scope: The caller's live team session id for a completion-event
             reap. Only the named ``completed_agent`` in this team is considered.
         completed_agent: The exact teammate name confirmed by a ``SubagentStop``
-            event. Its time-based window and inbox-age thresholds are bypassed,
-            but session, pane, process, descendant, and drained-inbox checks hold.
+            event. Window-activity idle is skipped (the event already proves the
+            turn ended). Inbox-age is not: it shortens to
+            ``completion_grace_seconds`` so the lead can still send a follow-up.
+            Session, pane, process, descendant, and drained-inbox checks hold.
 
     Returns:
         The classification, with a reason attached to every exclusion.

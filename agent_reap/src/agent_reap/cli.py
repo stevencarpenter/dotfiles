@@ -448,8 +448,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--completed-agent",
         metavar="AGENT_NAME",
         help=(
-            "reap only the teammate named by a SubagentStop event; this "
-            "bypasses time thresholds but keeps safety checks"
+            "reap only the teammate named by a SubagentStop event; window "
+            "idle is skipped, inbox-age shortens to completion_grace_seconds"
         ),
     )
     return parser

@@ -1,8 +1,4 @@
-#!/usr/bin/env -S uv run --script
-# /// script
-# requires-python = ">=3.9"
-# dependencies = []
-# ///
+#!/usr/bin/python3
 """Extract the reap target from a Claude Code SubagentStop hook payload.
 
 Reads the hook's JSON payload on stdin and prints "<session>\\t<agent-name>"
@@ -15,8 +11,8 @@ subagent's own transcript id, so ``parent_session_id`` is preferred, falling
 back to the ``team_name``/``agent_id`` forms emitted by older Claude versions.
 
 Runs under macOS's system /usr/bin/python3 (3.9): the hook must not depend on
-uv or any interpreter installed by this repo. The PEP 723 header above only
-makes standalone `uv run --script` invocation possible for manual testing.
+uv or any interpreter installed by this repo. The shebang matches that
+interpreter so a manual run hits the same runtime.
 """
 
 import json

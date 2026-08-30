@@ -4,40 +4,60 @@
 # dependencies = ["mcp-sync"]
 #
 # [tool.uv.sources]
-# mcp-sync = { path = "../../../../mcp_sync" }
+# mcp-sync = { path = "../../../../mcp_sync", editable = true }
 # ///
 """Print the HOME-relative paths mcp_sync will write, one per line.
 
-Discovered from ``mcp_sync.sync._build_targets`` plus the special-cased
-writers, so dry_run_diff.sh never goes stale when sync.py gains a target.
-list_targets.py prints the same set in a human-readable form; this one is the
-machine-readable feed.
+Reads :func:`mcp_sync.sync.sync_destinations`, so this never goes stale when
+a wholesale target, the Codex TOML patch, or a JSON patch spec is added.
 
 Usage:
     .claude/skills/mcp-sync-verify/scripts/print_target_paths.py
+    .claude/skills/mcp-sync-verify/scripts/print_target_paths.py --kind patch
 """
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
-from mcp_sync.sync import _build_targets
+from mcp_sync.sync import sync_destinations
+
+_KINDS = frozenset({"wholesale", "patch"})
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     """Print each destination path relative to the current user's home.
 
+    Args:
+        argv: Optional argument list; defaults to ``sys.argv[1:]``.
+            ``--kind wholesale|patch`` restricts the listing.
+
     Returns:
-        Process exit status, always 0.
+        0 on success, 2 on usage errors.
     """
+    args = list(sys.argv[1:] if argv is None else argv)
+    kind_filter: str | None = None
+    if args[:1] == ["--kind"]:
+        if len(args) != 2 or args[1] not in _KINDS:
+            print(
+                "usage: print_target_paths.py [--kind wholesale|patch]",
+                file=sys.stderr,
+            )
+            return 2
+        kind_filter = args[1]
+    elif args:
+        print(
+            "usage: print_target_paths.py [--kind wholesale|patch]",
+            file=sys.stderr,
+        )
+        return 2
+
     home = Path.home()
-    seen = {str(t.destination.relative_to(home)) for t in _build_targets(home)}
-    # Special-cased writers (see sync.py).
-    seen.add(".codex/config.toml")
-    seen.add(".claude.json")
-    seen.add(".config/.copilot/config.json")
-    for path in sorted(seen):
-        print(path)
+    for dest in sync_destinations(home):
+        if kind_filter is not None and dest.kind != kind_filter:
+            continue
+        print(dest.path.relative_to(home))
     return 0
 
 

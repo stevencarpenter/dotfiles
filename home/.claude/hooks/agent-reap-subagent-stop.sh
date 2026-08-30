@@ -2,9 +2,10 @@
 # agent-reap-subagent-stop.sh: reap one completed teammate in a live team.
 #
 # Claude's SubagentStop payload identifies the completed agent and its parent
-# team. This hook passes both identities to agent-reap, which bypasses only the
-# time thresholds for that named agent. The live team's other panes remain under
-# the ordinary safety rules and are not selected by this invocation.
+# team. This hook passes both identities to agent-reap, which skips window-idle
+# for that named agent and shortens inbox-age to completion_grace_seconds. The
+# live team's other panes remain under the ordinary safety rules and are not
+# selected by this invocation.
 #
 # FAILURE POLICY
 # Always exit 0. A cleanup hook must not turn a failed or slow reaper into a

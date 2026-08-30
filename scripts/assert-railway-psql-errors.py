@@ -14,8 +14,19 @@ Usage:
     assert-railway-psql-errors.py <repo-root>
 """
 
+from __future__ import annotations
+
 import sys
 from pathlib import Path
+
+# dal.py is a vendored skill script, not an installable package. Insert its
+# directory before the import so the name resolves at module scope.
+sys.path.insert(
+    0,
+    str(Path(__file__).resolve().parents[1] / "skills/personal/use-railway/scripts"),
+)
+
+import dal  # noqa: E402
 
 
 def main(argv: list[str]) -> int:
@@ -35,11 +46,12 @@ def main(argv: list[str]) -> int:
         return 2
 
     repo_root = Path(argv[0])
-    sys.path.insert(0, str(repo_root / "skills/personal/use-railway/scripts"))
+    dal_dir = repo_root / "skills/personal/use-railway/scripts"
+    if not dal_dir.is_dir():
+        print(f"usage: no use-railway scripts under {repo_root}", file=sys.stderr)
+        return 2
 
-    import dal
-
-    captured = {}
+    captured: dict[str, object] = {}
 
     def failing_ssh(service, command, timeout):
         captured["service"] = service

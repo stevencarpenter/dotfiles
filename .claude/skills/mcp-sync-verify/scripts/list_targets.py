@@ -4,13 +4,13 @@
 # dependencies = ["mcp-sync"]
 #
 # [tool.uv.sources]
-# mcp-sync = { path = "../../../../mcp_sync" }
+# mcp-sync = { path = "../../../../mcp_sync", editable = true }
 # ///
 """Print the set of paths mcp_sync will (over)write, discovered dynamically.
 
-Reads ``mcp_sync.sync._build_targets`` plus the three special-cased
-sync functions (codex, claude.json patch, copilot-cli) so this never
-goes stale when a new target is added in sync.py.
+Reads :func:`mcp_sync.sync.sync_destinations` so this never goes stale when a
+target is added in ``sync.py``. ``print_target_paths.py`` prints the same set
+as a machine-readable feed.
 
 Usage:
     .claude/skills/mcp-sync-verify/scripts/list_targets.py
@@ -20,26 +20,32 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from mcp_sync.sync import _build_targets
+from mcp_sync.sync import sync_destinations
 
 
 def main() -> int:
+    """Print each destination grouped by wholesale vs in-place patch.
+
+    Returns:
+        Process exit status, always 0.
+    """
     home = Path.home()
+    dests = sync_destinations(home)
     print("# mcp_sync deployment targets")
     print()
-    print("## Generated wholesale (from _build_targets):")
-    for t in _build_targets(home):
-        print(f"  - {t.name:<28} {t.destination}")
+    print("## Generated wholesale:")
+    for dest in dests:
+        if dest.kind == "wholesale":
+            print(f"  - {dest.name:<28} {dest.path}")
     print()
-    print("## Special-cased writers (see sync.py):")
-    print(f"  - codex                        {home / '.codex' / 'config.toml'}")
-    print(
-        f"  - claude (patched in place)    {home / '.claude.json'} "
-        "(only mcpServers key is touched)"
-    )
-    print(
-        f"  - copilot-cli (auth preserved) {home / '.config' / '.copilot' / 'config.json'}"
-    )
+    print("## Patched in place:")
+    for dest in dests:
+        if dest.kind != "patch":
+            continue
+        note = ""
+        if dest.name == "claude":
+            note = " (only mcpServers key is touched)"
+        print(f"  - {dest.name:<28} {dest.path}{note}")
     return 0
 
 

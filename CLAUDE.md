@@ -362,7 +362,8 @@ GitHub Actions in `.github/workflows/`:
     with a `[tool.uv.sources]` path relative to the script's own directory.
   - Exception: `home/.claude/hooks/lib/*.py` is exec'd as `/usr/bin/python3 <path>` by the reap
     hooks and must stay 3.9-compatible. Session teardown runs under a 20s Claude cap and cannot
-    depend on uv resolving an environment; the shebang there is for manual runs only.
+    depend on uv resolving an environment. Those files use `#!/usr/bin/python3` so a manual
+    run hits the same interpreter the hooks do.
 - Package manager: uv (not pip/poetry)
 - Tests: `test_*.py` filenames and `test_*` function names (enforced by the lefthook
   `name-tests-test` job)

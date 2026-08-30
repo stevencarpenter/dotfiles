@@ -56,6 +56,22 @@ class SyncTarget:
         sync_to_locations(config, self.destination)
 
 
+@dataclass(frozen=True, slots=True)
+class SyncDestination:
+    """One file ``run_sync`` writes.
+
+    Attributes:
+        name: Target name used by ``--check`` and ``--capture``.
+        path: Absolute destination under the given home.
+        kind: ``"wholesale"`` for a generated file; ``"patch"`` for a
+            co-owned file updated in place.
+    """
+
+    name: str
+    path: Path
+    kind: str
+
+
 def _log(prefix: str, message: str) -> None:
     print(f"{prefix} {message}")
 
@@ -344,6 +360,18 @@ def deep_merge(base: JsonDict, override: JsonDict) -> JsonDict:
     return result
 
 
+def _codex_config_path(home: Path) -> Path:
+    """Return Codex's co-owned ``config.toml`` path under ``home``.
+
+    Args:
+        home: Home directory the deployed path lives under.
+
+    Returns:
+        ``<home>/.codex/config.toml``.
+    """
+    return home / ".codex" / "config.toml"
+
+
 def render_codex_config(master: JsonDict, home: Path | None = None) -> str | None:
     """Render the ``config.toml`` text a codex sync would write.
 
@@ -360,7 +388,7 @@ def render_codex_config(master: JsonDict, home: Path | None = None) -> str | Non
         neither an existing file nor a base template to seed from.
     """
     home_path = _home_dir(home)
-    codex_config_path = home_path / ".codex" / "config.toml"
+    codex_config_path = _codex_config_path(home_path)
 
     overrides = _load_override("codex", home_path)
     merged_servers = _merge_override_servers(master, overrides)
@@ -404,7 +432,7 @@ def sync_codex_mcp(master: JsonDict, home: Path | None = None) -> None:
         None: The target ``config.toml`` is updated in place.
     """
     home_path = _home_dir(home)
-    codex_config_path = home_path / ".codex" / "config.toml"
+    codex_config_path = _codex_config_path(home_path)
 
     text = render_codex_config(master, home_path)
     if text is None:
@@ -993,6 +1021,30 @@ def _build_targets(home: Path) -> list[SyncTarget]:
             override_key="lmstudio",
         ),
     ]
+
+
+def sync_destinations(home: Path) -> list[SyncDestination]:
+    """Every path ``run_sync`` writes, in the same order.
+
+    This is ``_build_targets`` plus the Codex TOML patch plus
+    ``patch_specs``. Verify scripts and ``--check`` must consume this
+    list rather than repeating the special cases by hand.
+
+    Args:
+        home: Home directory the deployed paths live under.
+
+    Returns:
+        One entry per writer, wholesale first, then patch targets.
+    """
+    destinations = [
+        SyncDestination(target.name, target.destination, "wholesale")
+        for target in _build_targets(home)
+    ]
+    destinations.append(SyncDestination("codex", _codex_config_path(home), "patch"))
+    destinations.extend(
+        SyncDestination(spec.name, spec.path, "patch") for spec in patch_specs(home)
+    )
+    return destinations
 
 
 def run_sync(

@@ -1,8 +1,4 @@
-#!/usr/bin/env -S uv run --script
-# /// script
-# requires-python = ">=3.9"
-# dependencies = []
-# ///
+#!/usr/bin/python3
 """Run an agent-reap worker under a process-group watchdog.
 
 macOS ships neither ``timeout`` nor ``gtimeout``, so the reap hooks use this as
@@ -19,8 +15,8 @@ Callers treat a nonzero status as "reap did not complete"; only the SessionEnd
 hook acts on that, by leaving team state in place.
 
 Runs under macOS's system /usr/bin/python3 (3.9): the hook must not depend on
-uv or any interpreter installed by this repo. The PEP 723 header above only
-makes standalone `uv run --script` invocation possible for manual testing.
+uv or any interpreter installed by this repo. The shebang matches that
+interpreter so a manual run hits the same runtime.
 """
 
 import argparse
@@ -57,7 +53,9 @@ def main() -> int:
     try:
         return process.wait(timeout=args.timeout)
     except subprocess.TimeoutExpired:
-        print(f"{args.label}: timed out after {args.timeout}s; terminating worker group")
+        print(
+            f"{args.label}: timed out after {args.timeout}s; terminating worker group"
+        )
 
     try:
         os.killpg(process.pid, signal.SIGTERM)
