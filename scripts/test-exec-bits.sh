@@ -29,8 +29,10 @@ exec_scripts=(
   # PEP 723 uv scripts exec'd by path (CI steps, the Justfile, lefthook jobs,
   # and the shell test wrappers all rely on the `uv run --script` shebang).
   home/.local/bin/op-adopt
-  firefox-dashboard-tabs/generate.py
   scripts/test_op_adopt.py
+  scripts/test_subagent_stop_payload.py
+  scripts/test_strip_context.py
+  scripts/pty-spawn.py
   scripts/assert-railway-psql-errors.py
   scripts/assert-worktrunk-config.py
   scripts/atuin-parity-mutate.py

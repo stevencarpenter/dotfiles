@@ -14,8 +14,9 @@ Usage:
 """
 
 import sys
-import tomllib
 from pathlib import Path
+
+import tomllib
 
 
 def main(argv: list[str]) -> int:

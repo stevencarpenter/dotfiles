@@ -14,8 +14,7 @@ list_targets.py prints the same set in a human-readable form; this one is the
 machine-readable feed.
 
 Usage:
-    uv run --project mcp_sync python \\
-        .claude/skills/mcp-sync-verify/scripts/print_target_paths.py
+    .claude/skills/mcp-sync-verify/scripts/print_target_paths.py
 """
 
 from __future__ import annotations

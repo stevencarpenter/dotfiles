@@ -390,11 +390,11 @@ def test_team_scope_still_spares_the_lead(config: Config, teams_dir: Path) -> No
     assert "team lead" in report.skipped[0].reason
 
 
-def test_completion_event_bypasses_time_thresholds(
+def test_completion_event_shortens_time_thresholds(
     config: Config, teams_dir: Path
 ) -> None:
-    """A named completion event can reap a freshly drained sleeping teammate."""
-    write_inbox(teams_dir, "abc123", "docs-readme", mtime=NOW)
+    """A named completion event reaps past the grace, not past the 30m window."""
+    write_inbox(teams_dir, "abc123", "docs-readme", mtime=NOW - 120)
     pane = make_pane(activity=int(NOW))
 
     report = _classify(
@@ -407,6 +407,43 @@ def test_completion_event_bypasses_time_thresholds(
     )
 
     assert [c.teammate.agent_name for c in report.candidates] == ["docs-readme"]
+
+
+def test_completion_event_respects_completion_grace(
+    config: Config, teams_dir: Path
+) -> None:
+    """A teammate that just finished stays alive long enough to be re-messaged."""
+    write_inbox(teams_dir, "abc123", "docs-readme", mtime=NOW - 5)
+
+    report = _classify(
+        config,
+        [make_pane(activity=int(NOW))],
+        {200: make_process()},
+        live_team_scope="abc123",
+        completed_agent="docs-readme",
+    )
+
+    assert report.candidates == ()
+    assert "drained only" in report.skipped[0].reason
+
+
+def test_completion_event_still_spares_the_lead(
+    config: Config, teams_dir: Path
+) -> None:
+    """A completion event naming the lead cannot reap it."""
+    write_inbox(teams_dir, "abc123", "team-lead", mtime=NOW - 120)
+    process = make_process(command="claude --agent-id team-lead@session-abc123")
+
+    report = _classify(
+        config,
+        [make_pane()],
+        {200: process},
+        live_team_scope="abc123",
+        completed_agent="team-lead",
+    )
+
+    assert report.candidates == ()
+    assert "team lead" in report.skipped[0].reason
 
 
 def test_completion_event_still_requires_drained_inbox(
@@ -437,7 +474,7 @@ def test_completion_event_only_targets_named_agent(
     config: Config, teams_dir: Path
 ) -> None:
     """A live-team completion event cannot reap a sibling teammate."""
-    write_inbox(teams_dir, "abc123", "docs-readme", mtime=NOW)
+    write_inbox(teams_dir, "abc123", "docs-readme", mtime=NOW - 120)
     panes = [
         make_pane(pane_id="%2", pid=200, activity=int(NOW)),
         make_pane(pane_id="%3", pid=201, activity=int(NOW)),

@@ -213,6 +213,7 @@ def classify(
         raise ValueError("team_scope and live_team_scope are mutually exclusive")
     root = (teams_dir or config.teams_dir).expanduser()
     teammate_idle_s = config.teammate_idle_minutes * 60
+    completion_grace_s = float(config.completion_grace_seconds)
     interactive_idle_s = config.interactive_idle_minutes * 60
 
     candidates: list[Candidate] = []
@@ -345,7 +346,14 @@ def classify(
             skipped.append(Skipped(pane, f"inbox has queued work ({inbox.size}b)"))
             continue
         idle_s = inbox.idle_seconds(now) or 0.0
-        if live_team_scope is None and idle_s < teammate_idle_s:
+        # A completion event shortens this window but does not remove it. The
+        # lead may still send the finished teammate a follow-up, and reaping it
+        # seconds after its turn ends would destroy the context that makes the
+        # follow-up worth sending.
+        min_idle_s = (
+            completion_grace_s if live_team_scope is not None else teammate_idle_s
+        )
+        if idle_s < min_idle_s:
             skipped.append(Skipped(pane, f"drained only {int(idle_s)}s ago"))
             continue
 

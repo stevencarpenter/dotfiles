@@ -31,6 +31,12 @@ import sys
 
 
 def main() -> int:
+    """Run the wrapped command under a process-group watchdog.
+
+    Returns:
+        The command's exit status, or 124 when the watchdog timed out and
+        terminated the worker's process group.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--label", required=True, help="prefix for log messages")
     parser.add_argument("--timeout", type=int, required=True, help="seconds to wait")

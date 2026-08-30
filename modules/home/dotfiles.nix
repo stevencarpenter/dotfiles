@@ -127,7 +127,7 @@ in
         ".claude/hooks/agent-reap-subagent-stop.sh"
         # Python bodies the reap hooks exec by path (parse + watchdog).
         # Linked as a directory: every member is ungated and shared by
-        # the all-machines SubagentStop hook and the personal SessionEnd one.
+        # both all-machines reap hooks (SubagentStop and SessionEnd).
         ".claude/hooks/lib"
         ".claude/hooks/wt-create.sh"
         ".claude/hooks/wt-remove.sh"

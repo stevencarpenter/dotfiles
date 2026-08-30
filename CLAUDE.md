@@ -94,7 +94,12 @@ just rebuild              # Same, via the task runner
 nix flake check --no-update-lock-file --no-build --all-systems   # Evaluate all-host checks
 just check                   # Alias for the above
 just update                  # Default pin bump: 26.05 inputs + unstable soak + brew.
-                             #   Never switches. Review, then `just sync`.
+                             #   Never switches the system, and evaluates the
+                             #   bumped inputs (`nix flake check`) before it
+                             #   recommends one. Review, then `just sync`.
+                             #   Caveat: the Homebrew half is NOT staged for
+                             #   review — `brew bundle install --upgrade`
+                             #   upgrades formulae and casks in place.
 just update 14               # Same, with a 14-day unstable soak window
 just update-unstable         # Record today's nixpkgs-unstable tip; after 7 elapsed
                              #   days promote/build it and print the closure diff.
@@ -335,20 +340,23 @@ GitHub Actions in `.github/workflows/`:
 - `nix-flake-check.yml`: Nix formatting, explicit `checks.<system>.<host>` evaluation, and both
   Darwin builds on `macos-latest`
 - `dotfiles-hygiene-ci.yml`: lefthook pre-commit jobs, whole-tree gitleaks scan, MCP
-  master-config structure, shell `bash -n` syntax, and
-  configuration test scripts
+  master-config structure, shell `bash -n` syntax, `ruff check .` over the Python that
+  lives outside the two uv projects (root `ruff.toml`), and the configuration test scripts
 
 ## Style
 
 - Shell scripts: `set -euo pipefail`, bash
 - Python: ruff for linting and formatting, no runtime dependencies, Python 3.14+
+  - The uv projects use their own `pyproject.toml`; everything else (scripts, hook libs,
+    skill scripts) is covered by the root `ruff.toml`, which excludes vendored plugin
+    skill scripts that are carried verbatim from upstream
   - 4-space indentation, `snake_case` for modules/functions, `PascalCase` for classes
   - Verbose Google-style docstrings on classes/functions with typed `Args:` / `Returns:` sections;
     include `Raises:` when relevant
   - **No inline Python.** A heredoc or `python -c` body belongs in its own file, next to the
     caller, which then execs it by path. Shell scripts, hooks, and CI steps call the file.
-  - Every standalone script (anything outside `mcp_sync/`, `agent_reap/`, and the
-    `firefox-dashboard-tabs/` package body) starts with `#!/usr/bin/env -S uv run --script`
+  - Every standalone script (anything outside the vendored `mcp_sync/` and `agent_reap/`
+    projects) starts with `#!/usr/bin/env -S uv run --script`
     followed by a PEP 723 `# /// script` block enumerating `requires-python` and `dependencies`,
     even when the list is empty. A script importing a repo project names it in `dependencies`
     with a `[tool.uv.sources]` path relative to the script's own directory.

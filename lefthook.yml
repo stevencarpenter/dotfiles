@@ -63,7 +63,7 @@ pre-commit:
       run: uvx --from pre-commit-hooks==6.0.0 forbid-new-submodules {staged_files}
 
     - name: name-tests-test
-      glob: "**/tests/*.py"
+      glob: "{**/,}tests/**/*.py"
       run: uvx --from pre-commit-hooks==6.0.0 name-tests-test --pytest-test-first {staged_files}
 
     - name: trailing-whitespace
@@ -72,7 +72,10 @@ pre-commit:
       # pre-commit's `types: [text]` filter, which lefthook has no equivalent
       # of: handing a PNG to the fixer corrupts it.
       stage_fixed: true
-      run: scripts/hook-text-files.py {staged_files} | xargs -0 uvx --from pre-commit-hooks==6.0.0 trailing-whitespace-fixer
+      # `set -o pipefail` is required: lefthook runs `run:` through `sh -c`
+      # without it, so a crashed filter would hand xargs empty input and the
+      # job would report success having checked nothing.
+      run: set -o pipefail; scripts/hook-text-files.py {staged_files} | xargs -0 uvx --from pre-commit-hooks==6.0.0 trailing-whitespace-fixer
 
     - name: detect-aws-credentials
       run: uvx --from pre-commit-hooks==6.0.0 detect-aws-credentials --allow-missing-credentials {staged_files}

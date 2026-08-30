@@ -115,7 +115,12 @@ fi
 # simply has no hooks, which is the pre-existing behavior.
 if command -v lefthook >/dev/null 2>&1; then
   echo "==> Installing git hooks (lefthook)"
-  (cd "$repo_root" && lefthook install)
+  # Warn rather than abort: this runs under `set -e`, and a broken lefthook on
+  # PATH (e.g. a version-less mise shim shadowing the nix binary) would
+  # otherwise kill the rest of the sync. Missing hooks are the documented
+  # degraded state, not a fatal one.
+  (cd "$repo_root" && lefthook install) ||
+    echo "warning: lefthook install failed; git hooks not wired" >&2
 else
   echo "warning: lefthook not found; git hooks not installed (run 'just sync' after a rebuild)" >&2
 fi

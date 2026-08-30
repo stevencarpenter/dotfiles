@@ -194,20 +194,57 @@ if [[ -d "${hook_home}/.claude/teams/session-success01" ]]; then
 fi
 
 mkdir -p "${hook_home}/.claude/teams/session-livecafe"
+# An earlier phase already wrote this file through the same fake agent-reap;
+# clear it so the poll below observes THIS invocation, not the stale one.
+rm -f -- "${hook_home}/agent-reap-args"
 printf '%s\n' '{"hook_event_name":"SubagentStop","agent_id":"docs-readme@session-livecafe","parent_session_id":"livecafe-0000-0000-0000-000000000000"}' | \
 	HOME="${hook_home}" \
 	PATH="${fake_bin}:/usr/bin:/bin" \
 	AGENT_REAP_HOOK_TIMEOUT_SECS=1 \
 		"${repo_root}/home/.claude/hooks/agent-reap-subagent-stop.sh"
+# The SubagentStop worker is detached so it never blocks the lead's turn, so
+# its evidence lands after the hook has already returned. Poll rather than
+# assert immediately; a fixed sleep would either be flaky or slow.
+wait_for_file() {
+	local path="$1" deadline=$((SECONDS + 10))
+	while ((SECONDS < deadline)); do
+		[[ -s "$path" ]] && return 0
+		sleep 0.1
+	done
+	return 1
+}
+if ! wait_for_file "${hook_home}/agent-reap-args"; then
+	echo "tmux lifecycle contract: detached SubagentStop worker never ran" >&2
+	exit 1
+fi
 if [[ "$(<"${hook_home}/agent-reap-args")" != "reap --live-team livecafe --completed-agent docs-readme --kill" ]]; then
 	echo "tmux lifecycle contract: SubagentStop hook invoked the wrong agent-reap command" >&2
 	exit 1
 fi
-if rg -Fq 'agent-reap SubagentStop hook: timed out after 1s; terminating worker group' \
+watchdog_deadline=$((SECONDS + 10))
+while ((SECONDS < watchdog_deadline)); do
+	rg -Fq 'agent-reap SubagentStop hook: timed out after 1s; terminating worker group' \
+		"${hook_home}/.claude/logs/agent-reap-subagent-stop.log" && break
+	sleep 0.1
+done
+if ! rg -Fq 'agent-reap SubagentStop hook: timed out after 1s; terminating worker group' \
 	"${hook_home}/.claude/logs/agent-reap-subagent-stop.log"; then
-	:
-else
 	echo "tmux lifecycle contract: SubagentStop hook watchdog did not report its timeout" >&2
+	exit 1
+fi
+
+# A hook whose lib directory is missing must leave evidence, not exit silently:
+# the two states are otherwise indistinguishable in the log.
+missing_lib_home="${test_root}/missing-lib-home"
+mkdir -p "${missing_lib_home}/.claude/teams/session-livecafe"
+cp "${repo_root}/home/.claude/hooks/agent-reap-subagent-stop.sh" "${test_root}/orphan-hook.sh"
+printf '%s\n' '{"hook_event_name":"SubagentStop","agent_id":"docs-readme@session-livecafe","parent_session_id":"livecafe-0000-0000-0000-000000000000"}' | \
+	HOME="${missing_lib_home}" \
+	PATH="${fake_bin}:/usr/bin:/bin" \
+	"${test_root}/orphan-hook.sh"
+if ! rg -Fq 'missing hook lib' \
+	"${missing_lib_home}/.claude/logs/agent-reap-subagent-stop.log"; then
+	echo "tmux lifecycle contract: hook with no lib dir failed silently" >&2
 	exit 1
 fi
 

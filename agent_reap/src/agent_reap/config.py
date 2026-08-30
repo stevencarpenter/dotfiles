@@ -27,6 +27,7 @@ _CONFIG_KEYS = frozenset(
     {
         "socket_globs",
         "teammate_idle_minutes",
+        "completion_grace_seconds",
         "interactive_idle_minutes",
         "include_lead",
         "kill_enabled",
@@ -47,6 +48,11 @@ class Config:
         socket_globs: Glob patterns searched for tmux server sockets.
         teammate_idle_minutes: How long a teammate's inbox must have been quiet
             before its pane is reapable.
+        completion_grace_seconds: How long a teammate's inbox must have been
+            quiet before a SubagentStop completion event may reap it. Replaces
+            ``teammate_idle_minutes`` in live-team mode only. A completion event
+            proves the turn ended, not that the lead is done with the teammate,
+            so this window preserves the send-a-follow-up workflow.
         interactive_idle_minutes: How long an interactive session's window must
             have been quiet before it is *reported*. Never triggers a kill on its
             own.
@@ -64,6 +70,7 @@ class Config:
 
     socket_globs: tuple[str, ...] = DEFAULT_SOCKET_GLOBS
     teammate_idle_minutes: int = 30
+    completion_grace_seconds: int = 90
     interactive_idle_minutes: int = 240
     include_lead: bool = False
     kill_enabled: bool = False
@@ -179,6 +186,9 @@ def load_config(path: Path | None = None) -> LoadedConfig:
         socket_globs=_strs("socket_globs", defaults.socket_globs),
         teammate_idle_minutes=_int(
             "teammate_idle_minutes", defaults.teammate_idle_minutes
+        ),
+        completion_grace_seconds=_int(
+            "completion_grace_seconds", defaults.completion_grace_seconds
         ),
         interactive_idle_minutes=_int(
             "interactive_idle_minutes", defaults.interactive_idle_minutes

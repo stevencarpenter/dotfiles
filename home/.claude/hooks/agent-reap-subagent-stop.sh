@@ -10,6 +10,11 @@
 # Always exit 0. A cleanup hook must not turn a failed or slow reaper into a
 # Claude session failure. The worker is bounded by a process-group watchdog and
 # all output is written to a separate log.
+#
+# The worker is detached: nothing downstream reads its exit status, so running
+# it synchronously would add a multi-socket tmux + process-table scan to the
+# lead's critical path on every teammate completion. SessionEnd is the opposite
+# case and stays synchronous, because it gates the team-directory removal.
 set -uo pipefail
 
 # Claude caps this command handler at 20 seconds in settings-base.json. The
@@ -23,6 +28,18 @@ readonly REAP_TERM_GRACE_SECS=1
 
 hook_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly HOOK_LIB="${hook_dir}/lib"
+
+log="${HOME}/.claude/logs/agent-reap-subagent-stop.log"
+mkdir -p "${log%/*}" 2>/dev/null || true
+
+# A missing lib directory means the hook was moved without its helpers, or the
+# machine has not rebuilt since the link was declared. Both are indistinguishable
+# from "no qualifying event" unless they leave evidence, so log before exiting.
+if [[ ! -d "${HOOK_LIB}" ]]; then
+  printf '%s missing hook lib: %s (run `just rebuild`)\n' \
+    "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "${HOOK_LIB}" >>"$log" 2>/dev/null || true
+  exit 0
+fi
 
 agent_reap_bin="$(command -v agent-reap 2>/dev/null)" || exit 0
 
@@ -46,9 +63,6 @@ IFS=$'\t' read -r session_id agent_name <<<"${event_target}"
 [[ -n "${session_id}" && -n "${agent_name}" ]] || exit 0
 [[ -d "${HOME}/.claude/teams/session-${session_id}" ]] || exit 0
 
-log="${HOME}/.claude/logs/agent-reap-subagent-stop.log"
-mkdir -p "${log%/*}" 2>/dev/null || true
-
 {
   printf '\n=== %s session-%s agent-%s\n' \
     "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$session_id" "$agent_name"
@@ -60,6 +74,7 @@ mkdir -p "${log%/*}" 2>/dev/null || true
     --live-team "$session_id" \
     --completed-agent "$agent_name" \
     --kill
-} >>"$log" 2>&1 || true
+} >>"$log" 2>&1 &
+disown
 
 exit 0
