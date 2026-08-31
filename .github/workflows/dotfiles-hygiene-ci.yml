@@ -51,9 +51,10 @@ jobs:
         with:
           python-version: "3.14"
 
-      # Every standalone Python script in this repo is a PEP 723 uv script
-      # (`#!/usr/bin/env -S uv run --script`), so the tests that exec one by
-      # path need uv on the runner.
+      # Standalone Python in this repo is a PEP 723 uv script
+      # (`#!/usr/bin/env -S uv run --script`), so tests that exec one by
+      # path need uv on the runner. Exception: home/.claude/hooks/lib/*.py
+      # uses #!/usr/bin/python3 (macOS 3.9, no uv at hook time).
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:

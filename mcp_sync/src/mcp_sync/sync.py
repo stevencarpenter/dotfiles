@@ -1027,8 +1027,9 @@ def sync_destinations(home: Path) -> list[SyncDestination]:
     """Every path ``run_sync`` writes, in the same order.
 
     This is ``_build_targets`` plus the Codex TOML patch plus
-    ``patch_specs``. Verify scripts and ``--check`` must consume this
-    list rather than repeating the special cases by hand.
+    ``patch_specs``. Verify scripts must consume this list rather than
+    repeating the special cases by hand. ``drift_report`` walks the same
+    three primitives (it needs the writer objects, not only the paths).
 
     Args:
         home: Home directory the deployed paths live under.

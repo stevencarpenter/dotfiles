@@ -58,9 +58,7 @@ class PositionContractTest(unittest.TestCase):
         stripped, action = strip_context.strip_source(name, source)
         self.assertEqual(action, "stripped", f"{name} was not stripped: {action}")
         self.assertEqual(len(stripped), len(source), "byte count changed")
-        self.assertEqual(
-            stripped.count("\n"), source.count("\n"), "line count changed"
-        )
+        self.assertEqual(stripped.count("\n"), source.count("\n"), "line count changed")
         for before, after in zip(source, stripped):
             if before != after:
                 self.assertEqual(after, " ", "a character was rewritten, not blanked")
@@ -156,13 +154,19 @@ class SlashStripTest(PositionContractTest):
             self.assertNotIn(claim, out.replace("let", ""))
         self.assertIn("let y = 2;", out)
 
+    def test_template_substitution_tracks_nested_object_braces(self) -> None:
+        """A `}` inside `${{...}}` must not close the interpolation."""
+        out = self.assert_masked("a.js", "const value = `${{key: 1} /* hidden */}`;\n")
+        self.assertNotIn("hidden", out)
+        self.assertIn("{key: 1}", out)
+
 
 class HashStripTest(PositionContractTest):
     """Shell-family `#` handling is position-sensitive."""
 
     def test_shell_parameter_expansion_survives(self) -> None:
         """`${#arr[@]}` is a length expansion, not a comment."""
-        out = self.assert_masked("a.sh", 'n=${#arr[@]}  # gone\n')
+        out = self.assert_masked("a.sh", "n=${#arr[@]}  # gone\n")
         self.assertIn("${#arr[@]}", out)
         self.assertNotIn("gone", out)
 
@@ -180,9 +184,37 @@ class HashStripTest(PositionContractTest):
 
     def test_nix_files_are_stripped(self) -> None:
         """A Nix dotfiles repo's diffs are mostly .nix files."""
-        out = self.assert_masked("a.nix", '{ x = 1; # gone\n}\n')
+        out = self.assert_masked("a.nix", "{ x = 1; # gone\n}\n")
         self.assertNotIn("gone", out)
         self.assertIn("x = 1;", out)
+
+    def test_nix_indented_string_preserves_hashes(self) -> None:
+        """`#` inside `''...''` is data, including a quoted shell comment."""
+        src = "let\n  script = ''\n    echo \"# keep\"\n  '';\n# remove\n"
+        out = self.assert_masked("example.nix", src)
+        self.assertIn('echo "# keep"', out)
+        self.assertNotIn("remove", out)
+
+    def test_nix_escaped_indent_delimiters_stay_inside_string(self) -> None:
+        """`'''`, `''$`, and `''\\` do not close an indented string."""
+        src = "''\n  echo '''\n  echo ''$\n  echo ''\\\n'';\n# gone\n"
+        out = self.assert_masked("a.nix", src)
+        self.assertIn("echo '''", out)
+        self.assertNotIn("gone", out)
+
+    def test_nix_nested_indented_string_in_interpolation(self) -> None:
+        """`${ '' ... '' }` is a nested string; an unquoted `#` in it is data."""
+        src = "''\n  ${\n    ''\n      echo # keep\n    ''\n  }\n'';\n# gone\n"
+        out = self.assert_masked("a.nix", src)
+        self.assertIn("echo # keep", out)
+        self.assertNotIn("gone", out)
+
+    def test_nix_interpolation_comments_are_stripped(self) -> None:
+        """Inside `${...}` the language is Nix again, so `#` is a comment."""
+        src = "''\n  ${foo # gone\n  }\n'';\n"
+        out = self.assert_masked("a.nix", src)
+        self.assertNotIn("gone", out)
+        self.assertIn("${foo", out)
 
     def test_extensionless_known_stems_are_stripped(self) -> None:
         """A Justfile has comment syntax even with no suffix."""
@@ -228,7 +260,9 @@ class DispatchTest(unittest.TestCase):
     def test_validation_accepts_a_faithful_mask(self) -> None:
         """A correct strip must not be rejected."""
         self.assertIsNone(
-            strip_context.validate_strip("a.js", "let x = 1; // c\n", "let x = 1;     \n")
+            strip_context.validate_strip(
+                "a.js", "let x = 1; // c\n", "let x = 1;     \n"
+            )
         )
 
 
@@ -255,7 +289,9 @@ class DiffOutputTest(unittest.TestCase):
             run("commit", "-qm", "base")
             base = subprocess.run(
                 ["git", "-C", str(repo), "rev-parse", "HEAD"],
-                check=True, capture_output=True, text=True,
+                check=True,
+                capture_output=True,
+                text=True,
             ).stdout.strip()
             (repo / "one.py").write_text("a = 9\nb = 3")
             (repo / "two.py").write_text("c = 4\n")
@@ -274,9 +310,17 @@ class DiffOutputTest(unittest.TestCase):
             # --numstat parses the patch without consulting the worktree,
             # which the stripped text deliberately no longer matches.
             check = subprocess.run(
-                ["git", "-C", str(repo), "apply", "--numstat",
-                 str(out / "stripped.diff")],
-                capture_output=True, text=True, check=False,
+                [
+                    "git",
+                    "-C",
+                    str(repo),
+                    "apply",
+                    "--numstat",
+                    str(out / "stripped.diff"),
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
             )
             self.assertEqual(check.returncode, 0, check.stderr)
 
@@ -299,7 +343,9 @@ class DiffOutputTest(unittest.TestCase):
             run("commit", "-qm", "base")
             base = subprocess.run(
                 ["git", "-C", str(repo), "rev-parse", "HEAD"],
-                check=True, capture_output=True, text=True,
+                check=True,
+                capture_output=True,
+                text=True,
             ).stdout.strip()
             (repo / "one.py").write_text("a = 2\n")
             (repo / "new.py").write_text('"""Doc."""\nb = 3\n')

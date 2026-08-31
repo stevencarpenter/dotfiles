@@ -20,7 +20,9 @@ import sys
 from pathlib import Path
 
 # dal.py is a vendored skill script, not an installable package. Insert its
-# directory before the import so the name resolves at module scope.
+# directory before the import so the name resolves at module scope. The
+# argv repo-root is a wrapper contract (test-railway-psql-errors.sh); it does
+# not select a different dal.py.
 sys.path.insert(
     0,
     str(Path(__file__).resolve().parents[1] / "skills/personal/use-railway/scripts"),

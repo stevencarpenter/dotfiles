@@ -34,21 +34,62 @@ from pathlib import Path
 
 DOC_SUFFIXES = {".md", ".rst", ".txt", ".adoc", ".mdx"}
 SLASH_SUFFIXES = {
-    ".c", ".h", ".cc", ".cpp", ".hpp", ".cs", ".css", ".go", ".java", ".js",
-    ".jsx", ".kt", ".kts", ".m", ".mm", ".proto", ".rs", ".scala", ".swift",
-    ".ts", ".tsx",
+    ".c",
+    ".h",
+    ".cc",
+    ".cpp",
+    ".hpp",
+    ".cs",
+    ".css",
+    ".go",
+    ".java",
+    ".js",
+    ".jsx",
+    ".kt",
+    ".kts",
+    ".m",
+    ".mm",
+    ".proto",
+    ".rs",
+    ".scala",
+    ".swift",
+    ".ts",
+    ".tsx",
 }
 HASH_SUFFIXES = {
-    ".bash", ".cfg", ".conf", ".hcl", ".ini", ".jl", ".nix", ".pl",
-    ".properties", ".py", ".r", ".rb", ".sh", ".tf", ".tfvars", ".toml",
-    ".yaml", ".yml", ".zsh",
+    ".bash",
+    ".cfg",
+    ".conf",
+    ".hcl",
+    ".ini",
+    ".jl",
+    ".nix",
+    ".pl",
+    ".properties",
+    ".py",
+    ".r",
+    ".rb",
+    ".sh",
+    ".tf",
+    ".tfvars",
+    ".toml",
+    ".yaml",
+    ".yml",
+    ".zsh",
 }
 # Files with no suffix whose comment syntax is still known. A dotfiles repo is
 # mostly these, so falling through to copied-verbatim would leave most of a
 # diff unstripped.
 HASH_STEMS = {
-    "Brewfile", "Dockerfile", "Justfile", "Makefile", "justfile", "makefile",
-    ".envrc", ".gitignore", ".gitattributes",
+    "Brewfile",
+    "Dockerfile",
+    "Justfile",
+    "Makefile",
+    "justfile",
+    "makefile",
+    ".envrc",
+    ".gitignore",
+    ".gitattributes",
 }
 SQL_SUFFIXES = {".sql"}
 XML_SUFFIXES = {".html", ".htm", ".svg", ".vue", ".xhtml", ".xml"}
@@ -59,8 +100,22 @@ XML_SUFFIXES = {".html", ".htm", ".svg", ".vue", ".xhtml", ".xml"}
 # delimiter, or the start of input, but not a value.
 _REGEX_PRECEDERS = set("(,=:[!&|?{};+-*%~^<>")
 _REGEX_KEYWORDS = frozenset(
-    {"return", "typeof", "instanceof", "in", "of", "new", "delete", "void",
-     "throw", "case", "do", "else", "yield", "await"}
+    {
+        "return",
+        "typeof",
+        "instanceof",
+        "in",
+        "of",
+        "new",
+        "delete",
+        "void",
+        "throw",
+        "case",
+        "do",
+        "else",
+        "yield",
+        "await",
+    }
 )
 
 
@@ -153,7 +208,10 @@ def strip_python(source: str) -> str:
         # Standalone string statement: previous significant token opens a
         # suite or line (or start of file) — treat as docstring and blank.
         elif tok.type == tokenize.STRING and prev_significant in (
-            None, "NEWLINE", "INDENT", "DEDENT"
+            None,
+            "NEWLINE",
+            "INDENT",
+            "DEDENT",
         ):
             blank_span(*tok.start, *tok.end, '""')
         # NEWLINE/INDENT/DEDENT are already excluded from NL and COMMENT, so
@@ -174,7 +232,10 @@ def strip_slash(source: str, nested_blocks: bool = False) -> str:
     state = "code"  # code | line | block | str
     quote = ""
     depth = 0
-    subst_depth = 0
+    # Each entry is the unmatched-brace count for a template substitution.
+    # A stack is required because braces inside an interpolation can be
+    # object/block delimiters, and template literals can be nested.
+    subst_braces: list[int] = []
     while i < n:
         ch = source[i]
         nxt = source[i + 1] if i + 1 < n else ""
@@ -203,11 +264,17 @@ def strip_slash(source: str, nested_blocks: bool = False) -> str:
             if ch in "\"'`":
                 state = "str"
                 quote = ch
-            # Closing a template substitution returns to the template string.
-            if ch == "}" and subst_depth:
-                subst_depth -= 1
-                state = "str"
-                quote = "`"
+            # Braces in a template substitution are code, so only the brace
+            # that opened the current `${...}` returns to the template string.
+            if subst_braces:
+                if ch == "{":
+                    subst_braces[-1] += 1
+                elif ch == "}":
+                    subst_braces[-1] -= 1
+                    if subst_braces[-1] == 0:
+                        subst_braces.pop()
+                        state = "str"
+                        quote = "`"
             out.append(ch)
             i += 1
         elif state == "line":
@@ -244,7 +311,7 @@ def strip_slash(source: str, nested_blocks: bool = False) -> str:
             if quote == "`" and ch == "$" and nxt == "{":
                 # Inside ${...} the language is code again, so a real comment
                 # there would otherwise survive into the "blind" copy.
-                subst_depth += 1
+                subst_braces.append(1)
                 state = "code"
                 out.append(ch + nxt)
                 i += 2
@@ -258,40 +325,85 @@ def strip_slash(source: str, nested_blocks: bool = False) -> str:
     return "".join(out)
 
 
-def strip_hash(source: str) -> str:
+def strip_hash(source: str, indented_strings: bool = False) -> str:
     """Strip #-comments (shell/yaml/toml/ruby/...), quote- and position-aware.
 
     A # opens a comment only at line start or after whitespace, outside
     quotes — so ${#var}, "a#b", and foo#bar survive.
+
+    When ``indented_strings`` is true (Nix), ``''...''`` is a string.
+    A closer is ``''`` not followed by ``'``, ``$``, or ``\\`` (Nix escapes).
+    ``${...}`` interpolations are Nix code again: comments strip, braces nest,
+    and an inner ``''...''`` is another indented string.
     """
     out: list[str] = []
-    for line in source.splitlines(keepends=True):
-        res: list[str] = []
-        state = "code"
-        quote = ""
-        i = 0
-        while i < len(line):
-            ch = line[i]
-            if state == "code":
-                if ch == "#" and (i == 0 or line[i - 1] in " \t"):
-                    res.extend(" " if c != "\n" else c for c in line[i:])
-                    break
-                if ch in "\"'":
-                    state = "str"
-                    quote = ch
-                res.append(ch)
-            else:
-                if ch == "\\" and quote == '"':
-                    res.append(ch)
-                    if i + 1 < len(line):
-                        res.append(line[i + 1])
-                        i += 2
-                        continue
-                elif ch == quote:
-                    state = "code"
-                res.append(ch)
+    stack: list[str] = ["code"]
+    quote = ""
+    interp_depth: list[int] = []
+    i = 0
+    n = len(source)
+    while i < n:
+        ch = source[i]
+        nxt = source[i + 1] if i + 1 < n else ""
+        state = stack[-1]
+        if state in ("code", "nix_interp"):
+            if indented_strings and ch == "'" and nxt == "'":
+                stack.append("nix_indent")
+                out.extend((ch, nxt))
+                i += 2
+                continue
+            if ch == "#" and (i == 0 or source[i - 1] in " \t\n\r"):
+                while i < n and source[i] != "\n":
+                    out.append(" ")
+                    i += 1
+                continue
+            if state == "nix_interp":
+                if ch == "{":
+                    interp_depth[-1] += 1
+                elif ch == "}":
+                    interp_depth[-1] -= 1
+                    out.append(ch)
+                    i += 1
+                    if interp_depth[-1] == 0:
+                        interp_depth.pop()
+                        stack.pop()
+                    continue
+            quotes = '"' if indented_strings else "\"'"
+            if ch in quotes:
+                stack.append("str")
+                quote = ch
+            out.append(ch)
             i += 1
-        out.append("".join(res))
+        elif state == "nix_indent":
+            if ch == "'" and nxt == "'":
+                third = source[i + 2] if i + 2 < n else ""
+                if third in ("'", "$", "\\"):
+                    out.extend((ch, nxt, third))
+                    i += 3
+                    continue
+                stack.pop()
+                out.extend((ch, nxt))
+                i += 2
+                continue
+            if ch == "$" and nxt == "{":
+                stack.append("nix_interp")
+                interp_depth.append(1)
+                out.extend((ch, nxt))
+                i += 2
+                continue
+            out.append(ch)
+            i += 1
+        else:
+            if ch == "\\" and quote == '"':
+                out.append(ch)
+                if nxt:
+                    out.append(nxt)
+                    i += 2
+                    continue
+            elif ch == quote:
+                stack.pop()
+            out.append(ch)
+            i += 1
     return "".join(out)
 
 
@@ -420,7 +532,10 @@ def strip_source(path_name: str, source: str) -> tuple[str, str]:
             stripped = strip_slash(source, nested_blocks=suffix == ".rs")
             action = "stripped"
         elif suffix in HASH_SUFFIXES or name in HASH_STEMS:
-            stripped, action = strip_hash(source), "stripped"
+            stripped, action = (
+                strip_hash(source, indented_strings=suffix == ".nix"),
+                "stripped",
+            )
         elif suffix in SQL_SUFFIXES:
             stripped, action = strip_sql(source), "stripped"
         elif suffix in XML_SUFFIXES:
@@ -455,7 +570,9 @@ def _git(repo: Path, *args: str) -> str:
     """
     result = subprocess.run(
         ["git", "-C", str(repo), *args],
-        capture_output=True, text=True, check=False,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     if result.returncode != 0:
         raise SystemExit(f"git {' '.join(args)}: {result.stderr.strip()}")
@@ -493,11 +610,14 @@ def _unified_diff(base: str, head: str, rel: str) -> str:
         A diff chunk that is empty when the two sides match, and otherwise ends
         in a newline.
     """
-    lines = list(difflib.unified_diff(
-        base.splitlines(keepends=True),
-        head.splitlines(keepends=True),
-        fromfile=f"a/{rel}", tofile=f"b/{rel}",
-    ))
+    lines = list(
+        difflib.unified_diff(
+            base.splitlines(keepends=True),
+            head.splitlines(keepends=True),
+            fromfile=f"a/{rel}",
+            tofile=f"b/{rel}",
+        )
+    )
     rendered: list[str] = []
     for line in lines:
         if line.endswith("\n"):
@@ -525,7 +645,9 @@ def _assert_diff_applies(repo: Path, diff_path: Path) -> None:
     # texts, which by construction do not match the files on disk.
     result = subprocess.run(
         ["git", "-C", str(repo), "apply", "--numstat", str(diff_path)],
-        capture_output=True, text=True, check=False,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     if result.returncode != 0:
         print(
@@ -558,7 +680,8 @@ def cmd_diff(args: argparse.Namespace) -> int:
         try:
             base_data: bytes | None = subprocess.run(
                 ["git", "-C", str(repo), "show", f"{args.base}:{rel}"],
-                capture_output=True, check=True,
+                capture_output=True,
+                check=True,
             ).stdout
         except subprocess.CalledProcessError:
             base_data = None  # added file
@@ -566,7 +689,10 @@ def cmd_diff(args: argparse.Namespace) -> int:
 
         entry = {"path": rel, "action": ""}
         stripped_base = stripped_head = None
-        for label, data, tree in (("base", base_data, "base"), ("head", head_data, "head")):
+        for label, data, tree in (
+            ("base", base_data, "base"),
+            ("head", head_data, "head"),
+        ):
             if data is None:
                 continue
             stripped, action = process_file(rel, data)
@@ -583,9 +709,7 @@ def cmd_diff(args: argparse.Namespace) -> int:
         manifest.append(entry)
         if entry["action"].startswith(("omitted", "skipped")):
             continue
-        diff_chunks.append(_unified_diff(
-            stripped_base or "", stripped_head or "", rel
-        ))
+        diff_chunks.append(_unified_diff(stripped_base or "", stripped_head or "", rel))
 
     out.mkdir(parents=True, exist_ok=True)
     (out / "stripped.diff").write_text("".join(diff_chunks), encoding="utf-8")
