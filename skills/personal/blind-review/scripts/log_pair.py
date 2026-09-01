@@ -1,4 +1,8 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
 """log_pair.py — append one blind-vs-context paired-review record as JSONL.
 
 Reads a JSON object from a file argument (or stdin), stamps recorded_at,

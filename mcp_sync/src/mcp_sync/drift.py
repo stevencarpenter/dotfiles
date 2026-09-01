@@ -18,6 +18,7 @@ from typing import Any
 from mcp_sync.sync import (
     PatchSpec,
     _build_targets,
+    _codex_config_path,
     load_merged_master,
     log_error,
     log_info,
@@ -145,7 +146,7 @@ def drift_report(master: JsonDict, home: Path) -> list[DriftEntry]:
         )
         entries.append(_compare_text(target.name, target.destination, expected))
 
-    codex_path = home / ".codex" / "config.toml"
+    codex_path = _codex_config_path(home)
     codex_expected = render_codex_config(master, home)
     if codex_expected is None:
         entries.append(DriftEntry("codex", codex_path, "skipped"))

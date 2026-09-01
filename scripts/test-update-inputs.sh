@@ -59,6 +59,8 @@ case "$*" in
   ' flake.lock >"${tmp}"
   mv "${tmp}" flake.lock
   ;;
+"flake check --no-update-lock-file --no-build --all-systems")
+  ;;
 *)
   echo "unexpected nix command: $*" >&2
   exit 1
@@ -78,10 +80,10 @@ cat >"${fixture}/bin/git" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 printf '%s\n' "$*" >>"${TEST_GIT_LOG}"
-# Real git diff exits 1 when the lock changed. The coordinator must still
-# exit 0 after a successful update.
+# `git diff --stat` exits 0 whether or not anything differs; only --exit-code
+# and --quiet return 1. Model the real behavior.
 if [ "${1:-}" = "diff" ] || [ "${1:-}" = "--no-pager" ]; then
-  exit 1
+  exit 0
 fi
 echo "unexpected git command: $*" >&2
 exit 1
@@ -108,8 +110,18 @@ if ! rg -Fxq "flake update nixpkgs nix-darwin home-manager" "${TEST_NIX_LOG}"; t
 	echo "coordinator did not update the 26.05 flake inputs together" >&2
 	exit 1
 fi
-if [ "$(wc -l <"${TEST_NIX_LOG}")" -ne 1 ]; then
-	echo "coordinator invoked nix more than the one named flake update" >&2
+if ! rg -Fxq "flake check --no-update-lock-file --no-build --all-systems" "${TEST_NIX_LOG}"; then
+	echo "coordinator did not evaluate the updated inputs before recommending a switch" >&2
+	exit 1
+fi
+if [ "$(wc -l <"${TEST_NIX_LOG}")" -ne 2 ]; then
+	echo "coordinator invoked nix beyond the named flake update and the check" >&2
+	exit 1
+fi
+# The evaluation is worthless if it runs before the inputs move.
+if [ "$(rg -n -Fx "flake update nixpkgs nix-darwin home-manager" "${TEST_NIX_LOG}" | cut -d: -f1)" \
+	-gt "$(rg -n -Fx "flake check --no-update-lock-file --no-build --all-systems" "${TEST_NIX_LOG}" | cut -d: -f1)" ]; then
+	echo "coordinator evaluated the inputs before updating them" >&2
 	exit 1
 fi
 if ! rg -Fxq "14" "${TEST_UNSTABLE_LOG}"; then
@@ -162,6 +174,44 @@ if [ "$(jq -r '.nodes.nixpkgs.locked.rev' "${fixture}/flake.lock")" != "new-nixp
 	|| [ "$(jq -r '.nodes["nix-darwin"].locked.rev' "${fixture}/flake.lock")" != "new-nix-darwin" ] \
 	|| [ "$(jq -r '.nodes["home-manager"].locked.rev' "${fixture}/flake.lock")" != "new-home-manager" ]; then
 	echo "26.05 lock nodes were not updated" >&2
+	exit 1
+fi
+
+# A non-numeric or oversized soak window must be refused BEFORE the lock moves;
+# update-unstable.sh's own validation runs too late to prevent that.
+for bad_arg in abc 4000 -1; do
+	rm -f "${TEST_NIX_LOG}" "${TEST_BREW_LOG}"
+	lock_before="$(cat "${fixture}/flake.lock")"
+	if run_update "${bad_arg}" >/dev/null 2>&1; then
+		echo "coordinator accepted an invalid soak window '${bad_arg}'" >&2
+		exit 1
+	fi
+	if [ -s "${TEST_NIX_LOG}" ]; then
+		echo "coordinator ran nix before validating soak window '${bad_arg}'" >&2
+		exit 1
+	fi
+	if [ "$(cat "${fixture}/flake.lock")" != "${lock_before}" ]; then
+		echo "coordinator mutated flake.lock before rejecting '${bad_arg}'" >&2
+		exit 1
+	fi
+done
+
+# A failing soak step must abort before Homebrew mutates the machine, and must
+# still report what the Nix half already changed.
+cat >"${fixture}/scripts/update-unstable.sh" <<'EOF'
+#!/usr/bin/env bash
+exit 3
+EOF
+chmod +x "${fixture}/scripts/update-unstable.sh"
+rm -f "${TEST_BREW_LOG}"
+: >"${TEST_BREW_LOG}"
+failure_output="$(run_update 2>&1 || true)"
+if [ -s "${TEST_BREW_LOG}" ]; then
+	echo "coordinator upgraded Homebrew after the soak step failed" >&2
+	exit 1
+fi
+if ! printf '%s' "${failure_output}" | rg -Fq "not switched"; then
+	echo "coordinator failed mid-run without reporting the staged lock changes" >&2
 	exit 1
 fi
 

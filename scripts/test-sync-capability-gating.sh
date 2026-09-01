@@ -168,11 +168,9 @@ run_sync_tty() {
   # the child, so the pty is allocated deterministically — 10/10 vs flaky — and
   # it behaves the same on macOS and Linux, unlike script's incompatible
   # BSD/util-linux flag forms.
-  # waitstatus_to_exitcode, not the raw waitpid status: pty.spawn returns the
-  # encoded status, so a child exiting 1 becomes 256 and sys.exit() truncates
-  # that to 0 — the harness would report success for a failed run.
-  python3 -c 'import os,pty,sys; sys.exit(os.waitstatus_to_exitcode(pty.spawn(sys.argv[1:])))' \
-    "${inner[@]}" >/dev/null 2>&1
+  # scripts/pty-spawn.py decodes the wait status; see its docstring for why a
+  # raw sys.exit() of pty.spawn's return value reports a failed run as success.
+  "${repo_root}/scripts/pty-spawn.py" "${inner[@]}" >/dev/null 2>&1
 }
 
 # Hard failure, never a self-skip. A test that quietly stops covering its

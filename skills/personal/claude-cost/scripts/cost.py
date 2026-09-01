@@ -1,4 +1,8 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
 """Estimate AI coding-agent spend from local session logs (Claude Code + Codex).
 
 Reads Claude Code logs (~/.claude/projects) and/or Codex rollout logs

@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import datetime
 import json
-import tomllib
 from pathlib import Path
 
 import pytest
+import tomllib
+
 from mcp_sync import (
     deep_merge,
     load_master_config,
@@ -19,8 +20,7 @@ from mcp_sync import (
     transform_to_opencode_format,
 )
 from mcp_sync.codex_tui import apply_tui_settings, toml_value
-from mcp_sync.sync import run_sync
-from mcp_sync.sync import transform_to_identity_format
+from mcp_sync.sync import run_sync, transform_to_identity_format
 
 
 def test_load_master_config_valid(master_config_file):

@@ -24,6 +24,12 @@ socket_globs = [
 # Drained-but-recent means the agent may still be finishing up.
 teammate_idle_minutes = 30
 
+# The same window, but for a SubagentStop completion event, which already proves
+# the teammate's turn ended. Short enough that finished panes do not accumulate,
+# long enough that the lead can still send a follow-up to a teammate that has
+# just replied.
+completion_grace_seconds = 90
+
 # How long an interactive Claude window must be quiet before it is *reported*.
 # Reporting only — an abandoned window may hold context worth more than its
 # memory, so the call stays yours.

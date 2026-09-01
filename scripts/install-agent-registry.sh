@@ -32,45 +32,5 @@ fi
 
 # A built-in-only tools allowlist silently strips configured MCP and skill
 # access. Treat that as a failed sync instead of leaving a degraded install.
-"$uv_bin" run --directory "$project" python - "$HOME/.claude/agents" <<'PYEOF'
-from pathlib import Path
-import sys
-
-root = Path(sys.argv[1])
-builtins = {
-    "Read",
-    "Write",
-    "Edit",
-    "MultiEdit",
-    "NotebookEdit",
-    "Bash",
-    "Glob",
-    "Grep",
-    "LS",
-}
-violations = []
-for path in sorted(root.glob("*.md")) if root.is_dir() else []:
-    try:
-        text = path.read_text(encoding="utf-8")
-    except OSError as exc:
-        violations.append(f"{path.name}: cannot read: {exc}")
-        continue
-    if not text.startswith("---\n"):
-        continue
-    frontmatter = text[4:].split("\n---\n", 1)[0]
-    for line_number, line in enumerate(frontmatter.splitlines(), start=2):
-        if not line.startswith("tools:"):
-            continue
-        tools = [part.strip() for part in line.split(":", 1)[1].split(",")]
-        tools = [tool for tool in tools if tool]
-        if tools and all(tool in builtins for tool in tools):
-            violations.append(f"{path.name}:{line_number}: {line}")
-
-if violations:
-    print(
-        "error: Claude agents contain built-in-only tools allowlists:",
-        file=sys.stderr,
-    )
-    print("\n".join(violations), file=sys.stderr)
-    raise SystemExit(1)
-PYEOF
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+"$uv_bin" run --script "$script_dir/check-agent-tools-allowlist.py" "$HOME/.claude/agents"

@@ -94,7 +94,12 @@ just rebuild              # Same, via the task runner
 nix flake check --no-update-lock-file --no-build --all-systems   # Evaluate all-host checks
 just check                   # Alias for the above
 just update                  # Default pin bump: 26.05 inputs + unstable soak + brew.
-                             #   Never switches. Review, then `just sync`.
+                             #   Never switches the system, and evaluates the
+                             #   bumped inputs (`nix flake check`) before it
+                             #   recommends one. Review, then `just sync`.
+                             #   Caveat: the Homebrew half is NOT staged for
+                             #   review — `brew bundle install --upgrade`
+                             #   upgrades formulae and casks in place.
 just update 14               # Same, with a 14-day unstable soak window
 just update-unstable         # Record today's nixpkgs-unstable tip; after 7 elapsed
                              #   days promote/build it and print the closure diff.
@@ -118,11 +123,25 @@ pin/lock disagreement fail `scripts/test-nix-review-regressions.sh`.
 `scripts/update-unstable.sh` documents the rationale. The package allowlist is
 `fastMovingPackages` in `modules/home/packages.nix`.
 
-### Pre-commit
+### Git hooks (lefthook)
+
+`lefthook.yml` defines the `pre-commit` and `commit-msg` jobs; it replaced
+`.pre-commit-config.yaml` on 2026-08-29. The language-agnostic file checks are the same
+`pre-commit-hooks` 6.0.0 entry points, run through `uvx` instead of pre-commit's own env
+management, so nothing needs a global install beyond `lefthook`, `gitleaks`, and `uv`.
 
 ```bash
-pre-commit run --all-files
+just lefthook            # run every pre-commit job against all files, as CI does
+just lefthook-install    # wire .git/hooks (also done by `just sync`)
+lefthook run pre-commit  # staged files only, exactly what a commit triggers
+lefthook validate        # config sanity
 ```
+
+`lefthook install` runs from `scripts/sync-side-channels.sh`, so a machine that has run
+`just sync` has its hooks wired. lefthook has no equivalent of pre-commit's
+`types: [text]` filter, so a job that rewrites files pipes its list through
+`scripts/hook-text-files.py` first (handing a PNG to the whitespace fixer corrupts it).
+The `gitleaks` job scans staged changes only; the whole-tree scan runs in CI.
 
 ## Architecture
 
@@ -320,18 +339,34 @@ GitHub Actions in `.github/workflows/`:
 - `agent-reap-ci.yml`: lint and test for `agent_reap`
 - `nix-flake-check.yml`: Nix formatting, explicit `checks.<system>.<host>` evaluation, and both
   Darwin builds on `macos-latest`
-- `dotfiles-hygiene-ci.yml`: pre-commit, MCP master-config structure, shell `bash -n` syntax, and
-  configuration test scripts
+- `dotfiles-hygiene-ci.yml`: lefthook pre-commit jobs, whole-tree gitleaks scan, MCP
+  master-config structure, shell `bash -n` syntax, `ruff check .` over the Python that
+  lives outside the two uv projects (root `ruff.toml`), and the configuration test scripts
 
 ## Style
 
 - Shell scripts: `set -euo pipefail`, bash
 - Python: ruff for linting and formatting, no runtime dependencies, Python 3.14+
+  - The uv projects use their own `pyproject.toml`; everything else (scripts, hook libs,
+    skill scripts) is covered by the root `ruff.toml`, which excludes vendored plugin
+    skill scripts that are carried verbatim from upstream
   - 4-space indentation, `snake_case` for modules/functions, `PascalCase` for classes
   - Verbose Google-style docstrings on classes/functions with typed `Args:` / `Returns:` sections;
     include `Raises:` when relevant
+  - **No inline Python.** A heredoc or `python -c` body belongs in its own file, next to the
+    caller, which then execs it by path. Shell scripts, hooks, and CI steps call the file.
+  - Every standalone script (anything outside the vendored `mcp_sync/` and `agent_reap/`
+    projects) starts with `#!/usr/bin/env -S uv run --script`
+    followed by a PEP 723 `# /// script` block enumerating `requires-python` and `dependencies`,
+    even when the list is empty. A script importing a repo project names it in `dependencies`
+    with a `[tool.uv.sources]` path relative to the script's own directory.
+  - Exception: `home/.claude/hooks/lib/*.py` is exec'd as `/usr/bin/python3 <path>` by the reap
+    hooks and must stay 3.9-compatible. Session teardown runs under a 20s Claude cap and cannot
+    depend on uv resolving an environment. Those files use `#!/usr/bin/python3` so a manual
+    run hits the same interpreter the hooks do.
 - Package manager: uv (not pip/poetry)
-- Tests: `test_*.py` filenames and `test_*` function names (enforced by pre-commit)
+- Tests: `test_*.py` filenames and `test_*` function names (enforced by the lefthook
+  `name-tests-test` job)
 - Nix: `nixfmt` via `nix fmt`; 2-space indentation; keep modules small and readable, with comments
   that explain constraints
 - Raw dotfiles: store them under `home/` with their real dotted names (no `dot_`/`encrypted_` prefixes);

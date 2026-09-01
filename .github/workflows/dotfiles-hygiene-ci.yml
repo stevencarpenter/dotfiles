@@ -4,7 +4,7 @@ on:
   push:
     paths:
       - ".github/workflows/dotfiles-hygiene-ci.yml"
-      - ".pre-commit-config.yaml"
+      - "lefthook.yml"
       - "home/**"
       - "modules/**"
       - "lib/**"
@@ -18,7 +18,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/dotfiles-hygiene-ci.yml"
-      - ".pre-commit-config.yaml"
+      - "lefthook.yml"
       - "home/**"
       - "modules/**"
       - "lib/**"
@@ -51,6 +51,15 @@ jobs:
         with:
           python-version: "3.14"
 
+      # Standalone Python in this repo is a PEP 723 uv script
+      # (`#!/usr/bin/env -S uv run --script`), so tests that exec one by
+      # path need uv on the runner. Exception: home/.claude/hooks/lib/*.py
+      # uses #!/usr/bin/python3 (macOS 3.9, no uv at hook time).
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.14"
+
       # bash: modules/darwin/homebrew.nix installs this on every real machine,
       # replacing Apple's frozen /usr/bin/bash 3.2 (GPLv2 license freeze) with
       # a modern one on the front of PATH. Scripts like sketchybar's
@@ -60,36 +69,25 @@ jobs:
       - name: Install shell test dependencies
         run: brew install ripgrep bash tmux
 
-      - name: Install pre-commit
-        run: python -m pip install --upgrade pip pre-commit
+      # lefthook runs the git hooks defined in lefthook.yml; gitleaks backs the
+      # secret-scan job and is invoked directly below for the whole-tree scan.
+      - name: Install git hook tooling
+        run: brew install lefthook gitleaks
 
-      - name: Run pre-commit checks
-        run: pre-commit run --all-files
+      - name: Run lefthook pre-commit jobs
+        run: lefthook run pre-commit --all-files --force --no-auto-install --no-stage-fixed
+
+      # The lefthook job scans STAGED changes only, which is empty on a CI
+      # checkout. Scan the whole tree here so a leak in an unstaged or
+      # already-committed file still fails the build.
+      - name: Scan the whole tree for secrets
+        run: gitleaks dir . --redact --no-banner
+
+      - name: Validate lefthook job coverage
+        run: scripts/test-lefthook-hooks.sh
 
       - name: Validate MCP master config structure
-        run: |
-          python - <<'PY'
-          import json
-          from pathlib import Path
-
-          path = Path("home/.config/mcp/mcp-master.json")
-          data = json.loads(path.read_text(encoding="utf-8"))
-
-          if not isinstance(data, dict):
-              raise SystemExit("mcp-master.json must be a JSON object")
-
-          # Master may define zero shared servers; the per-machine servers
-          # live in machine overlays (home/.config/mcp/machine/*.json).
-          servers = data.get("servers")
-          if not isinstance(servers, dict):
-              raise SystemExit("mcp-master.json must define a 'servers' object")
-
-          for server_name, server_config in servers.items():
-              if not isinstance(server_config, dict):
-                  raise SystemExit(f"Server '{server_name}' must be a JSON object")
-              if server_config.get("type") == "stdio" and not server_config.get("command"):
-                  raise SystemExit(f"Server '{server_name}' uses stdio but has no 'command'")
-          PY
+        run: scripts/validate-mcp-master.py
 
       - name: Shell syntax checks
         run: |
@@ -105,6 +103,15 @@ jobs:
 
       - name: Validate tmux lifecycle contract
         run: scripts/test-tmux-lifecycle-contract.sh
+
+      - name: Test SubagentStop payload parser
+        run: scripts/test_subagent_stop_payload.py
+
+      - name: Test blind-review context stripper
+        run: scripts/test_strip_context.py
+
+      - name: Lint loose Python (scripts, hook libs, skill scripts)
+        run: uvx ruff check .
 
       - name: Validate ssh ControlPath identity separation
         run: scripts/test-ssh-controlpath-identity.sh
@@ -134,7 +141,7 @@ jobs:
         run: scripts/test-op-render.sh
 
       - name: Validate guarded 1Password reverse adoption
-        run: python scripts/test_op_adopt.py
+        run: scripts/test_op_adopt.py
 
       - name: Validate direct activation entry points
         run: scripts/test-sync-hook-runtime.sh

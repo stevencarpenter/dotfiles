@@ -125,13 +125,16 @@ let
     # ─── Repo workflow tooling ──────────────────────────────────────────
     # These are not optional conveniences: the documented workflows break
     # without them. `just` drives every recipe in the Justfile AND the
-    # side-channel step in bootstrap.sh; `pre-commit` is invoked by
-    # CLAUDE.md, `just pre-commit`, and dotfiles-hygiene-ci.yml, and
-    # ai-stack.nix even allowlists ~/.cache/pre-commit for the Claude
-    # sandbox; `gitleaks` backs the hook in .pre-commit-config.yaml. All of
-    # them were undeclared hand-brews until now.
+    # side-channel step in bootstrap.sh; `lefthook` runs the git hooks defined
+    # in lefthook.yml and is invoked by CLAUDE.md, `just lefthook`,
+    # scripts/sync-side-channels.sh (which runs `lefthook install`), and
+    # dotfiles-hygiene-ci.yml; `gitleaks` backs the staged-secret job in
+    # lefthook.yml. All of them were undeclared hand-brews until now.
+    # (lefthook replaced pre-commit on 2026-08-29; the language-agnostic file
+    # checks now run through `uvx --from pre-commit-hooks==6.0.0`, so uv above
+    # is load-bearing for the hooks too.)
     just
-    pre-commit
+    lefthook
     gitleaks
     actionlint # lints .github/workflows/
     yamllint

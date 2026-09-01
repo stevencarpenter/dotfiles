@@ -3,21 +3,23 @@
 from __future__ import annotations
 
 import json
-
-import pytest
 from pathlib import Path
 
+import pytest
+
 import mcp_sync.skills as skills_mod
-from mcp_sync.skills import ResolvedSkill
-from mcp_sync.skills import ensure_git_source
-from mcp_sync.skills import load_skills_manifest
-from mcp_sync.skills import load_state
-from mcp_sync.skills import parse_duration
-from mcp_sync.skills import resolve_skills
-from mcp_sync.skills import deploy_skill
-from mcp_sync.skills import garbage_collect
-from mcp_sync.skills import write_state
-from mcp_sync.skills import run_skills_sync
+from mcp_sync.skills import (
+    ResolvedSkill,
+    deploy_skill,
+    ensure_git_source,
+    garbage_collect,
+    load_skills_manifest,
+    load_state,
+    parse_duration,
+    resolve_skills,
+    run_skills_sync,
+    write_state,
+)
 
 
 def test_parse_duration_hours():

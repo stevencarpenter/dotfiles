@@ -31,7 +31,7 @@ base ref, branch, or PR instead; resolve PRs to a local ref first.
 ### 2. Strip
 
 ```bash
-python3 <this-skill-dir>/scripts/strip_context.py diff \
+<this-skill-dir>/scripts/strip_context.py diff \
   --repo <repo> --base <ref> --out <scratchpad>/blind-review-<short-id>
 ```
 
@@ -91,7 +91,7 @@ output, and evidence the context pass was talked out of a real bug.
 ### 6. Log the pair record (both modes, including sidecar)
 
 ```bash
-python3 <this-skill-dir>/scripts/log_pair.py <record.json>
+<this-skill-dir>/scripts/log_pair.py <record.json>
 ```
 
 Record shape (append-only JSONL at `~/.local/share/blind-review/pairs.jsonl`):
@@ -133,10 +133,19 @@ any files the stripper could not process. In sidecar mode: one line
 
 - Identifier names still bias the blind pass (`sanitize_input` suggests
   its purpose); anonymizing identifiers is the planned v2 knob.
-- Lexer edge cases: Rust raw strings (`r#"..."#`), JS regex literals
-  containing `//` or `/*`, and Python f-strings with nested quotes may
-  strip imperfectly — such files fall back to `copied-verbatim` only on
-  hard parse errors, so spot-check `manifest.json` on exotic code.
+- Lexer edge cases: Rust raw strings (`r#"..."#`) and other exotic
+  literals may still strip imperfectly. Every strip is checked afterward
+  against a space-mask contract (same length, same line count, only
+  blanking) and, for Python, against `compile()`; anything that fails
+  degrades to `copied-verbatim (strip validation failed: …)` in
+  `manifest.json` rather than reaching the blind arm mangled. The check
+  catches deletions and rewrites, not a comment that leaks through
+  unstripped, so still skim `manifest.json` on exotic code.
+- Only known languages are stripped (see the suffix tables and
+  `HASH_STEMS` in `strip_context.py`). Anything else is flagged
+  `copied-verbatim (unknown language)`, which means its comments reach
+  the blind arm — check the manifest before trusting a run whose diff is
+  mostly unsupported files.
 - Blind isolation is prompt-level, not sandbox-level.
 - Scope bundling: the context arm has comments AND repo-wide tools
   (grep, history, other files), so blind-vs-context differences measure

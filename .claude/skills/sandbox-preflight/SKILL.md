@@ -1,6 +1,6 @@
 ---
 name: sandbox-preflight
-description: Pre-classify the command classes this repo's Claude Code sandbox blocks and run them with dangerouslyDisableSandbox on the FIRST attempt instead of looping on "Operation not permitted". USE THIS SKILL whenever a Bash command just failed with "Operation not permitted", "OSStatus -26276", "could not write config file .git/config", "Failed to initialize cache at `~/.cache/uv`", "Control socket connect ... Operation not permitted", or "mkdtemp/mktemp failed"; whenever you are ABOUT to run `uv`/`uvx`/`ruff`/`pytest`/`ty` in mcp_sync; whenever you are about to run ANY `gh` API call or `git push`/`fetch`/`pull`/`remote set-url`/`config`/`branch -m` (anything that writes `.git/config` or hits the GitHub network); whenever you use git over ssh with ControlMaster; or whenever the user asks "should I disable the sandbox", "why does uv/gh/git keep failing", "the sandbox is blocking this". Bias toward triggering BEFORE the command: these failures are structural (only `~/.cache/pre-commit` and `$TMPDIR` are pre-allowed by the settings merge in `modules/home/ai-stack.nix`; `~/.cache/uv`, `.git`, and `~/.ssh` are NOT), so a sandboxed first attempt is a guaranteed wasted round-trip. Also carries the rule to NOT co-batch a risky call with independent commands, since one sandbox failure cancels every sibling in a parallel batch.
+description: Pre-classify the command classes this repo's Claude Code sandbox blocks and run them with dangerouslyDisableSandbox on the FIRST attempt instead of looping on "Operation not permitted". USE THIS SKILL whenever a Bash command just failed with "Operation not permitted", "OSStatus -26276", "could not write config file .git/config", "Failed to initialize cache at `~/.cache/uv`", "Control socket connect ... Operation not permitted", or "mkdtemp/mktemp failed"; whenever you are ABOUT to run `uv`/`uvx`/`ruff`/`pytest`/`ty` in mcp_sync; whenever you are about to run ANY `gh` API call or `git push`/`fetch`/`pull`/`remote set-url`/`config`/`branch -m` (anything that writes `.git/config` or hits the GitHub network); whenever you use git over ssh with ControlMaster; or whenever the user asks "should I disable the sandbox", "why does uv/gh/git keep failing", "the sandbox is blocking this". Bias toward triggering BEFORE the command: these failures are structural (only `~/.cache/uv`, `~/projects/agents`, and `$TMPDIR` are pre-allowed by the settings merge in `modules/home/ai-stack.nix`; `.git` and `~/.ssh` are NOT), so a sandboxed first attempt is a guaranteed wasted round-trip. Also carries the rule to NOT co-batch a risky call with independent commands, since one sandbox failure cancels every sibling in a parallel batch.
 ---
 
 # Sandbox preflight
@@ -13,7 +13,7 @@ always fail. This turns the repo's single largest failure class into zero wasted
 
 The sandbox allows reads broadly but only permits writes to a small allowlist (`.`,
 `$TMPDIR`, and a few cache dirs). Verified against the settings merge in `modules/home/ai-stack.nix`:
-the only path pre-seeded into `sandbox.filesystem.allowWrite` is `~/.cache/pre-commit`.
+the paths pre-seeded into `sandbox.filesystem.allowWrite` are `~/.cache/uv` and `~/projects/agents`.
 `~/.cache/uv`, `.git/config`, and `~/.ssh` are **not** allowlisted, and the GitHub network
 path fails certificate verification under the sandbox (`OSStatus -26276`). So `uv`, `gh`,
 and config-writing `git` commands fail *deterministically* — yet the rule lives only in
@@ -36,7 +36,7 @@ decision mechanical.
 | `ssh` with ControlMaster, or any new control socket | **DISABLE** | binds `~/.ssh/cm-*` socket |
 | `mktemp`/`mkdtemp` targeting `/tmp` or `/var` (not `$TMPDIR`) | **DISABLE** | write outside allowlist |
 | plain `git status`/`diff`/`log`/`add`/`commit`/`switch`/`checkout` | OK | local `.git` writes are inside `.` |
-| anything writing only to `$TMPDIR` or `~/.cache/pre-commit` | OK | already allowlisted |
+| anything writing only to `$TMPDIR` or `~/.cache/uv` | OK | already allowlisted |
 
 When unsure, run the classifier:
 
@@ -60,12 +60,12 @@ calls on their own, sandbox disabled.
 | `tls: failed to verify certificate ... OSStatus -26276` | `dangerouslyDisableSandbox: true` |
 | `could not write config file .git/config: Operation not permitted` | `dangerouslyDisableSandbox: true` |
 | `Control socket connect(... ): Operation not permitted` | `dangerouslyDisableSandbox: true` |
-| `PermissionError ... /Users/.../.cache/pre-commit` | already allowlisted — re-run `just rebuild` (the settings merge re-seeds it) or disable sandbox once |
+| `PermissionError ... /Users/.../.cache/uv` | already allowlisted — re-run `just rebuild` (the settings merge re-seeds it) or disable sandbox once |
 
 ## Structural cure (do this once, not per-command)
 
 The `uv`-cache slice is handled by the generated Claude settings merge in
-`modules/home/ai-stack.nix`, which allowlists both `~/.cache/pre-commit` and `~/.cache/uv`.
+`modules/home/ai-stack.nix`, which allowlists `~/.cache/uv` and `~/projects/agents`.
 That removes uv-cache failures without per-command
 judgment. The irreducible classes remain (gh `OSStatus -26276` is a keychain cert-path
 problem, not a writable-dir problem; `.git/config` and `~/.ssh` writes) — those always need
@@ -75,7 +75,7 @@ the flag, which is why this skill stays useful even after the pre-seed.
 
 - Plain local git (`status`, `diff`, `log`, `add`, `commit`, `switch`) — sandbox-safe; do
   not reflexively disable the sandbox for everything (that defeats its purpose).
-- Commands writing only to `$TMPDIR` or `~/.cache/pre-commit`.
+- Commands writing only to `$TMPDIR` or `~/.cache/uv`.
 
 ## Common failure modes
 
