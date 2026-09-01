@@ -1,5 +1,14 @@
 # Global Claude Instructions
 
+## Scope Discipline
+
+- When work on a requested task surfaces a separate, non-trivial issue, report it (what's wrong,
+  why it matters, rough fix shape) and stop. Do not design, implement, test, or push a fix for it
+  without explicit go-ahead, even if the fix is correct and well-tested.
+- This holds even mid-turn, even if the user has not yet replied to an earlier status update.
+- This is a standing rule across all projects and prompts unless explicitly waived by the user in
+  that conversation.
+
 ## Communication Style
 
 ### Accuracy and judgment
