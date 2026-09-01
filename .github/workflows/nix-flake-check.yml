@@ -29,7 +29,9 @@ on:
       - "scripts/host-detect.sh"
       - "scripts/test-external-overlay-contract.sh"
       - "scripts/test-nix-review-regressions.sh"
+      - "scripts/test-update-inputs.sh"
       - "scripts/test-update-unstable-soak.sh"
+      - "scripts/update-inputs.sh"
       - "scripts/test-unstable-reminder.sh"
       - "scripts/update-unstable.sh"
       - "scripts/unstable-reminder.sh"
@@ -57,7 +59,9 @@ on:
       - "scripts/host-detect.sh"
       - "scripts/test-external-overlay-contract.sh"
       - "scripts/test-nix-review-regressions.sh"
+      - "scripts/test-update-inputs.sh"
       - "scripts/test-update-unstable-soak.sh"
+      - "scripts/update-inputs.sh"
       - "scripts/test-unstable-reminder.sh"
       - "scripts/update-unstable.sh"
       - "scripts/unstable-reminder.sh"
@@ -117,6 +121,9 @@ jobs:
       # merely traversing the non-standard darwinConfigurations output.
       - name: Evaluate all flake checks
         run: nix flake check --no-update-lock-file --no-build --all-systems
+
+      - name: Validate rolling-input updater
+        run: scripts/test-update-inputs.sh
 
       - name: Validate nixpkgs-unstable first-seen soak
         run: scripts/test-update-unstable-soak.sh

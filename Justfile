@@ -48,6 +48,10 @@ nix-fmt-check:
 nix-lint:
     statix check .
 
+# Bump 26.05 inputs, unstable soak, and Homebrew. Never switches.
+update *ARGS:
+    scripts/update-inputs.sh {{ ARGS }}
+
 # Record the current nixpkgs-unstable channel tip, then promote that exact rev
 # after DAYS have elapsed (default 7). Promotion builds and prints the closure
 # diff but never switches. See scripts/update-unstable.sh for the state machine.
@@ -165,16 +169,37 @@ reap-strays:
 reap-kill:
     uv run --project agent_reap agent-reap reap --kill
 
+# ── Firefox dashboard tabs ──────────────────
+
+# Regenerate extension/dashboards.json from the provisioned Grafana JSON
+dashboard-tabs:
+    python3 firefox-dashboard-tabs/generate.py
+
+# Lint the Firefox dashboard generator and its tests.
+dashboard-tabs-lint:
+    uv run --project firefox-dashboard-tabs --group dev ruff check firefox-dashboard-tabs/generate.py firefox-dashboard-tabs/tests
+    uv run --project firefox-dashboard-tabs --group dev ruff format --check firefox-dashboard-tabs/generate.py firefox-dashboard-tabs/tests
+    uv run --project firefox-dashboard-tabs --group dev mypy --strict firefox-dashboard-tabs/generate.py
+
+# Test the Firefox dashboard generator and extension behavior.
+dashboard-tabs-test:
+    uv run --project firefox-dashboard-tabs --group dev pytest firefox-dashboard-tabs/tests
+    node --test firefox-dashboard-tabs/tests/background.test.js
+
+# Format the Firefox dashboard generator and its tests.
+dashboard-tabs-fmt:
+    uv run --project firefox-dashboard-tabs --group dev ruff format firefox-dashboard-tabs/generate.py firefox-dashboard-tabs/tests
+
 # ── All Python projects ──────────────────────────────────
 
 # Lint all Python projects
-lint: mcp-lint reap-lint
+lint: mcp-lint reap-lint dashboard-tabs-lint
 
 # Test all Python projects
-test: mcp-test reap-test
+test: mcp-test reap-test dashboard-tabs-test
 
 # Format all Python projects
-fmt: mcp-fmt reap-fmt
+fmt: mcp-fmt reap-fmt dashboard-tabs-fmt
 
 # Run all Python checks (lint + test). Nix flake checks live under `just check`.
 py-check: lint test

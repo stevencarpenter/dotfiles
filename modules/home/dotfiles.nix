@@ -124,6 +124,7 @@ in
         ".claude/hooks/agent-journal-stop.sh"
         ".claude/hooks/no-em-dash-commit.sh"
         ".claude/hooks/emit-routing-context.sh"
+        ".claude/hooks/agent-reap-subagent-stop.sh"
         ".claude/hooks/wt-create.sh"
         ".claude/hooks/wt-remove.sh"
 

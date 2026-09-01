@@ -93,6 +93,9 @@ token-auditor --help                                                   # or `cod
 just rebuild              # Same, via the task runner
 nix flake check --no-update-lock-file --no-build --all-systems   # Evaluate all-host checks
 just check                   # Alias for the above
+just update                  # Default pin bump: 26.05 inputs + unstable soak + brew.
+                             #   Never switches. Review, then `just sync`.
+just update 14               # Same, with a 14-day unstable soak window
 just update-unstable         # Record today's nixpkgs-unstable tip; after 7 elapsed
                              #   days promote/build it and print the closure diff.
 just update-unstable 14      # Wider soak window

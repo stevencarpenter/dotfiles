@@ -167,6 +167,8 @@ def classify(
     sockets: tuple[str, ...] = (),
     teams_dir: Path | None = None,
     team_scope: str | None = None,
+    live_team_scope: str | None = None,
+    completed_agent: str | None = None,
 ) -> Report:
     """Sort panes into candidates, interactive sessions, and exclusions.
 
@@ -192,12 +194,23 @@ def classify(
             (they exist to avoid reaping mid-work agents in a *live* team), and
             the own-team guard is deliberately lifted for this id. The pane and
             ancestry guards still hold, so the hook can never kill its own shell.
+        live_team_scope: The caller's live team session id for a completion-event
+            reap. Only the named ``completed_agent`` in this team is considered.
+        completed_agent: The exact teammate name confirmed by a ``SubagentStop``
+            event. Its time-based window and inbox-age thresholds are bypassed,
+            but session, pane, process, descendant, and drained-inbox checks hold.
 
     Returns:
         The classification, with a reason attached to every exclusion.
     """
     protected_panes = protected_panes or set()
     protected_sessions = protected_sessions or set()
+    if (live_team_scope is None) != (completed_agent is None):
+        raise ValueError(
+            "live_team_scope and completed_agent must be provided together"
+        )
+    if team_scope is not None and live_team_scope is not None:
+        raise ValueError("team_scope and live_team_scope are mutually exclusive")
     root = (teams_dir or config.teams_dir).expanduser()
     teammate_idle_s = config.teammate_idle_minutes * 60
     interactive_idle_s = config.interactive_idle_minutes * 60
@@ -260,7 +273,14 @@ def classify(
             )
             continue
 
-        if teammate.session_id in protected_sessions:
+        if live_team_scope is not None:
+            # A completion event is authoritative only for this exact teammate.
+            # Do not turn live-team mode into a team-wide liveness bypass.
+            if teammate.session_id != live_team_scope:
+                continue
+            if teammate.agent_name != completed_agent:
+                continue
+        elif teammate.session_id in protected_sessions:
             skipped.append(Skipped(pane, "own team session"))
             continue
         if teammate.agent_name == "team-lead" and not config.include_lead:
@@ -272,19 +292,20 @@ def classify(
         if not session_exists(root, teammate.session_id):
             skipped.append(Skipped(pane, "no team dir for session"))
             continue
-        window_idle_s = (
-            None
-            if pane.window_activity is None
-            else max(0.0, now - pane.window_activity)
-        )
-        if window_idle_s is None:
-            skipped.append(Skipped(pane, "window activity unavailable"))
-            continue
-        if window_idle_s < teammate_idle_s:
-            skipped.append(
-                Skipped(pane, f"teammate window active {int(window_idle_s)}s ago")
+        if live_team_scope is None:
+            window_idle_s = (
+                None
+                if pane.window_activity is None
+                else max(0.0, now - pane.window_activity)
             )
-            continue
+            if window_idle_s is None:
+                skipped.append(Skipped(pane, "window activity unavailable"))
+                continue
+            if window_idle_s < teammate_idle_s:
+                skipped.append(
+                    Skipped(pane, f"teammate window active {int(window_idle_s)}s ago")
+                )
+                continue
         if not process.sleeping:
             skipped.append(Skipped(pane, f"process not idle (state {process.state})"))
             continue
@@ -324,7 +345,7 @@ def classify(
             skipped.append(Skipped(pane, f"inbox has queued work ({inbox.size}b)"))
             continue
         idle_s = inbox.idle_seconds(now) or 0.0
-        if idle_s < teammate_idle_s:
+        if live_team_scope is None and idle_s < teammate_idle_s:
             skipped.append(Skipped(pane, f"drained only {int(idle_s)}s ago"))
             continue
 

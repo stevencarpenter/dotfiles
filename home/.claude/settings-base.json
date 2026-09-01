@@ -59,6 +59,11 @@
           {
             "type": "command",
             "command": "~/.claude/hooks/agent-journal-stop.sh"
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/agent-reap-subagent-stop.sh",
+            "timeout": 20
           }
         ]
       }

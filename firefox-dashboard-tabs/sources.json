@@ -1,0 +1,20 @@
+{
+  "groups": [
+    {
+      "id": "hippo-otel",
+      "title": "Hippo OTel",
+      "color": "purple",
+      "base_url": "http://localhost:3030",
+      "dashboard_dir": "~/projects/hippo/otel/grafana/dashboards",
+      "first": ["hippo-overview"]
+    },
+    {
+      "id": "homelab",
+      "title": "Homelab",
+      "color": "blue",
+      "base_url": "https://grafana.snugmarina.org",
+      "dashboard_dir": "~/projects/homelab/services/observability/grafana-dashboards",
+      "first": ["homelab-overview", "observability-stack"]
+    }
+  ]
+}

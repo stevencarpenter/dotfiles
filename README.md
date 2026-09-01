@@ -126,6 +126,8 @@ remap, granting AeroSpace/SketchyBar Accessibility) — `bootstrap.sh` prints th
 ./rebuild.sh                # auto-detect host, sudo darwin-rebuild switch
 ./rebuild.sh personal-mac   # force a host config
 just rebuild                # same, via the task runner
+just update                 # bump 26.05 inputs + unstable soak + Homebrew (does not switch)
+just sync                   # apply a reviewed generation, then side channels
 ```
 
 `rebuild.sh` verifies that `~/.dotfiles` resolves to the physical checkout, maps `LocalHostName` to

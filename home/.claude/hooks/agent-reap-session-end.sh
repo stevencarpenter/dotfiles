@@ -62,15 +62,19 @@ print(sid.split("-", 1)[0])
 )" || exit 0
 
 [[ -n "$session_id" ]] || exit 0
+[[ "$session_id" =~ ^[[:alnum:]]+$ ]] || exit 0
 
 # Only act when this session actually owned a team. A solo session has no team
 # directory, and passing an unknown id would be a no-op anyway — but skipping
 # keeps the common case free of a subprocess.
 [[ -d "${HOME}/.claude/teams/session-${session_id}" ]] || exit 0
 
+team_dir="${HOME}/.claude/teams/session-${session_id}"
+
 log="${HOME}/.claude/logs/agent-reap-session-end.log"
 mkdir -p "${log%/*}" 2>/dev/null || true
 
+worker_status=1
 {
   printf '\n=== %s session-%s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$session_id"
   # macOS ships neither `timeout` nor `gtimeout`. Python is already required
@@ -114,13 +118,24 @@ except subprocess.TimeoutExpired:
             os.killpg(process.pid, signal.SIGKILL)
         except ProcessLookupError:
             pass
-        status = process.wait()
+        process.wait()
+    status = 124
 except Exception as error:
     print(f"agent-reap hook: could not run worker: {error}")
     status = 1
 
 sys.exit(status)
 PY
+  worker_status=$?
 } >>"$log" 2>&1 || true
+
+# SessionEnd is the only path allowed to remove team state. The directory name
+# was derived from a validated leading session-id segment, and the exact target
+# is captured before this destructive cleanup. Only a successful reap removes
+# it. SubagentStop must leave the live team's state intact for its siblings and
+# parent session.
+if (( worker_status == 0 )); then
+  rm -rf -- "${team_dir}" 2>/dev/null || true
+fi
 
 exit 0

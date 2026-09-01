@@ -167,6 +167,8 @@ in
           "/hippo-brain/",
           "/emit-routing-context.sh",
           "/agent-journal-stop.sh",
+          "/agent-reap-subagent-stop.sh",
+          "/agent-reap-session-end.sh",
           "/wt-create.sh",
           "/wt-remove.sh",
           "encrypted_* via",

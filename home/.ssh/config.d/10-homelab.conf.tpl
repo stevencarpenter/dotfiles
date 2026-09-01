@@ -14,6 +14,13 @@
 
 # i9 — 2019 Intel MacBook Pro home server, via Tailscale MagicDNS.
 # `ssh i9` for one-off / scp; the `i9` shell alias wraps this in mosh + tmux.
-Host i9
+#
+# The FQDN is listed as a second pattern because the homelab repo documents
+# i9.snugmarina.org as the per-host SSH name. Without it that form matches no
+# Host block, falls through to the universal `Host *`, and tries the LOCAL
+# username, which i9 rejects with "Permission denied (publickey)". That reads
+# like a broken key rather than a missing alias. Both spellings must land on
+# the same tailnet HostName and the same User.
+Host i9 i9.snugmarina.org
     HostName {{ op://Homelab/I9/tailnet_hostname }}
     User steven

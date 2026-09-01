@@ -43,9 +43,12 @@ agent-reap -v report       # include the reason every pane was excluded
 
 `agent-reap` is not a daemon and this repo installs no launchd job for it. Automatic cleanup is
 event-driven: the generated Claude settings register
-`~/.claude/hooks/agent-reap-session-end.sh` for `SessionEnd`. When the ended session owns a
-`~/.claude/teams/session-<id>` directory, the hook runs a team-scoped reap and appends its result to
-`~/.claude/logs/agent-reap-session-end.log`. Solo sessions exit without creating the log.
+`~/.claude/hooks/agent-reap-subagent-stop.sh` for `SubagentStop` and
+`~/.claude/hooks/agent-reap-session-end.sh` for `SessionEnd`. The former receives the completed
+agent and parent team from the event, bypasses only time thresholds for that exact teammate, and
+keeps the drained-inbox and process-safety checks. The latter runs a team-scoped reap for an ended
+team and removes that exact team's state directory afterward. Solo sessions exit without creating
+either log.
 
 A configured hook proves only that generation succeeded, not that a qualifying event ran. Verify
 the generated `~/.claude/settings.json`, the hook log, `agent-reap -v sockets`, and the live pane
@@ -69,6 +72,12 @@ and it is not yours. Every condition is checked again immediately before `kill-p
 is three independent guards — process ancestry (the
 strongest, it works with no tmux environment at all), the current `TMUX_PANE`, and the
 caller's own team session.
+
+The `reap --live-team <id> --completed-agent <name> --kill` path is reserved for the
+`SubagentStop` hook. It skips the window and inbox-age thresholds for the named agent, but still
+requires the team directory, a drained inbox, a sleeping process, no active or foreground
+descendant, and immediate pane and ancestry revalidation. It never broadens selection to sibling
+teammates.
 
 Never killed without an explicit extra flag:
 

@@ -1,0 +1,19 @@
+{
+  "hippo-otel": [
+    {"uid": "hippo-overview", "title": "Hippo Overview"},
+    {"uid": "hippo-daemon", "title": "Hippo Daemon"},
+    {"uid": "hippo-enrichment", "title": "Hippo Enrichment Pipeline"},
+    {"uid": "hippo-processes", "title": "Hippo Processes"}
+  ],
+  "homelab": [
+    {"uid": "homelab-overview", "title": "Homelab Overview"},
+    {"uid": "observability-stack", "title": "Observability Stack"},
+    {"uid": "AdGuard-Home-Exporter", "title": "AdGuard Home Exporter"},
+    {"uid": "bdh0qkohvn5s0a", "title": "Caddy Monitoring"},
+    {"uid": "9AJV_mnIk", "title": "cadvisor dashboard"},
+    {"uid": "5rnLQdJVk", "title": "Logging Dashboard via Loki v2"},
+    {"uid": "3az8Y2-LB", "title": "macOS Node (i9)"},
+    {"uid": "v5ciIbUZz", "title": "PostgreSQL Exporter"},
+    {"uid": "snugmarina-ask-pipeline", "title": "Snugmarina Ask Pipeline"}
+  ]
+}
