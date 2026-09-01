@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from agent_reap.classify import Report, classify
 from agent_reap.config import Config
 from agent_reap.discover import Pane, Process
+from pathlib import Path
 
 from .conftest import NOW, make_pane, make_process, write_inbox
 

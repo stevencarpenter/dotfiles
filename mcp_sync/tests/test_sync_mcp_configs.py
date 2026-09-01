@@ -4,10 +4,17 @@ from __future__ import annotations
 
 import datetime
 import json
+import pytest
 import tomllib
 from pathlib import Path
 
+<<<<<<< Updated upstream
 import pytest
+||||||| Stash base
+import pytest
+
+=======
+>>>>>>> Stashed changes
 from mcp_sync import (
     deep_merge,
     load_master_config,
