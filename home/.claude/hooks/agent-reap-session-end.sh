@@ -37,6 +37,20 @@ readonly REAP_TERM_GRACE_SECS=1
 hook_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly HOOK_LIB="${hook_dir}/lib"
 
+log="${HOME}/.claude/logs/agent-reap-session-end.log"
+mkdir -p "${log%/*}" 2>/dev/null || true
+
+# A missing lib directory means the hook was moved without its helpers, or the
+# machine has not rebuilt since the link was declared. Both are indistinguishable
+# from "no qualifying event" unless they leave evidence: the payload parse below
+# discards stderr, so an absent helper would silently yield an empty session id
+# and skip the teardown. Log before exiting. Mirrors agent-reap-subagent-stop.sh.
+if [[ ! -d "${HOOK_LIB}" ]]; then
+  printf '%s missing hook lib: %s (run `just rebuild`)\n' \
+    "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "${HOOK_LIB}" >>"$log" 2>/dev/null || true
+  exit 0
+fi
+
 # No agent-reap (fresh machine, mid-install, or install skipped) — nothing to do.
 agent_reap_bin="$(command -v agent-reap 2>/dev/null)" || exit 0
 
@@ -66,9 +80,6 @@ session_id="$(
 [[ -d "${HOME}/.claude/teams/session-${session_id}" ]] || exit 0
 
 team_dir="${HOME}/.claude/teams/session-${session_id}"
-
-log="${HOME}/.claude/logs/agent-reap-session-end.log"
-mkdir -p "${log%/*}" 2>/dev/null || true
 
 worker_status=1
 {

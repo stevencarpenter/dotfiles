@@ -351,7 +351,9 @@ def classify(
         # A completion event shortens this window but does not remove it. The
         # lead may still send the finished teammate a follow-up, and reaping it
         # seconds after its turn ends would destroy the context that makes the
-        # follow-up worth sending.
+        # follow-up worth sending. The event marks the end of a turn, not the
+        # end of the teammate's usefulness, so the window has to cover a lead
+        # that is reading a long reply or blocked on a sibling agent.
         min_idle_s = (
             completion_grace_s if live_team_scope is not None else teammate_idle_s
         )

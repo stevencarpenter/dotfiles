@@ -3,7 +3,22 @@
 # requires-python = ">=3.11"
 # dependencies = []
 # ///
-"""Generate Worktrunk commit messages and reject malformed model output."""
+"""Generate Worktrunk commit messages and reject malformed model output.
+
+Two validation modes, because they guard different things:
+
+``--validate`` checks a *model-generated* candidate and includes the
+AI-attribution rule, which is a content rule about what a model tends to
+emit about itself.
+
+``--validate-commit-file`` checks a commit message file on its way into
+git (the lefthook ``commit-msg`` job) and deliberately omits that rule:
+`fix: tune Claude hook timeout` is a legitimate subject in this repo, and
+the attribution rule is already enforced on that path by
+scripts/strip-claude-trailer.sh and the no-em-dash-commit PreToolUse hook.
+It also applies git's own message semantics (comment lines, the scissors
+line) and exempts the subjects git itself generates.
+"""
 
 from __future__ import annotations
 
@@ -12,6 +27,7 @@ import re
 import subprocess
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 
 CONVENTIONAL_SUBJECT = re.compile(
     r"^(?:build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)"
@@ -28,6 +44,39 @@ PROHIBITED_AI_REFERENCE = re.compile(
     r")",
     re.IGNORECASE,
 )
+# Subjects git writes itself, or that mark a message for rebase to consume.
+# None are Conventional and none are the author's to reword, so a commit-msg
+# gate has to let them through or it breaks `git revert`, `git merge`, and
+# `git commit --fixup`.
+GIT_GENERATED_SUBJECT = re.compile(
+    r'^(?:Revert "|Reapply "|Merge |fixup!|squash!|amend!)'
+)
+# `git commit --verbose` appends the staged diff after this line; everything
+# from it onward is stripped by git and is not part of the message.
+SCISSORS = "# ------------------------ >8 ------------------------"
+
+
+def strip_git_comments(text: str) -> str:
+    """Remove what git removes from a message file before committing.
+
+    Args:
+        text: Raw contents of the ``COMMIT_EDITMSG`` file.
+
+    Returns:
+        The message as git will record it: comment lines dropped, everything
+        from the ``--verbose`` scissors line onward discarded, and surrounding
+        blank lines trimmed.
+    """
+    lines: list[str] = []
+    for line in text.splitlines():
+        if line.rstrip() == SCISSORS:
+            break
+        if line.startswith("#"):
+            continue
+        lines.append(line)
+    return "\n".join(lines).strip("\n")
+
+
 CLAUDE_FLAGS = (
     "-p",
     "--no-session-persistence",
@@ -82,8 +131,19 @@ def delimiter_error(message: str) -> str | None:
     return None
 
 
-def validate(message: str) -> ValidationResult:
-    """Validate one generated commit message without rewriting its content."""
+def validate(message: str, check_ai_reference: bool = True) -> ValidationResult:
+    """Validate one commit message without rewriting its content.
+
+    Args:
+        message: Candidate commit message.
+        check_ai_reference: Apply the AI-attribution rule. True for
+            model-generated candidates; False for a human-or-agent commit
+            message file, where naming Claude in a subject is legitimate and
+            the attribution rule is enforced elsewhere on that path.
+
+    Returns:
+        The normalized candidate and every rule it violates.
+    """
     candidate = message.rstrip("\r\n")
     errors: list[str] = []
     lines = candidate.splitlines()
@@ -95,7 +155,7 @@ def validate(message: str) -> ValidationResult:
         errors.append("subject must not end with a period")
     if len(lines) > 1 and lines[1] != "":
         errors.append("body or explanation must follow a blank line")
-    if PROHIBITED_AI_REFERENCE.search(candidate):
+    if check_ai_reference and PROHIBITED_AI_REFERENCE.search(candidate):
         errors.append("message must not reference AI tools or attribution")
     if error := delimiter_error(candidate):
         errors.append(error)
@@ -186,8 +246,31 @@ def main() -> int:
             return 1
         print(result.candidate)
         return 0
+    if len(sys.argv) == 3 and sys.argv[1] == "--validate-commit-file":
+        try:
+            raw = Path(sys.argv[2]).read_text(encoding="utf-8")
+        except OSError as error:
+            print(f"worktrunk-commit-generator: {error}", file=sys.stderr)
+            return 2
+        message = strip_git_comments(raw)
+        if not message:
+            return 0  # empty message: git aborts the commit on its own
+        if GIT_GENERATED_SUBJECT.match(message.splitlines()[0]):
+            return 0
+        result = validate(message, check_ai_reference=False)
+        if result.errors:
+            print(
+                "commit message rejected: " + "; ".join(result.errors),
+                file=sys.stderr,
+            )
+            return 1
+        return 0
     if len(sys.argv) != 1:
-        print("usage: worktrunk-commit-generator [--validate]", file=sys.stderr)
+        print(
+            "usage: worktrunk-commit-generator "
+            "[--validate | --validate-commit-file PATH]",
+            file=sys.stderr,
+        )
         return 2
     return generate(sys.stdin.read())
 

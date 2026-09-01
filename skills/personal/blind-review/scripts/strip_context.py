@@ -91,6 +91,12 @@ HASH_STEMS = {
     ".gitignore",
     ".gitattributes",
 }
+# Shell dialects, where `<<WORD` opens a heredoc whose body is data, not code.
+# Kept narrow on purpose: YAML's `<<: *anchor` merge key is not a heredoc, and
+# blanking a `#` inside a heredoc body would corrupt the payload it carries.
+SHELL_SUFFIXES = {".bash", ".sh", ".zsh"}
+SHELL_STEMS = {".envrc"}
+
 SQL_SUFFIXES = {".sql"}
 XML_SUFFIXES = {".html", ".htm", ".svg", ".vue", ".xhtml", ".xml"}
 
@@ -325,21 +331,124 @@ def strip_slash(source: str, nested_blocks: bool = False) -> str:
     return "".join(out)
 
 
-def strip_hash(source: str, indented_strings: bool = False) -> str:
+def _heredoc_delimiter(source: str, i: int) -> tuple[str, int] | None:
+    """Parse a heredoc delimiter starting at the ``<<`` in ``source[i:]``.
+
+    Args:
+        source: Full file text.
+        i: Index of the first ``<`` of a candidate ``<<``.
+
+    Returns:
+        ``(delimiter, end_index)`` where ``end_index`` is one past the
+        delimiter word, or None when this is not a heredoc opener (``<<<``
+        here-strings, ``<<`` used as a shift or comparison, a redirect with
+        no word after it).
+    """
+    n = len(source)
+    j = i + 2
+    if j < n and source[j] == "<":  # `<<<` is a here-string, not a heredoc
+        return None
+    if j < n and source[j] == "-":  # `<<-` strips leading tabs from the closer
+        j += 1
+    while j < n and source[j] in " \t":
+        j += 1
+    quote = ""
+    if j < n and source[j] in "\"'":
+        quote = source[j]
+        j += 1
+    word_start = j
+    while j < n:
+        ch = source[j]
+        if quote:
+            if ch == quote:
+                break
+            if ch == "\n":
+                return None
+        elif not (ch.isalnum() or ch in "_.-"):
+            break
+        j += 1
+    word = source[word_start:j]
+    if not word:
+        return None
+    if quote:
+        if j >= n or source[j] != quote:
+            return None
+        j += 1
+    return word, j
+
+
+def _consume_heredocs(source: str, i: int, pending: list[str]) -> tuple[str, int]:
+    """Copy heredoc bodies verbatim from ``source[i:]``.
+
+    Args:
+        source: Full file text.
+        i: Index of the first character after the newline that ends the
+            heredoc-opening line.
+        pending: Delimiters in the order their bodies appear.
+
+    Returns:
+        ``(text, end_index)``: the bodies plus their terminator lines exactly
+        as written, and the index just past them. An unterminated heredoc
+        consumes the rest of the file, which is what the shell does too.
+    """
+    n = len(source)
+    out: list[str] = []
+    for delimiter in pending:
+        while i < n:
+            line_end = source.find("\n", i)
+            if line_end == -1:
+                line_end = n
+                line = source[i:]
+            else:
+                line = source[i: line_end + 1]
+            out.append(line)
+            i = min(line_end + 1, n)
+            if line.strip().rstrip("\r") == delimiter or line.strip() == delimiter:
+                break
+    return "".join(out), i
+
+
+def strip_hash(
+        source: str,
+        indented_strings: bool = False,
+        heredocs: bool = False,
+) -> str:
     """Strip #-comments (shell/yaml/toml/ruby/...), quote- and position-aware.
 
-    A # opens a comment only at line start or after whitespace, outside
-    quotes — so ${#var}, "a#b", and foo#bar survive.
+    A ``#`` opens a comment at line start, after whitespace, or after a
+    character that can only end a command — so ``${#var}``, ``"a#b"``, and
+    ``foo#bar`` survive while ``echo hi;# real comment`` does not. ``{`` is
+    deliberately excluded from that set (it would break ``${#var}``), and
+    ``}``/``)`` count only for Nix, where they close a value rather than an
+    expansion.
 
-    When ``indented_strings`` is true (Nix), ``''...''`` is a string.
-    A closer is ``''`` not followed by ``'``, ``$``, or ``\\`` (Nix escapes).
-    ``${...}`` interpolations are Nix code again: comments strip, braces nest,
-    and an inner ``''...''`` is another indented string.
+    When ``indented_strings`` is true (Nix), ``''...''`` is a string. A closer
+    is ``''`` not followed by ``'``, ``$``, or ``\\`` (Nix escapes).
+    ``${...}`` interpolations are Nix code again, in both string forms:
+    comments strip, braces nest, and an inner ``''...''`` is another indented
+    string.
+
+    When ``heredocs`` is true (shell), a ``<<WORD`` body is copied verbatim: it
+    is data, and blanking a ``#`` inside it would corrupt the payload.
+
+    Args:
+        source: File text.
+        indented_strings: Enable Nix ``''...''`` strings and interpolation.
+        heredocs: Enable shell heredoc bodies.
+
+    Returns:
+        Source of identical length, with comment characters replaced by
+        spaces and newlines preserved.
     """
     out: list[str] = []
     stack: list[str] = ["code"]
     quote = ""
     interp_depth: list[int] = []
+    pending_heredocs: list[str] = []
+    # Characters that end a command, after which a `#` starts a comment.
+    breakers = " \t\n\r;&|("
+    if indented_strings:
+        breakers += "})"
     i = 0
     n = len(source)
     while i < n:
@@ -352,10 +461,27 @@ def strip_hash(source: str, indented_strings: bool = False) -> str:
                 out.extend((ch, nxt))
                 i += 2
                 continue
-            if ch == "#" and (i == 0 or source[i - 1] in " \t\n\r"):
+            if ch == "#" and (i == 0 or source[i - 1] in breakers):
                 while i < n and source[i] != "\n":
-                    out.append(" ")
+                    # Blank the comment without eating a CR: the module
+                    # promises byte-identical columns, and turning \r\n into
+                    # " \n" would shorten the line by one.
+                    out.append("\r" if source[i] == "\r" else " ")
                     i += 1
+                continue
+            if heredocs and ch == "<" and nxt == "<":
+                parsed = _heredoc_delimiter(source, i)
+                if parsed is not None:
+                    delimiter, end = parsed
+                    pending_heredocs.append(delimiter)
+                    out.append(source[i:end])
+                    i = end
+                    continue
+            if pending_heredocs and ch == "\n":
+                out.append(ch)
+                body, i = _consume_heredocs(source, i + 1, pending_heredocs)
+                out.append(body)
+                pending_heredocs = []
                 continue
             if state == "nix_interp":
                 if ch == "{":
@@ -400,6 +526,15 @@ def strip_hash(source: str, indented_strings: bool = False) -> str:
                     out.append(nxt)
                     i += 2
                     continue
+            elif indented_strings and quote == '"' and ch == "$" and nxt == "{":
+                # Nix interpolates inside "..." as well as ''...''. Without
+                # this the state machine desyncs on a quote inside the
+                # interpolation, e.g. x = "${ f "lit" }".
+                stack.append("nix_interp")
+                interp_depth.append(1)
+                out.extend((ch, nxt))
+                i += 2
+                continue
             elif ch == quote:
                 stack.pop()
             out.append(ch)
@@ -533,7 +668,11 @@ def strip_source(path_name: str, source: str) -> tuple[str, str]:
             action = "stripped"
         elif suffix in HASH_SUFFIXES or name in HASH_STEMS:
             stripped, action = (
-                strip_hash(source, indented_strings=suffix == ".nix"),
+                strip_hash(
+                    source,
+                    indented_strings=suffix == ".nix",
+                    heredocs=suffix in SHELL_SUFFIXES or name in SHELL_STEMS,
+                ),
                 "stripped",
             )
         elif suffix in SQL_SUFFIXES:

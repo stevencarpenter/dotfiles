@@ -245,6 +245,11 @@ Selection is explicit rather than an overlay, so unstable versions never leak in
 dependency graphs and the rest of the closure keeps its cache hits. An eval-time assertion fails the
 build if a package is declared in both channels.
 
+A second list beside it, `stableBrokenPackages`, draws from the same unstable input for a different reason: the package
+does not build on the stable pin. Keeping the two apart means `fastMovingPackages`
+still answers "which tools ship faster than the channel tracks" rather than doubling as a workaround bin. `statix` is
+there because 26.05's checkPhase fails on Darwin.
+
 Currently allowlisted: `mise`, `uv`, `fzf`, `lazygit`, `zoxide`, `ripgrep` — measured 2026-07-26 at
 between one minor version and ~15 releases behind upstream (`mise` was the worst, ~2 months). Most
 CLI tools do **not** belong here: `gh`, `yazi`, `neovim`, `delta`, `bat`, `fd`, and `btop` were all

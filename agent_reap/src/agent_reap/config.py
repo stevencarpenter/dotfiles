@@ -52,7 +52,9 @@ class Config:
             quiet before a SubagentStop completion event may reap it. Replaces
             ``teammate_idle_minutes`` in live-team mode only. A completion event
             proves the turn ended, not that the lead is done with the teammate,
-            so this window preserves the send-a-follow-up workflow.
+            so this window preserves the send-a-follow-up workflow. Sized for a
+            lead that is reading a long reply or waiting on a sibling agent: at
+            90s those leads found the pane already reaped.
         interactive_idle_minutes: How long an interactive session's window must
             have been quiet before it is *reported*. Never triggers a kill on its
             own.
@@ -70,7 +72,7 @@ class Config:
 
     socket_globs: tuple[str, ...] = DEFAULT_SOCKET_GLOBS
     teammate_idle_minutes: int = 30
-    completion_grace_seconds: int = 90
+    completion_grace_seconds: int = 300
     interactive_idle_minutes: int = 240
     include_lead: bool = False
     kill_enabled: bool = False

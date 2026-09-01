@@ -50,8 +50,12 @@ pre-commit:
       run: uvx --from pre-commit-hooks==6.0.0 check-case-conflict {staged_files}
 
     - name: check-ast
-      glob: "*.py"
-      run: uvx --from pre-commit-hooks==6.0.0 check-ast {staged_files}
+      # No glob: pre-commit's `types: [python]` matched on content too, so a
+      # `*.py` glob silently dropped extensionless Python (op-adopt,
+      # worktrunk-commit-generator). scripts/hook-python-files.py restores the
+      # shebang match. `set -o pipefail` is required for the same reason as in
+      # trailing-whitespace: a crashed filter would otherwise report success.
+      run: set -o pipefail; scripts/hook-python-files.py {staged_files} | xargs -0 uvx --from pre-commit-hooks==6.0.0 check-ast
 
     - name: check-symlinks
       run: uvx --from pre-commit-hooks==6.0.0 check-symlinks {staged_files}
@@ -63,7 +67,7 @@ pre-commit:
       run: uvx --from pre-commit-hooks==6.0.0 forbid-new-submodules {staged_files}
 
     - name: name-tests-test
-      glob: "{**/,}tests/**/*.py"
+      glob: "**/tests/*.py"
       run: uvx --from pre-commit-hooks==6.0.0 name-tests-test --pytest-test-first {staged_files}
 
     - name: trailing-whitespace
@@ -101,3 +105,20 @@ commit-msg:
     - name: strip-claude-trailer
       # Enforce the no-Claude-attribution rule from home/.claude/CLAUDE.md.
       run: scripts/strip-claude-trailer.sh {1}
+
+    - name: validate-commit-subject
+      # Structural gate on the message git is about to record: Conventional
+      # subject, no trailing period, blank line before a body, and balanced
+      # delimiters. That last one is the one that kept escaping: five commits
+      # on refactor/uv-scripts ended in a stray `)` left behind when the
+      # `(#NN)` placeholder in the branch-first-pr skill was filled in without
+      # an issue number. The rules already existed in the worktrunk generator's
+      # --validate; they only ran for worktrunk-generated commits, so a plain
+      # `git commit` from a skill or slash command never saw them.
+      #
+      # --validate-commit-file, not --validate: it skips the AI-attribution
+      # rule (`fix: tune Claude hook timeout` is a legitimate subject here, and
+      # strip-claude-trailer.sh above already covers the trailer), honors git's
+      # comment and scissors lines, and exempts the subjects git generates
+      # (Revert/Merge/fixup!) so revert, merge, and --fixup still work.
+      run: home/.local/bin/worktrunk-commit-generator --validate-commit-file {1}

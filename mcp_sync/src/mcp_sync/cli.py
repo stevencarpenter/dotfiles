@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 from collections.abc import Sequence
+from pathlib import Path
 
 from .capture import run_capture
 from .drift import run_check

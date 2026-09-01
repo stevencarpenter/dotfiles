@@ -9,10 +9,21 @@
 # name-tests-test and hygiene jobs already assume it.
 line-length = 88
 
+# Pin the target version rather than letting ruff infer one. Unpinned, ruff
+# falls back to a floor below 3.11 and classifies `tomllib` as third-party, so
+# isort groups it with pytest; the classification then differs depending on
+# whether ruff was invoked from the repo root or from inside a uv project. The
+# uv projects pin py314 in their own pyproject.toml. This floor is 3.11 because
+# the hook libs under home/.claude/hooks/lib must stay 3.9-runnable and the
+# scripts declare >=3.11; none of the selected rules rewrite syntax, so the
+# value only decides stdlib membership.
+target-version = "py311"
+
 exclude = [
-  # Vendored plugin skill scripts, carried verbatim from upstream. Reformatting
-  # them would fork them from their source for no benefit; they are not edited
-  # here.
+    # Vendored plugin skill scripts. Their bodies are upstream's verbatim; the only
+    # local edit is the shebang and PEP 723 block every script in this repo carries.
+    # Linting them reports 54 errors, 46 of them autofixable, which would rewrite
+    # upstream's code and fork it from its source for no benefit.
   "skills/personal/use-railway/scripts",
   "mcp_sync",
   "agent_reap",

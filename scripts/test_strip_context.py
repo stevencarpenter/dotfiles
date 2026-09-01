@@ -188,6 +188,64 @@ class HashStripTest(PositionContractTest):
         self.assertNotIn("gone", out)
         self.assertIn("x = 1;", out)
 
+    def test_comment_after_semicolon_is_stripped(self) -> None:
+        """`;#` ends a command and opens a comment; it used to leak."""
+        out = self.assert_masked("a.sh", "echo hi;# gone\n")
+        self.assertNotIn("gone", out)
+        self.assertIn("echo hi;", out)
+
+    def test_nix_comment_after_brace_is_stripped(self) -> None:
+        """In Nix a `}` closes a value, so `}#` is a comment."""
+        out = self.assert_masked("a.nix", "a = {};#gone\nb = 1;\n")
+        self.assertNotIn("gone", out)
+        self.assertIn("a = {};", out)
+
+    def test_shell_brace_expansion_suffix_survives(self) -> None:
+        """`${v}#tag` is one shell word, not a comment. Guards the `;#` fix."""
+        out = self.assert_masked("a.sh", "echo ${v}#tag\n# gone\n")
+        self.assertIn("${v}#tag", out)
+        self.assertNotIn("gone", out)
+
+    def test_heredoc_body_is_data_not_comment(self) -> None:
+        """A heredoc body is a payload; blanking its `#` corrupts it."""
+        out = self.assert_masked(
+            "a.sh", "cat <<EOF\n# data not a comment\nEOF\necho x # gone\n"
+        )
+        self.assertIn("# data not a comment", out)
+        self.assertNotIn("gone", out)
+
+    def test_quoted_and_tab_stripped_heredocs(self) -> None:
+        """`<<'EOF'` and `<<-EOF` open heredocs too."""
+        quoted = self.assert_masked("a.sh", "cat <<'EOF'\n# kept\nEOF\n")
+        self.assertIn("# kept", quoted)
+        tabbed = self.assert_masked("a.sh", "cat <<-EOF\n\t# kept\n\tEOF\n")
+        self.assertIn("# kept", tabbed)
+
+    def test_here_string_is_not_a_heredoc(self) -> None:
+        """`<<<` is a here-string; treating it as a heredoc would eat the file."""
+        out = self.assert_masked("a.sh", 'cat <<<"$x" # gone\necho done\n')
+        self.assertNotIn("gone", out)
+        self.assertIn("echo done", out)
+
+    def test_yaml_merge_key_is_not_a_heredoc(self) -> None:
+        """YAML's `<<:` merge key must not open a heredoc."""
+        out = self.assert_masked("a.yaml", "merged:\n  <<: *base\n# gone\n")
+        self.assertNotIn("gone", out)
+        self.assertIn("<<: *base", out)
+
+    def test_nix_interpolation_inside_double_quotes(self) -> None:
+        """A quote inside `"${ ... }"` must not desync the string state."""
+        out = self.assert_masked("a.nix", 'x = "${ f "lit" }";\n# gone\ny = 1;\n')
+        self.assertNotIn("gone", out)
+        self.assertIn('"${ f "lit" }"', out)
+
+    def test_crlf_comment_keeps_its_carriage_return(self) -> None:
+        """Blanking a CRLF comment must not shorten the line by one byte."""
+        source = "a\r\n# gone\r\nb\r\n"
+        out = self.assert_masked("a.sh", source)
+        self.assertNotIn("gone", out)
+        self.assertEqual(out.count("\r"), source.count("\r"))
+
     def test_nix_indented_string_preserves_hashes(self) -> None:
         """`#` inside `''...''` is data, including a quoted shell comment."""
         src = "let\n  script = ''\n    echo \"# keep\"\n  '';\n# remove\n"

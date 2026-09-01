@@ -394,7 +394,7 @@ def test_completion_event_shortens_time_thresholds(
     config: Config, teams_dir: Path
 ) -> None:
     """A named completion event reaps past the grace, not past the 30m window."""
-    write_inbox(teams_dir, "abc123", "docs-readme", mtime=NOW - 120)
+    write_inbox(teams_dir, "abc123", "docs-readme", mtime=NOW - 600)
     pane = make_pane(activity=int(NOW))
 
     report = _classify(
@@ -474,7 +474,7 @@ def test_completion_event_only_targets_named_agent(
     config: Config, teams_dir: Path
 ) -> None:
     """A live-team completion event cannot reap a sibling teammate."""
-    write_inbox(teams_dir, "abc123", "docs-readme", mtime=NOW - 120)
+    write_inbox(teams_dir, "abc123", "docs-readme", mtime=NOW - 600)
     panes = [
         make_pane(pane_id="%2", pid=200, activity=int(NOW)),
         make_pane(pane_id="%3", pid=201, activity=int(NOW)),

@@ -29,6 +29,20 @@ strict = true
 # as the Justfile does) and `agent_reap` looks third-party; run from inside the
 # project (`working-directory: agent_reap` in CI) and it looks first-party. The
 # two then demand different import grouping and disagree about the same file.
+# Pin the target version rather than letting ruff infer one. Without it ruff
+# falls back to a floor older than 3.11 and classifies `tomllib` as a
+# third-party import, so isort demands it be grouped with pytest instead of
+# with the stdlib. requires-python above is the real floor.
+[tool.ruff]
+target-version = "py314"
+
+[tool.ruff.lint]
+# Match the root ruff.toml's rule set. Without an explicit select these
+# projects ran ruff's default (E4/E7/E9/F) and never checked import sorting,
+# so the isort grouping the root config enforces everywhere else went
+# unchecked here.
+select = ["E4", "E7", "E9", "F", "I"]
+
 [tool.ruff.lint.isort]
 known-first-party = ["agent_reap"]
 

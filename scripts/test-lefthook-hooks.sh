@@ -65,8 +65,34 @@ if ! printf '%s' "${dump}" | rg -Fq "scripts/hook-text-files.py"; then
   failures=$((failures + 1))
 fi
 
+# A glob that matches nothing makes its job a silent no-op: lefthook skips it
+# and the hook reports success. That is how `name-tests-test` stopped enforcing
+# test_*.py naming after the port (its `{**/,}tests/**/*.py` glob expanded to
+# zero files, because lefthook does not expand brace alternation). Assert every
+# globbed job still resolves at least one file in this tree.
+globbed_jobs=(
+  check-yaml
+  check-toml
+  check-json
+  name-tests-test
+)
+for job in "${globbed_jobs[@]}"; do
+  if ! lefthook run pre-commit --all-files --job "${job}" 2>&1 | rg -Fq "${job}"; then
+    echo "FAIL: job '${job}' matched no files; its glob is a silent no-op" >&2
+    failures=$((failures + 1))
+  fi
+done
+
+# check-ast carries no glob on purpose: pre-commit's `types: [python]` matched
+# extensionless Python by shebang, which a `*.py` glob cannot. Losing the filter
+# would silently drop op-adopt and worktrunk-commit-generator from the check.
+if ! printf '%s' "${dump}" | rg -Fq "scripts/hook-python-files.py"; then
+  echo "FAIL: check-ast job lost its scripts/hook-python-files.py filter" >&2
+  failures=$((failures + 1))
+fi
+
 if [[ "${failures}" -gt 0 ]]; then
   echo "test-lefthook-hooks: ${failures} failure(s)" >&2
   exit 1
 fi
-echo "test-lefthook-hooks: OK (${#required_jobs[@]} jobs, commit-msg trailer strip, text filter)"
+echo "test-lefthook-hooks: OK (${#required_jobs[@]} jobs, ${#globbed_jobs[@]} globs resolve, commit-msg trailer strip, text + python filters)"

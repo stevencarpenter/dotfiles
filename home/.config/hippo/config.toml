@@ -4,9 +4,9 @@ timeout_secs = 300                     # HTTP timeout for chat/embed calls
 
 [models]
 # ── Chat / enrichment models ──────────────────────────────────────────
-enrichment = "Qwen3.6-35B-A3B-Uncensored-Heretic-MLX-8bit"      # Qwen 3.6 MoE, 35B total / 3B active, 8-bit MLX — ~95 tok/s on M5 Max
-enrichment_bulk = "Qwen3.6-35B-A3B-Uncensored-Heretic-MLX-8bit" # Same local model for bulk enrichment
-query = "Qwen3.6-35B-A3B-Uncensored-Heretic-MLX-8bit"          # Same local model for query reformulation
+enrichment = "Qwen3.8-Flash-Next-MLX-4bit"      # Qwen 3.6 MoE, 35B total / 3B active, 8-bit MLX — ~95 tok/s on M5 Max
+enrichment_bulk = "Qwen3.8-Flash-Next-MLX-4bit" # Same local model for bulk enrichment
+query = "Qwen3.8-Flash-Next-MLX-4bit"          # Same local model for query reformulation
 # enrichment = "Qwen3.8-27B-8bit"                   # Qwen 3.8 27B dense, 8-bit MLX — ~16 tok/s on M5 Max, quality not worth 6x slowdown vs 3.6 MoE
 # enrichment_bulk = "Qwen3.8-27B-8bit"
 # query = "Qwen3.8-27B-8bit"

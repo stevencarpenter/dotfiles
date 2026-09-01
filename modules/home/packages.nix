@@ -48,20 +48,34 @@ let
     # running a pre-18.12 installer copy). Config without the matching binary is
     # not a working contract, so nix owns both or neither.
     "atuin"
-    # 26.05 (f6107e54, 2026-08-28) ships statix-0-unstable-2026-05-14 whose
-    # checkPhase fails on Darwin: cargo insta snapshot collapsible_let_in
-    # against the channel rustc. Unstable has 0.5.8-unstable-2026-07-17,
-    # hydra-cached. Drop when 26.05 builds pkgs.statix unmodified
-    # (NixOS/nixpkgs#524695 is on master; not backported as of this pin).
+  ];
+
+  # ─── Broken-on-stable packages: same unstable input, different reason ────
+  # These are NOT cadence problems. Each one is a package the stable pin cannot
+  # build, taken from unstable only until the stable channel can. Kept separate
+  # so `fastMovingPackages` keeps meaning what its comment says it means and a
+  # reader can tell a policy choice from a workaround. Both lists feed the same
+  # `pkgsFresh`, so the mechanism is identical.
+  # 26.05 (f6107e54, 2026-08-28) ships statix-0-unstable-2026-05-14 whose
+  # checkPhase fails on Darwin: cargo insta snapshot collapsible_let_in against
+  # the channel rustc. Unstable has 0.5.8-unstable-2026-07-17, hydra-cached.
+  # Drop when 26.05 builds pkgs.statix unmodified (NixOS/nixpkgs#524695 is on
+  # master; not backported as of this pin).
+  stableBrokenPackages = [
     "statix" # Nix linter used by LazyVim's Nix extra and flake checks
   ];
 
-  # A second nixpkgs that deliberately does not follow the stable input. No
-  # `config` argument is needed: this repo sets no `nixpkgs.config` anywhere
-  # (no allowUnfree, no overlay stack), so the defaults already match.
-  pkgsFresh = import inputs.nixpkgs-unstable { system = pkgs.stdenv.hostPlatform.system; };
+  # Every name drawn from the unstable input, for whichever reason.
+  unstableNames = fastMovingPackages ++ stableBrokenPackages;
 
-  freshPackages = map (name: pkgsFresh.${name}) fastMovingPackages;
+  # A second nixpkgs that deliberately does not follow the stable input.
+  # `legacyPackages` rather than `import`: it is the same attribute set here
+  # (this repo sets no `nixpkgs.config` anywhere — no allowUnfree, no overlay
+  # stack — so the defaults already match), and flake.nix's statix check reaches
+  # the input the same way. One instantiation path, not two.
+  pkgsFresh = inputs.nixpkgs-unstable.legacyPackages.${pkgs.stdenv.hostPlatform.system};
+
+  freshPackages = map (name: pkgsFresh.${name}) unstableNames;
 
   # Each capability gate gets its own binding rather than being inlined into one
   # `++` chain, so a consumer can inspect the fully assembled stable set instead
@@ -218,7 +232,7 @@ let
   # `pname or ""` because a few font derivations do not set pname.
   duplicated = builtins.filter (
     name: builtins.any (p: (p.pname or "") == name) allStable
-  ) fastMovingPackages;
+  ) unstableNames;
 in
 {
   # Without this, declaring a package in both channels surfaces as a
@@ -230,7 +244,8 @@ in
       message =
         "modules/home/packages.nix: "
         + lib.concatStringsSep ", " duplicated
-        + " declared in BOTH fastMovingPackages and the stable package list. "
+        + " declared in BOTH the unstable lists (fastMovingPackages / "
+        + "stableBrokenPackages) and the stable package list. "
         + "Each package must come from exactly one channel — delete the stable "
         + "entry.";
     }

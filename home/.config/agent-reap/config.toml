@@ -27,8 +27,11 @@ teammate_idle_minutes = 30
 # The same window, but for a SubagentStop completion event, which already proves
 # the teammate's turn ended. Short enough that finished panes do not accumulate,
 # long enough that the lead can still send a follow-up to a teammate that has
-# just replied.
-completion_grace_seconds = 90
+# just replied. SubagentStop fires at the end of a *turn*, not at the end of the
+# teammate's usefulness: a lead reading a long reply or waiting on a sibling
+# agent routinely takes longer than a minute or two, and at the former 90s it
+# came back to a reaped pane and a lost context.
+completion_grace_seconds = 300
 
 # How long an interactive Claude window must be quiet before it is *reported*.
 # Reporting only — an abandoned window may hold context worth more than its

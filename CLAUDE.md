@@ -140,8 +140,16 @@ lefthook validate        # config sanity
 `lefthook install` runs from `scripts/sync-side-channels.sh`, so a machine that has run
 `just sync` has its hooks wired. lefthook has no equivalent of pre-commit's
 `types: [text]` filter, so a job that rewrites files pipes its list through
-`scripts/hook-text-files.py` first (handing a PNG to the whitespace fixer corrupts it).
+`scripts/hook-text-files.py` first (handing a PNG to the whitespace fixer corrupts it). It has no `types: [python]`
+either, so `check-ast` pipes through
+`scripts/hook-python-files.py` to keep matching extensionless Python by shebang.
 The `gitleaks` job scans staged changes only; the whole-tree scan runs in CI.
+
+Migration, once per machine: a checkout whose `.git/hooks/pre-commit` still holds pre-commit's shim fails every commit
+with `pre-commit: command not found`, because
+`modules/home/packages.nix` dropped the binary in the same change. Run `just sync`
+(or `lefthook install`) before the next commit; `lefthook install` rewrites the hook files from `lefthook.yml`, so it is
+safe to re-run.
 
 ## Architecture
 
@@ -347,9 +355,10 @@ GitHub Actions in `.github/workflows/`:
 
 - Shell scripts: `set -euo pipefail`, bash
 - Python: ruff for linting and formatting, no runtime dependencies, Python 3.14+
-  - The uv projects use their own `pyproject.toml`; everything else (scripts, hook libs,
-    skill scripts) is covered by the root `ruff.toml`, which excludes vendored plugin
-    skill scripts that are carried verbatim from upstream
+  - The uv projects use their own `pyproject.toml`; everything else (scripts, hook libs, skill scripts) is covered by
+    the root `ruff.toml`, which excludes the vendored plugin skill scripts under `skills/personal/use-railway/scripts`.
+    Those keep upstream's body verbatim; only the shebang and PEP 723 block are local, so linting them would fork 46
+    autofixes from their source for no benefit
   - 4-space indentation, `snake_case` for modules/functions, `PascalCase` for classes
   - Verbose Google-style docstrings on classes/functions with typed `Args:` / `Returns:` sections;
     include `Raises:` when relevant
@@ -360,6 +369,10 @@ GitHub Actions in `.github/workflows/`:
     followed by a PEP 723 `# /// script` block enumerating `requires-python` and `dependencies`,
     even when the list is empty. A script importing a repo project names it in `dependencies`
     with a `[tool.uv.sources]` path relative to the script's own directory.
+  - `requires-python` is `>=3.11` for every PEP 723 script. It is a floor uv resolves against, not documentation: a
+    lower value lets uv pick an older interpreter than the script was written for. The only Python here that must run
+    older is
+    `home/.claude/hooks/lib/*.py`, and those are not uv scripts at all (see below).
   - Exception: `home/.claude/hooks/lib/*.py` is exec'd as `/usr/bin/python3 <path>` by the reap
     hooks and must stay 3.9-compatible. Session teardown runs under a 20s Claude cap and cannot
     depend on uv resolving an environment. Those files use `#!/usr/bin/python3` so a manual
@@ -387,7 +400,9 @@ required for project resolution.
 
 History uses Conventional Commit prefixes: `feat:`, `fix:`, `chore:`, `docs:`, `refactor:`.
 
-- Format: `type: short imperative summary` (optionally append `(#NN)` for PR/issue references)
+- Format: `type: short imperative summary`. A PR/issue reference is optional; when there is one, append the whole token
+  (`fix: drop stale pin (#42)`). When there is not, the subject ends at the summary. A bare trailing `)` left over from
+  the placeholder is the single most common defect in this repo's history.
 - Keep each commit scoped to one concern
 - PRs should include: purpose, key changed paths, test/lint evidence, and any config/security
   impact (especially secrets, MCP, or shell-startup behavior)

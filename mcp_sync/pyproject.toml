@@ -20,6 +20,23 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
+# Pin the target version rather than letting ruff infer one. Without it ruff
+# falls back to a floor older than 3.11 and classifies `tomllib` as a
+# third-party import, so isort demands it be grouped with pytest instead of
+# with the stdlib. requires-python above is the real floor.
+[tool.ruff]
+target-version = "py314"
+
+[tool.ruff.lint]
+# Match the root ruff.toml's rule set. Without an explicit select these
+# projects ran ruff's default (E4/E7/E9/F) and never checked import sorting,
+# so the isort grouping the root config enforces everywhere else went
+# unchecked here.
+select = ["E4", "E7", "E9", "F", "I"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["mcp_sync"]
+
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
