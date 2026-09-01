@@ -124,6 +124,11 @@ in
         ".claude/hooks/agent-journal-stop.sh"
         ".claude/hooks/no-em-dash-commit.sh"
         ".claude/hooks/emit-routing-context.sh"
+        ".claude/hooks/agent-reap-subagent-stop.sh"
+        # Python bodies the reap hooks exec by path (parse + watchdog).
+        # Linked as a directory: every member is ungated and shared by
+        # both all-machines reap hooks (SubagentStop and SessionEnd).
+        ".claude/hooks/lib"
         ".claude/hooks/wt-create.sh"
         ".claude/hooks/wt-remove.sh"
 

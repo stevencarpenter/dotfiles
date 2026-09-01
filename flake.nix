@@ -25,7 +25,7 @@
     # `nix flake update`, so bumping is always deliberate + reviewable. Reverting
     # to a branch name silently disables both and fails the assertion in
     # scripts/test-nix-review-regressions.sh.
-    nixpkgs-unstable.url = "github:NixOS/nixpkgs/3f50310a736e4e954194338709c3ad75c50acc20"; # nixpkgs-unstable @ 2026-07-31
+    nixpkgs-unstable.url = "github:NixOS/nixpkgs/70ce234312134a463ba7728e94da2486a1d237ac"; # nixpkgs-unstable @ 2026-08-06
   };
 
   outputs =
@@ -128,13 +128,16 @@
         system:
         let
           pkgs = nixpkgs.legacyPackages.${system};
+          # Same package as home.packages (fastMovingPackages): 26.05's
+          # statix fails checkPhase on this pin; see modules/home/packages.nix.
+          statixPkg = nixpkgs-unstable.legacyPackages.${system}.statix;
           hostChecks = builtins.mapAttrs (
             hostName: _host: self.darwinConfigurations.${hostName}.config.system.build.toplevel
           ) (nixpkgs.lib.filterAttrs (_: host: host.system == system) machines);
         in
         hostChecks
         // {
-          statix = pkgs.runCommand "statix-check" { nativeBuildInputs = [ pkgs.statix ]; } ''
+          statix = pkgs.runCommand "statix-check" { nativeBuildInputs = [ statixPkg ]; } ''
             statix check ${self}
             touch "$out"
           '';

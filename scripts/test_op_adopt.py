@@ -1,4 +1,8 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
 """Unit tests for the guarded 1Password reverse-adoption workflow."""
 
 from __future__ import annotations
@@ -14,7 +18,6 @@ from importlib.machinery import SourceFileLoader
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 from unittest.mock import patch
-
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = REPO_ROOT / "home/.local/bin/op-adopt"

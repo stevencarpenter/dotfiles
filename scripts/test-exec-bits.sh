@@ -26,8 +26,24 @@ exec_scripts=(
   home/.local/bin/gh
   home/.local/bin/obsidian-capture
   home/.local/bin/worktrunk-commit-generator
+  # PEP 723 uv scripts exec'd by path (CI steps, the Justfile, lefthook jobs,
+  # and the shell test wrappers all rely on the `uv run --script` shebang).
+  home/.local/bin/op-adopt
+  scripts/test_op_adopt.py
+  scripts/test_subagent_stop_payload.py
+  scripts/test_strip_context.py
+  scripts/pty-spawn.py
+  scripts/assert-railway-psql-errors.py
+  scripts/assert-worktrunk-config.py
+  scripts/atuin-parity-mutate.py
+  scripts/check-agent-tools-allowlist.py
+  scripts/validate-mcp-master.py
+  scripts/hook-text-files.py
+  .claude/skills/mcp-sync-verify/scripts/list_targets.py
+  .claude/skills/mcp-sync-verify/scripts/print_target_paths.py
   scripts/host-capability.sh
   scripts/sync-side-channels.sh
+  scripts/update-inputs.sh
   scripts/update-unstable.sh
   scripts/test-gh-account-routing.sh
   scripts/test-obsidian-capture.sh
@@ -42,6 +58,8 @@ exec_scripts=(
   scripts/test-railway-psql-errors.sh
   scripts/test-sync-capability-gating.sh
   scripts/test-tmux-lifecycle-contract.sh
+  scripts/test-update-inputs.sh
+  scripts/test-lefthook-hooks.sh
   scripts/test-update-unstable-soak.sh
   scripts/test-unstable-reminder.sh
   scripts/unstable-reminder.sh

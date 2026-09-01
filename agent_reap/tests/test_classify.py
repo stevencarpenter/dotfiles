@@ -21,6 +21,8 @@ def _classify(
     protected_panes: set[tuple[str, str]] | None = None,
     protected_sessions: set[str] | None = None,
     team_scope: str | None = None,
+    live_team_scope: str | None = None,
+    completed_agent: str | None = None,
 ) -> Report:
     """Run classification with test defaults.
 
@@ -32,6 +34,8 @@ def _classify(
         protected_panes: Socket-qualified panes protected from reaping.
         protected_sessions: Team sessions protected from reaping.
         team_scope: Optional targeted teardown session.
+        live_team_scope: Optional live team session for a completion event.
+        completed_agent: Optional exact agent confirmed by that event.
 
     Returns:
         The classification report.
@@ -45,6 +49,8 @@ def _classify(
         protected_panes=protected_panes or set(),
         protected_sessions=protected_sessions or set(),
         team_scope=team_scope,
+        live_team_scope=live_team_scope,
+        completed_agent=completed_agent,
     )
 
 
@@ -381,6 +387,134 @@ def test_team_scope_still_spares_the_lead(config: Config, teams_dir: Path) -> No
 
     assert report.candidates == ()
     assert "team lead" in report.skipped[0].reason
+
+
+def test_completion_event_shortens_time_thresholds(
+    config: Config, teams_dir: Path
+) -> None:
+    """A named completion event reaps past the grace, not past the 30m window."""
+    write_inbox(teams_dir, "abc123", "docs-readme", mtime=NOW - 120)
+    pane = make_pane(activity=int(NOW))
+
+    report = _classify(
+        config,
+        [pane],
+        {200: make_process()},
+        protected_sessions={"abc123"},
+        live_team_scope="abc123",
+        completed_agent="docs-readme",
+    )
+
+    assert [c.teammate.agent_name for c in report.candidates] == ["docs-readme"]
+
+
+def test_completion_event_respects_completion_grace(
+    config: Config, teams_dir: Path
+) -> None:
+    """A teammate that just finished stays alive long enough to be re-messaged."""
+    write_inbox(teams_dir, "abc123", "docs-readme", mtime=NOW - 5)
+
+    report = _classify(
+        config,
+        [make_pane(activity=int(NOW))],
+        {200: make_process()},
+        live_team_scope="abc123",
+        completed_agent="docs-readme",
+    )
+
+    assert report.candidates == ()
+    assert "drained only" in report.skipped[0].reason
+
+
+def test_completion_event_still_spares_the_lead(
+    config: Config, teams_dir: Path
+) -> None:
+    """A completion event naming the lead cannot reap it."""
+    write_inbox(teams_dir, "abc123", "team-lead", mtime=NOW - 120)
+    process = make_process(command="claude --agent-id team-lead@session-abc123")
+
+    report = _classify(
+        config,
+        [make_pane()],
+        {200: process},
+        live_team_scope="abc123",
+        completed_agent="team-lead",
+    )
+
+    assert report.candidates == ()
+    assert "team lead" in report.skipped[0].reason
+
+
+def test_completion_event_still_requires_drained_inbox(
+    config: Config, teams_dir: Path
+) -> None:
+    """The event does not override queued work in the teammate inbox."""
+    write_inbox(
+        teams_dir,
+        "abc123",
+        "docs-readme",
+        payload=[{"m": "go"}],
+        mtime=NOW,
+    )
+
+    report = _classify(
+        config,
+        [make_pane(activity=int(NOW))],
+        {200: make_process()},
+        live_team_scope="abc123",
+        completed_agent="docs-readme",
+    )
+
+    assert report.candidates == ()
+    assert "queued work" in report.skipped[0].reason
+
+
+def test_completion_event_only_targets_named_agent(
+    config: Config, teams_dir: Path
+) -> None:
+    """A live-team completion event cannot reap a sibling teammate."""
+    write_inbox(teams_dir, "abc123", "docs-readme", mtime=NOW - 120)
+    panes = [
+        make_pane(pane_id="%2", pid=200, activity=int(NOW)),
+        make_pane(pane_id="%3", pid=201, activity=int(NOW)),
+    ]
+    processes = {
+        200: make_process(),
+        201: make_process(
+            pid=201,
+            command="claude --agent-id api-review@session-abc123",
+            state="R+",
+        ),
+    }
+
+    report = _classify(
+        config,
+        panes,
+        processes,
+        live_team_scope="abc123",
+        completed_agent="docs-readme",
+    )
+
+    assert [c.teammate.agent_name for c in report.candidates] == ["docs-readme"]
+    assert all(c.teammate.agent_name != "api-review" for c in report.candidates)
+
+
+def test_completion_event_keeps_process_safety_guard(
+    config: Config, teams_dir: Path
+) -> None:
+    """A completion event cannot reap a still-running teammate process."""
+    write_inbox(teams_dir, "abc123", "docs-readme", mtime=NOW)
+
+    report = _classify(
+        config,
+        [make_pane(activity=int(NOW))],
+        {200: make_process(state="R+")},
+        live_team_scope="abc123",
+        completed_agent="docs-readme",
+    )
+
+    assert report.candidates == ()
+    assert "not idle" in report.skipped[0].reason
 
 
 def test_same_pane_id_on_another_socket_is_still_reapable(

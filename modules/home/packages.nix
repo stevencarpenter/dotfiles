@@ -48,12 +48,18 @@ let
     # running a pre-18.12 installer copy). Config without the matching binary is
     # not a working contract, so nix owns both or neither.
     "atuin"
+    # 26.05 (f6107e54, 2026-08-28) ships statix-0-unstable-2026-05-14 whose
+    # checkPhase fails on Darwin: cargo insta snapshot collapsible_let_in
+    # against the channel rustc. Unstable has 0.5.8-unstable-2026-07-17,
+    # hydra-cached. Drop when 26.05 builds pkgs.statix unmodified
+    # (NixOS/nixpkgs#524695 is on master; not backported as of this pin).
+    "statix" # Nix linter used by LazyVim's Nix extra and flake checks
   ];
 
   # A second nixpkgs that deliberately does not follow the stable input. No
   # `config` argument is needed: this repo sets no `nixpkgs.config` anywhere
   # (no allowUnfree, no overlay stack), so the defaults already match.
-  pkgsFresh = import inputs.nixpkgs-unstable { inherit (pkgs) system; };
+  pkgsFresh = import inputs.nixpkgs-unstable { system = pkgs.stdenv.hostPlatform.system; };
 
   freshPackages = map (name: pkgsFresh.${name}) fastMovingPackages;
 
@@ -110,7 +116,6 @@ let
     tmux # binary only; tmux config stays a raw symlinked dotfile
     nixd # Nix LSP, including flake-provided nix-darwin/HM option sets
     nixfmt # formatter used by LazyVim's Nix extra and nixd
-    statix # Nix linter used by LazyVim's Nix extra
     cmake
     ninja
     lychee # link checker
@@ -120,13 +125,16 @@ let
     # ─── Repo workflow tooling ──────────────────────────────────────────
     # These are not optional conveniences: the documented workflows break
     # without them. `just` drives every recipe in the Justfile AND the
-    # side-channel step in bootstrap.sh; `pre-commit` is invoked by
-    # CLAUDE.md, `just pre-commit`, and dotfiles-hygiene-ci.yml, and
-    # ai-stack.nix even allowlists ~/.cache/pre-commit for the Claude
-    # sandbox; `gitleaks` backs the hook in .pre-commit-config.yaml. All of
-    # them were undeclared hand-brews until now.
+    # side-channel step in bootstrap.sh; `lefthook` runs the git hooks defined
+    # in lefthook.yml and is invoked by CLAUDE.md, `just lefthook`,
+    # scripts/sync-side-channels.sh (which runs `lefthook install`), and
+    # dotfiles-hygiene-ci.yml; `gitleaks` backs the staged-secret job in
+    # lefthook.yml. All of them were undeclared hand-brews until now.
+    # (lefthook replaced pre-commit on 2026-08-29; the language-agnostic file
+    # checks now run through `uvx --from pre-commit-hooks==6.0.0`, so uv above
+    # is load-bearing for the hooks too.)
     just
-    pre-commit
+    lefthook
     gitleaks
     actionlint # lints .github/workflows/
     yamllint

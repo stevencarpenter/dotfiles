@@ -30,7 +30,7 @@ verify-live:
 
 # Show a names-only plan for adopting reviewed personal env changes into 1Password.
 op-adopt *FLAGS:
-    python3 home/.local/bin/op-adopt {{ FLAGS }}
+    home/.local/bin/op-adopt {{ FLAGS }}
 
 # Evaluate every declared system closure without realizing it.
 check:
@@ -47,6 +47,10 @@ nix-fmt-check:
 # Run the repository-wide Nix anti-pattern linter.
 nix-lint:
     statix check .
+
+# Bump 26.05 inputs, unstable soak, and Homebrew. Never switches.
+update *ARGS:
+    scripts/update-inputs.sh {{ ARGS }}
 
 # Record the current nixpkgs-unstable channel tip, then promote that exact rev
 # after DAYS have elapsed (default 7). Promotion builds and prints the closure
@@ -179,8 +183,12 @@ fmt: mcp-fmt reap-fmt
 # Run all Python checks (lint + test). Nix flake checks live under `just check`.
 py-check: lint test
 
-# ── Pre-commit ───────────────────────────────────────────
+# ── Git hooks (lefthook) ─────────────────────────────────
 
-# Run pre-commit on all files
-pre-commit:
-    pre-commit run --all-files
+# Run every lefthook pre-commit job against all files, as CI does
+lefthook:
+    lefthook run pre-commit --all-files
+
+# Wire .git/hooks to lefthook.yml (also done by `just sync`)
+lefthook-install:
+    lefthook install

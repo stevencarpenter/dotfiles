@@ -124,6 +124,8 @@ def build_report(
     runner: Runner,
     now: float | None = None,
     team_scope: str | None = None,
+    live_team_scope: str | None = None,
+    completed_agent: str | None = None,
 ) -> Report:
     """Discover and classify the current pane population.
 
@@ -132,6 +134,8 @@ def build_report(
         runner: Command executor.
         now: Current unix timestamp; defaults to wall clock.
         team_scope: Restrict to one team session id for targeted teardown.
+        live_team_scope: Restrict a completion-event reap to the caller's team.
+        completed_agent: Restrict a completion-event reap to this exact agent.
 
     Returns:
         The classification report.
@@ -156,6 +160,8 @@ def build_report(
         protected_sessions=protected_sessions,
         sockets=sockets,
         team_scope=team_scope,
+        live_team_scope=live_team_scope,
+        completed_agent=completed_agent,
     )
 
 
@@ -164,6 +170,8 @@ def _revalidate_candidate(
     config: Config,
     runner: Runner,
     team_scope: str | None,
+    live_team_scope: str | None = None,
+    completed_agent: str | None = None,
     now: float | None = None,
 ) -> tuple[bool, str]:
     """Confirm a candidate still refers to the same safe-to-reap teammate.
@@ -173,6 +181,8 @@ def _revalidate_candidate(
         config: Effective settings.
         runner: Command executor.
         team_scope: Optional targeted teardown session.
+        live_team_scope: Optional live team session for a completion event.
+        completed_agent: Optional exact agent confirmed by that event.
         now: Wall clock override for tests.
 
     Returns:
@@ -206,6 +216,8 @@ def _revalidate_candidate(
         protected_panes=protected_panes,
         protected_sessions=protected_sessions,
         team_scope=team_scope,
+        live_team_scope=live_team_scope,
+        completed_agent=completed_agent,
     )
     for fresh in fresh_report.candidates:
         if (
@@ -424,6 +436,22 @@ def build_parser() -> argparse.ArgumentParser:
             "liveness checks, since the team is already over"
         ),
     )
+    reap_cmd.add_argument(
+        "--live-team",
+        metavar="SESSION_ID",
+        help=(
+            "scope a completion-event reap to this live team; requires "
+            "--completed-agent"
+        ),
+    )
+    reap_cmd.add_argument(
+        "--completed-agent",
+        metavar="AGENT_NAME",
+        help=(
+            "reap only the teammate named by a SubagentStop event; window "
+            "idle is skipped, inbox-age shortens to completion_grace_seconds"
+        ),
+    )
     return parser
 
 
@@ -452,14 +480,40 @@ def cli(argv: Sequence[str] | None = None, runner: Runner | None = None) -> int:
 
     command = args.command or "report"
     team_scope: str | None = getattr(args, "team", None)
+    live_team_scope: str | None = getattr(args, "live_team", None)
+    completed_agent: str | None = getattr(args, "completed_agent", None)
     destructive = command == "reap" and bool(getattr(args, "kill", False))
+    if (live_team_scope is None) != (completed_agent is None):
+        print(
+            "reap: --live-team and --completed-agent must be provided together",
+            file=sys.stderr,
+        )
+        return 2
+    if command != "reap" and (
+        live_team_scope is not None or completed_agent is not None
+    ):
+        print(
+            "reap: completion-event options require the reap subcommand",
+            file=sys.stderr,
+        )
+        return 2
+    if team_scope is not None and live_team_scope is not None:
+        print(
+            "reap: --team and --live-team are mutually exclusive",
+            file=sys.stderr,
+        )
+        return 2
     if destructive and loaded.errors:
         print(
             "config: refusing destructive operation with invalid config",
             file=sys.stderr,
         )
         return 2
-    if destructive and team_scope is not None and not config.kill_enabled:
+    if (
+        destructive
+        and (team_scope is not None or live_team_scope is not None)
+        and not config.kill_enabled
+    ):
         print(
             "config: unattended team cleanup requires kill_enabled = true",
             file=sys.stderr,
@@ -513,7 +567,13 @@ def cli(argv: Sequence[str] | None = None, runner: Runner | None = None) -> int:
             _print_strays(masters, disowned, args.verbose)
         return 0
 
-    report = build_report(config, run, team_scope=team_scope)
+    report = build_report(
+        config,
+        run,
+        team_scope=team_scope,
+        live_team_scope=live_team_scope,
+        completed_agent=completed_agent,
+    )
 
     if command == "reap":
         outcomes = reap(
@@ -525,6 +585,8 @@ def cli(argv: Sequence[str] | None = None, runner: Runner | None = None) -> int:
                 config=config,
                 runner=run,
                 team_scope=team_scope,
+                live_team_scope=live_team_scope,
+                completed_agent=completed_agent,
             ),
         )
         if args.json:

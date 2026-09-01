@@ -91,17 +91,23 @@ which creates the socket sprawl this configuration was intended to remove.
 and `~/.claude/teams/session-*` state. It is not a general tmux garbage collector and does not reap
 ordinary shells or Codex agent processes.
 
-There is no `agent-reap` daemon or launchd job. Cleanup happens in two ways:
+There is no `agent-reap` daemon or launchd job. Cleanup has three entry points:
 
+- `~/.claude/hooks/agent-reap-subagent-stop.sh` receives the completed `agent_id` and
+  `parent_session_id` from a `SubagentStop` event, then reaps only that named teammate. It
+  skips window-activity idle (the event already proves the turn ended) and shortens inbox-age
+  to `completion_grace_seconds`. It still requires a live session directory, a drained inbox, a
+  sleeping process, no active or foreground descendants, and the normal pane and ancestry guards.
 - `~/.claude/hooks/agent-reap-session-end.sh` runs a team-scoped reap after a qualifying Claude
-  `SessionEnd` event.
+  `SessionEnd` event, then removes that ended session's exact `session-*` state directory.
 - `just reap`, `just reap-sockets`, `just reap-strays`, and `just reap-kill` provide manual audit
   and cleanup paths.
 
-The hook log is created only after a session owned a matching team directory:
+The hook logs are created only after a qualifying event owns a matching team directory:
 
 ```bash
 tail -n 100 ~/.claude/logs/agent-reap-session-end.log
+tail -n 100 ~/.claude/logs/agent-reap-subagent-stop.log
 rg -n -C 4 'SessionEnd|agent-reap' ~/.claude/settings.json
 ```
 

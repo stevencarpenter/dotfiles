@@ -221,6 +221,74 @@ def test_team_kill_runs_when_unattended_policy_is_enabled(wired: Machine) -> Non
     assert sum("kill-pane" in call for call in map(" ".join, wired.runner.calls)) == 1
 
 
+def test_completion_event_kill_requires_unattended_policy(
+    wired: Machine, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The live-team completion path has the same unattended policy gate."""
+    status = cli(
+        [
+            "--config",
+            str(wired.config_path),
+            "reap",
+            "--live-team",
+            "abc123",
+            "--completed-agent",
+            "docs-readme",
+            "--kill",
+        ],
+        runner=wired.runner,
+    )
+
+    assert status == 2
+    assert "kill_enabled" in capsys.readouterr().err
+    assert not any("kill-pane" in call for call in map(" ".join, wired.runner.calls))
+
+
+def test_completion_event_kills_only_the_confirmed_agent(wired: Machine) -> None:
+    """A SubagentStop-targeted reap uses the completion grace, not the 30m window."""
+    with wired.config_path.open("a", encoding="utf-8") as config_file:
+        config_file.write("\nkill_enabled = true\n")
+
+    status = cli(
+        [
+            "--config",
+            str(wired.config_path),
+            "reap",
+            "--live-team",
+            "abc123",
+            "--completed-agent",
+            "docs-readme",
+            "--kill",
+        ],
+        runner=wired.runner,
+    )
+
+    assert status == 0
+    kills = [call for call in wired.runner.calls if "kill-pane" in call]
+    assert len(kills) == 1
+    assert kills[0][-1] == "%2"
+
+
+def test_completion_event_options_must_be_paired(
+    wired: Machine, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """An incomplete event scope cannot accidentally become a broad reap."""
+    status = cli(
+        [
+            "--config",
+            str(wired.config_path),
+            "reap",
+            "--live-team",
+            "abc123",
+        ],
+        runner=wired.runner,
+    )
+
+    assert status == 2
+    assert "provided together" in capsys.readouterr().err
+    assert not any("kill-pane" in call for call in map(" ".join, wired.runner.calls))
+
+
 def test_idle_minutes_override_spares_a_fresh_inbox(
     wired: Machine, capsys: pytest.CaptureFixture[str]
 ) -> None:

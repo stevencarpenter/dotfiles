@@ -1,0 +1,25 @@
+# Root ruff config for the repo's loose Python: scripts/, the reap hook libs,
+# and the skill scripts. The vendored uv projects (mcp_sync/, agent_reap/) carry
+# their own pyproject.toml and are linted by their own CI jobs; this file exists
+# so the ~1500 lines living outside them are not linted by nothing, which is
+# what CLAUDE.md's Style section already claims they are.
+#
+# The rule set matches what the uv projects effectively enforce (pyflakes plus
+# the pycodestyle error subset), with import sorting added because the
+# name-tests-test and hygiene jobs already assume it.
+line-length = 88
+
+exclude = [
+  # Vendored plugin skill scripts, carried verbatim from upstream. Reformatting
+  # them would fork them from their source for no benefit; they are not edited
+  # here.
+  "skills/personal/use-railway/scripts",
+  "mcp_sync",
+  "agent_reap",
+]
+
+[lint]
+select = ["E4", "E7", "E9", "F", "I"]
+
+[lint.isort]
+known-first-party = ["mcp_sync", "agent_reap"]

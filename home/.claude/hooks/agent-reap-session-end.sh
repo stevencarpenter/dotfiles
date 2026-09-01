@@ -34,6 +34,9 @@ fi
 readonly REAP_TIMEOUT_SECS="${reap_timeout_secs}"
 readonly REAP_TERM_GRACE_SECS=1
 
+hook_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly HOOK_LIB="${hook_dir}/lib"
+
 # No agent-reap (fresh machine, mid-install, or install skipped) — nothing to do.
 agent_reap_bin="$(command -v agent-reap 2>/dev/null)" || exit 0
 
@@ -50,77 +53,43 @@ fi
 # uuid would never match. Parse with python3 rather than sed: the value is JSON
 # and must be read as JSON.
 session_id="$(
-  printf '%s' "$payload" | /usr/bin/python3 -c '
-import json, sys
-try:
-    data = json.load(sys.stdin)
-except Exception:
-    sys.exit(0)
-sid = data.get("session_id") or ""
-print(sid.split("-", 1)[0])
-' 2>/dev/null
+  printf '%s' "$payload" \
+    | /usr/bin/python3 "${HOOK_LIB}/parse-session-end-payload.py" 2>/dev/null
 )" || exit 0
 
 [[ -n "$session_id" ]] || exit 0
+[[ "$session_id" =~ ^[[:alnum:]]+$ ]] || exit 0
 
 # Only act when this session actually owned a team. A solo session has no team
 # directory, and passing an unknown id would be a no-op anyway — but skipping
 # keeps the common case free of a subprocess.
 [[ -d "${HOME}/.claude/teams/session-${session_id}" ]] || exit 0
 
+team_dir="${HOME}/.claude/teams/session-${session_id}"
+
 log="${HOME}/.claude/logs/agent-reap-session-end.log"
 mkdir -p "${log%/*}" 2>/dev/null || true
 
+worker_status=1
 {
   printf '\n=== %s session-%s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$session_id"
-  # macOS ships neither `timeout` nor `gtimeout`. Python is already required
-  # above to parse the hook payload, so use it as a portable process-group
-  # watchdog instead of ever falling back to an unbounded command. agent-reap's
-  # Python worker separately bounds each tmux/ps subprocess it launches; this
-  # outer guard bounds the worker and every descendant as a final failsafe.
-  AGENT_REAP_BIN="$agent_reap_bin" \
-    AGENT_REAP_SESSION_ID="$session_id" \
-    AGENT_REAP_TIMEOUT_SECS="$REAP_TIMEOUT_SECS" \
-    AGENT_REAP_TERM_GRACE_SECS="$REAP_TERM_GRACE_SECS" \
-    /usr/bin/python3 - <<'PY'
-import os
-import signal
-import subprocess
-import sys
-
-command = [
-    os.environ["AGENT_REAP_BIN"],
-    "reap",
-    "--team",
-    os.environ["AGENT_REAP_SESSION_ID"],
-    "--kill",
-]
-timeout = int(os.environ["AGENT_REAP_TIMEOUT_SECS"])
-grace = int(os.environ["AGENT_REAP_TERM_GRACE_SECS"])
-
-try:
-    process = subprocess.Popen(command, start_new_session=True)
-    status = process.wait(timeout=timeout)
-except subprocess.TimeoutExpired:
-    print(f"agent-reap hook: timed out after {timeout}s; terminating worker group")
-    try:
-        os.killpg(process.pid, signal.SIGTERM)
-    except ProcessLookupError:
-        pass
-    try:
-        status = process.wait(timeout=grace)
-    except subprocess.TimeoutExpired:
-        try:
-            os.killpg(process.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
-        status = process.wait()
-except Exception as error:
-    print(f"agent-reap hook: could not run worker: {error}")
-    status = 1
-
-sys.exit(status)
-PY
+  # lib/run-reap-worker.py is the portable process-group watchdog macOS's
+  # missing `timeout` would otherwise provide; see its docstring.
+  /usr/bin/python3 "${HOOK_LIB}/run-reap-worker.py" \
+    --label "agent-reap hook" \
+    --timeout "$REAP_TIMEOUT_SECS" \
+    --grace "$REAP_TERM_GRACE_SECS" \
+    -- "$agent_reap_bin" reap --team "$session_id" --kill
+  worker_status=$?
 } >>"$log" 2>&1 || true
+
+# SessionEnd is the only path allowed to remove team state. The directory name
+# was derived from a validated leading session-id segment, and the exact target
+# is captured before this destructive cleanup. Only a successful reap removes
+# it. SubagentStop must leave the live team's state intact for its siblings and
+# parent session.
+if (( worker_status == 0 )); then
+  rm -rf -- "${team_dir}" 2>/dev/null || true
+fi
 
 exit 0

@@ -57,13 +57,16 @@ is today's `WP-n`, and old launch `WP-n` tasks were renumbered to `n + 260`
 with a "Consolidated from launch board WP-n" provenance line in each body. The
 emptied launch project was renamed `WPOLD` pending deletion — never file there.
 
-**Snugmarina's server split is transitional.** `snugmarina-base` was extracted
-from `homelab` with history preserved, but deploy wiring hasn't moved — the
-authoritative *production* checkout for `api/` is still
-`homelab/services/snugmarina/`. API code, schema, migrations and workers are
-Snugmarina work; build, deploy, ingress and observability are homelab work.
-Both share the `SNUG` board except the homelab half, which goes to `HOME`.
-Never edit `homelab/services/snugmarina/` directly, or the two copies fork.
+**Snugmarina's server split is current.** `snugmarina-base` owns the API source,
+schemas, migrations and workers. Its CI tests, builds and publishes the image
+to GHCR. `homelab/services/snugmarina/` consumes that image by immutable digest
+and owns Compose, PostgreSQL, deployment, Caddy ingress, secret materialization
+and backups. Route API implementation work to `SNUG`; route homelab deployment
+and operations work to `HOME`.
+
+Do not edit `homelab/services/snugmarina/` for API source changes. Edit its
+Compose, ingress, secret or backup configuration there when the task is a
+homelab deployment concern.
 
 **A multi-phase epic touching 2+ repos stays whole on its owning product
 board** (e.g. Snugmarina's offline-first sync epic and all its phases live on
