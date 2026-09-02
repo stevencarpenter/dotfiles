@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import datetime
 import json
+from pathlib import Path
+
 import pytest
 import tomllib
-from pathlib import Path
 
 from mcp_sync import (
     deep_merge,
