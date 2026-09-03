@@ -89,7 +89,12 @@ worker_status=1
 # it. SubagentStop must leave the live team's state intact for its siblings and
 # parent session.
 if (( worker_status == 0 )); then
-  rm -rf -- "${team_dir}" 2>/dev/null || true
+  # Still best-effort (a stale directory must not fail session teardown), but
+  # a failed removal has to leave evidence. Discarding it made "removed" and
+  # "silently left behind" identical in the log.
+  if ! rm -rf -- "${team_dir}" 2>>"$log"; then
+    printf 'warning: could not remove %s\n' "${team_dir}" >>"$log" 2>/dev/null || true
+  fi
 fi
 
 exit 0
