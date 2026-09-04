@@ -15,7 +15,7 @@
 #   sketchybar_workspace_badges — off where LaunchServices is under triage.
 #   atuin — selects sync vs local config variant (NOT whether atuin deploys).
 #   mcp — MCP master config + per-tool sync hook.
-#   skills — skill manifest + ~/.claude/skills fan-out hook.
+#   skills — skill manifest + ~/.claude/skills and ~/.pi/agent/skills fan-out hook.
 #   gui — GUI casks + display fonts.
 #   dev — dev LSP plugins, dev-flavored brews, copilot trusted folders.
 #   infra — ops tooling via mise (Kubernetes, teleport, ops databases).

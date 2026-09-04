@@ -18,6 +18,7 @@ from mcp_sync.skills import (
     parse_duration,
     resolve_skills,
     run_skills_sync,
+    target_roots,
     write_state,
 )
 
@@ -38,6 +39,13 @@ def test_parse_duration_minutes_and_seconds():
 def test_parse_duration_rejects_garbage():
     with pytest.raises(ValueError, match="Invalid duration"):
         parse_duration("soon")
+
+
+def test_target_roots_covers_claude_and_pi(tmp_path):
+    assert target_roots(tmp_path) == [
+        tmp_path / ".claude" / "skills",
+        tmp_path / ".pi" / "agent" / "skills",
+    ]
 
 
 def test_load_skills_manifest_reads_sources_and_skills(tmp_path):
@@ -591,6 +599,13 @@ def test_run_skills_sync_deploys_local_and_vendored(tmp_path):
     skills_dir = home / ".claude" / "skills"
     assert (skills_dir / "tdd" / "SKILL.md").read_text() == "# tdd"
     assert (skills_dir / "refactor").is_symlink()
+    pi_skills_dir = home / ".pi" / "agent" / "skills"
+    assert (pi_skills_dir / "tdd" / "SKILL.md").read_text() == "# tdd"
+    assert (pi_skills_dir / "refactor").is_symlink()
+    assert (pi_skills_dir / "refactor").resolve() == (
+        repo / "skills" / "personal" / "refactor"
+    ).resolve()
+    assert (pi_skills_dir / "tdd" / ".mcp-sync-managed").is_file()
     written = json.loads(state.read_text())
     assert written["deployed"]["tdd"] == {
         "mode": "copy",
@@ -640,6 +655,46 @@ def test_run_skills_sync_garbage_collects_dropped_skill(tmp_path):
     rc = run_skills_sync(home=home, repo_root=repo, now=1.0)
     assert rc == 0
     assert not orphan.exists()
+
+
+def test_run_skills_sync_garbage_collects_dropped_skill_from_both_roots(tmp_path):
+    home = tmp_path / "home"
+    repo = tmp_path / "repo"
+    refactor = repo / "skills" / "personal" / "refactor"
+    refactor.mkdir(parents=True)
+    (refactor / "SKILL.md").write_text("# refactor")
+    for root in target_roots(home):
+        orphan = root / "old-skill"
+        orphan.mkdir(parents=True)
+        (orphan / "SKILL.md").write_text("# old")
+        (orphan / ".mcp-sync-managed").write_text("mcp-sync-managed-v1\n")
+    state = home / ".local" / "state" / "mcp-sync" / "skills-state.json"
+    _write_json(
+        state,
+        {
+            "deployed": {
+                "old-skill": {
+                    "mode": "copy",
+                    "source": "mattpocock",
+                    "marker": "mcp-sync-managed-v1",
+                }
+            },
+            "sources": {},
+        },
+    )
+    manifest = home / ".config" / "skills" / "skills-master.json"
+    _write_json(
+        manifest,
+        {
+            "sources": {"personal": {"type": "local", "path": "skills/personal"}},
+            "skills": {"refactor": {"source": "personal"}},
+        },
+    )
+    rc = run_skills_sync(home=home, repo_root=repo, now=1.0)
+    assert rc == 0
+    for root in target_roots(home):
+        assert not (root / "old-skill").exists()
+        assert (root / "refactor").is_symlink()
 
 
 def test_run_skills_sync_missing_manifest_returns_1(tmp_path):

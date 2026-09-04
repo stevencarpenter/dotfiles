@@ -221,6 +221,18 @@ in
         # current OpenCode and is intentionally not carried into the Nix layout.
         ".copilot/settings.json"
         ".cursor/cli-config.json"
+
+        # Pi (pi.dev): static tool configs, same single-file rationale as
+        # copilot/cursor above (pi keeps sessions/packages/trust beside them,
+        # never inside these files). AGENTS.md is NOT linked here — it is
+        # assembled by piAgentsAssemble below from the shared Codex body plus
+        # ~/.pi/agent/AGENTS.d/*.md. ~/.pi/agent/skills/ is fanned out by
+        # sync-skills (caps.skills), not linked.
+        ".pi/agent/settings.json"
+        ".pi/agent/models.json"
+        ".pi/agent/prompts/review.md"
+        ".pi/agent/prompts/blind-review.md"
+        ".pi/agent/AGENTS.d/10-pi-runtime.md"
       ]))
       (lib.optionalAttrs caps.mcp {
         ".config/mcp/overrides/.keep".text = "";
@@ -328,6 +340,13 @@ in
         # settings.d. Same reason for a real .keep: the dir must exist before any
         # overlay has dropped a fragment into it.
         ".codex/AGENTS.d/.keep".text = "";
+
+        # ~/.pi/agent/AGENTS.d is the fragment seam for the pi
+        # agent-instruction assembly (piAgentsAssemble below) — the pi
+        # analogue of ~/.codex/AGENTS.d/. Same reason for a real .keep. The
+        # managed 10-pi-runtime.md fragment is symlinked from the repo (see
+        # the caps.mcp block); overlay fragments land beside it.
+        ".pi/agent/AGENTS.d/.keep".text = "";
       }
     ];
 
@@ -361,6 +380,45 @@ in
         # matched by *.md, so an empty seam appends nothing and the output is
         # exactly the body.
         for frag in "$HOME"/.codex/AGENTS.d/*.md; do
+          [ -f "$frag" ] || continue
+          printf '\n' >> "$tmp"
+          cat "$frag" >> "$tmp"
+        done
+
+        mv "$tmp" "$OUT"
+      ) || true
+    '';
+
+    # ~/.pi/agent/AGENTS.md is ASSEMBLED from the shared Codex body plus the
+    # pi fragment seam, for the same reason ~/.codex/AGENTS.md is assembled:
+    # pi has no include directive, so concatenation is the only way overlays
+    # contribute global instructions. The shared voice stays single-sourced at
+    # home/.codex/AGENTS.md (verbatim, by decision — no second copy to drift);
+    # pi runtime deltas live in ~/.pi/agent/AGENTS.d/ (managed fragment
+    # 10-pi-runtime.md via the caps.mcp symlink above, overlay *.md beside
+    # it). Same single-writer contract, same edit-live cost (body edits need
+    # a switch), same entryAfter "linkGeneration" ordering (the managed
+    # fragment symlink must exist before the glob runs).
+    activation.piAgentsAssemble = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
+      (
+        set -u
+        BODY="${dotfiles}/home/.codex/AGENTS.md"
+        OUT="$HOME/.pi/agent/AGENTS.md"
+
+        if [ ! -f "$BODY" ]; then
+          echo "Warning: Codex AGENTS body not found at $BODY; leaving $OUT alone." >&2
+          exit 0
+        fi
+
+        mkdir -p "$HOME/.pi/agent"
+        tmp="$OUT.hm-tmp"
+        cat "$BODY" > "$tmp"
+
+        # Fragment seam (LOCKED contract): the managed 10-pi-runtime.md (a
+        # repo symlink) plus any overlay *.md append in lexical order. `.keep`
+        # is not matched by *.md, so an empty overlay seam appends nothing
+        # beyond the managed fragment.
+        for frag in "$HOME"/.pi/agent/AGENTS.d/*.md; do
           [ -f "$frag" ] || continue
           printf '\n' >> "$tmp"
           cat "$frag" >> "$tmp"

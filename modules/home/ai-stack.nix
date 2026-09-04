@@ -32,7 +32,8 @@
 #   - the MCP/skills fan-out that consumes those overlays -> modules/home/sync-hooks.nix
 #
 # ~/.claude/skills interplay note: in THIS repo there is now exactly one writer
-# of ~/.claude/skills/ — the sync-skills activation (modules/home/sync-hooks.nix).
+# of ~/.claude/skills/ and ~/.pi/agent/skills/ — the sync-skills activation
+# (modules/home/sync-hooks.nix), which fans the same manifest out to both roots.
 # The former second writer (age-decrypted work skills) is gone with the age
 # bridge. An external wrapper may add its own writer via extraHomeModules;
 # sync-skills only GCs entries it recorded, so a wrapper's skills survive

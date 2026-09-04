@@ -1,0 +1,4 @@
+{
+  "defaultProjectTrust": "ask",
+  "defaultProvider": "openai"
+}

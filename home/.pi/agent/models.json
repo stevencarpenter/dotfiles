@@ -1,0 +1,31 @@
+{
+  "providers": {
+    "lmstudio": {
+      "baseUrl": "http://localhost:1234/v1",
+      "api": "openai-completions",
+      "apiKey": "lmstudio",
+      "models": [
+        {
+          "id": "qwen/qwen3-coder-next"
+        },
+        {
+          "id": "nvidia/nemotron-3-super"
+        }
+      ]
+    },
+    "omlx": {
+      "baseUrl": "http://localhost:42069/v1",
+      "api": "openai-completions",
+      "apiKey": "omlx",
+      "models": [
+        {
+          "id": "Qwen3.6-35B-A3B-UD-MLX-4bit",
+          "name": "Qwen3.6 35B (oMLX)"
+        }
+      ]
+    },
+    "openrouter": {
+      "apiKey": "$OPENROUTER_TOKEN"
+    }
+  }
+}

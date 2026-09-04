@@ -38,4 +38,4 @@ def test_sync_skills_console_script_is_installed():
         text=True,
     )
     assert result.returncode == 0
-    assert "Sync Claude Code skills" in result.stdout
+    assert "Sync skills to ~/.claude/skills/ and ~/.pi/agent/skills/." in result.stdout
