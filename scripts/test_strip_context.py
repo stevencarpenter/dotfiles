@@ -232,10 +232,49 @@ class SqlAndXmlStripTest(PositionContractTest):
         self.assertIn("it''s -- fine", out)
         self.assertNotIn("gone", out)
 
+    def test_sql_block_comment_is_stripped(self) -> None:
+        """The /* */ state must blank its body and hand control back to code."""
+        out = self.assert_masked("a.sql", "SELECT 1 /* gone */, 2;\nSELECT 3;\n")
+        self.assertNotIn("gone", out)
+        self.assertIn("SELECT 3;", out)
+        self.assertIn(", 2;", out)
+
+    def test_sql_block_comment_spanning_lines_reopens_code(self) -> None:
+        """A multi-line block must not swallow the statement that follows it."""
+        src = "SELECT 1;\n/* gone\n   also gone */\nSELECT 2;\n"
+        out = self.assert_masked("a.sql", src)
+        self.assertNotIn("gone", out)
+        self.assertIn("SELECT 2;", out)
+
+    def test_sql_block_marker_in_string_is_not_a_comment(self) -> None:
+        """`/*` inside a literal is data; stripping it would delete real SQL."""
+        out = self.assert_masked("a.sql", "SELECT '/* not */ x';\n-- gone\n")
+        self.assertIn("/* not */ x", out)
+        self.assertNotIn("gone", out)
+
     def test_xml_comment_is_stripped(self) -> None:
         """HTML/XML comments carry the same claims as code comments."""
         out = self.assert_masked("a.html", "<p>keep</p><!-- gone -->\n")
         self.assertIn("keep", out)
+        self.assertNotIn("gone", out)
+
+    def test_xml_comment_marker_in_attribute_is_not_a_comment(self) -> None:
+        """`<!--` inside a quoted attribute is text, not a comment opener."""
+        src = '<img alt="see <!-- this --> for details">\n<!-- gone -->\n'
+        out = self.assert_masked("a.html", src)
+        self.assertIn("see <!-- this --> for details", out)
+        self.assertNotIn("gone", out)
+
+    def test_xml_single_quoted_attribute_is_preserved(self) -> None:
+        """Attribute quoting is either quote character, not just double."""
+        out = self.assert_masked("a.svg", "<path d='<!-- keep -->'/><!-- gone -->\n")
+        self.assertIn("<!-- keep -->", out)
+        self.assertNotIn("gone", out)
+
+    def test_xml_comment_after_a_tag_still_strips(self) -> None:
+        """Leaving the tag state must re-arm comment detection."""
+        out = self.assert_masked("a.xml", '<a href="x">y</a><!-- gone -->\n')
+        self.assertIn('<a href="x">y</a>', out)
         self.assertNotIn("gone", out)
 
 

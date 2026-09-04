@@ -458,24 +458,48 @@ def strip_sql(source: str) -> str:
 
 
 def strip_xml(source: str) -> str:
-    """Strip <!-- --> comments, space-preserving."""
+    """Strip <!-- --> comments, space-preserving, attribute-aware."""
+    # A comment cannot open inside a tag's quoted attribute value, so `<!--`
+    # there is ordinary text. Without the tag/attr states, `alt="see <!-- x -->"`
+    # loses real content, and validate_strip cannot object: blanking to spaces
+    # is exactly what a legitimate strip looks like. Every sibling stripper
+    # tracks string state for the same reason.
     out: list[str] = []
     i, n = 0, len(source)
-    in_comment = False
+    state = "text"
+    quote = ""
     while i < n:
-        if not in_comment and source.startswith("<!--", i):
-            in_comment = True
-            out.append("    ")
-            i += 4
-            continue
-        if in_comment and source.startswith("-->", i):
-            in_comment = False
-            out.append("   ")
-            i += 3
-            continue
         ch = source[i]
-        out.append(ch if (not in_comment or ch == "\n") else " ")
-        i += 1
+        if state == "text":
+            if source.startswith("<!--", i):
+                state = "comment"
+                out.append("    ")
+                i += 4
+                continue
+            if ch == "<":
+                state = "tag"
+            out.append(ch)
+            i += 1
+        elif state == "tag":
+            if ch in ('"', "'"):
+                state, quote = "attr", ch
+            elif ch == ">":
+                state = "text"
+            out.append(ch)
+            i += 1
+        elif state == "attr":
+            if ch == quote:
+                state, quote = "tag", ""
+            out.append(ch)
+            i += 1
+        else:  # comment
+            if source.startswith("-->", i):
+                state = "text"
+                out.append("   ")
+                i += 3
+                continue
+            out.append(ch if ch == "\n" else " ")
+            i += 1
     return "".join(out)
 
 

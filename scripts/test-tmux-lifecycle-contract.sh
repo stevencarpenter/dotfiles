@@ -193,6 +193,36 @@ if [[ -d "${hook_home}/.claude/teams/session-success01" ]]; then
 	exit 1
 fi
 
+# A reap can succeed and the removal still fail (read-only parent, busy file).
+# The hook must stay best-effort and exit 0, but it must not leave "removed"
+# and "silently left behind" looking identical in the log.
+readonly_teams="${hook_home}/.claude/teams"
+mkdir -p "${readonly_teams}/session-rofail01"
+: >"${readonly_teams}/session-rofail01/marker"
+chmod 500 "${readonly_teams}"
+set +e
+printf '%s\n' '{"session_id":"rofail01-0000-0000-0000-000000000000"}' | \
+	HOME="${hook_home}" \
+	PATH="${success_bin}:/usr/bin:/bin" \
+	"${repo_root}/home/.claude/hooks/agent-reap-session-end.sh"
+rofail_status=$?
+set -e
+chmod 700 "${readonly_teams}"
+if (( rofail_status != 0 )); then
+	echo "tmux lifecycle contract: SessionEnd hook exited ${rofail_status} when cleanup failed" >&2
+	exit 1
+fi
+if [[ ! -d "${readonly_teams}/session-rofail01" ]]; then
+	echo "tmux lifecycle contract: rm-failure case did not actually fail; test is vacuous" >&2
+	exit 1
+fi
+if ! rg -Fq "warning: could not remove ${readonly_teams}/session-rofail01" \
+	"${hook_home}/.claude/logs/agent-reap-session-end.log"; then
+	echo "tmux lifecycle contract: failed team-state removal left no evidence in the log" >&2
+	exit 1
+fi
+rm -rf -- "${readonly_teams}/session-rofail01"
+
 mkdir -p "${hook_home}/.claude/teams/session-livecafe"
 # An earlier phase already wrote this file through the same fake agent-reap;
 # clear it so the poll below observes THIS invocation, not the stale one.

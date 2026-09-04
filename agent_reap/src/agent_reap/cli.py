@@ -489,14 +489,6 @@ def cli(argv: Sequence[str] | None = None, runner: Runner | None = None) -> int:
             file=sys.stderr,
         )
         return 2
-    if command != "reap" and (
-        live_team_scope is not None or completed_agent is not None
-    ):
-        print(
-            "reap: completion-event options require the reap subcommand",
-            file=sys.stderr,
-        )
-        return 2
     if team_scope is not None and live_team_scope is not None:
         print(
             "reap: --team and --live-team are mutually exclusive",

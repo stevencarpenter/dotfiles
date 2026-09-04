@@ -289,6 +289,59 @@ def test_completion_event_options_must_be_paired(
     assert not any("kill-pane" in call for call in map(" ".join, wired.runner.calls))
 
 
+def test_completion_event_options_require_the_reap_subcommand(
+    wired: Machine, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Only reap acts on a completion event; report must not accept its scope.
+
+    The flags live on the reap subparser, so argparse alone enforces this: it
+    rejects them before cli() reads either value. This pins the exit status and
+    the no-kill guarantee a hook depends on.
+    """
+    with pytest.raises(SystemExit) as exit_info:
+        cli(
+            [
+                "--config",
+                str(wired.config_path),
+                "report",
+                "--live-team",
+                "abc123",
+                "--completed-agent",
+                "docs-readme",
+            ],
+            runner=wired.runner,
+        )
+
+    assert exit_info.value.code == 2
+    assert "unrecognized arguments" in capsys.readouterr().err
+    assert not any("kill-pane" in call for call in map(" ".join, wired.runner.calls))
+
+
+def test_team_and_live_team_are_mutually_exclusive(
+    wired: Machine, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A live-team event must never widen into a whole-team teardown."""
+    status = cli(
+        [
+            "--config",
+            str(wired.config_path),
+            "reap",
+            "--team",
+            "abc123",
+            "--live-team",
+            "abc123",
+            "--completed-agent",
+            "docs-readme",
+            "--kill",
+        ],
+        runner=wired.runner,
+    )
+
+    assert status == 2
+    assert "mutually exclusive" in capsys.readouterr().err
+    assert not any("kill-pane" in call for call in map(" ".join, wired.runner.calls))
+
+
 def test_idle_minutes_override_spares_a_fresh_inbox(
     wired: Machine, capsys: pytest.CaptureFixture[str]
 ) -> None:
