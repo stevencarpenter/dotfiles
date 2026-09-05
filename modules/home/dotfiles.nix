@@ -239,6 +239,7 @@ in
         ".pi/agent/prompts/review.md"
         ".pi/agent/prompts/blind-review.md"
         ".pi/agent/AGENTS.d/10-pi-runtime.md"
+        ".pi/agent/extensions/omlx-discovery.ts"
       ]))
       (lib.optionalAttrs caps.mcp {
         ".config/mcp/overrides/.keep".text = "";
@@ -366,83 +367,86 @@ in
     # effect (no edit-live). Uses entryAfter "linkGeneration" — two
     # writeBoundary dependants have no defined order, and this one sorted FIRST
     # (before symlinks existed), silently emitting the bare body.
-    activation.codexAgentsAssemble = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
-      (
-        set -u
-        BODY="${dotfiles}/home/.codex/AGENTS.md"
-        OUT="$HOME/.codex/AGENTS.md"
+    # Grouped under one `activation` attrset: statix fails on repeated keys,
+    # and the check derivation treats that as fatal (flake.nix `statix` check).
+    activation = {
+      codexAgentsAssemble = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
+        (
+          set -u
+          BODY="${dotfiles}/home/.codex/AGENTS.md"
+          OUT="$HOME/.codex/AGENTS.md"
 
-        if [ ! -f "$BODY" ]; then
-          echo "Warning: Codex AGENTS body not found at $BODY; leaving $OUT alone." >&2
-          exit 0
-        fi
+          if [ ! -f "$BODY" ]; then
+            echo "Warning: Codex AGENTS body not found at $BODY; leaving $OUT alone." >&2
+            exit 0
+          fi
 
-        mkdir -p "$HOME/.codex"
-        tmp="$OUT.hm-tmp"
-        cat "$BODY" > "$tmp"
+          mkdir -p "$HOME/.codex"
+          tmp="$OUT.hm-tmp"
+          cat "$BODY" > "$tmp"
 
-        # Fragment seam (LOCKED contract): overlay repos drop *.md into
-        # ~/.codex/AGENTS.d/ and they append in lexical order. `.keep` is not
-        # matched by *.md, so an empty seam appends nothing and the output is
-        # exactly the body.
-        for frag in "$HOME"/.codex/AGENTS.d/*.md; do
-          [ -f "$frag" ] || continue
-          printf '\n' >> "$tmp"
-          cat "$frag" >> "$tmp"
-        done
+          # Fragment seam (LOCKED contract): overlay repos drop *.md into
+          # ~/.codex/AGENTS.d/ and they append in lexical order. `.keep` is not
+          # matched by *.md, so an empty seam appends nothing and the output is
+          # exactly the body.
+          for frag in "$HOME"/.codex/AGENTS.d/*.md; do
+            [ -f "$frag" ] || continue
+            printf '\n' >> "$tmp"
+            cat "$frag" >> "$tmp"
+          done
 
-        mv "$tmp" "$OUT"
-      ) || true
-    '';
+          mv "$tmp" "$OUT"
+        ) || true
+      '';
 
-    # ~/.pi/agent/AGENTS.md is ASSEMBLED from the shared Codex body plus the
-    # pi fragment seam, for the same reason ~/.codex/AGENTS.md is assembled:
-    # pi has no include directive, so concatenation is the only way overlays
-    # contribute global instructions. The shared voice stays single-sourced at
-    # home/.codex/AGENTS.md (verbatim, by decision — no second copy to drift);
-    # pi runtime deltas live in ~/.pi/agent/AGENTS.d/ (managed fragment
-    # 10-pi-runtime.md via the caps.mcp symlink above, overlay *.md beside
-    # it). Same single-writer contract, same edit-live cost (body edits need
-    # a switch), same entryAfter "linkGeneration" ordering (the managed
-    # fragment symlink must exist before the glob runs).
-    activation.piAgentsAssemble = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
-      (
-        set -u
-        BODY="${dotfiles}/home/.codex/AGENTS.md"
-        OUT="$HOME/.pi/agent/AGENTS.md"
+      # ~/.pi/agent/AGENTS.md is ASSEMBLED from the shared Codex body plus the
+      # pi fragment seam, for the same reason ~/.codex/AGENTS.md is assembled:
+      # pi has no include directive, so concatenation is the only way overlays
+      # contribute global instructions. The shared voice stays single-sourced at
+      # home/.codex/AGENTS.md (verbatim, by decision — no second copy to drift);
+      # pi runtime deltas live in ~/.pi/agent/AGENTS.d/ (managed fragment
+      # 10-pi-runtime.md via the caps.mcp symlink above, overlay *.md beside
+      # it). Same single-writer contract, same edit-live cost (body edits need
+      # a switch), same entryAfter "linkGeneration" ordering (the managed
+      # fragment symlink must exist before the glob runs).
+      piAgentsAssemble = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
+        (
+          set -u
+          BODY="${dotfiles}/home/.codex/AGENTS.md"
+          OUT="$HOME/.pi/agent/AGENTS.md"
 
-        if [ ! -f "$BODY" ]; then
-          echo "Warning: Codex AGENTS body not found at $BODY; leaving $OUT alone." >&2
-          exit 0
-        fi
+          if [ ! -f "$BODY" ]; then
+            echo "Warning: Codex AGENTS body not found at $BODY; leaving $OUT alone." >&2
+            exit 0
+          fi
 
-        mkdir -p "$HOME/.pi/agent"
-        tmp="$OUT.hm-tmp"
-        cat "$BODY" > "$tmp"
+          mkdir -p "$HOME/.pi/agent"
+          tmp="$OUT.hm-tmp"
+          cat "$BODY" > "$tmp"
 
-        # Fragment seam (LOCKED contract): the managed 10-pi-runtime.md (a
-        # repo symlink) plus any overlay *.md append in lexical order. `.keep`
-        # is not matched by *.md, so an empty overlay seam appends nothing
-        # beyond the managed fragment.
-        for frag in "$HOME"/.pi/agent/AGENTS.d/*.md; do
-          [ -f "$frag" ] || continue
-          printf '\n' >> "$tmp"
-          cat "$frag" >> "$tmp"
-        done
+          # Fragment seam (LOCKED contract): the managed 10-pi-runtime.md (a
+          # repo symlink) plus any overlay *.md append in lexical order. `.keep`
+          # is not matched by *.md, so an empty overlay seam appends nothing
+          # beyond the managed fragment.
+          for frag in "$HOME"/.pi/agent/AGENTS.d/*.md; do
+            [ -f "$frag" ] || continue
+            printf '\n' >> "$tmp"
+            cat "$frag" >> "$tmp"
+          done
 
-        mv "$tmp" "$OUT"
-      ) || true
-    '';
-
-    # Guarantee the personal hippo SessionStart hook exists in ~/.codex/hooks.json
-    # WITHOUT owning the file. The codebase-memory-mcp installer canonicalizes and
-    # rewrites this file on every `install`, so it must stay a writable real file
-    # (see the NOTE at the removed home.file block above). Merge semantics: create
-    # the file if absent, prepend the hippo entry if missing, touch nothing else.
-    # A leftover store symlink from the old generated-file era is materialized
-    # into a real file first so the installer can write through it ever after.
-    activation.codexHooksMerge = lib.mkIf (identity == "personal") (
-      lib.hm.dag.entryAfter [ "linkGeneration" ] ''
+          mv "$tmp" "$OUT"
+        ) || true
+      '';
+    }
+    // lib.optionalAttrs (identity == "personal") {
+      # Guarantee the personal hippo SessionStart hook exists in ~/.codex/hooks.json
+      # WITHOUT owning the file. The codebase-memory-mcp installer canonicalizes and
+      # rewrites this file on every `install`, so it must stay a writable real file
+      # (see the NOTE at the removed home.file block above). Merge semantics: create
+      # the file if absent, prepend the hippo entry if missing, touch nothing else.
+      # A leftover store symlink from the old generated-file era is materialized
+      # into a real file first so the installer can write through it ever after.
+      codexHooksMerge = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
         (
           set -u
           HOOKS="$HOME/.codex/hooks.json"
@@ -467,8 +471,8 @@ in
             echo "Warning: could not merge hippo hook into $HOOKS; leaving it alone." >&2
           fi
         ) || true
-      ''
-    );
+      '';
+    };
   };
 
   # One link deliberately routed through the public rawDotfiles API so the
