@@ -94,7 +94,7 @@ bootstrap *HOST:
 # Full deploy: switch the generation, then run every network/SSH side channel.
 sync *HOST:
     ./rebuild.sh {{ HOST }}
-    DOTFILES_HOST="{{ HOST }}" TOKEN_AUDITOR_VERSION="{{ TOKEN_AUDITOR_VERSION }}" scripts/sync-side-channels.sh
+    DOTFILES_HOST="${DOTFILES_HOST:-{{ HOST }}}" TOKEN_AUDITOR_VERSION="{{ TOKEN_AUDITOR_VERSION }}" scripts/sync-side-channels.sh
 
 # Side channels only, skipping the rebuild (use when the generation is current).
 sync-side-channels:
@@ -133,7 +133,7 @@ mcp-sync:
     shopt -s nullglob
     overlays=("$HOME"/.config/mcp/machine/*.json)
     case "${#overlays[@]}" in
-      0) uv run --project mcp_sync sync-mcp-configs ;;
+      0) printf 'error: machine overlay is missing\n' >&2; exit 1 ;;
       1) uv run --project mcp_sync sync-mcp-configs --machine-config "${overlays[0]}" ;;
       *) printf 'error: multiple machine overlays deployed: %s\n' "${overlays[*]}" >&2; exit 1 ;;
     esac

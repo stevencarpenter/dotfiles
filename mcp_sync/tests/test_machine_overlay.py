@@ -15,10 +15,13 @@ class TestLoadMachineConfig:
         """Return empty dict when path is None."""
         assert load_machine_config(None) == {}
 
-    def test_missing_file_returns_empty(self, tmp_path):
-        """Return empty dict when the file does not exist."""
+    def test_missing_file_raises(self, tmp_path):
+        """Reject an explicitly missing overlay."""
+        import pytest
+
         missing = tmp_path / "does-not-exist.json"
-        assert load_machine_config(missing) == {}
+        with pytest.raises(FileNotFoundError):
+            load_machine_config(missing)
 
     def test_valid_file_returns_parsed(self, tmp_path):
         """Return parsed dict for a valid JSON file."""
@@ -29,27 +32,25 @@ class TestLoadMachineConfig:
         result = load_machine_config(path)
         assert result == overlay
 
-    def test_invalid_json_returns_empty(self, tmp_path, capsys):
-        """Return empty dict and log when JSON is invalid."""
+    def test_invalid_json_raises(self, tmp_path):
+        """Reject invalid overlay JSON."""
+        import pytest
+
         path = tmp_path / "bad.json"
         path.write_text("{not valid json!!", encoding="utf-8")
 
-        result = load_machine_config(path)
+        with pytest.raises(ValueError, match="invalid"):
+            load_machine_config(path)
 
-        assert result == {}
-        captured = capsys.readouterr()
-        assert "invalid JSON" in captured.out
+    def test_non_object_root_raises(self, tmp_path):
+        """Reject a non-object overlay root."""
+        import pytest
 
-    def test_non_object_root_returns_empty(self, tmp_path, capsys):
-        """Return empty dict and log when the root is valid JSON but not an object."""
         path = tmp_path / "list.json"
         path.write_text("[]\n", encoding="utf-8")
 
-        result = load_machine_config(path)
-
-        assert result == {}
-        captured = capsys.readouterr()
-        assert "non-object root" in captured.out
+        with pytest.raises(ValueError, match="invalid"):
+            load_machine_config(path)
 
 
 class TestMachineOverlayMerge:
@@ -146,21 +147,17 @@ class TestRunSyncWithMachineConfig:
         opencode_config = json.loads(opencode_path.read_text())
         assert "filesystem" in opencode_config["mcp"]
 
-    def test_missing_machine_config_file_still_works(
+    def test_missing_machine_config_file_fails(
         self, temp_home, master_config_file, monkeypatch_home
     ):
-        """run_sync works when machine_config_path points to nonexistent file."""
+        """run_sync refuses to write when an explicit overlay is missing."""
         exit_code = run_sync(
             master_path=master_config_file,
             home=temp_home,
             machine_config_path=temp_home / "nonexistent.json",
         )
 
-        assert exit_code == 0
-
-        opencode_path = temp_home / ".config" / "opencode" / "opencode.json"
-        opencode_config = json.loads(opencode_path.read_text())
-        assert "filesystem" in opencode_config["mcp"]
+        assert exit_code == 1
 
     def test_machine_overlay_disabled_field_blocks_server(
         self, temp_home, master_config_file, monkeypatch_home

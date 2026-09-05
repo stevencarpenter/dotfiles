@@ -64,11 +64,15 @@ def main() -> int:
     try:
         process.wait(timeout=args.grace)
     except subprocess.TimeoutExpired:
-        try:
-            os.killpg(process.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
-        process.wait()
+        pass
+    # The leader may exit after SIGTERM while descendants remain in the
+    # session. Always signal the process group after the grace period rather
+    # than using the leader's exit as a proxy for group termination.
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    process.wait()
     return 124
 
 

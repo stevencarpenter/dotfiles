@@ -15,6 +15,10 @@ on:
       - "bootstrap.sh"
       - "rebuild.sh"
       - "README.md"
+      - "ruff.toml"
+      - ".gitleaks.toml"
+      - ".claude/**"
+      - "skills/**"
   pull_request:
     paths:
       - ".github/workflows/dotfiles-hygiene-ci.yml"
@@ -29,6 +33,10 @@ on:
       - "bootstrap.sh"
       - "rebuild.sh"
       - "README.md"
+      - "ruff.toml"
+      - ".gitleaks.toml"
+      - ".claude/**"
+      - "skills/**"
 
 # Least privilege, declared in-tree rather than inherited from the repo default.
 permissions:
@@ -44,10 +52,10 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.14"
 
@@ -56,7 +64,7 @@ jobs:
       # path need uv on the runner. Exception: home/.claude/hooks/lib/*.py
       # uses #!/usr/bin/python3 (macOS 3.9, no uv at hook time).
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081 # v5
         with:
           python-version: "3.14"
 
@@ -88,6 +96,9 @@ jobs:
 
       - name: Validate MCP master config structure
         run: scripts/validate-mcp-master.py
+
+      - name: Validate Pi configuration
+        run: scripts/test-pi-config.sh
 
       - name: Shell syntax checks
         run: |

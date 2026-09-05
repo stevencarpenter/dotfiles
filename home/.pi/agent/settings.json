@@ -2,8 +2,26 @@
   "defaultProjectTrust": "ask",
   "defaultProvider": "openai",
   "packages": [
-    "npm:pi-mcp-adapter"
+    "npm:pi-mcp-adapter@2.32.1",
+    "npm:pi-web-access@0.28.0",
+    "npm:pi-subagents@0.65.1",
+    "npm:@dietrichgebert/ponytail@4.9.0",
+    "npm:pi-background-tasks@2.5.0",
+    "npm:@narumitw/pi-goal@0.54.4"
   ],
-  "lastChangelogVersion": "0.84.4",
-  "theme": "dark"
+  "lastChangelogVersion": "0.85.0",
+  "theme": "everforest-dark-hard",
+  "terminal": {
+    "showTerminalProgress": true
+  },
+  "steeringMode": "all",
+  "followUpMode": "all",
+  "transport": "auto",
+  "doubleEscapeAction": "tree",
+  "treeFilterMode": "all",
+  "tuiMode": "regular",
+  "modelThinkingLevels": {
+    "openai/gpt-5.6-luna": "xhigh"
+  },
+  "defaultModel": "gpt-5.6-luna"
 }

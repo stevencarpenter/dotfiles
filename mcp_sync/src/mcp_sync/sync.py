@@ -160,20 +160,19 @@ def _load_override(key: str, home: Path | None) -> JsonDict:
 def load_machine_config(path: Path | None) -> JsonDict:
     """Load machine-type overlay config (work.json / personal.json).
 
-    Returns empty dict if path is None, file doesn't exist, or JSON is invalid.
+    Returns empty dict if path is None. Explicit overlay paths must exist and
+    contain a JSON object; failures are fatal to prevent partial deployments.
     """
     if path is None:
         return {}
     if not path.is_file():
-        return {}
+        raise FileNotFoundError(f"Machine config not found at {path}")
     try:
         return _load_json_object(path)
-    except (json.JSONDecodeError, ValueError):
-        log_info(f"Skipping machine config: {path} (invalid JSON or non-object root)")
-        return {}
-    except OSError:
-        log_info(f"Skipping machine config: {path} (read error)")
-        return {}
+    except (json.JSONDecodeError, ValueError) as exc:
+        raise ValueError(f"Machine config invalid at {path}: {exc}") from exc
+    except OSError as exc:
+        raise OSError(f"Machine config unreadable at {path}: {exc}") from exc
 
 
 def load_merged_master(
@@ -1082,7 +1081,11 @@ def run_sync(
         Process exit code: ``0`` on success, ``1`` if the master is missing.
     """
     home_path = home or Path.home()
-    master = load_merged_master(master_path, home_path, machine_config_path)
+    try:
+        master = load_merged_master(master_path, home_path, machine_config_path)
+    except (FileNotFoundError, OSError, ValueError) as exc:
+        log_error(str(exc))
+        return 1
     if master is None:
         return 1
     log_info("Syncing MCP configurations from master...")

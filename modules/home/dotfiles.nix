@@ -235,6 +235,7 @@ in
         # sync-skills (caps.skills), not linked.
         ".pi/agent/settings.json"
         ".pi/agent/models.json"
+        ".pi/agent/themes/everforest-dark-hard.json"
         ".pi/agent/prompts/review.md"
         ".pi/agent/prompts/blind-review.md"
         ".pi/agent/AGENTS.d/10-pi-runtime.md"

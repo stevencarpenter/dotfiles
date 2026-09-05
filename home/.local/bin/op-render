@@ -131,13 +131,26 @@ while IFS=: read -r tpl target; do
     rm -f "$tmp"; rc=1; continue
   fi
 
-  chmod 0600 "$tmp"
-  mv -f "$tmp" "$target"          # same-filesystem rename → atomic
+  if ! chmod 0600 "$tmp"; then
+    log "chmod failed for $tmp (keeping existing $target)"
+    rm -f "$tmp"
+    rc=1
+    continue
+  fi
+  if ! mv -f "$tmp" "$target"; then
+    log "publish failed for $target (keeping existing target)"
+    rm -f "$tmp"
+    rc=1
+    continue
+  fi
   log "rendered $target"
 done < "$MANIFEST"
 
 if [ "$rc" -eq 0 ]; then
-  touch "$SENTINEL"
+  if ! touch "$SENTINEL"; then
+    log "could not update success sentinel: $SENTINEL"
+    rc=1
+  fi
 else
   warn_if_stale
 fi

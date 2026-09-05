@@ -497,6 +497,8 @@ def _assert_tree_has_no_symlinks(root: Path) -> None:
     Raises:
         ValueError: If any entry under ``root`` is a symlink.
     """
+    if root.is_symlink():
+        raise ValueError(f"Refusing to copy symlinked skill root: {root}")
     for path in root.rglob("*", recurse_symlinks=False):
         if path.is_symlink():
             raise ValueError(f"Refusing to copy symlink from vendored skill: {path}")
@@ -539,13 +541,16 @@ def _replace_directory_from_copy(src: Path, target: Path) -> None:
                 log_info(f"Best-effort cleanup left {leftover} behind")
 
 
-def deploy_skill(src: Path, target: Path, mode: str) -> None:
+def deploy_skill(
+    src: Path, target: Path, mode: str, *, allow_replace: bool = False
+) -> None:
     """Deploy one skill directory to its target under a managed skills root.
 
     Args:
         src: Source skill directory.
         target: Destination directory.
         mode: ``"copy"`` (vendored skills) or ``"symlink"`` (local skills).
+        allow_replace: Permit replacing a target already owned by a prior sync.
 
     Raises:
         FileNotFoundError: If ``src`` does not exist.
@@ -554,6 +559,9 @@ def deploy_skill(src: Path, target: Path, mode: str) -> None:
     if not src.is_dir():
         raise FileNotFoundError(f"Skill source not found: {src}")
     target.parent.mkdir(parents=True, exist_ok=True)
+    if target.exists() or target.is_symlink():
+        if not allow_replace:
+            raise FileExistsError(f"Refusing to replace unmanaged skill: {target}")
     if mode == "symlink":
         if target.is_symlink() and target.resolve() == src.resolve():
             return
@@ -787,13 +795,28 @@ def run_skills_sync(
             if skill.name in prior:
                 deployed[skill.name] = prior[skill.name]
             continue
-        if skill.source_type == "git":
-            src = git_caches[skill.source_name] / skill.subpath
-        else:
-            src = repo / skill.subpath
         try:
+            if skill.source_type == "git":
+                src = git_caches[skill.source_name] / skill.subpath
+                try:
+                    src.resolve().relative_to(git_caches[skill.source_name].resolve())
+                except ValueError as exc:
+                    raise ValueError(
+                        f"Git skill source escapes its cache: {skill.name!r}"
+                    ) from exc
+            else:
+                src = repo / skill.subpath
             for target_root in roots:
-                deploy_skill(src, _safe_target(target_root, skill.name), skill.mode)
+                target = _safe_target(target_root, skill.name)
+                prior_record = prior.get(skill.name)
+                owned = False
+                if isinstance(prior_record, dict) and prior_record.get("mode") == skill.mode:
+                    if skill.mode == "copy":
+                        marker = target / _MANAGED_MARKER
+                        owned = marker.is_file() and marker.read_text(encoding="utf-8").strip() == _MANAGED_MARKER_VALUE
+                    else:
+                        owned = target.is_symlink() and target.resolve() == src.resolve()
+                deploy_skill(src, target, skill.mode, allow_replace=owned)
         except (OSError, ValueError) as exc:
             log_error(f"Failed to deploy skill {skill.name!r}: {exc}")
             failed = True

@@ -74,7 +74,8 @@ in
           if [ -f "$OVERLAY" ]; then
             cmd+=( --machine-config "$OVERLAY" )
           else
-            echo "Warning: no machine overlay at $OVERLAY; syncing master config only." >&2
+            echo "Warning: no machine overlay at $OVERLAY; skipping MCP sync." >&2
+            exit 0
           fi
           if ! "''${cmd[@]}"; then
             echo "Warning: MCP sync failed." >&2
@@ -117,7 +118,8 @@ in
           if [ -f "$OVERLAY" ]; then
             cmd+=( --machine-config "$OVERLAY" )
           else
-            echo "Warning: no machine overlay at $OVERLAY; syncing master config only." >&2
+            echo "Warning: no machine overlay at $OVERLAY; skipping skill sync." >&2
+            exit 0
           fi
           if ! "''${cmd[@]}"; then
             echo "Warning: skill sync failed." >&2

@@ -29,12 +29,18 @@ fi
 # network error leaves a rewritten flake.lock and says nothing about it, which
 # is precisely the state a review-before-apply flow must not produce silently.
 summarize() {
+  status=$?
   echo
-  echo "==> Nix inputs updated, not switched. Review the diff, then apply with:"
-  echo "      just sync"
-  echo "    (Homebrew formulae and casks were already upgraded in place.)"
+  if [ "$status" -eq 0 ]; then
+    echo "==> Nix inputs updated, not switched. Review the diff, then apply with:"
+    echo "      just sync"
+    echo "    (Homebrew formulae and casks were already upgraded in place.)"
+  else
+    echo "==> Input update failed (exit $status). Nix inputs were not switched. Review the partial diff; do not switch."
+  fi
   git --no-pager diff --stat -- \
     flake.lock flake.nix versions/nixpkgs-unstable-candidate.json
+  return "$status"
 }
 trap summarize EXIT
 

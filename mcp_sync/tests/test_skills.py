@@ -333,7 +333,7 @@ def _make_skill(root, name):
 def test_deploy_skill_copy_creates_real_directory(tmp_path):
     src = _make_skill(tmp_path / "src", "tdd")
     target = tmp_path / "claude" / "skills" / "tdd"
-    deploy_skill(src, target, "copy")
+    deploy_skill(src, target, "copy", allow_replace=True)
     assert (target / "SKILL.md").read_text() == "# tdd"
     assert not target.is_symlink()
 
@@ -341,7 +341,7 @@ def test_deploy_skill_copy_creates_real_directory(tmp_path):
 def test_deploy_skill_symlink_points_at_source(tmp_path):
     src = _make_skill(tmp_path / "src", "refactor")
     target = tmp_path / "claude" / "skills" / "refactor"
-    deploy_skill(src, target, "symlink")
+    deploy_skill(src, target, "symlink", allow_replace=True)
     assert target.is_symlink()
     assert target.resolve() == src.resolve()
 
@@ -351,7 +351,7 @@ def test_deploy_skill_copy_replaces_stale_content(tmp_path):
     target = tmp_path / "claude" / "skills" / "tdd"
     target.mkdir(parents=True)
     (target / "stale.md").write_text("old")
-    deploy_skill(src, target, "copy")
+    deploy_skill(src, target, "copy", allow_replace=True)
     assert not (target / "stale.md").exists()
 
 
@@ -359,7 +359,7 @@ def test_deploy_skill_symlink_is_idempotent(tmp_path):
     src = _make_skill(tmp_path / "src", "refactor")
     target = tmp_path / "claude" / "skills" / "refactor"
     deploy_skill(src, target, "symlink")
-    deploy_skill(src, target, "symlink")
+    deploy_skill(src, target, "symlink", allow_replace=True)
     assert target.resolve() == src.resolve()
 
 
@@ -379,7 +379,7 @@ def test_deploy_skill_copy_failure_keeps_existing_target(tmp_path, monkeypatch):
 
     monkeypatch.setattr(skills_mod.shutil, "copytree", fail_copytree)
     with pytest.raises(OSError, match="disk full"):
-        deploy_skill(src, target, "copy")
+        deploy_skill(src, target, "copy", allow_replace=True)
     assert (target / "SKILL.md").read_text() == "# old"
 
 
@@ -397,7 +397,7 @@ def test_deploy_skill_copy_cleanup_failure_does_not_mask_success(tmp_path, monke
         return real_rmtree(path, *args, **kwargs)
 
     monkeypatch.setattr(skills_mod.shutil, "rmtree", flaky_rmtree)
-    deploy_skill(src, target, "copy")  # must not raise
+    deploy_skill(src, target, "copy", allow_replace=True)  # must not raise
     assert (target / "SKILL.md").read_text() == "# tdd"
 
 
