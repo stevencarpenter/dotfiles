@@ -37,6 +37,11 @@ cat >"$fixture/bin/uv" <<'EOF'
 printf 'uv %s\n' "$*" >>"$TEST_COMMAND_LOG"
 EOF
 
+cat >"$fixture/bin/mise" <<'EOF'
+#!/usr/bin/env bash
+printf 'mise %s\n' "$*" >>"$TEST_COMMAND_LOG"
+EOF
+
 # Mock host-capability.sh directly, rather than mocking `nix` underneath the
 # real one. The work identity this test must cover belongs to an EXTERNAL wrapper
 # and so has no row in lib/machines.nix at all — the real host-capability.sh
@@ -67,7 +72,7 @@ printf 'op %s\n' "$*" >>"$TEST_COMMAND_LOG"
 exit 0
 EOF
 
-chmod +x "$fixture/bin/git" "$fixture/bin/uv" "$fixture/bin/host-capability" \
+chmod +x "$fixture/bin/git" "$fixture/bin/uv" "$fixture/bin/mise" "$fixture/bin/host-capability" \
   "$fixture/bin/op-render" "$fixture/bin/op"
 
 # run_sync <identity> <agents-capability> [run-name]
@@ -85,12 +90,17 @@ run_sync() {
     PATH="$fixture/bin:/usr/bin:/bin" \
     GIT_BIN="$fixture/bin/git" \
     UV_BIN="$fixture/bin/uv" \
+    MISE_BIN="$fixture/bin/mise" \
     OP_RENDER_BIN="$fixture/bin/op-render" \
     OP_BIN="$fixture/bin/op" \
     "$repo_root/scripts/sync-side-channels.sh" >/dev/null
 }
 
 run_sync work 0
+if ! rg -Fq 'mise install' "$fixture/work/commands.log"; then
+  echo "sync did not reconcile mise-managed tools" >&2
+  exit 1
+fi
 if rg -Fq 'git@github.com:stevencarpenter/agents.git' "$fixture/work/commands.log"; then
   echo "work sync contacted the personal agent registry" >&2
   exit 1
@@ -158,6 +168,7 @@ run_sync_tty() {
     "HOST_CAPABILITY_BIN=$fixture/bin/host-capability"
     "HOME=$run_root/home" "PATH=$fixture/bin:/usr/bin:/bin"
     "GIT_BIN=$fixture/bin/git" "UV_BIN=$fixture/bin/uv"
+    "MISE_BIN=$fixture/bin/mise"
     "OP_RENDER_BIN=$fixture/bin/op-render" "OP_BIN=$fixture/bin/op"
     "TOKEN_AUDITOR_VERSION=$token_auditor_version"
     "$repo_root/scripts/sync-side-channels.sh"

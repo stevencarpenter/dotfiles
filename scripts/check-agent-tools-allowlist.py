@@ -10,12 +10,26 @@ silently loses the MCP servers and skills it was configured with. That is a
 failed sync, not a degraded-but-usable install, so scripts/install-agent-registry.sh
 treats it as fatal.
 
+The check covers the agents the registry itself installed, named by the manifest
+the installer writes beside them. ``~/.claude/agents`` is a shared directory:
+Claude Code plugins drop their own agents there, and a plugin agent that is
+deliberately built-in only (the impeccable-* set, for one) is not a failed sync
+of this repo's registry. Globbing the directory turned every such third-party
+file into a hard `just sync` failure.
+
 Usage:
-    check-agent-tools-allowlist.py <agents-dir>
+    check-agent-tools-allowlist.py <agents-dir> [manifest]
+
+``manifest`` defaults to ``<agents-dir>/.installed-by-agent-registry.json`` and
+must exist: the installer writes it, so a missing manifest means the install did
+not complete and the allowlist guarantee cannot be checked.
 """
 
+import json
 import sys
 from pathlib import Path
+
+MANIFEST_NAME = ".installed-by-agent-registry.json"
 
 BUILTIN_TOOLS = {
     "Read",
@@ -77,44 +91,84 @@ def tools_declarations(frontmatter: str) -> "list[tuple[int, str, list[str]]]":
     return declarations
 
 
-def violations(root: Path) -> "list[str]":
-    """Collect one message per agent file whose tools list is built-in-only.
+def manifest_names(manifest: Path) -> "list[str]":
+    """Read the installer's manifest as a list of agent file names.
+
+    Args:
+        manifest: Path to the JSON manifest written by the registry install.
+
+    Returns:
+        The file names the registry installed, in manifest order.
+
+    Raises:
+        ValueError: The manifest is absent, unreadable, or not a list of names.
+    """
+    try:
+        raw = manifest.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ValueError(f"cannot read agent manifest {manifest}: {exc}") from exc
+    try:
+        entries = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"malformed agent manifest {manifest}: {exc}") from exc
+    if not isinstance(entries, list) or not all(isinstance(e, str) for e in entries):
+        raise ValueError(f"agent manifest {manifest} is not a list of file names")
+    return entries
+
+
+def violations(root: Path, names: "list[str]") -> "list[str]":
+    """Collect one message per manifest agent whose tools list is built-in-only.
 
     Args:
         root: Directory holding the generated ``*.md`` Claude agent files.
+        names: Agent file names the registry installed; files outside this set
+            belong to plugins or earlier registries and are not checked.
 
     Returns:
         Human-readable violation lines, empty when every agent is acceptable.
     """
     found = []
-    for path in sorted(root.glob("*.md")) if root.is_dir() else []:
+    for name in sorted(names):
+        path = root / name
         try:
             text = path.read_text(encoding="utf-8")
         except OSError as exc:
-            found.append(f"{path.name}: cannot read: {exc}")
+            found.append(f"{name}: cannot read: {exc}")
             continue
         if not text.startswith("---\n"):
             continue
         frontmatter = text[4:].split("\n---\n", 1)[0]
         for line_number, rendered, tools in tools_declarations(frontmatter):
             if tools and all(tool in BUILTIN_TOOLS for tool in tools):
-                found.append(f"{path.name}:{line_number}: {rendered}")
+                found.append(f"{name}:{line_number}: {rendered}")
     return found
 
 
 def main(argv: "list[str]") -> int:
-    """Report built-in-only tools allowlists under the given agents directory.
+    """Report built-in-only tools allowlists among the installed agents.
 
     Args:
-        argv: Command-line arguments after the program name; one agents path.
+        argv: Command-line arguments after the program name: the agents
+            directory, and optionally an explicit manifest path.
 
     Returns:
-        Process exit status: 0 when clean, 1 on violations, 2 on bad usage.
+        Process exit status: 0 when clean, 1 on violations or an unusable
+        manifest, 2 on bad usage.
     """
-    if len(argv) != 1:
-        print("usage: check-agent-tools-allowlist.py <agents-dir>", file=sys.stderr)
+    if not 1 <= len(argv) <= 2:
+        print(
+            "usage: check-agent-tools-allowlist.py <agents-dir> [manifest]",
+            file=sys.stderr,
+        )
         return 2
-    found = violations(Path(argv[0]))
+    root = Path(argv[0])
+    manifest = Path(argv[1]) if len(argv) == 2 else root / MANIFEST_NAME
+    try:
+        names = manifest_names(manifest)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    found = violations(root, names)
     if not found:
         return 0
     print("error: Claude agents contain built-in-only tools allowlists:", file=sys.stderr)

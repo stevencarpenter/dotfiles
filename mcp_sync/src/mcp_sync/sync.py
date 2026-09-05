@@ -160,20 +160,19 @@ def _load_override(key: str, home: Path | None) -> JsonDict:
 def load_machine_config(path: Path | None) -> JsonDict:
     """Load machine-type overlay config (work.json / personal.json).
 
-    Returns empty dict if path is None, file doesn't exist, or JSON is invalid.
+    Returns empty dict if path is None. Explicit overlay paths must exist and
+    contain a JSON object; failures are fatal to prevent partial deployments.
     """
     if path is None:
         return {}
     if not path.is_file():
-        return {}
+        raise FileNotFoundError(f"Machine config not found at {path}")
     try:
         return _load_json_object(path)
-    except (json.JSONDecodeError, ValueError):
-        log_info(f"Skipping machine config: {path} (invalid JSON or non-object root)")
-        return {}
-    except OSError:
-        log_info(f"Skipping machine config: {path} (read error)")
-        return {}
+    except (json.JSONDecodeError, ValueError) as exc:
+        raise ValueError(f"Machine config invalid at {path}: {exc}") from exc
+    except OSError as exc:
+        raise OSError(f"Machine config unreadable at {path}: {exc}") from exc
 
 
 def load_merged_master(
@@ -1020,6 +1019,23 @@ def _build_targets(home: Path) -> list[SyncTarget]:
             template_key="lmstudio",
             override_key="lmstudio",
         ),
+        SyncTarget(
+            # Tool-agnostic user-global MCP config. pi-mcp-adapter reads this
+            # path as its precedence-1 source (ahead of ~/.pi/agent/mcp.json,
+            # which the adapter reserves for its own overrides), so pi needs no
+            # pi-specific file. Named for the location, not for pi: any other
+            # host that adopts the same convention picks it up unchanged.
+            #
+            # This is the one target whose destination sits in the directory
+            # that also holds sync *inputs* (mcp-master.json, overrides/*.json).
+            # The filename must stay distinct from every input the loader reads
+            # -- see test_pi_target_does_not_collide_with_master_config.
+            name="xdg-mcp",
+            destination=home / ".config" / "mcp" / "mcp.json",
+            transform=transform_to_mcpservers_format,
+            template_key="xdg-mcp",
+            override_key="xdg-mcp",
+        ),
     ]
 
 
@@ -1065,7 +1081,11 @@ def run_sync(
         Process exit code: ``0`` on success, ``1`` if the master is missing.
     """
     home_path = home or Path.home()
-    master = load_merged_master(master_path, home_path, machine_config_path)
+    try:
+        master = load_merged_master(master_path, home_path, machine_config_path)
+    except (FileNotFoundError, OSError, ValueError) as exc:
+        log_error(str(exc))
+        return 1
     if master is None:
         return 1
     log_info("Syncing MCP configurations from master...")

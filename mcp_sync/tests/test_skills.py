@@ -18,6 +18,7 @@ from mcp_sync.skills import (
     parse_duration,
     resolve_skills,
     run_skills_sync,
+    target_roots,
     write_state,
 )
 
@@ -38,6 +39,13 @@ def test_parse_duration_minutes_and_seconds():
 def test_parse_duration_rejects_garbage():
     with pytest.raises(ValueError, match="Invalid duration"):
         parse_duration("soon")
+
+
+def test_target_roots_covers_claude_and_pi(tmp_path):
+    assert target_roots(tmp_path) == [
+        tmp_path / ".claude" / "skills",
+        tmp_path / ".pi" / "agent" / "skills",
+    ]
 
 
 def test_load_skills_manifest_reads_sources_and_skills(tmp_path):
@@ -325,7 +333,7 @@ def _make_skill(root, name):
 def test_deploy_skill_copy_creates_real_directory(tmp_path):
     src = _make_skill(tmp_path / "src", "tdd")
     target = tmp_path / "claude" / "skills" / "tdd"
-    deploy_skill(src, target, "copy")
+    deploy_skill(src, target, "copy", allow_replace=True)
     assert (target / "SKILL.md").read_text() == "# tdd"
     assert not target.is_symlink()
 
@@ -333,7 +341,7 @@ def test_deploy_skill_copy_creates_real_directory(tmp_path):
 def test_deploy_skill_symlink_points_at_source(tmp_path):
     src = _make_skill(tmp_path / "src", "refactor")
     target = tmp_path / "claude" / "skills" / "refactor"
-    deploy_skill(src, target, "symlink")
+    deploy_skill(src, target, "symlink", allow_replace=True)
     assert target.is_symlink()
     assert target.resolve() == src.resolve()
 
@@ -343,7 +351,7 @@ def test_deploy_skill_copy_replaces_stale_content(tmp_path):
     target = tmp_path / "claude" / "skills" / "tdd"
     target.mkdir(parents=True)
     (target / "stale.md").write_text("old")
-    deploy_skill(src, target, "copy")
+    deploy_skill(src, target, "copy", allow_replace=True)
     assert not (target / "stale.md").exists()
 
 
@@ -351,7 +359,7 @@ def test_deploy_skill_symlink_is_idempotent(tmp_path):
     src = _make_skill(tmp_path / "src", "refactor")
     target = tmp_path / "claude" / "skills" / "refactor"
     deploy_skill(src, target, "symlink")
-    deploy_skill(src, target, "symlink")
+    deploy_skill(src, target, "symlink", allow_replace=True)
     assert target.resolve() == src.resolve()
 
 
@@ -371,7 +379,7 @@ def test_deploy_skill_copy_failure_keeps_existing_target(tmp_path, monkeypatch):
 
     monkeypatch.setattr(skills_mod.shutil, "copytree", fail_copytree)
     with pytest.raises(OSError, match="disk full"):
-        deploy_skill(src, target, "copy")
+        deploy_skill(src, target, "copy", allow_replace=True)
     assert (target / "SKILL.md").read_text() == "# old"
 
 
@@ -389,7 +397,7 @@ def test_deploy_skill_copy_cleanup_failure_does_not_mask_success(tmp_path, monke
         return real_rmtree(path, *args, **kwargs)
 
     monkeypatch.setattr(skills_mod.shutil, "rmtree", flaky_rmtree)
-    deploy_skill(src, target, "copy")  # must not raise
+    deploy_skill(src, target, "copy", allow_replace=True)  # must not raise
     assert (target / "SKILL.md").read_text() == "# tdd"
 
 
@@ -591,6 +599,13 @@ def test_run_skills_sync_deploys_local_and_vendored(tmp_path):
     skills_dir = home / ".claude" / "skills"
     assert (skills_dir / "tdd" / "SKILL.md").read_text() == "# tdd"
     assert (skills_dir / "refactor").is_symlink()
+    pi_skills_dir = home / ".pi" / "agent" / "skills"
+    assert (pi_skills_dir / "tdd" / "SKILL.md").read_text() == "# tdd"
+    assert (pi_skills_dir / "refactor").is_symlink()
+    assert (pi_skills_dir / "refactor").resolve() == (
+        repo / "skills" / "personal" / "refactor"
+    ).resolve()
+    assert (pi_skills_dir / "tdd" / ".mcp-sync-managed").is_file()
     written = json.loads(state.read_text())
     assert written["deployed"]["tdd"] == {
         "mode": "copy",
@@ -642,6 +657,176 @@ def test_run_skills_sync_garbage_collects_dropped_skill(tmp_path):
     assert not orphan.exists()
 
 
+def test_run_skills_sync_garbage_collects_dropped_skill_from_both_roots(tmp_path):
+    home = tmp_path / "home"
+    repo = tmp_path / "repo"
+    refactor = repo / "skills" / "personal" / "refactor"
+    refactor.mkdir(parents=True)
+    (refactor / "SKILL.md").write_text("# refactor")
+    for root in target_roots(home):
+        orphan = root / "old-skill"
+        orphan.mkdir(parents=True)
+        (orphan / "SKILL.md").write_text("# old")
+        (orphan / ".mcp-sync-managed").write_text("mcp-sync-managed-v1\n")
+    state = home / ".local" / "state" / "mcp-sync" / "skills-state.json"
+    _write_json(
+        state,
+        {
+            "deployed": {
+                "old-skill": {
+                    "mode": "copy",
+                    "source": "mattpocock",
+                    "marker": "mcp-sync-managed-v1",
+                }
+            },
+            "sources": {},
+        },
+    )
+    manifest = home / ".config" / "skills" / "skills-master.json"
+    _write_json(
+        manifest,
+        {
+            "sources": {"personal": {"type": "local", "path": "skills/personal"}},
+            "skills": {"refactor": {"source": "personal"}},
+        },
+    )
+    rc = run_skills_sync(home=home, repo_root=repo, now=1.0)
+    assert rc == 0
+    for root in target_roots(home):
+        assert not (root / "old-skill").exists()
+        assert (root / "refactor").is_symlink()
+
+
+def test_run_skills_sync_replaces_recorded_copy_when_mode_flips(tmp_path):
+    """A source-type flip re-deploys over the sync's own markered copy.
+
+    Moving a skill between a git source (copy mode) and a local source
+    (symlink mode) changes the recorded mode. The state record still proves
+    the sync owns the target, so the flip must succeed rather than fail
+    forever with 'Refusing to replace unmanaged skill'.
+    """
+    home = tmp_path / "home"
+    repo = tmp_path / "repo"
+    tdd = repo / "skills" / "personal" / "tdd"
+    tdd.mkdir(parents=True)
+    (tdd / "SKILL.md").write_text("# tdd")
+    for root in target_roots(home):
+        old = root / "tdd"
+        old.mkdir(parents=True)
+        (old / "SKILL.md").write_text("# old copy")
+        (old / ".mcp-sync-managed").write_text("mcp-sync-managed-v1\n")
+    state = home / ".local" / "state" / "mcp-sync" / "skills-state.json"
+    _write_json(
+        state,
+        {
+            "deployed": {
+                "tdd": {
+                    "mode": "copy",
+                    "source": "personal",
+                    "marker": "mcp-sync-managed-v1",
+                }
+            },
+            "sources": {},
+        },
+    )
+    manifest = home / ".config" / "skills" / "skills-master.json"
+    _write_json(
+        manifest,
+        {
+            "sources": {"personal": {"type": "local", "path": "skills/personal"}},
+            "skills": {"tdd": {"source": "personal"}},
+        },
+    )
+    assert run_skills_sync(home=home, repo_root=repo, now=1.0) == 0
+    for root in target_roots(home):
+        deployed = root / "tdd"
+        assert deployed.is_symlink()
+        assert deployed.resolve() == tdd.resolve()
+
+
+def test_run_skills_sync_relinks_recorded_symlink_to_moved_source(tmp_path):
+    """Editing a local skill's path relinks the sync's own live symlink.
+
+    The old source directory still exists, so the target is a live symlink
+    that no longer resolves to the new source. The state record's stored
+    link target proves the sync created it, so the relink must proceed.
+    """
+    home = tmp_path / "home"
+    repo = tmp_path / "repo"
+    v1 = repo / "skills" / "personal" / "ref"
+    v1.mkdir(parents=True)
+    (v1 / "SKILL.md").write_text("# ref v1")
+    v2 = repo / "skills" / "personal" / "ref-v2"
+    v2.mkdir()
+    (v2 / "SKILL.md").write_text("# ref v2")
+    manifest = home / ".config" / "skills" / "skills-master.json"
+    _write_json(
+        manifest,
+        {
+            "sources": {"personal": {"type": "local", "path": "skills/personal"}},
+            "skills": {"ref": {"source": "personal", "path": "skills/personal/ref"}},
+        },
+    )
+    assert run_skills_sync(home=home, repo_root=repo, now=1.0) == 0
+    _write_json(
+        manifest,
+        {
+            "sources": {"personal": {"type": "local", "path": "skills/personal"}},
+            "skills": {"ref": {"source": "personal", "path": "skills/personal/ref-v2"}},
+        },
+    )
+    assert run_skills_sync(home=home, repo_root=repo, now=2.0) == 0
+    for root in target_roots(home):
+        link = root / "ref"
+        assert link.is_symlink()
+        assert link.resolve() == v2.resolve()
+
+
+def test_run_skills_sync_still_refuses_foreign_symlink_with_state_record(tmp_path):
+    """A live symlink the sync did not deploy is still refused.
+
+    The state record points at one destination but the link on disk resolves
+    elsewhere, so the target is not provably the sync's prior deployment.
+    Ownership must not broaden into replacing arbitrary same-name links.
+    """
+    home = tmp_path / "home"
+    repo = tmp_path / "repo"
+    ref = repo / "skills" / "personal" / "ref"
+    ref.mkdir(parents=True)
+    (ref / "SKILL.md").write_text("# ref")
+    foreign = tmp_path / "elsewhere" / "ref"
+    foreign.mkdir(parents=True)
+    (foreign / "SKILL.md").write_text("# foreign")
+    for root in target_roots(home):
+        root.mkdir(parents=True)
+        (root / "ref").symlink_to(foreign)
+    state = home / ".local" / "state" / "mcp-sync" / "skills-state.json"
+    _write_json(
+        state,
+        {
+            "deployed": {
+                "ref": {
+                    "mode": "symlink",
+                    "source": "personal",
+                    "target": str(tmp_path / "long-gone"),
+                }
+            },
+            "sources": {},
+        },
+    )
+    manifest = home / ".config" / "skills" / "skills-master.json"
+    _write_json(
+        manifest,
+        {
+            "sources": {"personal": {"type": "local", "path": "skills/personal"}},
+            "skills": {"ref": {"source": "personal"}},
+        },
+    )
+    assert run_skills_sync(home=home, repo_root=repo, now=1.0) == 1
+    for root in target_roots(home):
+        assert (root / "ref").resolve() == foreign.resolve()
+
+
 def test_run_skills_sync_missing_manifest_returns_1(tmp_path):
     assert run_skills_sync(home=tmp_path / "empty", repo_root=tmp_path) == 1
 
@@ -672,6 +857,36 @@ def test_run_skills_sync_machine_overlay_disables_skill(tmp_path):
     assert rc == 0
     assert (home / ".claude" / "skills" / "refactor").exists()
     assert not (home / ".claude" / "skills" / "extra").exists()
+
+
+def test_run_skills_sync_missing_machine_config_file_fails(tmp_path):
+    """run_skills_sync refuses to deploy when an explicit overlay is missing.
+
+    Mirrors run_sync's fail-closed policy: deploying from the master alone
+    would re-enable overlay-disabled skills and lose the overlay's allowlist
+    extensions, so a missing overlay is a failed sync, not a degraded one.
+    """
+    home = tmp_path / "home"
+    repo = tmp_path / "repo"
+    refactor = repo / "skills" / "personal" / "refactor"
+    refactor.mkdir(parents=True)
+    (refactor / "SKILL.md").write_text("# refactor")
+    manifest = home / ".config" / "skills" / "skills-master.json"
+    _write_json(
+        manifest,
+        {
+            "sources": {"personal": {"type": "local", "path": "skills/personal"}},
+            "skills": {"refactor": {"source": "personal"}},
+        },
+    )
+    rc = run_skills_sync(
+        home=home,
+        repo_root=repo,
+        machine_config_path=home / ".config" / "skills" / "machine" / "gone.json",
+        now=1.0,
+    )
+    assert rc == 1
+    assert not (home / ".claude" / "skills" / "refactor").exists()
 
 
 def test_ensure_git_source_force_bypasses_freshness(tmp_path, monkeypatch):
@@ -1086,3 +1301,32 @@ def test_ensure_git_source_rejects_option_shaped_url(tmp_path):
             {"sources": {}},
             now=0.0,
         )
+
+
+def test_deploy_skill_replaces_dangling_symlink(tmp_path):
+    src = _make_skill(tmp_path / "src", "refactor")
+    target = tmp_path / "claude" / "skills" / "refactor"
+    target.parent.mkdir(parents=True)
+    target.symlink_to(tmp_path / "gone" / "refactor")
+    deploy_skill(src, target, "symlink")
+    assert target.resolve() == src.resolve()
+
+
+def test_deploy_skill_copy_replaces_dangling_symlink(tmp_path):
+    src = _make_skill(tmp_path / "src", "tdd")
+    target = tmp_path / "claude" / "skills" / "tdd"
+    target.parent.mkdir(parents=True)
+    target.symlink_to(tmp_path / "gone" / "tdd")
+    deploy_skill(src, target, "copy")
+    assert not target.is_symlink()
+    assert (target / "SKILL.md").read_text() == "# tdd"
+
+
+def test_deploy_skill_still_refuses_live_unmanaged_symlink(tmp_path):
+    src = _make_skill(tmp_path / "src", "refactor")
+    other = _make_skill(tmp_path / "other", "refactor")
+    target = tmp_path / "claude" / "skills" / "refactor"
+    target.parent.mkdir(parents=True)
+    target.symlink_to(other)
+    with pytest.raises(FileExistsError, match="unmanaged skill"):
+        deploy_skill(src, target, "symlink")

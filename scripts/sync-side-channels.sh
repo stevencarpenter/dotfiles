@@ -5,12 +5,24 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 git_bin="${GIT_BIN:-git}"
 uv_bin="${UV_BIN:-uv}"
+mise_bin="${MISE_BIN:-mise}"
 capability_bin="${HOST_CAPABILITY_BIN:-$repo_root/scripts/host-capability.sh}"
 token_auditor_version="$(
   printf '%s' "${TOKEN_AUDITOR_VERSION:-$(tr -d '\n' <"$repo_root/versions/token-auditor")}"
 )"
 if [ -z "$token_auditor_version" ] || [ "$token_auditor_version" = "latest" ]; then
   echo "error: token-auditor requires an immutable release tag" >&2
+  exit 1
+fi
+
+# Reconcile mise-managed tools, including the global npm CLIs declared in
+# ~/.config/mise/config.toml. This replaces ad hoc `npm install --global`
+# state with the repository's declarative versions and is safe to repeat.
+if command -v "$mise_bin" >/dev/null 2>&1; then
+  echo "==> Installing mise-managed tools"
+  "$mise_bin" install
+else
+  echo "error: mise not found; cannot install declared global tools" >&2
   exit 1
 fi
 

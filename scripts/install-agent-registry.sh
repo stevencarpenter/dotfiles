@@ -32,5 +32,9 @@ fi
 
 # A built-in-only tools allowlist silently strips configured MCP and skill
 # access. Treat that as a failed sync instead of leaving a degraded install.
+# Scope the check to the agents this install wrote, named by the manifest it
+# leaves beside them: ~/.claude/agents is shared with Claude Code plugins, whose
+# own agents are legitimately built-in only and are not this registry's sync.
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-"$uv_bin" run --script "$script_dir/check-agent-tools-allowlist.py" "$HOME/.claude/agents"
+"$uv_bin" run --script "$script_dir/check-agent-tools-allowlist.py" \
+  "$HOME/.claude/agents" "$HOME/.claude/agents/.installed-by-agent-registry.json"

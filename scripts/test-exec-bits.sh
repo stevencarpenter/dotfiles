@@ -49,6 +49,7 @@ exec_scripts=(
   scripts/test-obsidian-capture.sh
   scripts/test-worktrunk-commit-generator.sh
   scripts/test-ssh-controlpath-identity.sh
+  scripts/test-agent-tools-allowlist.sh
   scripts/test-atuin-filter-parity.sh
   scripts/test-atuin-filter-parity-mutations.sh
   scripts/test-eval-cache.sh

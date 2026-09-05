@@ -34,7 +34,7 @@ RUN mkdir -p /opt \
   && curl -fsSL "https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz.asc" -o /tmp/spark.tgz.asc \
   && gpg --import /tmp/KEYS \
   && gpg --verify /tmp/spark.tgz.asc /tmp/spark.tgz \
-  && sha512sum -c /tmp/spark.tgz.sha512 \
+  && sed "s#  spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz#  /tmp/spark.tgz#" /tmp/spark.tgz.sha512 | sha512sum -c - \
   && tar -xzf /tmp/spark.tgz -C /opt \
   && mv "/opt/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}" /opt/spark \
   && rm /tmp/spark.tgz /tmp/spark.tgz.sha512 /tmp/spark.tgz.asc /tmp/KEYS
