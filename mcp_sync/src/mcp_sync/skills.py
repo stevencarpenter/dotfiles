@@ -14,7 +14,13 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
-from .sync import deep_merge, log_error, log_info, log_success
+from .sync import (
+    deep_merge,
+    load_machine_config,
+    log_error,
+    log_info,
+    log_success,
+)
 
 type JsonDict = dict[str, Any]
 
@@ -709,7 +715,10 @@ def run_skills_sync(
 
     Args:
         manifest_path: Override for the master manifest path.
-        machine_config_path: Optional machine overlay JSON path.
+        machine_config_path: Optional machine overlay JSON path. An explicit
+            path that is missing or invalid is fatal, matching run_sync:
+            deploying from the master alone would ignore the overlay's skill
+            disables and allowlist extensions.
         home: Override for the home directory (testing).
         repo_root: Override for the dotfiles repo root (testing).
         now: Override for the current time as epoch seconds (testing).
@@ -736,16 +745,12 @@ def run_skills_sync(
         log_error(f"Manifest error: {exc}")
         return 1
 
-    if machine_config_path and machine_config_path.is_file():
-        try:
-            with open(machine_config_path, encoding="utf-8") as handle:
-                overlay = json.load(handle)
-        except (json.JSONDecodeError, OSError) as exc:
-            log_error(f"Machine overlay error: {exc}")
-            return 1
-        if not isinstance(overlay, dict):
-            log_error(f"Machine overlay root must be an object: {machine_config_path}")
-            return 1
+    try:
+        overlay = load_machine_config(machine_config_path)
+    except (OSError, ValueError) as exc:
+        log_error(f"Machine overlay error: {exc}")
+        return 1
+    if overlay:
         log_info(f"Applying machine overlay: {machine_config_path}")
         manifest = deep_merge(manifest, overlay)
 

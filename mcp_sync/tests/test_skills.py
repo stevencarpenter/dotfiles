@@ -859,6 +859,36 @@ def test_run_skills_sync_machine_overlay_disables_skill(tmp_path):
     assert not (home / ".claude" / "skills" / "extra").exists()
 
 
+def test_run_skills_sync_missing_machine_config_file_fails(tmp_path):
+    """run_skills_sync refuses to deploy when an explicit overlay is missing.
+
+    Mirrors run_sync's fail-closed policy: deploying from the master alone
+    would re-enable overlay-disabled skills and lose the overlay's allowlist
+    extensions, so a missing overlay is a failed sync, not a degraded one.
+    """
+    home = tmp_path / "home"
+    repo = tmp_path / "repo"
+    refactor = repo / "skills" / "personal" / "refactor"
+    refactor.mkdir(parents=True)
+    (refactor / "SKILL.md").write_text("# refactor")
+    manifest = home / ".config" / "skills" / "skills-master.json"
+    _write_json(
+        manifest,
+        {
+            "sources": {"personal": {"type": "local", "path": "skills/personal"}},
+            "skills": {"refactor": {"source": "personal"}},
+        },
+    )
+    rc = run_skills_sync(
+        home=home,
+        repo_root=repo,
+        machine_config_path=home / ".config" / "skills" / "machine" / "gone.json",
+        now=1.0,
+    )
+    assert rc == 1
+    assert not (home / ".claude" / "skills" / "refactor").exists()
+
+
 def test_ensure_git_source_force_bypasses_freshness(tmp_path, monkeypatch):
     calls = []
     monkeypatch.setattr(skills_mod, "_git", lambda *a, **k: calls.append(a))
