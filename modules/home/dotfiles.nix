@@ -223,10 +223,15 @@ in
         ".cursor/cli-config.json"
 
         # Pi (pi.dev): static tool configs, same single-file rationale as
-        # copilot/cursor above (pi keeps sessions/packages/trust beside them,
-        # never inside these files). AGENTS.md is NOT linked here — it is
-        # assembled by piAgentsAssemble below from the shared Codex body plus
-        # ~/.pi/agent/AGENTS.d/*.md. ~/.pi/agent/skills/ is fanned out by
+        # copilot/cursor above (pi keeps sessions and trust beside them, never
+        # inside these files). settings.json is a SHARED write surface, not a
+        # read-only one: `pi install` appends to its `packages` array and the
+        # out-of-store symlink carries that write into this repo's working
+        # tree, so an extension install lands as a tracked diff. That is
+        # intended (packages are declarative config worth committing), but it
+        # means a `pi install` dirties the repo. AGENTS.md is NOT linked
+        # here, it is assembled by piAgentsAssemble below from the Codex body
+        # plus ~/.pi/agent/AGENTS.d/*.md. ~/.pi/agent/skills/ is fanned out by
         # sync-skills (caps.skills), not linked.
         ".pi/agent/settings.json"
         ".pi/agent/models.json"

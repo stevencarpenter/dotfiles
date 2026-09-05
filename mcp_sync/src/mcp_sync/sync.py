@@ -1020,6 +1020,23 @@ def _build_targets(home: Path) -> list[SyncTarget]:
             template_key="lmstudio",
             override_key="lmstudio",
         ),
+        SyncTarget(
+            # Tool-agnostic user-global MCP config. pi-mcp-adapter reads this
+            # path as its precedence-1 source (ahead of ~/.pi/agent/mcp.json,
+            # which the adapter reserves for its own overrides), so pi needs no
+            # pi-specific file. Named for the location, not for pi: any other
+            # host that adopts the same convention picks it up unchanged.
+            #
+            # This is the one target whose destination sits in the directory
+            # that also holds sync *inputs* (mcp-master.json, overrides/*.json).
+            # The filename must stay distinct from every input the loader reads
+            # -- see test_pi_target_does_not_collide_with_master_config.
+            name="xdg-mcp",
+            destination=home / ".config" / "mcp" / "mcp.json",
+            transform=transform_to_mcpservers_format,
+            template_key="xdg-mcp",
+            override_key="xdg-mcp",
+        ),
     ]
 
 

@@ -33,3 +33,29 @@ def test_sync_destinations_kinds(tmp_path: Path) -> None:
     assert kinds["copilot-cli"] == "wholesale"
     assert kinds["codex"] == "patch"
     assert kinds["claude"] == "patch"
+
+
+def test_pi_target_writes_shared_xdg_mcp_json(tmp_path: Path) -> None:
+    """pi-mcp-adapter reads ~/.config/mcp/mcp.json as its precedence-1 source.
+
+    The adapter documents that path as the tool-agnostic user-global config,
+    so the target is named for the shared location rather than for pi: any
+    other MCP host that reads the same path picks it up for free.
+    """
+    dests = {dest.name: dest for dest in sync_destinations(tmp_path)}
+    assert "xdg-mcp" in dests
+    assert dests["xdg-mcp"].path == tmp_path / ".config" / "mcp" / "mcp.json"
+    assert dests["xdg-mcp"].kind == "wholesale"
+
+
+def test_pi_target_does_not_collide_with_master_config(tmp_path: Path) -> None:
+    """The generated file must never be the master or an override input.
+
+    ``~/.config/mcp/`` holds mcp-master.json and overrides/*.json, which are
+    sync *inputs*. Emitting mcp.json into the same directory is safe only
+    while the filename stays distinct from every input the loader reads.
+    """
+    dest = next(d for d in sync_destinations(tmp_path) if d.name == "xdg-mcp")
+    assert dest.path.name != "mcp-master.json"
+    assert dest.path.parent.name == "mcp"
+    assert "overrides" not in dest.path.parts

@@ -1,4 +1,7 @@
 {
   "defaultProjectTrust": "ask",
-  "defaultProvider": "openai"
+  "defaultProvider": "openai",
+  "packages": [
+    "npm:pi-mcp-adapter"
+  ]
 }
