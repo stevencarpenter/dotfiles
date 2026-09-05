@@ -3,5 +3,7 @@
   "defaultProvider": "openai",
   "packages": [
     "npm:pi-mcp-adapter"
-  ]
+  ],
+  "lastChangelogVersion": "0.84.4",
+  "theme": "dark"
 }
