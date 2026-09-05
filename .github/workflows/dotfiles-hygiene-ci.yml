@@ -109,6 +109,9 @@ jobs:
           bash -n bootstrap.sh
           bash -n rebuild.sh
 
+      - name: Validate agent tools allowlist gate
+        run: scripts/test-agent-tools-allowlist.sh
+
       - name: Validate exec bits on directly-exec'd scripts
         run: scripts/test-exec-bits.sh
 
