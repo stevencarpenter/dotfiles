@@ -697,6 +697,136 @@ def test_run_skills_sync_garbage_collects_dropped_skill_from_both_roots(tmp_path
         assert (root / "refactor").is_symlink()
 
 
+def test_run_skills_sync_replaces_recorded_copy_when_mode_flips(tmp_path):
+    """A source-type flip re-deploys over the sync's own markered copy.
+
+    Moving a skill between a git source (copy mode) and a local source
+    (symlink mode) changes the recorded mode. The state record still proves
+    the sync owns the target, so the flip must succeed rather than fail
+    forever with 'Refusing to replace unmanaged skill'.
+    """
+    home = tmp_path / "home"
+    repo = tmp_path / "repo"
+    tdd = repo / "skills" / "personal" / "tdd"
+    tdd.mkdir(parents=True)
+    (tdd / "SKILL.md").write_text("# tdd")
+    for root in target_roots(home):
+        old = root / "tdd"
+        old.mkdir(parents=True)
+        (old / "SKILL.md").write_text("# old copy")
+        (old / ".mcp-sync-managed").write_text("mcp-sync-managed-v1\n")
+    state = home / ".local" / "state" / "mcp-sync" / "skills-state.json"
+    _write_json(
+        state,
+        {
+            "deployed": {
+                "tdd": {
+                    "mode": "copy",
+                    "source": "personal",
+                    "marker": "mcp-sync-managed-v1",
+                }
+            },
+            "sources": {},
+        },
+    )
+    manifest = home / ".config" / "skills" / "skills-master.json"
+    _write_json(
+        manifest,
+        {
+            "sources": {"personal": {"type": "local", "path": "skills/personal"}},
+            "skills": {"tdd": {"source": "personal"}},
+        },
+    )
+    assert run_skills_sync(home=home, repo_root=repo, now=1.0) == 0
+    for root in target_roots(home):
+        deployed = root / "tdd"
+        assert deployed.is_symlink()
+        assert deployed.resolve() == tdd.resolve()
+
+
+def test_run_skills_sync_relinks_recorded_symlink_to_moved_source(tmp_path):
+    """Editing a local skill's path relinks the sync's own live symlink.
+
+    The old source directory still exists, so the target is a live symlink
+    that no longer resolves to the new source. The state record's stored
+    link target proves the sync created it, so the relink must proceed.
+    """
+    home = tmp_path / "home"
+    repo = tmp_path / "repo"
+    v1 = repo / "skills" / "personal" / "ref"
+    v1.mkdir(parents=True)
+    (v1 / "SKILL.md").write_text("# ref v1")
+    v2 = repo / "skills" / "personal" / "ref-v2"
+    v2.mkdir()
+    (v2 / "SKILL.md").write_text("# ref v2")
+    manifest = home / ".config" / "skills" / "skills-master.json"
+    _write_json(
+        manifest,
+        {
+            "sources": {"personal": {"type": "local", "path": "skills/personal"}},
+            "skills": {"ref": {"source": "personal", "path": "skills/personal/ref"}},
+        },
+    )
+    assert run_skills_sync(home=home, repo_root=repo, now=1.0) == 0
+    _write_json(
+        manifest,
+        {
+            "sources": {"personal": {"type": "local", "path": "skills/personal"}},
+            "skills": {"ref": {"source": "personal", "path": "skills/personal/ref-v2"}},
+        },
+    )
+    assert run_skills_sync(home=home, repo_root=repo, now=2.0) == 0
+    for root in target_roots(home):
+        link = root / "ref"
+        assert link.is_symlink()
+        assert link.resolve() == v2.resolve()
+
+
+def test_run_skills_sync_still_refuses_foreign_symlink_with_state_record(tmp_path):
+    """A live symlink the sync did not deploy is still refused.
+
+    The state record points at one destination but the link on disk resolves
+    elsewhere, so the target is not provably the sync's prior deployment.
+    Ownership must not broaden into replacing arbitrary same-name links.
+    """
+    home = tmp_path / "home"
+    repo = tmp_path / "repo"
+    ref = repo / "skills" / "personal" / "ref"
+    ref.mkdir(parents=True)
+    (ref / "SKILL.md").write_text("# ref")
+    foreign = tmp_path / "elsewhere" / "ref"
+    foreign.mkdir(parents=True)
+    (foreign / "SKILL.md").write_text("# foreign")
+    for root in target_roots(home):
+        root.mkdir(parents=True)
+        (root / "ref").symlink_to(foreign)
+    state = home / ".local" / "state" / "mcp-sync" / "skills-state.json"
+    _write_json(
+        state,
+        {
+            "deployed": {
+                "ref": {
+                    "mode": "symlink",
+                    "source": "personal",
+                    "target": str(tmp_path / "long-gone"),
+                }
+            },
+            "sources": {},
+        },
+    )
+    manifest = home / ".config" / "skills" / "skills-master.json"
+    _write_json(
+        manifest,
+        {
+            "sources": {"personal": {"type": "local", "path": "skills/personal"}},
+            "skills": {"ref": {"source": "personal"}},
+        },
+    )
+    assert run_skills_sync(home=home, repo_root=repo, now=1.0) == 1
+    for root in target_roots(home):
+        assert (root / "ref").resolve() == foreign.resolve()
+
+
 def test_run_skills_sync_missing_manifest_returns_1(tmp_path):
     assert run_skills_sync(home=tmp_path / "empty", repo_root=tmp_path) == 1
 

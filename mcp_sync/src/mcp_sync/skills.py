@@ -583,6 +583,40 @@ def deploy_skill(
         raise ValueError(f"Unknown deploy mode: {mode!r}")
 
 
+def _owns_target(target: Path, record: object) -> bool:
+    """Whether ``target`` is still the deployment a prior sync recorded.
+
+    Mirrors the ownership test in :func:`garbage_collect` so the deploy loop
+    and GC agree on what the sync owns: a symlink whose link text matches the
+    recorded target, or a directory whose ``.mcp-sync-managed`` marker
+    matches the recorded value. The record's ``mode`` is deliberately not
+    compared, so a source-type flip (which flips the deploy mode) re-deploys
+    over the sync's own prior deployment instead of failing forever.
+
+    Args:
+        target: Candidate deployment target in one managed root.
+        record: The prior run's state entry for this skill name, if any.
+
+    Returns:
+        True when the target is provably the sync's own prior deployment.
+        Foreign content (a directory without the recorded marker, a symlink
+        pointing at an unrecorded destination) is never owned, so
+        :func:`deploy_skill` refuses to replace it.
+    """
+    if not isinstance(record, dict):
+        return False
+    if target.is_symlink():
+        expected = record.get("target")
+        return bool(expected) and os.readlink(target) == expected
+    marker = target / _MANAGED_MARKER
+    expected = record.get("marker")
+    return (
+        bool(expected)
+        and marker.is_file()
+        and marker.read_text(encoding="utf-8").strip() == expected
+    )
+
+
 def garbage_collect(
     previous: JsonDict,
     current_names: set[str],
@@ -814,14 +848,7 @@ def run_skills_sync(
                 src = repo / skill.subpath
             for target_root in roots:
                 target = _safe_target(target_root, skill.name)
-                prior_record = prior.get(skill.name)
-                owned = False
-                if isinstance(prior_record, dict) and prior_record.get("mode") == skill.mode:
-                    if skill.mode == "copy":
-                        marker = target / _MANAGED_MARKER
-                        owned = marker.is_file() and marker.read_text(encoding="utf-8").strip() == _MANAGED_MARKER_VALUE
-                    else:
-                        owned = target.is_symlink() and target.resolve() == src.resolve()
+                owned = _owns_target(target, prior.get(skill.name))
                 deploy_skill(src, target, skill.mode, allow_replace=owned)
         except (OSError, ValueError) as exc:
             log_error(f"Failed to deploy skill {skill.name!r}: {exc}")
