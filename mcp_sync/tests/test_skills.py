@@ -1141,3 +1141,32 @@ def test_ensure_git_source_rejects_option_shaped_url(tmp_path):
             {"sources": {}},
             now=0.0,
         )
+
+
+def test_deploy_skill_replaces_dangling_symlink(tmp_path):
+    src = _make_skill(tmp_path / "src", "refactor")
+    target = tmp_path / "claude" / "skills" / "refactor"
+    target.parent.mkdir(parents=True)
+    target.symlink_to(tmp_path / "gone" / "refactor")
+    deploy_skill(src, target, "symlink")
+    assert target.resolve() == src.resolve()
+
+
+def test_deploy_skill_copy_replaces_dangling_symlink(tmp_path):
+    src = _make_skill(tmp_path / "src", "tdd")
+    target = tmp_path / "claude" / "skills" / "tdd"
+    target.parent.mkdir(parents=True)
+    target.symlink_to(tmp_path / "gone" / "tdd")
+    deploy_skill(src, target, "copy")
+    assert not target.is_symlink()
+    assert (target / "SKILL.md").read_text() == "# tdd"
+
+
+def test_deploy_skill_still_refuses_live_unmanaged_symlink(tmp_path):
+    src = _make_skill(tmp_path / "src", "refactor")
+    other = _make_skill(tmp_path / "other", "refactor")
+    target = tmp_path / "claude" / "skills" / "refactor"
+    target.parent.mkdir(parents=True)
+    target.symlink_to(other)
+    with pytest.raises(FileExistsError, match="unmanaged skill"):
+        deploy_skill(src, target, "symlink")

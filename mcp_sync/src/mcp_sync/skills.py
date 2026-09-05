@@ -560,7 +560,13 @@ def deploy_skill(
         raise FileNotFoundError(f"Skill source not found: {src}")
     target.parent.mkdir(parents=True, exist_ok=True)
     if target.exists() or target.is_symlink():
-        if not allow_replace:
+        # A dangling symlink holds no user content to protect, so the
+        # unmanaged-target guard does not apply to it. Left in place it is a
+        # permanent deploy failure: the skill is unloadable and every later run
+        # re-raises. External installers (hippo's `mise run install:skill`) do
+        # create these by relinking to a path their repo has since dropped.
+        dangling = target.is_symlink() and not target.exists()
+        if not allow_replace and not dangling:
             raise FileExistsError(f"Refusing to replace unmanaged skill: {target}")
     if mode == "symlink":
         if target.is_symlink() and target.resolve() == src.resolve():
