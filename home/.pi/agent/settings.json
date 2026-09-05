@@ -1,6 +1,6 @@
 {
   "defaultProjectTrust": "ask",
-  "defaultProvider": "openai",
+  "defaultProvider": "omlx",
   "packages": [
     "npm:pi-mcp-adapter@2.32.1",
     "npm:pi-web-access@0.28.0",
@@ -23,5 +23,5 @@
   "modelThinkingLevels": {
     "openai/gpt-5.6-luna": "xhigh"
   },
-  "defaultModel": "gpt-5.6-luna"
+  "defaultModel": "Qwen3.6-35B-A3B-Uncensored-Heretic-MLX-8bit"
 }
