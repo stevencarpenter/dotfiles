@@ -85,8 +85,10 @@ bootstrap *HOST:
 # while sync-side-channels.sh re-derives the host via host-capability.sh, which
 # reads $DOTFILES_HOST. Forwarding only the first would switch to one host's
 # generation and then run the OTHER host's identity gates — e.g. rendering
-# personal 1Password secrets on top of a work deployment. An empty HOST yields
-# DOTFILES_HOST="", which host-capability.sh already treats as unset.
+# personal 1Password secrets on top of a work deployment. Precedence: an
+# explicit argument wins; $DOTFILES_HOST only fills an empty argument, so an
+# inherited env var can never desync the two halves. With both empty,
+# DOTFILES_HOST="" — which host-capability.sh already treats as unset.
 # Rendering deliberately does NOT run inside activation: 1Password authorizes
 # the CLI by process ancestry and will not serve a `sudo darwin-rebuild` hook.
 # Running it here means it inherits this terminal's approval.
@@ -94,7 +96,7 @@ bootstrap *HOST:
 # Full deploy: switch the generation, then run every network/SSH side channel.
 sync *HOST:
     ./rebuild.sh {{ HOST }}
-    DOTFILES_HOST="${DOTFILES_HOST:-{{ HOST }}}" TOKEN_AUDITOR_VERSION="{{ TOKEN_AUDITOR_VERSION }}" scripts/sync-side-channels.sh
+    DOTFILES_HOST="{{ if HOST == "" { env_var_or_default("DOTFILES_HOST", "") } else { HOST } }}" TOKEN_AUDITOR_VERSION="{{ TOKEN_AUDITOR_VERSION }}" scripts/sync-side-channels.sh
 
 # Side channels only, skipping the rebuild (use when the generation is current).
 sync-side-channels:
