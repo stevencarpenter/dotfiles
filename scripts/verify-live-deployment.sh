@@ -57,13 +57,21 @@ for path in \
   esac
 done
 
+ponytail_paths=()
+for s in ponytail ponytail-review ponytail-audit ponytail-debt ponytail-gain ponytail-help; do
+  for d in .junie .copilot .cursor; do
+    ponytail_paths+=("$home_dir/$d/skills/$s")
+  done
+done
+
 for path in \
   "$home_dir/.config/opencode/skills/use-railway" \
   "$home_dir/.codex/skills/playwright" \
   "$home_dir/.codex/skills/use-railway" \
   "$home_dir/.cursor/skills/use-railway" \
   "$home_dir/.copilot/skills/use-railway" \
-  "$home_dir/.junie/skills/gh-axi"; do
+  "$home_dir/.junie/skills/gh-axi" \
+  "${ponytail_paths[@]}"; do
   resolved="$(realpath "$path" 2>/dev/null || true)"
   case "$resolved" in
     "$repo_root"/skills/personal/*) pass "$path resolves into canonical personal skills" ;;

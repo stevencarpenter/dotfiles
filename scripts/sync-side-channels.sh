@@ -166,3 +166,24 @@ else
   echo "error: uv not found; cannot install agent-reap" >&2
   exit 1
 fi
+
+# ponytail (Codex plugin) — the Codex harness takes ponytail through its own
+# plugin machinery (marketplace + plugin), which lives in Codex-owned state
+# (~/.codex/config.toml stanzas plus the plugin cache) that neither nix nor
+# mcp_sync owns, so this ensure is the reproducible home for it. Idempotent:
+# both adds skip when already present. Warns rather than aborts (same policy
+# as lefthook above). The lifecycle hooks need node on PATH; without it the
+# plugin stays quiet and only its skills apply.
+# NOTE: after install, open /hooks in a Codex session once and trust the two
+# ponytail hooks to activate every-turn ruleset injection.
+if command -v codex >/dev/null 2>&1; then
+  echo "==> Ensuring ponytail Codex plugin"
+  codex plugin marketplace list 2>/dev/null | grep -q "ponytail" ||
+    codex plugin marketplace add DietrichGebert/ponytail ||
+    echo "warning: ponytail marketplace add failed" >&2
+  codex plugin list 2>/dev/null | grep -q "^ponytail@ponytail" ||
+    codex plugin add ponytail@ponytail ||
+    echo "warning: ponytail plugin add failed" >&2
+else
+  echo "warning: codex not found; ponytail Codex plugin not ensured" >&2
+fi
