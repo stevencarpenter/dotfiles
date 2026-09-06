@@ -63,6 +63,7 @@ exec_scripts=(
   scripts/test-update-unstable-soak.sh
   scripts/test-unstable-reminder.sh
   scripts/unstable-reminder.sh
+  scripts/vim-golf
 )
 
 failures=0

@@ -3,4 +3,5 @@
 # VIMGOLF_ROOT / VIMGOLF_CHALLENGES_DIR / VIMGOLF_STATE_DIR all pass through.
 set -euo pipefail
 GOLF_ROOT="${VIMGOLF_ROOT:-$HOME/projects/vim-golf}"
+[[ -x "$GOLF_ROOT/vim-golf" ]] || { echo "scripts/vim-golf: no executable vim-golf under $GOLF_ROOT (clone ~/projects/vim-golf or set VIMGOLF_ROOT)" >&2; exit 1; }
 exec "$GOLF_ROOT/vim-golf" "$@"

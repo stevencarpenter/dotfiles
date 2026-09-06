@@ -24,8 +24,6 @@ pre-commit:
   parallel: true
   jobs:
     - name: check-yaml
-      # Vim-golf fixtures are deliberately malformed mid-edit states
-      # (wrapped strings, duplicate keys); format validity is not their contract.
       glob: "*.{yaml,yml}"
       run: uvx --from pre-commit-hooks==6.0.0 check-yaml {staged_files}
 

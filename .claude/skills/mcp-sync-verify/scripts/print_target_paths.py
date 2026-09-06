@@ -28,25 +28,30 @@ _KINDS = frozenset({"wholesale", "patch"})
 _USAGE = "usage: print_target_paths.py [--kind wholesale|patch] [--pretty]"
 
 
-def _print_pretty() -> int:
+def _print_pretty(kind_filter: str | None = None) -> int:
     """Print each destination grouped by wholesale vs in-place patch."""
     home = Path.home()
-    dests = sync_destinations(home)
+    dests = [
+        d
+        for d in sync_destinations(home)
+        if kind_filter is None or d.kind == kind_filter
+    ]
     print("# mcp_sync deployment targets")
     print()
-    print("## Generated wholesale:")
-    for dest in dests:
-        if dest.kind == "wholesale":
-            print(f"  - {dest.name:<28} {dest.path}")
-    print()
-    print("## Patched in place:")
-    for dest in dests:
-        if dest.kind != "patch":
-            continue
-        note = ""
-        if dest.name == "claude":
-            note = " (only mcpServers key is touched)"
-        print(f"  - {dest.name:<28} {dest.path}{note}")
+    if kind_filter is None or kind_filter == "wholesale":
+        print("## Generated wholesale:")
+        for dest in dests:
+            if dest.kind == "wholesale":
+                print(f"  - {dest.name:<28} {dest.path}")
+        print()
+    if kind_filter is None or kind_filter == "patch":
+        print("## Patched in place:")
+        for dest in dests:
+            if dest.kind == "patch":
+                note = (
+                    " (only mcpServers key is touched)" if dest.name == "claude" else ""
+                )
+                print(f"  - {dest.name:<28} {dest.path}{note}")
     return 0
 
 
@@ -78,7 +83,7 @@ def main(argv: list[str] | None = None) -> int:
             return 2
 
     if pretty:
-        return _print_pretty()
+        return _print_pretty(kind_filter)
 
     home = Path.home()
     for dest in sync_destinations(home):
