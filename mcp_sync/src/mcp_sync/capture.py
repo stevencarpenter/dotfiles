@@ -178,10 +178,10 @@ def _expected_and_deployed(
                     f"{target.destination} does not exist; run a sync first."
                 )
             return (
-                target.build(master, home=home),
+                target.build(master, home=home, live=False),
                 _load_json_object(target.destination),
                 target.override_key or target.name,
-                lambda t=target: t.build(master, home=home),
+                lambda t=target: t.build(master, home=home, live=False),
             )
     known = ", ".join(t.name for t in _build_targets(home))
     patch_names = ", ".join(spec.name for spec in patch_specs(home))

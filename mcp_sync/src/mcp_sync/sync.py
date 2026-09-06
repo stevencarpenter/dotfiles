@@ -13,6 +13,7 @@ from string import Template as StringTemplate
 from typing import Any
 
 from mcp_sync.codex_tui import apply_tui_settings, toml_string
+from mcp_sync.omlx import refresh_provider_models
 
 type JsonDict = dict[str, Any]
 type Transform = Callable[[JsonDict], JsonDict]
@@ -34,7 +35,9 @@ class SyncTarget:
     template_key: str | None = None
     override_key: str | None = None
 
-    def build(self, master: JsonDict, home: Path | None = None) -> JsonDict:
+    def build(
+        self, master: JsonDict, home: Path | None = None, live: bool = True
+    ) -> JsonDict:
         template_key = self.template_key or self.name
         override_key = self.override_key or self.name
 
@@ -46,6 +49,13 @@ class SyncTarget:
         generated = self.transform(merged_master)
 
         config = deep_merge(base, generated)
+        # ponytail: drift/capture pass live=False so transient model lists
+        # never read as drift or get persisted into overrides.
+        if live:
+            try:
+                config = refresh_provider_models(config)
+            except Exception as exc:
+                log_info(f"omlx discovery failed ({exc}); keeping template fallback")
         cleaned_overrides = _override_without_servers(overrides)
         if cleaned_overrides:
             config = deep_merge(config, cleaned_overrides)

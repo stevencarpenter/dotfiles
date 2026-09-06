@@ -137,7 +137,7 @@ def drift_report(master: JsonDict, home: Path) -> list[DriftEntry]:
     for target in _build_targets(home):
         expected = (
             json.dumps(
-                target.build(master, home=home),
+                target.build(master, home=home, live=False),
                 indent=2,
                 sort_keys=True,
                 ensure_ascii=False,

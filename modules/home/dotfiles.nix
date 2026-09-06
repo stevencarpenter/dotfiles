@@ -240,6 +240,8 @@ in
         ".pi/agent/prompts/blind-review.md"
         ".pi/agent/AGENTS.d/10-pi-runtime.md"
         ".pi/agent/extensions/omlx-discovery.ts"
+        ".pi/agent/extensions/package.json"
+        ".pi/agent/extensions/package-lock.json"
       ]))
       (lib.optionalAttrs caps.mcp {
         ".config/mcp/overrides/.keep".text = "";

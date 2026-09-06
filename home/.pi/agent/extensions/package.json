@@ -1,0 +1,12 @@
+{
+  "name": "pi-local-extensions",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Type-resolution for ~/.pi/agent/extensions (docs: npm deps resolve from a package.json next to the extension). The pi-coding-agent import is type-only and erased at runtime.",
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "^0.85.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25"
+  }
+}

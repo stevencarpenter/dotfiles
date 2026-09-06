@@ -14,7 +14,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 const BASE_URL = process.env.OMLX_BASE_URL ?? "http://localhost:42069/v1";
 const API_KEY = process.env.OMLX_API_KEY ?? "omlx";
 // Not chat-completable: embedding/rerank/document models.
-const NON_CHAT = /embed|rerank|markitdown|whisper|tts/i;
+const NON_CHAT = /\b(embed(ding)?|rerank(er)?|markitdown|whisper|tts)\b/i;
 
 type DiscoveredModel = {
 	id: string;
@@ -35,8 +35,9 @@ async function fetchOmlxModels(): Promise<DiscoveredModel[]> {
 	const body = (await res.json()) as {
 		data?: { id?: string; max_model_len?: number | null }[];
 	};
-	return (body.data ?? [])
-		.filter((m) => m.id && !NON_CHAT.test(m.id))
+	if (!Array.isArray(body?.data)) throw new Error("omlx /v1/models: bad body");
+	return body.data
+		.filter((m) => typeof m?.id === "string" && m.id && !NON_CHAT.test(m.id))
 		.map((m) => ({
 			id: m.id as string,
 			name: m.id as string,
