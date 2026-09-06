@@ -181,9 +181,11 @@ if command -v codex >/dev/null 2>&1; then
   codex plugin marketplace list 2>/dev/null | grep -q "ponytail" ||
     codex plugin marketplace add DietrichGebert/ponytail ||
     echo "warning: ponytail marketplace add failed" >&2
-  codex plugin list 2>/dev/null | grep -q "^ponytail@ponytail" ||
+  plugin_list="$(codex plugin list 2>/dev/null)" || plugin_list=""
+  if ! printf '%s\n' "$plugin_list" | awk '$1 == "ponytail@ponytail" && $2 == "installed," { found = 1 } END { exit !found }'; then
     codex plugin add ponytail@ponytail ||
-    echo "warning: ponytail plugin add failed" >&2
+      echo "warning: ponytail plugin add failed" >&2
+  fi
 else
   echo "warning: codex not found; ponytail Codex plugin not ensured" >&2
 fi
