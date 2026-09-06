@@ -1,0 +1,43 @@
+{
+  "providers": {
+    "lmstudio": {
+      "baseUrl": "http://localhost:1234/v1",
+      "api": "openai-completions",
+      "apiKey": "lmstudio",
+      "models": [
+        {
+          "id": "qwen/qwen3-coder-next"
+        },
+        {
+          "id": "nvidia/nemotron-3-super"
+        }
+      ]
+    },
+    "omlx": {
+      "baseUrl": "http://localhost:42069/v1",
+      "api": "openai-completions",
+      "apiKey": "omlx",
+      "models": [
+        {
+          "id": "Qwen3.8-Flash-Next-MLX-4bit",
+          "name": "Qwen3.8 Flash Next (oMLX)"
+        },
+        {
+          "id": "Qwen3.6-35B-A3B-Uncensored-Heretic-MLX-8bit",
+          "name": "Qwen3.6 35B Heretic (oMLX)"
+        },
+        {
+          "id": "Ornith-1.5-35B-A3B-MLX-8bit",
+          "name": "Ornith 1.5 35B (oMLX)"
+        },
+        {
+          "id": "GLM-5.3-Flash-MLX-oQ2-MTP",
+          "name": "GLM 5.3 Flash (oMLX)"
+        }
+      ]
+    },
+    "openrouter": {
+      "apiKey": "$OPENROUTER_TOKEN"
+    }
+  }
+}

@@ -13,7 +13,7 @@ def build_parser() -> argparse.ArgumentParser:
     """Build the ``sync-skills`` argument parser."""
     parser = argparse.ArgumentParser(
         prog="sync-skills",
-        description="Sync Claude Code skills to ~/.claude/skills/.",
+        description="Sync skills to ~/.claude/skills/ and ~/.pi/agent/skills/.",
     )
     parser.add_argument(
         "--manifest",

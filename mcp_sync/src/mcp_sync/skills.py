@@ -1,4 +1,4 @@
-"""Claude Code skill synchronization: vendored + personal, machine-gated."""
+"""Skill synchronization for Claude Code and pi: vendored + personal, machine-gated."""
 
 from __future__ import annotations
 
@@ -14,7 +14,13 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
-from .sync import deep_merge, log_error, log_info, log_success
+from .sync import (
+    deep_merge,
+    load_machine_config,
+    log_error,
+    log_info,
+    log_success,
+)
 
 type JsonDict = dict[str, Any]
 
@@ -25,8 +31,8 @@ DEFAULT_REFRESH = "168h"
 DEFAULT_REF = "main"
 
 # Git skill sources are LIVE tracking clones (ensure_git_source fetches +
-# reset --hard, then the skill dir is copied into ~/.claude/skills where an
-# agent loads it). The remote owner therefore controls executed code, so every
+# reset --hard, then the skill dir is copied into each managed skills root —
+# ~/.claude/skills and ~/.pi/agent/skills — where an agent loads it). The remote owner therefore controls executed code, so every
 # git source must resolve to a repository the operator owns.
 #
 # The allowlist is "<host>/<owner>", compared on the PARSED hostname and first
@@ -202,7 +208,8 @@ class ResolvedSkill:
     """A skill resolved from the manifest, ready to deploy.
 
     Attributes:
-        name: Deployed directory name under ``~/.claude/skills/`` (manifest key).
+        name: Deployed directory name under each managed skills root
+            (manifest key).
         source_name: Name of the source this skill comes from.
         source_type: ``"git"`` or ``"local"``.
         subpath: For git sources, the skill directory within the cloned repo.
@@ -250,7 +257,7 @@ def _safe_target(root: Path, name: str) -> Path:
     """Resolve a skill target under ``root``, refusing names that escape it.
 
     Args:
-        root: The managed ``~/.claude/skills/`` directory.
+        root: One managed skills directory (see :func:`target_roots`).
         name: The skill directory name.
 
     Returns:
@@ -485,7 +492,7 @@ def _assert_tree_has_no_symlinks(root: Path) -> None:
 
     Copy-mode deployment uses ``shutil.copytree`` with default settings, which
     follows symlinks — vendored third-party content could otherwise smuggle a
-    link pointing anywhere on disk into ``~/.claude/skills/``.
+    link pointing anywhere on disk into a managed skills root.
 
     The scan itself never follows symlinked directories (``recurse_symlinks``
     is left ``False``), so a symlink loop is reported rather than traversed.
@@ -496,6 +503,8 @@ def _assert_tree_has_no_symlinks(root: Path) -> None:
     Raises:
         ValueError: If any entry under ``root`` is a symlink.
     """
+    if root.is_symlink():
+        raise ValueError(f"Refusing to copy symlinked skill root: {root}")
     for path in root.rglob("*", recurse_symlinks=False):
         if path.is_symlink():
             raise ValueError(f"Refusing to copy symlink from vendored skill: {path}")
@@ -538,13 +547,16 @@ def _replace_directory_from_copy(src: Path, target: Path) -> None:
                 log_info(f"Best-effort cleanup left {leftover} behind")
 
 
-def deploy_skill(src: Path, target: Path, mode: str) -> None:
-    """Deploy one skill directory to its target under ``~/.claude/skills/``.
+def deploy_skill(
+    src: Path, target: Path, mode: str, *, allow_replace: bool = False
+) -> None:
+    """Deploy one skill directory to its target under a managed skills root.
 
     Args:
         src: Source skill directory.
         target: Destination directory.
         mode: ``"copy"`` (vendored skills) or ``"symlink"`` (local skills).
+        allow_replace: Permit replacing a target already owned by a prior sync.
 
     Raises:
         FileNotFoundError: If ``src`` does not exist.
@@ -553,6 +565,15 @@ def deploy_skill(src: Path, target: Path, mode: str) -> None:
     if not src.is_dir():
         raise FileNotFoundError(f"Skill source not found: {src}")
     target.parent.mkdir(parents=True, exist_ok=True)
+    if target.exists() or target.is_symlink():
+        # A dangling symlink holds no user content to protect, so the
+        # unmanaged-target guard does not apply to it. Left in place it is a
+        # permanent deploy failure: the skill is unloadable and every later run
+        # re-raises. External installers (hippo's `mise run install:skill`) do
+        # create these by relinking to a path their repo has since dropped.
+        dangling = target.is_symlink() and not target.exists()
+        if not allow_replace and not dangling:
+            raise FileExistsError(f"Refusing to replace unmanaged skill: {target}")
     if mode == "symlink":
         if target.is_symlink() and target.resolve() == src.resolve():
             return
@@ -566,6 +587,40 @@ def deploy_skill(src: Path, target: Path, mode: str) -> None:
         )
     else:
         raise ValueError(f"Unknown deploy mode: {mode!r}")
+
+
+def _owns_target(target: Path, record: object) -> bool:
+    """Whether ``target`` is still the deployment a prior sync recorded.
+
+    Mirrors the ownership test in :func:`garbage_collect` so the deploy loop
+    and GC agree on what the sync owns: a symlink whose link text matches the
+    recorded target, or a directory whose ``.mcp-sync-managed`` marker
+    matches the recorded value. The record's ``mode`` is deliberately not
+    compared, so a source-type flip (which flips the deploy mode) re-deploys
+    over the sync's own prior deployment instead of failing forever.
+
+    Args:
+        target: Candidate deployment target in one managed root.
+        record: The prior run's state entry for this skill name, if any.
+
+    Returns:
+        True when the target is provably the sync's own prior deployment.
+        Foreign content (a directory without the recorded marker, a symlink
+        pointing at an unrecorded destination) is never owned, so
+        :func:`deploy_skill` refuses to replace it.
+    """
+    if not isinstance(record, dict):
+        return False
+    if target.is_symlink():
+        expected = record.get("target")
+        return bool(expected) and os.readlink(target) == expected
+    marker = target / _MANAGED_MARKER
+    expected = record.get("marker")
+    return (
+        bool(expected)
+        and marker.is_file()
+        and marker.read_text(encoding="utf-8").strip() == expected
+    )
 
 
 def garbage_collect(
@@ -585,7 +640,7 @@ def garbage_collect(
     Args:
         previous: The prior run's ``state["deployed"]`` mapping.
         current_names: Skill names resolved in this run.
-        target_root: The ``~/.claude/skills/`` directory.
+        target_root: One managed skills directory to collect from.
 
     Returns:
         Names that were actually removed, sorted.
@@ -632,6 +687,23 @@ def garbage_collect(
     return removed
 
 
+def target_roots(home: Path) -> list[Path]:
+    """Every managed skills directory a sync deploys to, in deploy order.
+
+    Single source of truth shared by the deploy loop and garbage collection:
+    adding a new consumer root here wires it into both at once. The state
+    record stays flat (one entry per skill name) because every root carries
+    the same mode and source — only the parent directory differs.
+
+    Args:
+        home: Home directory the deployed paths live under.
+
+    Returns:
+        ``~/.claude/skills`` and ``~/.pi/agent/skills`` under ``home``.
+    """
+    return [home / ".claude" / "skills", home / ".pi" / "agent" / "skills"]
+
+
 def run_skills_sync(
     manifest_path: Path | None = None,
     machine_config_path: Path | None = None,
@@ -639,11 +711,14 @@ def run_skills_sync(
     repo_root: Path | None = None,
     now: float | None = None,
 ) -> int:
-    """Synchronize ``~/.claude/skills/`` from the skills manifest.
+    """Synchronize the managed skills roots from the skills manifest.
 
     Args:
         manifest_path: Override for the master manifest path.
-        machine_config_path: Optional machine overlay JSON path.
+        machine_config_path: Optional machine overlay JSON path. An explicit
+            path that is missing or invalid is fatal, matching run_sync:
+            deploying from the master alone would ignore the overlay's skill
+            disables and allowlist extensions.
         home: Override for the home directory (testing).
         repo_root: Override for the dotfiles repo root (testing).
         now: Override for the current time as epoch seconds (testing).
@@ -663,23 +738,19 @@ def run_skills_sync(
         log_info("Run 'darwin-rebuild switch' to deploy dotfiles first")
         return 1
 
-    log_info("Syncing Claude skills from manifest...")
+    log_info("Syncing skills from manifest...")
     try:
         manifest = load_skills_manifest(manifest_file)
     except (json.JSONDecodeError, OSError, ValueError) as exc:
         log_error(f"Manifest error: {exc}")
         return 1
 
-    if machine_config_path and machine_config_path.is_file():
-        try:
-            with open(machine_config_path, encoding="utf-8") as handle:
-                overlay = json.load(handle)
-        except (json.JSONDecodeError, OSError) as exc:
-            log_error(f"Machine overlay error: {exc}")
-            return 1
-        if not isinstance(overlay, dict):
-            log_error(f"Machine overlay root must be an object: {machine_config_path}")
-            return 1
+    try:
+        overlay = load_machine_config(machine_config_path)
+    except (OSError, ValueError) as exc:
+        log_error(f"Machine overlay error: {exc}")
+        return 1
+    if overlay:
         log_info(f"Applying machine overlay: {machine_config_path}")
         manifest = deep_merge(manifest, overlay)
 
@@ -691,7 +762,7 @@ def run_skills_sync(
 
     cache_root = home_path / ".cache" / "mcp-sync" / "skills"
     state_path = home_path / ".local" / "state" / "mcp-sync" / "skills-state.json"
-    target_root = home_path / ".claude" / "skills"
+    roots = target_roots(home_path)
     state = load_state(state_path)
     prior = dict(state.get("deployed", {}))
     sources = manifest["sources"]
@@ -769,13 +840,21 @@ def run_skills_sync(
             if skill.name in prior:
                 deployed[skill.name] = prior[skill.name]
             continue
-        if skill.source_type == "git":
-            src = git_caches[skill.source_name] / skill.subpath
-        else:
-            src = repo / skill.subpath
-        target = _safe_target(target_root, skill.name)
         try:
-            deploy_skill(src, target, skill.mode)
+            if skill.source_type == "git":
+                src = git_caches[skill.source_name] / skill.subpath
+                try:
+                    src.resolve().relative_to(git_caches[skill.source_name].resolve())
+                except ValueError as exc:
+                    raise ValueError(
+                        f"Git skill source escapes its cache: {skill.name!r}"
+                    ) from exc
+            else:
+                src = repo / skill.subpath
+            for target_root in roots:
+                target = _safe_target(target_root, skill.name)
+                owned = _owns_target(target, prior.get(skill.name))
+                deploy_skill(src, target, skill.mode, allow_replace=owned)
         except (OSError, ValueError) as exc:
             log_error(f"Failed to deploy skill {skill.name!r}: {exc}")
             failed = True
@@ -790,12 +869,13 @@ def run_skills_sync(
         deployed[skill.name] = record
         log_success(f"Deployed skill: {skill.name} ({skill.mode})")
 
-    # Garbage-collect skills no longer in the manifest. A skill still resolved
-    # but failed to deploy this run is intentionally NOT collected — its prior
-    # copy is left in place.
+    # Garbage-collect skills no longer in the manifest, from every root. A
+    # skill still resolved but failed to deploy this run is intentionally NOT
+    # collected — its prior copies are left in place.
     resolved_names = {skill.name for skill in resolved}
-    for name in garbage_collect(prior, resolved_names, target_root):
-        log_success(f"Removed orphaned skill: {name}")
+    for target_root in roots:
+        for name in garbage_collect(prior, resolved_names, target_root):
+            log_success(f"Removed orphaned skill: {name}")
 
     # Drop state records for sources no longer referenced by any skill.
     active_sources = {

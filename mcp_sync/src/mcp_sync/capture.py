@@ -178,10 +178,10 @@ def _expected_and_deployed(
                     f"{target.destination} does not exist; run a sync first."
                 )
             return (
-                target.build(master, home=home),
+                target.build(master, home=home, live=False),
                 _load_json_object(target.destination),
                 target.override_key or target.name,
-                lambda t=target: t.build(master, home=home),
+                lambda t=target: t.build(master, home=home, live=False),
             )
     known = ", ".join(t.name for t in _build_targets(home))
     patch_names = ", ".join(spec.name for spec in patch_specs(home))
@@ -267,7 +267,11 @@ def run_capture(
         part of the drift could not be captured.
     """
     home_path = home or Path.home()
-    master = load_merged_master(master_path, home_path, machine_config_path)
+    try:
+        master = load_merged_master(master_path, home_path, machine_config_path)
+    except (FileNotFoundError, OSError, ValueError) as exc:
+        log_error(str(exc))
+        return 1
     if master is None:
         return 1
 

@@ -105,6 +105,12 @@ printf 'brew %s\n' "$*" >>"$TEST_COMMAND_LOG"
 exit 0
 EOF
 
+cat >"$fixture/bin/just" <<'EOF'
+#!/usr/bin/env bash
+printf 'just %s\n' "$*" >>"$TEST_COMMAND_LOG"
+exit 0
+EOF
+
 # A curl that never leaves the machine: it writes a marker script to the -o
 # target so the brew-absent case below runs end to end offline.
 cat >"$fixture/bin/curl" <<'EOF'
@@ -123,9 +129,9 @@ done
 printf '#!/usr/bin/env bash\nprintf "homebrew-install-ran\\n" >>"$TEST_COMMAND_LOG"\n' >"$dest"
 EOF
 
-chmod +x "$fixture/bin/xcode-select" "$fixture/bin/nix" \
+  chmod +x "$fixture/bin/xcode-select" "$fixture/bin/nix" \
   "$fixture/bin/rustup" "$fixture/bin/op" "$fixture/bin/sudo" \
-  "$fixture/bin/brew" "$fixture/bin/curl"
+  "$fixture/bin/brew" "$fixture/bin/curl" "$fixture/bin/just"
 
 for host in personal-mac; do
   host_home="$fixture/$host-home"
@@ -136,6 +142,7 @@ for host in personal-mac; do
     HOME="$host_home" \
     PATH="$fixture/bin:/usr/bin:/bin" \
     DOTFILES_BREW_BIN="$fixture/bin/brew" \
+    DOTFILES_JUST_BIN="$fixture/bin/just" \
     bash "$repo_root/bootstrap.sh" "$host" \
       >"$fixture/$host-stdout" 2>"$fixture/$host-stderr"
   status=$?

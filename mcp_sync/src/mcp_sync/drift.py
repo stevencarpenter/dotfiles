@@ -137,7 +137,7 @@ def drift_report(master: JsonDict, home: Path) -> list[DriftEntry]:
     for target in _build_targets(home):
         expected = (
             json.dumps(
-                target.build(master, home=home),
+                target.build(master, home=home, live=False),
                 indent=2,
                 sort_keys=True,
                 ensure_ascii=False,
@@ -178,7 +178,11 @@ def run_check(
         is missing or drifted (or the master config is absent).
     """
     home_path = home or Path.home()
-    master = load_merged_master(master_path, home_path, machine_config_path)
+    try:
+        master = load_merged_master(master_path, home_path, machine_config_path)
+    except (FileNotFoundError, OSError, ValueError) as exc:
+        log_error(str(exc))
+        return 1
     if master is None:
         return 1
 

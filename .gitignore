@@ -101,3 +101,7 @@ result-*
 # dotfiles.nix links only config.toml, so these should no longer appear here.
 /home/.config/worktrunk/approvals.toml
 /home/.config/worktrunk/approvals.toml.lock
+
+# Local extension type-resolution (home/.pi/agent/extensions/package.json).
+# package.json + lock are tracked; installed tree is per-machine.
+home/.pi/agent/extensions/node_modules/

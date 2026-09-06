@@ -114,7 +114,8 @@ uv run pytest -v
 
 ## Skill Sync (`sync-skills`)
 
-`sync-skills` deploys Claude Code skills to `~/.claude/skills/`, mirroring how
+`sync-skills` deploys skills to `~/.claude/skills/` and `~/.pi/agent/skills/`
+(the same SKILL.md format serves Claude Code and pi), mirroring how
 `sync-mcp-configs` deploys MCP configs.
 
 - **Manifest:** `~/.config/skills/skills-master.json` declares `sources` (git or

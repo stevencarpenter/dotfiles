@@ -209,7 +209,12 @@ Justfile instead:
 
 The rule: declarative or offline+fast+idempotent work
 goes in the switch (as `home.activation` hooks); anything touching network/SSH/sudo goes in
-`just sync` / `just bootstrap`. This keeps a switch reproducible and offline-safe.
+  `just sync` / `just bootstrap`. This keeps a switch reproducible and offline-safe.
+
+Global npm CLIs are declared in `home/.config/mise/config.toml` with exact versions. The side-channel
+sync runs `mise install` before other network-backed provisioning, so a new machine or a version bump
+does not depend on an untracked `npm install --global` operation. Inspect the current inventory with
+`npm ls -g --depth=0` and the declarative inventory with `mise ls`.
 
 ## Homebrew policy
 

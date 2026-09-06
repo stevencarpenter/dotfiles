@@ -63,6 +63,20 @@ def master_config_file(temp_home, master_config):
     return config_file
 
 
+@pytest.fixture(autouse=True)
+def _stub_omlx_discovery(monkeypatch):
+    """Neutralize live oMLX discovery: integration runs stay hermetic.
+
+    Stubbed at the transport layer so unit tests for the real
+    ``discover_model_ids`` keep working by re-patching ``urlopen``.
+    """
+
+    def offline(*args: object, **kwargs: object) -> object:
+        raise OSError("oMLX unreachable in tests")
+
+    monkeypatch.setattr("mcp_sync.omlx.urllib.request.urlopen", offline)
+
+
 @pytest.fixture
 def monkeypatch_home(monkeypatch, temp_home):
     """Monkeypatch Path.home() to return temp home."""

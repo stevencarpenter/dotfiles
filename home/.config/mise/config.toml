@@ -30,6 +30,13 @@ goreleaser = "latest"
 "go:golang.org/x/tools/gopls" = "latest" # gopls (Go)
 rust-analyzer = "latest"                 # rust-analyzer (Rust)
 
+# Global agent CLIs. Keep these in mise rather than installing them ad hoc with
+# `npm install --global`, so the versions are visible in the repository and
+# recreated with `mise install` on a new machine.
+"npm:@agentclientprotocol/claude-agent-acp" = "0.74.0"
+"npm:@agentclientprotocol/codex-acp" = "1.10.0"
+"npm:@earendil-works/pi-coding-agent" = "0.85.0"
+
 # Neovim tooling — nvim-treesitter requires the tree-sitter CLI on $PATH to
 # compile parsers (Mason is disabled for it). All machines, since nvim deploys
 # everywhere.
