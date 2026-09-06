@@ -1,4 +1,0 @@
-log_level: info
-bind: 127.0.0.1
-workers: 4
-queue: default

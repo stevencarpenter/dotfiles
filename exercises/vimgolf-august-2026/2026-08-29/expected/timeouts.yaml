@@ -1,5 +1,0 @@
-timeouts:
-  connect: 30
-  read: 30
-  write: 30
-  shutdown: 30
