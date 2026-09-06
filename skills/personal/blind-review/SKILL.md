@@ -64,8 +64,8 @@ identical review-priority checklist — if only the blind arm gets a
 structured checklist, any blind-arm lift may just be "checklist beats
 freeform review", not de-biasing.
 
-Model cap for both passes: Sonnet 5 at high effort. Merge and divergence
-below are mechanical comparison — use Haiku / low effort.
+Keep both passes on the same model and effort — mismatched arms confound the
+comparison. Merge and divergence below are mechanical comparison — use low effort.
 
 ### 4. Merge into four buckets
 

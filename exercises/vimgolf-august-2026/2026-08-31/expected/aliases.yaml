@@ -1,4 +1,0 @@
-aliases:
-  pods: "k get pods"
-  logs: "k logs --follow"
-  apply: "k apply -f"

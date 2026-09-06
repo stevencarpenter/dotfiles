@@ -1,5 +1,0 @@
-{
-  "allowedOwners": ["legacy", "contractors", "guests"],
-  "timeouts": {"connect": 10, "read": 60, "write": 60},
-  "failClosed": true
-}

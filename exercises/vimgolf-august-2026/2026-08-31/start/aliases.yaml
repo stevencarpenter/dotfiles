@@ -1,4 +1,0 @@
-aliases:
-  pods: "kubectl get pods"
-  logs: "kubectl logs --follow"
-  apply: "kubectl apply -f"

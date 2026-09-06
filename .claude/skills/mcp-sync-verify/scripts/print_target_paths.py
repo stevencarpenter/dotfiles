@@ -6,7 +6,7 @@
 # [tool.uv.sources]
 # mcp-sync = { path = "../../../../mcp_sync", editable = true }
 # ///
-"""Print the HOME-relative paths mcp_sync will write, one per line.
+"""Print the paths mcp_sync will write, discovered dynamically.
 
 Reads :func:`mcp_sync.sync.sync_destinations`, so this never goes stale when
 a wholesale target, the Codex TOML patch, or a JSON patch spec is added.
@@ -14,6 +14,7 @@ a wholesale target, the Codex TOML patch, or a JSON patch spec is added.
 Usage:
     .claude/skills/mcp-sync-verify/scripts/print_target_paths.py
     .claude/skills/mcp-sync-verify/scripts/print_target_paths.py --kind patch
+    .claude/skills/mcp-sync-verify/scripts/print_target_paths.py --pretty
 """
 
 from __future__ import annotations
@@ -24,6 +25,34 @@ from pathlib import Path
 from mcp_sync.sync import sync_destinations
 
 _KINDS = frozenset({"wholesale", "patch"})
+_USAGE = "usage: print_target_paths.py [--kind wholesale|patch] [--pretty]"
+
+
+def _print_pretty(kind_filter: str | None = None) -> int:
+    """Print each destination grouped by wholesale vs in-place patch."""
+    home = Path.home()
+    dests = [
+        d
+        for d in sync_destinations(home)
+        if kind_filter is None or d.kind == kind_filter
+    ]
+    print("# mcp_sync deployment targets")
+    print()
+    if kind_filter is None or kind_filter == "wholesale":
+        print("## Generated wholesale:")
+        for dest in dests:
+            if dest.kind == "wholesale":
+                print(f"  - {dest.name:<28} {dest.path}")
+        print()
+    if kind_filter is None or kind_filter == "patch":
+        print("## Patched in place:")
+        for dest in dests:
+            if dest.kind == "patch":
+                note = (
+                    " (only mcpServers key is touched)" if dest.name == "claude" else ""
+                )
+                print(f"  - {dest.name:<28} {dest.path}{note}")
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -31,27 +60,30 @@ def main(argv: list[str] | None = None) -> int:
 
     Args:
         argv: Optional argument list; defaults to ``sys.argv[1:]``.
-            ``--kind wholesale|patch`` restricts the listing.
+            ``--kind wholesale|patch`` restricts the listing;
+            ``--pretty`` prints the grouped human-readable view instead.
 
     Returns:
         0 on success, 2 on usage errors.
     """
     args = list(sys.argv[1:] if argv is None else argv)
     kind_filter: str | None = None
-    if args[:1] == ["--kind"]:
-        if len(args) != 2 or args[1] not in _KINDS:
-            print(
-                "usage: print_target_paths.py [--kind wholesale|patch]",
-                file=sys.stderr,
-            )
+    pretty = False
+    while args:
+        arg = args.pop(0)
+        if arg == "--pretty":
+            pretty = True
+        elif arg == "--kind":
+            if not args or args[0] not in _KINDS:
+                print(_USAGE, file=sys.stderr)
+                return 2
+            kind_filter = args.pop(0)
+        else:
+            print(_USAGE, file=sys.stderr)
             return 2
-        kind_filter = args[1]
-    elif args:
-        print(
-            "usage: print_target_paths.py [--kind wholesale|patch]",
-            file=sys.stderr,
-        )
-        return 2
+
+    if pretty:
+        return _print_pretty(kind_filter)
 
     home = Path.home()
     for dest in sync_destinations(home):

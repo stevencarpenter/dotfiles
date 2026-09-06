@@ -40,7 +40,7 @@ fix the test first.
 ### 3. List the deployment targets (sanity check before diffing)
 
 ```bash
-.claude/skills/mcp-sync-verify/scripts/list_targets.py
+.claude/skills/mcp-sync-verify/scripts/print_target_paths.py --pretty
 ```
 
 Targets come from `mcp_sync.sync.sync_destinations`: `_build_targets` (wholesale
@@ -122,6 +122,5 @@ re-runs `sync-mcp-configs` against the real `$HOME` after every switch.)
 
 ## Reference files
 
-- `.claude/skills/mcp-sync-verify/scripts/list_targets.py` — print all deployment paths via `sync_destinations`.
-- `.claude/skills/mcp-sync-verify/scripts/print_target_paths.py` — same set, one path per line.
+- `.claude/skills/mcp-sync-verify/scripts/print_target_paths.py` — deployment paths via `sync_destinations`: one path per line by default (`--kind` filters), `--pretty` for the grouped human view.
 - `.claude/skills/mcp-sync-verify/scripts/dry_run_diff.sh` — sandbox sync + per-target diff.

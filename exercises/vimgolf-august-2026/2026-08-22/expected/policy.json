@@ -1,5 +1,0 @@
-{
-  "allowedOwners": ["stevencarpenter", "platform"],
-  "timeouts": {"connect": 5, "read": 30},
-  "failClosed": true
-}

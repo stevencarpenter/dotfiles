@@ -134,7 +134,7 @@ defect, not the fix.
 
 ## Suggested agent
 
-* **Implement:** `<agent-name>` — <model>
+* **Implement:** `<agent-name>`
 * **Verify:** `code-reviewer`
 
 ## Dependencies
@@ -148,9 +148,11 @@ What makes the template work:
   who wasn't in this conversation. "Handle the error properly" fails; "a
   transient S3 body error retries, other generic errors stay fatal" passes. The
   last box is the repo's gate command, so a green run is part of done.
-- **`Suggested agent` sizes the work**, and must agree with the `agent:*` label.
-  Haiku for mechanical single-file edits; Sonnet for design-bearing or
-  multi-file changes. Never suggest Opus — subagents cap at Sonnet.
+- **`Suggested agent` sizes the work**, and must agree with the `agent:*` label:
+  `agent:haiku` for mechanical single-file tasks with no design decisions,
+  `agent:sonnet` for design-bearing or multi-file tasks. These are effort-tier
+  labels, not model assignments — never name a model; the orchestrator chooses
+  the runner.
 - **`Dependencies` is a mirror, never the source of truth.** The authoritative
   form is the relation. Create the relation first; add the prose line only when
   the *why* isn't obvious from the linked title. A task whose prose claims a
