@@ -39,7 +39,6 @@ exec_scripts=(
   scripts/check-agent-tools-allowlist.py
   scripts/validate-mcp-master.py
   scripts/hook-text-files.py
-  .claude/skills/mcp-sync-verify/scripts/list_targets.py
   .claude/skills/mcp-sync-verify/scripts/print_target_paths.py
   scripts/host-capability.sh
   scripts/sync-side-channels.sh
