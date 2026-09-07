@@ -287,6 +287,29 @@ in
         ".junie/skills/github-triage" = forcedRepoLink "skills/personal/github-triage";
         ".junie/skills/request-refactor-plan" = forcedRepoLink "skills/personal/request-refactor-plan";
         ".junie/skills/ubiquitous-language" = forcedRepoLink "skills/personal/ubiquitous-language";
+
+        # ponytail: static verbatim copies of upstream skills/*/SKILL.md
+        # (v4.9.0). Junie/Cursor/Copilot have no plugin seam so they link
+        # here; plugin harnesses must not (double-load). Refresh: copy over,
+        # byte-compare, commit.
+        ".junie/skills/ponytail" = forcedRepoLink "skills/personal/ponytail";
+        ".junie/skills/ponytail-review" = forcedRepoLink "skills/personal/ponytail-review";
+        ".junie/skills/ponytail-audit" = forcedRepoLink "skills/personal/ponytail-audit";
+        ".junie/skills/ponytail-debt" = forcedRepoLink "skills/personal/ponytail-debt";
+        ".junie/skills/ponytail-gain" = forcedRepoLink "skills/personal/ponytail-gain";
+        ".junie/skills/ponytail-help" = forcedRepoLink "skills/personal/ponytail-help";
+        ".copilot/skills/ponytail" = forcedRepoLink "skills/personal/ponytail";
+        ".copilot/skills/ponytail-review" = forcedRepoLink "skills/personal/ponytail-review";
+        ".copilot/skills/ponytail-audit" = forcedRepoLink "skills/personal/ponytail-audit";
+        ".copilot/skills/ponytail-debt" = forcedRepoLink "skills/personal/ponytail-debt";
+        ".copilot/skills/ponytail-gain" = forcedRepoLink "skills/personal/ponytail-gain";
+        ".copilot/skills/ponytail-help" = forcedRepoLink "skills/personal/ponytail-help";
+        ".cursor/skills/ponytail" = forcedRepoLink "skills/personal/ponytail";
+        ".cursor/skills/ponytail-review" = forcedRepoLink "skills/personal/ponytail-review";
+        ".cursor/skills/ponytail-audit" = forcedRepoLink "skills/personal/ponytail-audit";
+        ".cursor/skills/ponytail-debt" = forcedRepoLink "skills/personal/ponytail-debt";
+        ".cursor/skills/ponytail-gain" = forcedRepoLink "skills/personal/ponytail-gain";
+        ".cursor/skills/ponytail-help" = forcedRepoLink "skills/personal/ponytail-help";
       })
 
       # ---- caps.agent_journal ----------------------------------------------

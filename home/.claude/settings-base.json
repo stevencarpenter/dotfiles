@@ -99,6 +99,7 @@
     "jdtls-lsp@claude-plugins-official": false,
     "learning-output-style@claude-plugins-official": false,
     "pyright-lsp@claude-plugins-official": true,
+    "ponytail@ponytail": true,
     "ralph-loop@claude-plugins-official": true,
     "rust-analyzer-lsp@claude-plugins-official": true,
     "security-guidance@claude-plugins-official": true,
@@ -116,6 +117,12 @@
       "source": {
         "source": "github",
         "repo": "anthropics/claude-plugins-official"
+      }
+    },
+    "ponytail": {
+      "source": {
+        "source": "github",
+        "repo": "DietrichGebert/ponytail"
       }
     }
   },
