@@ -592,12 +592,12 @@ def deploy_skill(
 def _owns_target(target: Path, record: object) -> bool:
     """Whether ``target`` is still the deployment a prior sync recorded.
 
-    Mirrors the ownership test in :func:`garbage_collect` so the deploy loop
-    and GC agree on what the sync owns: a symlink whose link text matches the
-    recorded target, or a directory whose ``.mcp-sync-managed`` marker
-    matches the recorded value. The record's ``mode`` is deliberately not
-    compared, so a source-type flip (which flips the deploy mode) re-deploys
-    over the sync's own prior deployment instead of failing forever.
+    Single ownership test shared by the deploy loop and garbage collection:
+    a symlink whose link text matches the recorded target, or a directory
+    whose ``.mcp-sync-managed`` marker matches the recorded value. The
+    record's ``mode`` is deliberately not compared, so a source-type flip
+    (which flips the deploy mode) re-deploys over the sync's own prior
+    deployment instead of failing forever.
 
     Args:
         target: Candidate deployment target in one managed root.
@@ -631,11 +631,9 @@ def garbage_collect(
     """Remove skills deployed by a prior run but absent from this run.
 
     An entry is removed only when it still matches the shape the prior run
-    recorded — a symlink still pointing at its recorded target, or a copied
-    directory still carrying a matching ``.mcp-sync-managed`` ownership marker.
-    If the user has since replaced it with something else (or it predates the
-    target/marker bookkeeping), it is logged and left alone. Anything the sync
-    never recorded is never inspected.
+    recorded (see :func:`_owns_target`). If the user has since replaced it
+    with something else (or it predates the target/marker bookkeeping), it is
+    logged and left alone. Anything the sync never recorded is never inspected.
 
     Args:
         previous: The prior run's ``state["deployed"]`` mapping.
@@ -656,34 +654,14 @@ def garbage_collect(
             continue
         if not path.exists() and not path.is_symlink():
             continue
-        mode = record.get("mode")
-        if mode == "symlink" and path.is_symlink():
-            expected = record.get("target")
-            if expected and os.readlink(path) == expected:
-                path.unlink()
-                removed.append(name)
-            else:
-                log_info(
-                    f"Skipping GC of {name!r}: symlink no longer points at "
-                    "the recorded target"
-                )
-        elif mode == "copy" and path.is_dir() and not path.is_symlink():
-            marker = path / _MANAGED_MARKER
-            expected = record.get("marker")
-            if (
-                expected
-                and marker.is_file()
-                and marker.read_text(encoding="utf-8").strip() == expected
-            ):
-                shutil.rmtree(path)
-                removed.append(name)
-            else:
-                log_info(
-                    f"Skipping GC of {name!r}: copy-mode ownership marker "
-                    "missing or mismatched"
-                )
+        if _owns_target(path, record):
+            _remove_path(path)
+            removed.append(name)
         else:
-            log_info(f"Skipping GC of {name!r}: no longer matches recorded mode")
+            log_info(
+                f"Skipping GC of {name!r}: no longer matches the "
+                "recorded deployment"
+            )
     return removed
 
 

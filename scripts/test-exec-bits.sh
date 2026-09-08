@@ -35,11 +35,11 @@ exec_scripts=(
   scripts/pty-spawn.py
   scripts/assert-railway-psql-errors.py
   scripts/assert-worktrunk-config.py
-  scripts/atuin-parity-mutate.py
-  scripts/check-agent-tools-allowlist.py
   scripts/validate-mcp-master.py
   scripts/hook-text-files.py
   .claude/skills/mcp-sync-verify/scripts/print_target_paths.py
+  scripts/check-agent-tools-allowlist.py
+  scripts/check-atuin-parity.py
   scripts/host-capability.sh
   scripts/sync-side-channels.sh
   scripts/update-inputs.sh
@@ -49,8 +49,6 @@ exec_scripts=(
   scripts/test-worktrunk-commit-generator.sh
   scripts/test-ssh-controlpath-identity.sh
   scripts/test-agent-tools-allowlist.sh
-  scripts/test-atuin-filter-parity.sh
-  scripts/test-atuin-filter-parity-mutations.sh
   scripts/test-eval-cache.sh
   scripts/test-bootstrap-clt-gate.sh
   scripts/test-external-overlay-contract.sh

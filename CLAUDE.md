@@ -223,7 +223,7 @@ contains the capability table. Each capability is enforced at these locations:
 - **`atuin`**: `modules/home/dotfiles.nix` links `~/.config/atuin/config.toml` on *every* machine;
   the capability selects which variant (`config.sync.toml` with the self-hosted `sync_address`, vs
   `config.local.toml` with `auto_sync = false`). Both include `history_filter` and `[tmux] enabled`.
-  `scripts/test-atuin-filter-parity.sh` keeps the two filter lists identical.
+  `scripts/check-atuin-parity.py` keeps the two filter lists identical.
 - **`mcp`**: `modules/home/dotfiles.nix` (master config + overlay + overrides `.keep`) and the
   `mcpSync` hook in `modules/home/sync-hooks.nix`. (No github MCP server ships anywhere: `mcp_sync`
   strips a `github` server via `RETIRED_MCP_SERVER_NAMES`, and the `github@claude-plugins-official`

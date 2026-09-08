@@ -107,7 +107,8 @@ def load_master_config(path: Path) -> JsonDict:
     Returns:
         The parsed master config.
     """
-    return _load_json(path)
+    with open(path, encoding="utf-8") as handle:
+        return json.load(handle)
 
 
 def _ensure_mapping(value: Any) -> JsonDict:
@@ -529,11 +530,6 @@ def _render_codex_mcp_section(servers: JsonDict) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _load_json(path: Path) -> JsonDict:
-    with open(path, encoding="utf-8") as handle:
-        return json.load(handle)
-
-
 def _load_json_object(path: Path) -> JsonDict:
     """Load a JSON document and require an object at its root.
 
@@ -546,7 +542,8 @@ def _load_json_object(path: Path) -> JsonDict:
     Raises:
         ValueError: When the document is valid JSON but its root is not an object.
     """
-    payload = _load_json(path)
+    with open(path, encoding="utf-8") as handle:
+        payload = json.load(handle)
     if not isinstance(payload, dict):
         raise ValueError(f"{path} must contain a JSON object at the document root")
     return payload
@@ -870,6 +867,11 @@ def _enabled_stripped_servers(servers: JsonDict, *extra_fields: str) -> JsonDict
     )
 
 
+def _servers(master: JsonDict) -> JsonDict:
+    """Enabled, stripped servers from the master config."""
+    return _enabled_stripped_servers(_normalize_servers(master))
+
+
 def transform_to_copilot_format(master: JsonDict) -> JsonDict:
     """Shape the master config for GitHub Copilot's ``mcpServers`` document.
 
@@ -879,7 +881,7 @@ def transform_to_copilot_format(master: JsonDict) -> JsonDict:
     Returns:
         Copilot-format document with every server granted ``tools: ["*"]``.
     """
-    servers = _enabled_stripped_servers(_normalize_servers(master))
+    servers = _servers(master)
     mcp_servers: JsonDict = {}
     for name, server in servers.items():
         mcp_servers[name] = {
@@ -905,7 +907,7 @@ def transform_to_identity_format(master: JsonDict) -> JsonDict:
     # their own schema URLs (or none). Don't propagate the master's schema —
     # let the per-tool base template assert the right one.
     config.pop("$schema", None)
-    config["servers"] = _enabled_stripped_servers(_normalize_servers(master))
+    config["servers"] = _servers(master)
     return config
 
 
@@ -918,7 +920,7 @@ def transform_to_mcpservers_format(master: JsonDict) -> JsonDict:
     Returns:
         ``{"mcpServers": ...}`` holding only enabled, stripped servers.
     """
-    return {"mcpServers": _enabled_stripped_servers(_normalize_servers(master))}
+    return {"mcpServers": _servers(master)}
 
 
 def transform_to_opencode_format(master: JsonDict) -> JsonDict:
@@ -931,7 +933,7 @@ def transform_to_opencode_format(master: JsonDict) -> JsonDict:
         opencode-format document: remote servers keep their URL; local
         servers get a merged command array and a default timeout.
     """
-    servers = _enabled_stripped_servers(_normalize_servers(master))
+    servers = _servers(master)
     mcp: JsonDict = {}
     for name, server in servers.items():
         url = server.get("url")

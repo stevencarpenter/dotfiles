@@ -116,7 +116,7 @@ fi
 # modules/home/dotfiles.nix picks the deployed config with
 # `if caps.atuin then "sync" else "local"`. Nothing else proves that ternary
 # points the right way: the config files are valid either way, both host
-# closures build either way, and test-atuin-filter-parity.sh only compares the
+# closures build either way, and check-atuin-parity.py only compares the
 # two files against each other as static content. Inverting the ternary would
 # therefore pass every other check while sending history to the sync server
 # from machines meant to keep it local (found in review, 2026-07-28).

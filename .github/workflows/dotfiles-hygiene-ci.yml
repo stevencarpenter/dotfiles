@@ -178,15 +178,8 @@ jobs:
       - name: Validate Railway psql failure propagation
         run: scripts/test-railway-psql-errors.sh
 
-      - name: Validate atuin config variant parity
-        run: scripts/test-atuin-filter-parity.sh
-
-      # Mutation audit: proves the parity guard above actually FAILS on each
-      # regression it claims to catch. Its first version passed while the
-      # original defect was reproducible, so "the guard is green" is not by
-      # itself evidence of anything.
-      - name: Validate the atuin parity guard actually fails on regressions
-        run: scripts/test-atuin-filter-parity-mutations.sh
+      - name: Validate atuin config variant parity (includes mutation audit)
+        run: scripts/check-atuin-parity.py
 
       # zsh ships by default on macOS runners, but this stays a real install
       # rather than an assumption: a silently skipped test is indistinguishable
