@@ -104,18 +104,16 @@ sync-side-channels:
 
 # ── MCP Sync ─────────────────────────────────────────────
 
-# Lint mcp_sync
-mcp-lint:
-    uv run --project mcp_sync --group dev ruff check mcp_sync/src mcp_sync/tests
-    uv run --project mcp_sync --group dev ruff format --check mcp_sync/src mcp_sync/tests
+# Lint/test/fmt loop over both Python projects (was: 6x mcp-*/reap-* dupes).
+lint:
+    for p in mcp_sync agent_reap; do uv run --project $p --group dev ruff check $p/src $p/tests; done
+    for p in mcp_sync agent_reap; do uv run --project $p --group dev ruff format --check $p/src $p/tests; done
 
-# Test mcp_sync
-mcp-test *FLAGS:
-    uv run --project mcp_sync --group dev pytest mcp_sync/tests --cov=mcp_sync --cov-report=term-missing {{ FLAGS }}
+test *FLAGS:
+    for p in mcp_sync agent_reap; do uv run --project $p --group dev pytest $p/tests --cov=$p --cov-report=term-missing {{ FLAGS }}; done
 
-# Format mcp_sync
-mcp-fmt:
-    uv run --project mcp_sync --group dev ruff format mcp_sync/src mcp_sync/tests
+fmt:
+    for p in mcp_sync agent_reap; do uv run --project $p --group dev ruff format $p/src $p/tests; done
 
 # Run mcp sync manually.
 #
@@ -140,21 +138,6 @@ mcp-sync:
       *) printf 'error: multiple machine overlays deployed: %s\n' "${overlays[*]}" >&2; exit 1 ;;
     esac
 
-# ── Agent Reap ───────────────────────────────────────────
-
-# Lint agent_reap
-reap-lint:
-    uv run --project agent_reap --group dev ruff check agent_reap/src agent_reap/tests
-    uv run --project agent_reap --group dev ruff format --check agent_reap/src agent_reap/tests
-
-# Test agent_reap
-reap-test *FLAGS:
-    uv run --project agent_reap --group dev pytest agent_reap/tests --cov=agent_reap --cov-report=term-missing {{ FLAGS }}
-
-# Format agent_reap
-reap-fmt:
-    uv run --project agent_reap --group dev ruff format agent_reap/src agent_reap/tests
-
 # Report idle Claude teammate panes across every tmux socket (kills nothing)
 reap:
     uv run --project agent_reap agent-reap report
@@ -172,15 +155,6 @@ reap-kill:
     uv run --project agent_reap agent-reap reap --kill
 
 # ── All Python projects ──────────────────────────────────
-
-# Lint all Python projects
-lint: mcp-lint reap-lint
-
-# Test all Python projects
-test: mcp-test reap-test
-
-# Format all Python projects
-fmt: mcp-fmt reap-fmt
 
 # Run all Python checks (lint + test). Nix flake checks live under `just check`.
 py-check: lint test
