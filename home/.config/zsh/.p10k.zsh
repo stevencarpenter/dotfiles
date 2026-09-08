@@ -1739,6 +1739,20 @@ typeset -g POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(
   prompt_char
 )
 
+# jj owns VCS status in colocated repositories; keep Git for Git-only repos.
+if (( $+functions[prompt_vcs] )); then
+  (( $+functions[_p10k_prompt_vcs] )) || functions -c prompt_vcs _p10k_prompt_vcs
+  function prompt_vcs() {
+    local dir=$PWD
+    while [[ $dir != / ]]; do
+      [[ -e $dir/.jj ]] && return
+      [[ -e $dir/.git ]] && break
+      dir=${dir:h}
+    done
+    _p10k_prompt_vcs "$@"
+  }
+fi
+
 # --- No right prompt ---
 typeset -g POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS=()
 
