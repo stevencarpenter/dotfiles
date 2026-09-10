@@ -2,7 +2,7 @@
 # Railway GraphQL API helper
 # Usage: railway-api.sh '<graphql-query>' ['<variables-json>']
 
-set -euo pipefail
+set -e
 
 SKILL_ID="use-railway"
 SKILL_VERSION="${RAILWAY_SKILL_VERSION:-1.2.3}"
@@ -29,24 +29,29 @@ if [[ -z "$TOKEN" || "$TOKEN" == "null" ]]; then
   exit 1
 fi
 
-if [[ -z "${1:-}" ]]; then
+if [[ -z "$1" ]]; then
   echo '{"error": "No query provided"}'
   exit 1
 fi
 
 # Build payload with query and optional variables
-if [[ -n "${2:-}" ]]; then
+if [[ -n "$2" ]]; then
   PAYLOAD=$(jq -n --arg q "$1" --argjson v "$2" '{query: $q, variables: $v}')
 else
   PAYLOAD=$(jq -n --arg q "$1" '{query: $q}')
 fi
 
 HEADERS=(
-  -H "Authorization: Bearer $TOKEN"
   -H "Content-Type: application/json"
   -H "X-Railway-Skill-Id: $SKILL_ID"
   -H "X-Railway-Skill-Version: $SKILL_VERSION"
   -H "X-Railway-Agent-Session: $RAILWAY_AGENT_SESSION"
 )
 
-curl -s https://backboard.railway.com/graphql/v2 "${HEADERS[@]}" -d "$PAYLOAD"
+# Keep the token and the request body out of argv: /proc/<pid>/cmdline is
+# readable by any other local user, so anything passed as an argument leaks on a
+# shared host. The bearer goes in through --config on a pipe, the payload on stdin.
+printf '%s' "$PAYLOAD" | curl -s https://backboard.railway.com/graphql/v2 \
+  "${HEADERS[@]}" \
+  --config <(printf 'header = "Authorization: Bearer %s"\n' "$TOKEN") \
+  -d @-
