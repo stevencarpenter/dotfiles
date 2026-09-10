@@ -147,6 +147,15 @@ class SlashStripTest(PositionContractTest):
         self.assertIn("/* not */", out)
         self.assertIn("int x = 1;", out)
 
+    def test_escaped_quotes_preserve_comment_markers(self) -> None:
+        """An escaped closing quote must keep the following text inside the string."""
+        for quote in ('"', "'", "`"):
+            with self.subTest(quote=quote):
+                literal = f"{quote}escaped\\{quote} // keep{quote}"
+                out = self.assert_masked("a.js", f"const s = {literal}; // gone\n")
+                self.assertIn(literal, out)
+                self.assertNotIn("gone", out)
+
     def test_rust_nested_block_comments(self) -> None:
         """Rust allows nesting, so the depth counter must be exercised."""
         out = self.assert_masked("a.rs", "let x = 1; /* a /* b */ c */\nlet y = 2;\n")

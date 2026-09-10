@@ -178,6 +178,12 @@ jobs:
       - name: Validate Railway psql failure propagation
         run: scripts/test-railway-psql-errors.sh
 
+      - name: Validate Railway analysis helpers
+        run: uv run --script scripts/test_railway_analysis.py
+
+      - name: Validate skill helper command behavior
+        run: bash scripts/test-skill-helper-cli.sh
+
       - name: Validate atuin config variant parity (includes mutation audit)
         run: scripts/check-atuin-parity.py
 

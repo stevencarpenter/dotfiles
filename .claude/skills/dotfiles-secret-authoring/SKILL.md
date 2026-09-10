@@ -15,22 +15,20 @@ secret reaches the working tree.
 - Every secret this repo owns uses an `op://` template under `home/` and is rendered by
   `home/.local/bin/op-render` to a mode-0600 target outside the repository. The manifest at
   `home/.config/op/render-manifest` is the authoritative template-to-target map.
-- **There is no age path any more.** The former work bridge — the ciphertexts under
-  `secrets/work/`, `secrets/secrets.nix`, and `modules/home/secrets.nix` — was removed, and
-  no host declares `age.secrets` or an age identity. Do not reintroduce one:
+- No host declares `age.secrets` or an age identity. Do not reintroduce one:
   `scripts/test-nix-review-regressions.sh` and `scripts/test-external-overlay-contract.sh`
-  both assert its absence. Secrets for an externally-owned host are that wrapper's custody.
-- If some future secret genuinely cannot use 1Password, the hard requirements are:
-  org-scoped recipients, teammate-decryptable, and never a personal recipient or any single
-  person's key.
+  both assert its absence. Work-host secrets belong to the external host's flake.
+- For reviewed edits to a rendered `.personal.env`, `just op-adopt` prints a
+  names-only plan. Only the user runs `just op-adopt --apply`; never apply adoption
+  on the user's behalf. The policy permits exact mappings only. Login items and
+  SSH configuration remain manual or render-only.
 - Public configuration and identifiers stay plaintext. Do not add encryption friction to
   values that are not secrets.
 
 ## Verification
 
-1. Confirm no age ciphertext has reappeared. The repo should track none, so this reports
-   "No .age sources found" — anything else means a blob was added and must be justified
-   against the rules above:
+1. Confirm the repository contains no `.age` files. This fails on any `.age` file,
+   regardless of its header or whether Git tracks it:
 
    ```bash
    bash .claude/skills/dotfiles-secret-authoring/scripts/verify_encrypted.sh

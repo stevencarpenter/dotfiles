@@ -8,7 +8,9 @@ A brand-new user with no Railway account is onboarded through the same unified O
 
 - **Deploy from the current directory** → `railway up` (interactive) or `railway up -y` (skips the confirm prompt). When unauthenticated it opens a browser to sign in / sign up, then creates a project + service and deploys. Run it yourself; do not ask the user to `railway login` first.
 - **New project from cwd when already signed in** → `railway up --new` (`--name <name>` to override the project name).
-- **Sign up with a deployable app in cwd → `railway up`** (signs up *and* deploys — bare `up` works for a detected agent, even if the user only said "sign me up"; add `-y` to skip prompts / force it non-interactively). Sign in, or sign up with nothing to deploy → `railway login` (creates new accounts on the fly).
+- **Sign in or create an account only**: `railway login`. A deployable app in the
+  current directory does not authorize deployment. Use `railway up` when deployment
+  is also requested and the intended target is established.
 
 `railway up` and `railway login` self-validate auth — don't run `railway whoami` before them.
 

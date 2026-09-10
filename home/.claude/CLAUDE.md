@@ -2,12 +2,10 @@
 
 ## Scope Discipline
 
-- When work on a requested task surfaces a separate, non-trivial issue, report it (what's wrong,
-  why it matters, rough fix shape) and stop. Do not design, implement, test, or push a fix for it
-  without explicit go-ahead, even if the fix is correct and well-tested.
-- This holds even mid-turn, even if the user has not yet replied to an earlier status update.
-- This is a standing rule across all projects and prompts unless explicitly waived by the user in
-  that conversation.
+- Keep working on the requested task when an unrelated issue appears. Report the
+  unrelated issue briefly, without expanding the implementation to include it.
+- Resolve defects necessary to complete the authorized task. Obtain authorization
+  before designing, implementing, testing, or publishing a separate task.
 
 ## Communication Style
 
@@ -126,7 +124,8 @@ Evidence discipline:
 - For partial, skipped, or excluded coverage, read or search the reported ranges directly.
 - Do not make absence, exhaustive, or dead-code claims from the graph alone.
 - Coverage does not prove completeness.
-- Persist architecture findings with `manage_adr` so later sessions can retrieve them.
+- Persist a material architecture decision with `manage_adr` when the task calls for
+  a durable record; routine code lookups do not require an ADR.
 - `rg`/`Read` remain correct for literals, configs, and non-code files; the graph does not index them.
 
 ### Codegraph for code exploration (when `mcp__codegraph__*` is available)

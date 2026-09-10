@@ -75,7 +75,7 @@ else
   # check nested for the common cache/state/repos dirs).
   state_hits="$(find "$abs" -mindepth 1 -maxdepth 2 2>/dev/null \
     | sed "s#^$abs/##" \
-    | grep -Ei "$state_glob_regex" || true)"
+    | rg -i "$state_glob_regex" || true)"
   if [ -n "$state_hits" ]; then
     echo "RECOMMEND   : FILE-level link — tool writes state in this dir:"
     printf '%s\n' "$state_hits" | sed 's/^/                - /' | head -8
@@ -93,7 +93,7 @@ else
       echo "              (couldn't auto-detect the config file — fill in <config-file>)"
     fi
   else
-    echo "RECOMMEND   : directory-level link is SAFE — no tool state detected."
+    echo "RECOMMEND   : consider a directory link; no known state markers detected."
     echo "              (Re-check after real use; tools may write state later.)"
     link_rel="$rel"
   fi
@@ -106,8 +106,8 @@ if [ -e "$repo_target" ] || [ -L "$repo_target" ]; then
   echo "             (already present in repo — you may be re-adopting)"
 fi
 echo "COLLISION   : after linking, a real '$abs' would block the symlink."
-echo "             -> \`rm\` it after copying into the repo, or let"
-echo "                home-manager move it to *.chezmoi-bak on switch."
+echo "             -> verify the repo copy, then preserve a non-colliding backup,"
+echo "                or use Home Manager's configured backup on switch."
 echo
 
 # --- The dotfiles.nix edit -------------------------------------------------
@@ -118,13 +118,14 @@ echo
 # --- Judgment calls this script will NOT guess -----------------------------
 cat <<'EOF'
 DECIDE (not auto-detectable):
-  [ ] Package source: modules/home/packages.nix (nixpkgs) OR
+  [ ] Existing package owner; if adopting it, modules/home/packages.nix (nixpkgs) OR
       modules/darwin/homebrew.nix (cask / not-in-nixpkgs). Gate if machine-specific.
   [ ] Which machines: base list (all) / identity == personal|work / caps.<x>.
 
 THEN:
   1) cp the config into home/<path>   2) add the link line above
-  3) rm the original from ~           4) ./rebuild.sh
+  3) verify the copy and preserve the original as a backup
+  4) ./rebuild.sh when activation is authorized
   5) realpath the deployed path -> must land in ~/.dotfiles
 
 Full runbook: docs/adopting-a-config.md

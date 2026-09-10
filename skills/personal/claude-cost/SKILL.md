@@ -9,6 +9,8 @@ Estimates what your AI coding-agent token usage **would cost at pay-as-you-go AP
 
 ## Quick start
 
+Use this skill's actual directory for `CLAUDE_SKILL_DIR` when the host does not set it. The same script supports Claude Code and Codex logs.
+
 ```bash
 "${CLAUDE_SKILL_DIR}/scripts/cost.py"                 # current month, both providers
 "${CLAUDE_SKILL_DIR}/scripts/cost.py" day             # today

@@ -50,7 +50,7 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 ```
 
-**The `return true` trap:** If your handler is async, you MUST return `true` synchronously from the listener to keep the message channel open. Forgetting this causes `sendResponse` to silently fail. Use `@webext-core/messaging` (see tech-stack.md) to avoid this entirely.
+**Callback response lifetime:** When using asynchronous `sendResponse`, return `true` synchronously to keep the response channel open. Verify Promise-returning listener support for the target browser versions. An existing typed message protocol is sufficient; adding a messaging library is optional.
 
 ### Long-lived connections
 
@@ -65,7 +65,7 @@ port.onDisconnect.addListener(() => { /* cleanup */ });
 ### Anti-patterns
 
 - **Sharing state directly** between contexts (e.g., global variables) — they're isolated, this doesn't work
-- **Untyped message blobs** — use typed message protocols (see `@webext-core/messaging` in tech-stack.md)
+- **Unstructured messages** — use a discriminated message type and validate incoming payloads at the receiving boundary. A library does not replace runtime validation.
 - **Missing sender validation** on message handlers — content scripts run in hostile environments, always validate `sender.url` and `sender.tab` before acting on messages
 
 ## Storage
@@ -80,7 +80,7 @@ Extension storage is async, shared across all contexts, and persists across brow
 
 ### WXT's typed storage
 
-WXT provides a typed wrapper. Use it instead of raw `browser.storage`:
+In a WXT project, its typed wrapper is available alongside native `browser.storage`. Follow the existing storage convention:
 
 ```typescript
 import { storage } from '#imports';
@@ -101,7 +101,7 @@ await apiKey.watch((newVal) => { /* react to changes */ });
 ### Security considerations
 
 - `storage.local` is **not encrypted on disk**. Anyone with physical access can read it. Don't store raw API keys in distributed extensions — use `storage.session` for ephemeral tokens.
-- `storage.local` is accessible from content scripts by default. Restrict sensitive data with `chrome.storage.local.setAccessLevel('TRUSTED_CONTEXTS')` so only background/popup can read it.
+- `storage.local` is accessible from content scripts by default. Where supported, restrict sensitive data with `chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' })`. Check the [storage API](https://developer.chrome.com/docs/extensions/reference/api/storage) for the target browser.
 - `storage.sync` transmits data through the browser vendor's cloud (Google/Mozilla). Never store PII or secrets there.
 
 ### Schema migration

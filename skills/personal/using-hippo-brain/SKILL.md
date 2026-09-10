@@ -1,80 +1,37 @@
 ---
 name: using-hippo-brain
-description: Use when working in a repo with hippo coverage — query past
-  CI outcomes for in-flight pushes, retrieve lessons before editing in
-  failure-prone areas, and answer retrospective questions about what
-  was done. Do not invoke for routine acknowledgments or tiny exchanges.
+description: Retrieve prior attempts, decisions, lessons, or recorded CI outcomes from Hippo when that history is relevant to the active task.
 ---
 
 # Using the Hippo Brain
 
-You have access to a persistent local knowledge base via the `hippo` MCP
-server. It captures shell activity, prior Claude sessions, browser
-history, and CI outcomes from GitHub Actions. Use it as memory across
-sessions.
+Use the configured Hippo MCP server to retrieve shell activity, prior sessions, browser history, and recorded CI outcomes. Follow the active repository's recall requirements.
 
-## When to query (and when not to)
+## Select the retrieval
 
-| Situation | Action |
+| Need | Tool |
 |---|---|
-| Starting substantive work in a repo for the first time this session | Optional: `get_lessons(repo=<repo>)` for high-frequency patterns |
-| Just edited or about to edit a file with a known failure history | `get_lessons(path=<path>)` |
-| `git push` happened earlier in this session | Track the SHA mentally; when the user next re-engages or pauses, call `get_ci_status(repo, sha)` once |
-| User asks "did it pass" / "what failed" / "what did I do" | `get_ci_status` or `ask` as appropriate |
-| User says "yes", "ok", "proceed", "go ahead" | Do nothing. These are flow control, not work boundaries. |
-| Routine multi-turn implementation | Do nothing. Don't poll between every edit. |
+| A synthesized answer about prior work | `ask(question)` |
+| Raw ranked semantic or lexical matches | `search_hybrid(query, mode=hybrid|semantic|lexical|recent)` |
+| Distilled knowledge nodes | `search_knowledge(query, mode=semantic|lexical)` |
+| A shell, session, or browser timeline | `search_events(query, source=shell|claude|browser|all)` |
+| A compact context block | `get_context(query)` |
+| Repeated failure lessons | `get_lessons(repo?, path?, tool?)` |
+| A recorded CI outcome | `get_ci_status(repo, sha=…|branch=…)` |
+| Projects or named entities | `list_projects()` or `get_entities(type?, query?)` |
 
-## In-flight SHA mental model
+Discover the tool before calling it and use its current schema. A missing lesson does not establish that an approach was never tried; lessons contain repeated patterns rather than every event.
 
-After `git push origin <branch>`, that SHA is "in flight" until CI
-reaches a terminal state (typically 3–10 min). You don't need to poll.
-Check once when the user re-engages after a quiet pause, or when
-starting a new task. If CI failed, surface the annotations and propose
-a fix — don't bury it. If CI passed, no need to mention unless asked.
+## Scope
 
-## Tool selection
+Use `project` for repository-specific history. Search without it when the question concerns other projects or when the active instructions require both scopes. Add `since` only when older history is irrelevant.
 
-Retrieval, cheapest/most-structured first:
+The general retrieval tools accept `project` and `since`. Most accept `branch`; `get_context` does not. `search_events` uses `source=all` and does not include the `workflow` source accepted by the knowledge retrievers.
 
-- `search_hybrid(query, mode=hybrid|semantic|lexical|recent)` — ranked hits
-  as structured dicts (uuid, score, summary, outcome, cwd, branch, …), no
-  synthesis. The default general-purpose retriever.
-- `search_knowledge(query, mode=semantic|lexical)` — enriched knowledge
-  nodes only. Use when you specifically want distilled knowledge, not raw events.
-- `search_events(query, source=shell|claude|browser|all)` — raw event
-  timeline (shell commands, sessions, browser history).
-- `get_context(query)` — hybrid retrieval rendered as a Markdown block ready
-  to paste into a prompt. Use when you want context *for the model*, not a list.
-- `ask(question)` — synthesized prose answer (full RAG pipeline). The most
-  expensive option; use only for human-shaped questions where prose is wanted.
+## Use the evidence
 
-Targeted lookups:
+Check the recorded repository, branch, timestamp, and outcome before applying a lesson. State the relevant prior attempt or lesson in one sentence. Verify current source or system state before treating a historical result as a current fact.
 
-- `get_ci_status(repo, sha=…|branch=…)` — structured CI outcome. Use for "did it pass."
-- `get_lessons(repo?, path?, tool?)` — distilled past mistakes. Use pre-flight.
-  Only patterns seen 2+ times graduate — a single failure won't appear.
-- `get_entities(type?, query?)` — knowledge-graph entities (project, tool,
-  file, domain, concept, service).
-- `list_projects()` — distinct projects seen. Use for discovery before scoping.
+For CI, query the exact pushed SHA when the active task needs its result. A captured status may lag GitHub; use the GitHub tool when current status is required or Hippo has no record. Do not start checking an unrelated earlier push merely because the user resumes the conversation.
 
-Prefer the structured retrievers (`search_hybrid` / `search_knowledge`) over
-`ask` when you know what shape you want — they are cheaper and machine-friendly.
-
-## Scope every query
-
-All retrieval tools (`search_hybrid`, `search_knowledge`, `search_events`,
-`get_context`, `ask`) accept `project` and `since` — using them is the biggest
-precision win:
-
-- `project=<repo-or-cwd-substring>` — restrict to the repo you're in.
-- `since="24h"` / `"7d"` / `"30m"` — bound the time window.
-
-Most also accept, with two exceptions to watch:
-
-- `source=` — origin filter. `search_hybrid` / `search_knowledge` /
-  `get_context` / `ask` take `shell|claude|browser|workflow`; `search_events`
-  takes `shell|claude|browser|all` (no `workflow`).
-- `branch=<git-branch>` — exact-match the branch. Not available on `get_context`.
-
-When working in a specific repo, default to scoping by `project` — an
-unscoped query searches every project you've ever touched.
+Avoid repeating an unchanged query between edits. Query again when the approach changes, new evidence matters, or the active instructions require another checkpoint.

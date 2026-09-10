@@ -13,10 +13,12 @@ test -f "$HOME/.config/agent-journal/config.toml" && command -v agent-note >/dev
 
 If unavailable, skip journaling silently.
 
+Set `AGENT_TOOL` to the active tool name, such as `codex` or `claude`, so the event records its actual origin.
+
 Record concise, durable decisions:
 
 ```bash
-agent-note --tool claude --event decision --summary "<decision>"
+agent-note --tool "$AGENT_TOOL" --event decision --summary "<decision>"
 agent-journal digest --quiet
 ```
 

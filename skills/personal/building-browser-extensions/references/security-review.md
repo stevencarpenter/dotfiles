@@ -4,11 +4,11 @@ Checklist for auditing browser extension security. Works for both new builds and
 
 ## Permissions Audit
 
-Every permission in the manifest must have a written justification. If you can't explain why it's needed, remove it.
+Trace each permission to the behavior that needs it. Report unused or broader-than-required permissions; remove them when fixes are in scope and the affected behavior is understood.
 
 ### Default choice: `activeTab`
 
-`activeTab` grants temporary access ONLY when the user explicitly invokes the extension. No install warning. Revoked on navigation. **Start here, not with host permissions.**
+`activeTab` grants temporary access when the user explicitly invokes the extension. Use it when that covers the requested behavior. Automatic site-specific features may require scoped host permissions.
 
 ### Dangerous permissions
 
@@ -130,7 +130,7 @@ Without origin validation, any iframe, ad script, or injected code on the page c
 
 ### Storage security
 
-- `storage.local` is readable by content scripts by default. Use `chrome.storage.local.setAccessLevel('TRUSTED_CONTEXTS')` for sensitive data.
+- `storage.local` is readable by content scripts by default. Where supported, use `chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' })` for sensitive data. Check the [storage API](https://developer.chrome.com/docs/extensions/reference/api/storage) for the target browser.
 - `storage.session` defaults to `TRUSTED_CONTEXTS` — prefer it for tokens and secrets.
 - `storage.sync` traverses vendor cloud infrastructure — never store PII or credentials.
 
@@ -179,24 +179,18 @@ Things that will get your extension rejected or cause friction during review.
 
 ### Safari App Store
 
-- **Privacy manifest required** (`PrivacyInfo.xcprivacy`) since May 2024 — declares data collected, tracking domains, Required Reasons API usage.
+- **Privacy declarations:** Check current Apple requirements for the distribution route, data collected, bundled SDKs, and required-reason API use.
 - **Host app must have meaningful functionality** — an empty container app may be rejected.
 - **Permission minimization enforced** — reviewers check that you don't claim more access than necessary.
 - **More restrictive user grants** — Safari lets users grant "one day", "always", or "this website only." Extensions must function gracefully with partial permissions.
 
 ## Supply Chain Awareness
 
-Browser extensions auto-update to all users instantly. A compromised publishing credential = compromised users.
-
-### Real-world incidents
-
-- **Cyberhaven (Dec 2024):** OAuth phishing gave attackers publish access. Malicious update pushed to 400K users. Detected in 60 minutes, but part of campaign hitting 36+ extensions / 2.6M users.
-- **Trust Wallet (Dec 2025):** Leaked Chrome Web Store API key. Malicious version published, $8.5M in crypto theft.
-- **Claude extension (March 2026):** Zero-click XSS via prompt injection in content script. Any website could execute arbitrary JS through the extension.
+Extension updates distribute privileged code to users. Protect the publishing path and review the packaged output.
 
 ### Mitigations
 
 - Secure publishing credentials with hardware keys
 - Limit who has publish access
-- Review your own extension updates before publishing (CI/CD pipeline with approval gate)
+- Verify packaged extension changes before an authorized publication; follow the repository's release policy.
 - Use `web_accessible_resources` with `use_dynamic_url: true` to prevent resource URL prediction

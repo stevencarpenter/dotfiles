@@ -1,4 +1,8 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
 """
 Enable pg_stat_statements for query statistics tracking.
 
@@ -21,7 +25,7 @@ import sys
 import re
 from typing import List
 
-from dal import run_psql_query, info, error, confirm_with_user
+from dal import run_psql_query, run_railway_command, info, error, confirm_with_user
 
 
 def parse_preload_libraries(value: str) -> List[str]:

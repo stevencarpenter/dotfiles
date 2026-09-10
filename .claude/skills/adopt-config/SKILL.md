@@ -1,6 +1,6 @@
 ---
 name: adopt-config
-description: Promote a tool's ad-hoc config (and the tool itself) into these nix-darwin dotfiles so it reproduces on every machine. USE THIS SKILL whenever the user says they want to "keep"/"adopt"/"manage"/"save"/"commit"/"add to dotfiles" a config for a tool they installed and test-drove; whenever moving a real file from ~/.config/<tool> (or ~/.<tool>rc) under `home/` and linking it; whenever a `darwin-rebuild switch` reports an "existing file in the way" / creates a `*.chezmoi-bak`; whenever deciding file-level vs directory-level out-of-store symlinking for a new config; or whenever the user asks "how do I add this tool's config to my dotfiles", "should I link the file or the dir", "why did nix back up my config", "does this need a rebuild". Bias toward triggering the moment a test-driven tool graduates to permanent — adoption is a Lane 2 (rebuild) op with a collision step that is easy to get wrong by editing the wrong copy.
+description: Adopt an unmanaged tool configuration into this nix-darwin repository using out-of-store links. Use for config adoption, link granularity, or Home Manager collision questions; ordinary edits to existing links need no adoption workflow.
 ---
 
 # Adopt a config into the dotfiles
@@ -20,8 +20,9 @@ shape every adoption:
   symlink, so adoption always ends in `./rebuild.sh`. (Editing an *already-linked* file is
   Lane 1 — live, no rebuild.)
 - **Collisions are caught, not fatal.** `home-manager.backupFileExtension = "chezmoi-bak"`
-  (`flake.nix`) moves an in-the-way real file to `<file>.chezmoi-bak` instead of aborting
-  the switch. Clean it up after; better, `rm` the original yourself first.
+  (`flake.nix`) can move an in-the-way real file to `<file>.chezmoi-bak` on switch.
+  Check for an existing backup collision; do not overwrite a backup or delete the
+  original before verifying its repository copy.
 
 ## Run the planner first (deterministic)
 
@@ -55,12 +56,16 @@ When unsure, link the file — you can widen later.
 
 ## Procedure (after the planner)
 
-1. Declare the package (nixpkgs or homebrew), gated if machine-specific.
+1. Check how the package is already managed. Add a declaration only when adopting
+   package management is part of the request and no existing source owns it.
 2. `cp` the tuned config into `home/<rel-path>`.
 3. Add the planner's link line to the right `mkLinks [ … ]` list in `modules/home/dotfiles.nix`.
-4. `rm` the original real file from `~` (or accept the `.chezmoi-bak`).
-5. `./rebuild.sh`.
-6. Verify: `realpath ~/.config/<tool>/<config>` lands in `~/.dotfiles/…`; no stray `.chezmoi-bak`.
+4. Verify the copied contents. Preserve the original in a non-colliding backup, or
+   use the configured Home Manager backup behavior. Do not discard the sole copy.
+5. Run `./rebuild.sh` when activation is authorized. A request to prepare a config
+   change for review does not require switching the system.
+6. After activation, verify that the deployed path resolves into the repository and
+   the tool reads the intended configuration. Retain backups until verified.
 
 ## When NOT to use this skill
 

@@ -1,4 +1,8 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
 """
 Complete database analysis for Railway deployments.
 
@@ -19,22 +23,20 @@ Usage:
 """
 
 import argparse
-import base64
 import json
 import os
 import subprocess
 import sys
-import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field, asdict
 
 import dal
 from dal import (
     LOG_LINES_DEFAULT, ProgressTimer, RailwayContext,
-    _init_context, progress, run_railway_command, run_ssh_query, run_psql_query,
-    get_railway_status, get_deployment_status,
+    _init_context, progress, run_ssh_query, run_psql_query_safe,
+    get_deployment_status,
     get_all_metrics_from_api, _analyze_window, _build_metrics_history,
     get_recent_logs,
     _trend_indicator,
@@ -87,14 +89,6 @@ class AnalysisResult:
     errors: List[str] = field(default_factory=list)
     recommendations: List[Dict[str, str]] = field(default_factory=list)
 
-
-
-def run_psql_query_safe(service: str, query: str, timeout: int = 60) -> Tuple[int, str, str]:
-    """Run a psql query using base64 encoding to avoid shell quoting issues."""
-    encoded = base64.b64encode(query.encode()).decode()
-    # 2>/dev/null suppresses psql warnings (e.g., collation version mismatch) that pollute stdout
-    command = f"echo '{encoded}' | base64 -d | psql $DATABASE_URL -P pager=off -t -A 2>/dev/null"
-    return run_ssh_query(service, command, timeout)
 
 
 def build_analysis_query() -> str:
@@ -899,131 +893,6 @@ def parse_batched_analysis(data: Dict[str, Any], result: AnalysisResult) -> None
         }
 
 
-def parse_psql_output(output: str, columns: List[str]) -> List[Dict[str, str]]:
-    """Parse psql -t -A output (pipe-separated) into list of dicts."""
-    rows = []
-    for line in output.strip().split("\n"):
-        if not line or line.startswith("("):
-            continue
-        values = line.split("|")
-        if len(values) == len(columns):
-            rows.append(dict(zip(columns, [v.strip() for v in values])))
-    return rows
-
-
-def get_disk_usage_from_api(environment_id: str, service_id: str) -> Optional[Dict[str, Any]]:
-    """Get disk usage from Railway metrics API."""
-    from datetime import timedelta
-
-    # Build the API query
-    start_date = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
-
-    # Use railway-api.sh script
-    import os
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    api_script = os.path.join(script_dir, "railway-api.sh")
-
-    if not os.path.exists(api_script):
-        return None
-
-    query = '''query metrics($environmentId: String!, $serviceId: String, $startDate: DateTime!, $measurements: [MetricMeasurement!]!) {
-        metrics(environmentId: $environmentId, serviceId: $serviceId, startDate: $startDate, measurements: $measurements) {
-            measurement values { ts value }
-        }
-    }'''
-
-    variables = json.dumps({
-        "environmentId": environment_id,
-        "serviceId": service_id,
-        "startDate": start_date,
-        "measurements": ["DISK_USAGE_GB"]
-    })
-
-    try:
-        result = subprocess.run(
-            [api_script, query, variables],
-            capture_output=True,
-            text=True,
-            timeout=30
-        )
-        if result.returncode != 0:
-            return None
-
-        data = json.loads(result.stdout)
-        metrics = data.get("data", {}).get("metrics", [])
-
-        for metric in metrics:
-            if metric.get("measurement") == "DISK_USAGE_GB":
-                values = metric.get("values", [])
-                if values:
-                    # Get latest value
-                    latest = values[-1].get("value", 0)
-                    return {
-                        "used_gb": round(latest, 2),
-                        "used": f"{latest:.1f} GB",
-                    }
-    except (subprocess.TimeoutExpired, json.JSONDecodeError, FileNotFoundError):
-        pass
-
-    return None
-
-
-def get_disk_usage(service: str, environment_id: Optional[str] = None, service_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
-    """Get disk usage - try API first, fall back to SSH."""
-    # Try Railway API first
-    if environment_id and service_id:
-        api_result = get_disk_usage_from_api(environment_id, service_id)
-        if api_result:
-            return api_result
-
-    # Fall back to SSH
-    command = "df -h /var/lib/postgresql/data 2>/dev/null || df -h / | tail -1"
-    code, stdout, stderr = run_ssh_query(service, command)
-    if code != 0 or not stdout:
-        return None
-
-    # Parse df output: Filesystem Size Used Avail Use% Mounted
-    lines = stdout.strip().split("\n")
-    for line in lines:
-        if line and not line.startswith("Filesystem"):
-            parts = line.split()
-            if len(parts) >= 5:
-                return {
-                    "total": parts[1],
-                    "used": parts[2],
-                    "available": parts[3],
-                    "use_percent": parts[4].rstrip("%"),
-                }
-    return None
-
-
-def get_cpu_memory_from_api(environment_id: str, service_id: str) -> Optional[Dict[str, Any]]:
-    """Get CPU and memory usage from Railway metrics API.
-
-    DEPRECATED: Use get_all_metrics_from_api() instead for combined disk/cpu/memory.
-    """
-    result = get_all_metrics_from_api(environment_id, service_id)
-    if result:
-        return result.get("cpu_memory")
-    return None
-
-
-def get_recent_errors(service: str, limit: int = 10) -> List[str]:
-    """Get recent error logs (legacy - kept for backwards compat)."""
-    code, stdout, stderr = run_railway_command(
-        ["logs", "--service", service, "--lines", "100", "--filter", "@level:error"],
-        timeout=30
-    )
-    if code != 0:
-        return []
-
-    errors = []
-    for line in stdout.strip().split("\n")[:limit]:
-        if line.strip():
-            errors.append(line.strip())
-    return errors
-
-
 def get_cluster_logs(
     ha_cluster: Optional[Dict[str, Any]],
     environment_id: Optional[str],
@@ -1196,22 +1065,8 @@ def analyze_postgres(service: str, timeout: int = 300, quiet: bool = False,
         print("  [0/5] Getting Railway context...", file=sys.stderr, flush=True)
     dal._progress_timer.start()
 
-    if environment_id and service_id:
-        # IDs passed directly — no need to read config or link
-        dal._ctx = RailwayContext(project_id=project_id, environment_id=environment_id, service_id=service_id)
-        if not quiet:
-            print(f"        using explicit IDs (env={environment_id[:8]}..., svc={service_id[:8]}...)", file=sys.stderr, flush=True)
-    else:
-        # Fall back to reading railway context from local config (instant, no API call)
-        railway_status = get_railway_status()
-        if railway_status:
-            dal._ctx = RailwayContext(
-                project_id=railway_status.get("projectId"),
-                environment_id=railway_status.get("environmentId"),
-                service_id=railway_status.get("serviceId"),
-            )
-        environment_id = dal._ctx.environment_id
-        service_id = dal._ctx.service_id
+    context = _init_context(RailwayContext(project_id, environment_id, service_id), quiet=quiet)
+    environment_id, service_id = context.environment_id, context.service_id
 
     # Check if this is an HA service - only call API if name suggests HA
     is_ha_service = False
@@ -1225,25 +1080,7 @@ def analyze_postgres(service: str, timeout: int = 300, quiet: bool = False,
     # === SSH PRE-CHECK WITH RETRY ===
     # SSH can be flaky — retry with increasing timeouts before giving up
     progress(2, 4, "Testing SSH connectivity...", quiet)
-    ssh_available = False
-    ssh_stderr = ""
-    ssh_attempts = [30, 60, 90]
-    for attempt, attempt_timeout in enumerate(ssh_attempts, 1):
-        ssh_code, ssh_stdout, ssh_stderr = run_ssh_query(service, "echo ok", timeout=attempt_timeout)
-        if ssh_code == 0 and "ok" in ssh_stdout:
-            ssh_available = True
-            if not quiet:
-                for line in ssh_stderr.splitlines():
-                    if line.startswith("Using SSH key:"):
-                        print(f"        {line}", file=sys.stderr, flush=True)
-                        break
-            break
-        if not quiet:
-            remaining = len(ssh_attempts) - attempt
-            if remaining > 0:
-                print(f"        SSH attempt {attempt}/{len(ssh_attempts)} failed ({ssh_stderr or 'no response'}), retrying with {ssh_attempts[attempt]}s timeout...", file=sys.stderr, flush=True)
-            else:
-                print(f"        SSH attempt {attempt}/{len(ssh_attempts)} failed ({ssh_stderr or 'no response'}), giving up", file=sys.stderr, flush=True)
+    ssh_available, ssh_stderr = dal.check_ssh(service, quiet=quiet)
 
     # === PARALLEL EXECUTION OF SLOW OPERATIONS ===
     # Run metrics API, database query, and logs in parallel (~17-27s down to ~max of the three)
@@ -1347,7 +1184,7 @@ def analyze_postgres(service: str, timeout: int = 300, quiet: bool = False,
     else:
         error_msg = stderr or stdout or "Unknown error"
         if not ssh_available:
-            error_msg = f"SSH failed after {len(ssh_attempts)} attempts: {ssh_stderr or 'connection failed'}"
+            error_msg = f"SSH failed after {len(dal.SSH_CHECK_TIMEOUTS)} attempts: {ssh_stderr or 'connection failed'}"
         result.errors.append(f"Batched analysis query failed: {error_msg}")
         result.collection_status["database_query"] = {
             "status": "error",
@@ -2269,22 +2106,7 @@ def generate_recommendations(result: AnalysisResult) -> List[Dict[str, str]]:
 
 def sum_index_sizes(indexes: List[Dict[str, Any]]) -> str:
     """Sum up index sizes and return human-readable string."""
-    total_bytes = 0
-    for idx in indexes:
-        size_str = idx.get("size", "0")
-        # Parse sizes like "23 MB", "8448 kB", etc.
-        match = re.match(r"(\d+)\s*(MB|kB|GB|bytes?)?", size_str, re.IGNORECASE)
-        if match:
-            value = int(match.group(1))
-            unit = (match.group(2) or "bytes").upper()
-            if unit in ("KB", "KB"):
-                total_bytes += value * 1024
-            elif unit == "MB":
-                total_bytes += value * 1024 * 1024
-            elif unit == "GB":
-                total_bytes += value * 1024 * 1024 * 1024
-            else:
-                total_bytes += value
+    total_bytes = sum(int(idx.get("size_bytes", 0)) for idx in indexes)
 
     if total_bytes >= 1024 * 1024 * 1024:
         return f"{total_bytes / 1024 / 1024 / 1024:.1f} GB"
@@ -2482,39 +2304,7 @@ def format_report(result: AnalysisResult) -> str:
     lines.append("")
 
     # Infrastructure Trends (multi-window)
-    if result.metrics_history and result.metrics_history.get("windows"):
-        windows = result.metrics_history.get("windows", {})
-        for window_label, window_data in windows.items():
-            mh = window_data.get("metrics", {})
-            if not mh:
-                continue
-            lines.append(f"## Infrastructure Trends ({window_label})")
-            lines.append("")
-            lines.append("| Metric | Current | Min | Max | Avg | Trend | Change |")
-            lines.append("|--------|---------|-----|-----|-----|-------|--------|")
-            display_order = [
-                ("cpu", "CPU"),
-                ("memory", "Memory"),
-                ("disk", "Disk"),
-                ("network_rx", "Network RX"),
-                ("network_tx", "Network TX"),
-            ]
-            for key, label in display_order:
-                if key in mh:
-                    m = mh[key]
-                    unit = m["unit"]
-                    trend = m.get("trend", {})
-                    direction = trend.get("direction", "?")
-                    change = trend.get("change_pct", 0)
-                    arrow = {"increasing": "^", "decreasing": "v", "stable": "~"}.get(direction, "?")
-                    spike_note = ""
-                    if m.get("spikes"):
-                        spike_note = f" ({m['spikes']['count']} spikes)"
-                    lines.append(
-                        f"| {label} | {m['current']} {unit} | {m['min']} | {m['max']} | {m['avg']} | "
-                        f"{arrow} {direction} | {change:+.1f}%{spike_note} |"
-                    )
-            lines.append("")
+    dal.append_infrastructure_trends(lines, result.metrics_history)
 
     # PostgreSQL Configuration (tuning parameters)
     if result.memory_config:

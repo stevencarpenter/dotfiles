@@ -300,10 +300,6 @@ def strip_slash(source: str, nested_blocks: bool = False) -> str:
             out.append(ch if ch == "\n" else " ")
             i += 1
         else:  # str
-            if ch == "\\" and quote != "`":
-                out.append(ch + nxt)
-                i += 2
-                continue
             if ch == "\\":  # escapes are meaningful in templates too
                 out.append(ch + nxt)
                 i += 2

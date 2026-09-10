@@ -1,6 +1,6 @@
 ---
 name: blind-review
-description: "PoC/experimental. Paired code review that separates what code DOES from what its comments CLAIM: strip all comments/docstrings/docs from a diff, run a context-blind correctness+exploitation review on the bare code in parallel with the normal full-context review, then merge and surface comment/code divergence. Use when the user asks for a blind review, an unbiased/no-context review, a comment-vs-code check, to 'blind-review this diff/PR', or asks whether the comments are lying; also usable as a silent sidecar on other review tasks to collect paired findings data."
+description: "Experimental paired code review with comments and docstrings removed from one pass. Use for a requested blind review, comment-versus-code check, or paired review experiment."
 ---
 
 # Blind Review (PoC)
@@ -15,8 +15,8 @@ report: findings from this flow are experimental.
 ## Modes
 
 - **Primary** (default): run both passes, present the merged report.
-- **Sidecar** (when hitched onto another task, or the user says "collect
-  blind-review data"): run both passes read-only, log the pair record,
+- **Sidecar** (when the user asks to collect paired data alongside another
+  review): run both passes read-only, log the pair record,
   and give only a one-line summary — do not editorialize on the primary
   task's review.
 
@@ -49,6 +49,7 @@ and disclose the gap in the report.
 
 **Blind pass** — spawn the `blind-reviewer` agent (fall back to a
 general-purpose read-only agent carrying the same brief if unregistered).
+Start a fresh agent without inherited conversation or repository instructions.
 Give it ONLY the out dir: review `head/` with `stripped.diff` as the
 change under review. Never mention the original repo path, repo name, or
 branch — the isolation is the experiment. It cannot be hard-sandboxed, so
@@ -65,11 +66,11 @@ structured checklist, any blind-arm lift may just be "checklist beats
 freeform review", not de-biasing.
 
 Keep both passes on the same model and effort — mismatched arms confound the
-comparison. Merge and divergence below are mechanical comparison — use low effort.
+comparison. Verify candidate findings against the original source before reporting them.
 
 ### 4. Merge into four buckets
 
-- **[both]** — found by both passes: highest confidence, lead with these.
+- **[both]** — found by both passes; still requires source verification.
 - **[blind-only]** — candidates for "the comments talked the reviewer out
   of it" — or blind-pass noise. Do not discard; step 5 adjudicates.
 - **[context-only]** — findings that required docs/comments/repo context.
@@ -86,7 +87,7 @@ comments/docstrings against the blind description of what the code does.
 A comment that asserts what the code demonstrably does not do —
 "validated above" with no validation, "cannot overflow" with an
 unchecked add — is a **[divergence]** finding: usually the highest-value
-output, and evidence the context pass was talked out of a real bug.
+output. A single pair does not establish why one reviewer missed it.
 
 ### 6. Log the pair record (both modes, including sidecar)
 

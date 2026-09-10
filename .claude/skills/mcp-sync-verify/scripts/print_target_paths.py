@@ -19,13 +19,10 @@ Usage:
 
 from __future__ import annotations
 
-import sys
+import argparse
 from pathlib import Path
 
 from mcp_sync.sync import sync_destinations
-
-_KINDS = frozenset({"wholesale", "patch"})
-_USAGE = "usage: print_target_paths.py [--kind wholesale|patch] [--pretty]"
 
 
 def _print_pretty(kind_filter: str | None = None) -> int:
@@ -64,30 +61,24 @@ def main(argv: list[str] | None = None) -> int:
             ``--pretty`` prints the grouped human-readable view instead.
 
     Returns:
-        0 on success, 2 on usage errors.
-    """
-    args = list(sys.argv[1:] if argv is None else argv)
-    kind_filter: str | None = None
-    pretty = False
-    while args:
-        arg = args.pop(0)
-        if arg == "--pretty":
-            pretty = True
-        elif arg == "--kind":
-            if not args or args[0] not in _KINDS:
-                print(_USAGE, file=sys.stderr)
-                return 2
-            kind_filter = args.pop(0)
-        else:
-            print(_USAGE, file=sys.stderr)
-            return 2
+        0 on success.
 
-    if pretty:
-        return _print_pretty(kind_filter)
+    Raises:
+        SystemExit: With status 2 on usage errors, or 0 for help.
+    """
+    parser = argparse.ArgumentParser(
+        description="Print mcp_sync deployment paths.", allow_abbrev=False
+    )
+    parser.add_argument("--kind", choices=("wholesale", "patch"))
+    parser.add_argument("--pretty", action="store_true")
+    args = parser.parse_args(argv)
+
+    if args.pretty:
+        return _print_pretty(args.kind)
 
     home = Path.home()
     for dest in sync_destinations(home):
-        if kind_filter is not None and dest.kind != kind_filter:
+        if args.kind is not None and dest.kind != args.kind:
             continue
         print(dest.path.relative_to(home))
     return 0

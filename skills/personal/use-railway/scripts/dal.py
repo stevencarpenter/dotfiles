@@ -1,15 +1,22 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
 """Shared Railway infrastructure helpers for database analysis scripts."""
 
+import base64
 import json
 import os
 import subprocess
 import sys
+from argparse import Namespace
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
-from dataclasses import dataclass
 
 LOG_LINES_DEFAULT = 1000  # Number of log lines to fetch via API
+SSH_CHECK_TIMEOUTS = (30, 60, 90)
 
 
 class ProgressTimer:
@@ -76,8 +83,16 @@ class RailwayContext:
 _ctx = RailwayContext()
 
 
-def _init_context(args) -> None:
-    """Initialize global context from CLI args or railway config."""
+def _init_context(args: Namespace | RailwayContext, quiet: bool = True) -> RailwayContext:
+    """Initialize and return context from explicit IDs or local configuration.
+
+    Args:
+        args: CLI arguments or explicit Railway IDs.
+        quiet: Suppress the explicit-ID progress message.
+
+    Returns:
+        Context used by subsequent Railway commands.
+    """
     global _ctx
     if args.environment_id and args.service_id:
         _ctx = RailwayContext(
@@ -85,6 +100,8 @@ def _init_context(args) -> None:
             environment_id=args.environment_id,
             service_id=args.service_id,
         )
+        if not quiet:
+            print(f"        using explicit IDs (env={args.environment_id[:8]}..., svc={args.service_id[:8]}...)", file=sys.stderr, flush=True)
     else:
         railway_status = get_railway_status()
         if railway_status:
@@ -93,6 +110,7 @@ def _init_context(args) -> None:
                 environment_id=railway_status.get("environmentId"),
                 service_id=railway_status.get("serviceId"),
             )
+    return _ctx
 
 
 def progress(step: int, total: int, message: str, quiet: bool = False):
@@ -176,15 +194,56 @@ def run_ssh_query(service: str, command: str, timeout: int = 60,
     return last_code, last_stdout, last_stderr
 
 
-def run_psql_query(service: str, query: str, timeout: int = 60) -> Tuple[int, str]:
-    """Run a psql query via railway ssh and return (returncode, output).
+def check_ssh(service: str, quiet: bool = False) -> tuple[bool, str]:
+    """Probe SSH with increasing timeouts and retain its diagnostic output.
 
-    Normalizes query whitespace and suppresses psql warnings (e.g. collation
-    version mismatch) that would otherwise pollute stdout.
+    Args:
+        service: Railway service name.
+        quiet: Suppress preflight progress messages.
+
+    Returns:
+        Whether the probe succeeded and the last SSH stderr.
     """
-    query = " ".join(query.split())
-    command = f'''PAGER='' psql $DATABASE_URL -P pager=off -t -A -c "{query}" 2>/dev/null'''
-    code, stdout, stderr = run_ssh_query(service, command, timeout)
+    ssh_stderr = ""
+    for attempt, attempt_timeout in enumerate(SSH_CHECK_TIMEOUTS, 1):
+        ssh_code, ssh_stdout, ssh_stderr = run_ssh_query(service, "echo ok", timeout=attempt_timeout)
+        if ssh_code == 0 and "ok" in ssh_stdout:
+            if not quiet:
+                for line in ssh_stderr.splitlines():
+                    if line.startswith("Using SSH key:"):
+                        print(f"        {line}", file=sys.stderr, flush=True)
+                        break
+            return True, ssh_stderr
+        if not quiet:
+            if attempt < len(SSH_CHECK_TIMEOUTS):
+                print(f"        SSH attempt {attempt}/{len(SSH_CHECK_TIMEOUTS)} failed ({ssh_stderr or 'no response'}), retrying with {SSH_CHECK_TIMEOUTS[attempt]}s timeout...", file=sys.stderr, flush=True)
+            else:
+                print(f"        SSH attempt {attempt}/{len(SSH_CHECK_TIMEOUTS)} failed ({ssh_stderr or 'no response'}), giving up", file=sys.stderr, flush=True)
+    return False, ssh_stderr
+
+
+def run_psql_query_safe(service: str, query: str, timeout: int = 60) -> tuple[int, str, str]:
+    """Pipe encoded SQL through SSH without hiding SQL failures.
+
+    Args:
+        service: Railway service name.
+        query: SQL passed intact to psql without remote shell interpretation.
+        timeout: SSH command timeout in seconds.
+
+    Returns:
+        The command exit status, stdout, and stderr.
+    """
+    encoded = base64.b64encode(query.encode("utf-8")).decode("ascii")
+    command = (
+        f"printf '%s' '{encoded}' | base64 -d | "
+        "PAGER='' psql $DATABASE_URL -v ON_ERROR_STOP=1 -P pager=off -t -A"
+    )
+    return run_ssh_query(service, command, timeout)
+
+
+def run_psql_query(service: str, query: str, timeout: int = 60) -> Tuple[int, str]:
+    """Run psql and return its exit status and output, including SQL errors."""
+    code, stdout, stderr = run_psql_query_safe(service, " ".join(query.split()), timeout)
     if code != 0:
         return code, stderr or stdout
     return 0, stdout
@@ -622,8 +681,12 @@ def get_recent_logs(service: str, lines: int = LOG_LINES_DEFAULT,
     retries once with longer timeout on failure,
     falls back to CLI (~27s for 100 lines).
     """
-    # Fast path: use API directly
-    if environment_id and service_id:
+    # IDs are interpolated into GraphQL literals below. Retain the local
+    # snapshot's guard against quotes and braces crossing that boundary.
+    id_chars = set("0123456789abcdefABCDEF-")
+    if (environment_id and service_id
+            and all(c in id_chars for c in environment_id)
+            and all(c in id_chars for c in service_id)):
         script_dir = os.path.dirname(os.path.abspath(__file__))
         api_script = os.path.join(script_dir, "railway-api.sh")
 
@@ -669,3 +732,80 @@ def get_recent_logs(service: str, lines: int = LOG_LINES_DEFAULT,
         if line.strip():
             logs.append(line.strip())
     return logs
+
+
+def append_infrastructure_trends(lines: list[str], metrics_history: dict[str, Any] | None) -> None:
+    """Append the infrastructure trends table used by two database reports.
+
+    Args:
+        lines: Report lines to append to.
+        metrics_history: Collected time windows and metric summaries, if available.
+    """
+    if metrics_history and metrics_history.get("windows"):
+        windows = metrics_history.get("windows", {})
+        for window_label, window_data in windows.items():
+            mh = window_data.get("metrics", {})
+            if not mh:
+                continue
+            lines.append(f"## Infrastructure Trends ({window_label})")
+            lines.append("")
+            lines.append("| Metric | Current | Min | Max | Avg | Trend | Change |")
+            lines.append("|--------|---------|-----|-----|-----|-------|--------|")
+            display_order = [
+                ("cpu", "CPU"),
+                ("memory", "Memory"),
+                ("disk", "Disk"),
+                ("network_rx", "Network RX"),
+                ("network_tx", "Network TX"),
+            ]
+            for key, label in display_order:
+                if key in mh:
+                    m = mh[key]
+                    unit = m["unit"]
+                    trend = m.get("trend", {})
+                    direction = trend.get("direction", "?")
+                    change = trend.get("change_pct", 0)
+                    arrow = {"increasing": "^", "decreasing": "v", "stable": "~"}.get(direction, "?")
+                    spike_note = ""
+                    if m.get("spikes"):
+                        spike_note = f" ({m['spikes']['count']} spikes)"
+                    lines.append(
+                        f"| {label} | {m['current']} {unit} | {m['min']} | {m['max']} | {m['avg']} | "
+                        f"{arrow} {direction} | {change:+.1f}%{spike_note} |"
+                    )
+            lines.append("")
+
+
+def append_infrastructure_metrics(lines: list[str], metrics_history: dict[str, Any] | None) -> None:
+    """Append the infrastructure metrics table used by two database reports.
+
+    Args:
+        lines: Report lines to append to.
+        metrics_history: Collected time windows and metric summaries, if available.
+    """
+    if metrics_history:
+        windows = metrics_history.get("windows", {})
+        for window_label, window_data in windows.items():
+            mh = window_data.get("metrics", {})
+            if not mh:
+                continue
+            lines.append(f"## Infrastructure Metrics ({window_label})")
+            lines.append("| Metric | Current | Min | Max | Avg | Trend |")
+            lines.append("|--------|---------|-----|-----|-----|-------|")
+            for key in ["cpu", "memory", "disk", "network_rx", "network_tx"]:
+                if key in mh:
+                    entry = mh[key]
+                    trend = entry.get("trend", {})
+                    trend_str = trend.get("direction", "N/A")
+                    change = trend.get("change_pct", 0)
+                    if change != 0:
+                        trend_str += f" ({change:+.1f}%)"
+                    lines.append(
+                        f"| {key.replace('_', ' ').title()} "
+                        f"| {entry['current']}{entry['unit']} "
+                        f"| {entry['min']}{entry['unit']} "
+                        f"| {entry['max']}{entry['unit']} "
+                        f"| {entry['avg']}{entry['unit']} "
+                        f"| {trend_str} |"
+                    )
+            lines.append("")

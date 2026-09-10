@@ -9,48 +9,12 @@
 // the user's project. See scripts/setup.sh.
 
 import { mkdirSync } from "node:fs";
-import { resolve, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
+import { parseArgs } from "node:util";
 
 // ---------- arg parsing ----------
-
-function parseArgs(argv) {
-  const args = {
-    base: "http://127.0.0.1:4321",
-    out: "/tmp/screenshot-bug-hunt-out",
-    workdir:
-      process.env.HIPPO_PW_WORKDIR ||
-      `${process.env.XDG_CACHE_HOME || `${process.env.HOME}/Library/Caches`}/screenshot-bug-hunt-pw`,
-    targets: null,
-    only: null,                 // viewport tag filter, e.g. "desktop"
-    sitemapPath: "/sitemap-index.xml",
-  };
-  for (let i = 2; i < argv.length; i++) {
-    const a = argv[i];
-    const eq = a.indexOf("=");
-    const [key, val] =
-      eq >= 0 ? [a.slice(0, eq), a.slice(eq + 1)] : [a, argv[++i]];
-    switch (key) {
-      case "--base": args.base = val; break;
-      case "--out": args.out = val; break;
-      case "--workdir": args.workdir = val; break;
-      case "--targets": args.targets = val; break;
-      case "--only": args.only = val; break;
-      case "--sitemap": args.sitemapPath = val; break;
-      case "--help":
-      case "-h":
-        printHelp();
-        process.exit(0);
-      default:
-        console.error(`unknown arg: ${a}`);
-        printHelp();
-        process.exit(2);
-    }
-  }
-  return args;
-}
 
 function printHelp() {
   console.log(`Usage: node shoot.mjs [options]
@@ -149,8 +113,32 @@ function pathToSlug(p) {
 
 // ---------- main ----------
 
-const args = parseArgs(process.argv);
-const __dirname = dirname(fileURLToPath(import.meta.url));
+let args;
+try {
+  ({ values: args } = parseArgs({
+    options: {
+      base: { type: "string", default: "http://127.0.0.1:4321" },
+      out: { type: "string", default: "/tmp/screenshot-bug-hunt-out" },
+      workdir: {
+        type: "string",
+        default: process.env.HIPPO_PW_WORKDIR ||
+          `${process.env.XDG_CACHE_HOME || `${process.env.HOME}/Library/Caches`}/screenshot-bug-hunt-pw`,
+      },
+      targets: { type: "string" },
+      only: { type: "string" },
+      sitemap: { type: "string", default: "/sitemap-index.xml" },
+      help: { type: "boolean", short: "h" },
+    },
+  }));
+} catch (err) {
+  console.error(err.message);
+  printHelp();
+  process.exit(2);
+}
+if (args.help) {
+  printHelp();
+  process.exit(0);
+}
 
 mkdirSync(args.out, { recursive: true });
 mkdirSync(resolve(args.out, "detail"), { recursive: true });
@@ -173,8 +161,8 @@ if (args.targets) {
   const json = await readFile(args.targets, "utf8");
   targets = JSON.parse(json);
 } else {
-  console.log(`Auto-discovering pages from ${args.base}${args.sitemapPath} …`);
-  targets = await discoverFromSitemap(args.base, args.sitemapPath);
+  console.log(`Auto-discovering pages from ${args.base}${args.sitemap} …`);
+  targets = await discoverFromSitemap(args.base, args.sitemap);
 }
 
 if (!targets.length) {

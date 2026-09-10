@@ -1,30 +1,29 @@
 ---
 name: kaneo-issue
 description: >
-  File, update, or close Kaneo tasks for any repo tracked in the self-hosted
-  Kaneo workspace (sluice, hippo, homelab, snugmarina, snugmarina-base,
-  dotfiles, gringotts, whistlepost, stevectl, gitdiff, ski-area-tycoon).
-  Encodes project
-  routing, the label set, the task body template, and the column ladder. Use
-  whenever work should be tracked or its tracking state changed: "file an
-  issue", "open a ticket", "add this to the backlog", "track this follow-up",
-  "mark HOME-2 in progress", "close SLU-4" — and whenever a task turns up a
-  defect or follow-up worth recording rather than dropping. Also use before
-  filing, to dedupe. Kaneo replaced Linear as the system of record in August
-  2026, so use this skill even when the request says "Linear".
+  File, update, or close tasks in the self-hosted Kaneo workspace. Use for
+  Kaneo task requests or issue-tracking work in a repository configured to
+  use Kaneo. Covers project routing, deduplication, labels, and status changes.
 user-invocable: true
 ---
 
 # Filing Kaneo tasks
 
-**Kaneo is the system of record for every repo here.** It is self-hosted at
+**Kaneo is the configured tracker for the repositories listed below.** It is self-hosted at
 `https://kaneo.snugmarina.org`, tailnet-only, and replaced Linear on
 2026-08-09 — the Linear subscription is gone and `linear.app` URLs found in old
-task descriptions no longer resolve. Never file a GitHub issue for tracking; on
+task descriptions no longer resolve. On
 `sjcarpenter/sluice` GitHub Issues are disabled outright, so a bare `#NN` in an
 old commit is a dead reference.
 
-If a request says "Linear", it means this. Don't go looking for a Linear MCP.
+Use Kaneo for unspecified tracking requests in these repositories. If the user
+explicitly names another tracker, surface the migration context and resolve the
+destination before creating anything. Do not reinterpret the named product.
+
+Create or update tasks only when tracking is requested or covered by the active
+repository workflow. Discovering an unrelated defect does not authorize filing,
+commenting on, or closing it. Honor existing authorization without adding a
+second approval step.
 
 ## 1. Route it: repo → project
 
@@ -112,9 +111,10 @@ list_tasks(projectId: "<id>", limit: 100, sortBy: "createdAt", sortOrder: "desc"
 Boards are large (`WPFV` ~224 tasks, `SLU` ~216) and full listings are heavy,
 so narrow with `status` or `priority` when you can and page rather than pulling
 everything at once. Scan for the *symptom*, not your phrasing of it — a defect
-is often already filed under different words. Found a match? Comment on it or
-sharpen its description instead of filing. Genuine duplicate? Link the two with
-a `related` relation and close the newer one; Kaneo has no `duplicateOf`.
+is often already filed under different words. If a matching task exists, report
+it and apply any update the request authorizes. In a duplicate-cleanup task,
+link duplicates with a `related` relation before closing the newer one; Kaneo
+has no `duplicateOf`. A filing request alone does not authorize closing other tasks.
 
 ## 4. Body template
 
@@ -252,10 +252,10 @@ you dropped and why — a silently narrowed task reads as fully delivered later.
 The exception is `needs-human` tasks, whose done-ness isn't PR-shaped (device,
 console, or credential work): those still wait for explicit human promotion.
 
-Also close on behalf of dead sessions: if you find an open task whose work
-demonstrably merged (a `Closes <ID>` footer, a matching PR), close it with the
-evidence rather than leaving it to rot — stale board state is the failure mode
-this rule exists to prevent.
+During an authorized tracking cleanup, also close stale tasks whose complete
+scope demonstrably merged (a `Closes <ID>` footer and matching PR). Include
+the evidence and preserve any unmet criteria rather than treating a similar
+PR title as proof of completion.
 
 ## 7. Epics and hierarchy
 

@@ -1,6 +1,6 @@
 # Cross-Browser Compatibility
 
-The "works in Chrome, breaks elsewhere" tribal knowledge. As of April 2026.
+Compatibility notes recorded in April 2026. Verify current API support and distribution requirements for the requested browser versions before changing code. Do not add support for browsers outside the task's targets.
 
 ## MV3 Status Per Browser
 
@@ -53,9 +53,9 @@ If you absolutely need DOM manipulation in the background, Chrome provides the `
 | Firefox | Compat shim | Primary (native) | Native |
 | Safari | Compat shim | Primary (native) | Native |
 
-**WXT abstracts this.** Use `browser` from `#imports` — WXT's lightweight wrapper handles the differences. The `webextension-polyfill` package is effectively inactive (no releases in 2+ years) and WXT dropped it in v0.20.
+In a WXT project, use its configured browser API imports. In a native extension, use the APIs supported by the target browsers. Do not add or replace a polyfill without identifying a compatibility gap.
 
-**Use WXT's build-time environment variables** for browser-specific code instead of runtime detection:
+In a WXT project, build-time environment variables can select browser-specific code:
 
 ```typescript
 if (import.meta.env.FIREFOX) {
@@ -81,7 +81,7 @@ APIs that exist in some browsers but not others:
 
 ### Handling gaps
 
-Use WXT's `include`/`exclude` on entrypoints for browser-specific features:
+In a WXT project, `include`/`exclude` can select entrypoints for supported browsers:
 
 ```typescript
 // entrypoints/sidebar.content.ts
@@ -120,12 +120,7 @@ Convert existing extension: `xcrun safari-web-extension-converter /path/to/exten
 
 ### Privacy manifest
 
-Required since May 2024. The `PrivacyInfo.xcprivacy` file must declare:
-- Types of data collected
-- Required Reasons API usage (e.g., `UserDefaults`)
-- Tracking domains
-
-Apps without privacy manifests are rejected.
+Check current Apple requirements for the extension's distribution route, collected data, bundled SDKs, and required-reason APIs. Do not assume every extension has the same native-app packaging requirements.
 
 ### User permissions
 
@@ -166,4 +161,4 @@ if (typeof browser.sidePanel !== 'undefined') {
 }
 ```
 
-Prefer WXT's `import.meta.env.BROWSER` build-time check when possible — it eliminates dead code.
+In a WXT project, build-time browser selection can remove unused branches. Keep runtime feature checks when API availability varies within the supported versions of that browser.
