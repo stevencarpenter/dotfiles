@@ -1,11 +1,6 @@
-#!/usr/bin/env -S uv run --script
-# /// script
-# requires-python = ">=3.11"
-# dependencies = []
-# ///
+#!/usr/bin/env python3
 """Shared Railway infrastructure helpers for database analysis scripts."""
 
-import base64
 import json
 import os
 import subprocess
@@ -184,19 +179,11 @@ def run_ssh_query(service: str, command: str, timeout: int = 60,
 def run_psql_query(service: str, query: str, timeout: int = 60) -> Tuple[int, str]:
     """Run a psql query via railway ssh and return (returncode, output).
 
-    Normalizes query whitespace. SQL errors remain visible to callers and stop
-    the piped psql session immediately.
+    Normalizes query whitespace and suppresses psql warnings (e.g. collation
+    version mismatch) that would otherwise pollute stdout.
     """
     query = " ".join(query.split())
-    # Encode the SQL before crossing the remote shell boundary. Embedding the
-    # query directly inside `-c "..."` lets quotes, dollar expansions, and
-    # command substitutions in otherwise-valid SQL be interpreted by the
-    # remote shell before psql sees them.
-    encoded = base64.b64encode(query.encode("utf-8")).decode("ascii")
-    command = (
-        f"printf '%s' '{encoded}' | base64 -d | "
-        "PAGER='' psql $DATABASE_URL -v ON_ERROR_STOP=1 -P pager=off -t -A"
-    )
+    command = f'''PAGER='' psql $DATABASE_URL -P pager=off -t -A -c "{query}" 2>/dev/null'''
     code, stdout, stderr = run_ssh_query(service, command, timeout)
     if code != 0:
         return code, stderr or stdout
@@ -635,18 +622,8 @@ def get_recent_logs(service: str, lines: int = LOG_LINES_DEFAULT,
     retries once with longer timeout on failure,
     falls back to CLI (~27s for 100 lines).
     """
-    # Fast path: use API directly. The IDs come from local config / CLI args
-    # (not an external trust boundary), but they are interpolated into the
-    # GraphQL query string below, so validate them to a strict UUID-ish charset
-    # first — a stray quote or brace can then never break out of the literal.
-    _id_chars = set("0123456789abcdefABCDEF-")
-    ids_valid = (
-        environment_id
-        and service_id
-        and all(c in _id_chars for c in environment_id)
-        and all(c in _id_chars for c in service_id)
-    )
-    if ids_valid:
+    # Fast path: use API directly
+    if environment_id and service_id:
         script_dir = os.path.dirname(os.path.abspath(__file__))
         api_script = os.path.join(script_dir, "railway-api.sh")
 
