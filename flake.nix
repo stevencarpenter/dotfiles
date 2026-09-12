@@ -25,7 +25,7 @@
     # `nix flake update`, so bumping is always deliberate + reviewable. Reverting
     # to a branch name silently disables both and fails the assertion in
     # scripts/test-nix-review-regressions.sh.
-    nixpkgs-unstable.url = "github:NixOS/nixpkgs/c27cdad491a991b11ed731760aa2ef8db0cb0410"; # nixpkgs-unstable @ 2026-08-27
+    nixpkgs-unstable.url = "github:NixOS/nixpkgs/5545adfad2e98de106a5544ca7067e03010410bd"; # nixpkgs-unstable @ 2026-09-03
   };
 
   outputs =
