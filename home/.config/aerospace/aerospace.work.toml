@@ -5,9 +5,7 @@
 
 config-version = 2
 
-# config-version 2 no longer infers persistent workspaces from keybindings —
-# without this list, empty workspaces 1-9 would disappear when their last
-# window closes.
+# Version 2 requires this list to retain empty workspaces.
 persistent-workspaces = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
 
 start-at-login = true
@@ -18,13 +16,11 @@ after-startup-command = [
 after-login-command = []
 
 on-focus-changed = [
-    # Wrapped in /bin/bash -c because exec-and-forget doesn't process shell syntax
-    # (`[...]`, `&&`, `||`, `$(...)`) on its own — it execs the command directly.
-    # Matches the same pattern used for bordersrc above.
+    # exec-and-forget needs an explicit shell for conditionals and substitution.
     "exec-and-forget /bin/bash -c '[ \"$(aerospace list-windows --workspace focused | wc -l)\" -eq 1 ] && borders width=0.0 || borders width=3.0'"
 ]
 
-# Normalizations — keep the tree sane automatically
+# Flatten redundant containers and alternate nested orientations.
 enable-normalization-flatten-containers = true
 enable-normalization-opposite-orientation-for-nested-containers = true
 
@@ -145,7 +141,7 @@ esc = 'mode main'
 # 2: Browser (Firefox For Developers Work Profile)
 # 3: IDE (IntelliJ)
 # 4: Slack
-# 5: (unused — personal comms stack not applicable at work)
+# 5: (unused, personal comms stack not applicable at work)
 # 6: Browser Personal (Firefox Dev Ed.)
 # 7: Notes (Obsidian)
 # 8: Zoom

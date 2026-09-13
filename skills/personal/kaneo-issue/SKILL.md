@@ -11,7 +11,7 @@ user-invocable: true
 
 **Kaneo is the configured tracker for the repositories listed below.** It is self-hosted at
 `https://kaneo.snugmarina.org`, tailnet-only, and replaced Linear on
-2026-08-09 — the Linear subscription is gone and `linear.app` URLs found in old
+2026-08-09: the Linear subscription is gone and `linear.app` URLs found in old
 task descriptions no longer resolve. On
 `sjcarpenter/sluice` GitHub Issues are disabled outright, so a bare `#NN` in an
 old commit is a dead reference.
@@ -27,9 +27,9 @@ second approval step.
 
 ## 1. Route it: repo → project
 
-Kaneo has no teams. Projects are flat, one level, and the project *is* the
-routing decision — which is why the old per-repo labels (`sluice`, `homelab`,
-…) no longer exist and shouldn't be recreated. Derive the target from the git
+Kaneo has no teams. Projects provide routing, so the old per-repo labels
+(`sluice`, `homelab`, …) no longer exist and shouldn't be recreated.
+Derive the target from the git
 remote of the working directory; ask only if the remote is absent or ambiguous.
 
 | Repo | Project | Slug |
@@ -47,14 +47,14 @@ remote of the working directory; ask only if the remote is absent or ambiguous.
 | `gitdiff` | gitdiff | `GITD` |
 | `ski-area-tycoon` | Ski Area Tycoon | `SKI` |
 
-A repo with no row isn't onboarded — ask rather than guessing a project.
+A repo with no row isn't onboarded: ask rather than guessing a project.
 
 **Whistlepost is one board again.** The launch-sprint (`WP`) and full-vision
 (`WPFV`) projects were merged on 2026-08-20 into a single Whistlepost project
 that kept the vision board's identity and numbering: an old `WPFV-n` reference
 is today's `WP-n`, and old launch `WP-n` tasks were renumbered to `n + 260`
 with a "Consolidated from launch board WP-n" provenance line in each body. The
-emptied launch project was renamed `WPOLD` pending deletion — never file there.
+emptied launch project was renamed `WPOLD` pending deletion: never file there.
 
 **Snugmarina's server split is current.** `snugmarina-base` owns the API source,
 schemas, migrations and workers. Its CI tests, builds and publishes the image
@@ -73,14 +73,13 @@ board** (e.g. Snugmarina's offline-first sync epic and all its phases live on
 phase touches in its body instead of relocating it. Route to `CARP` only
 work that has no single owning product board: standalone infra/ops spanning
 repos (e.g. CARP-5), or this meta repo's own tooling (e.g. CARP-8). A single
-task that's genuinely two independent, separately-landable pieces of work
+task containing two independent, separately-landable pieces of work
 (not phases of one epic) can still become two tasks joined with a `related`
 relation.
 
 ## 2. Know which ID you're holding
 
-This trips people up more than anything else in Kaneo, because three different
-identifiers are in play and only one of them works in a tool call.
+Kaneo uses three identifiers. Tool calls require the opaque task ID.
 
 | Kind | Looks like | Use |
 |---|---|---|
@@ -94,15 +93,14 @@ get the display ID. There is no lookup-by-display-ID tool, so resolving
 
 The legacy IDs matter because ~724 tasks were migrated from Linear and each
 carries a `Migrated from Linear **<ID>**` line. That line was the migration's
-join key — leave it alone. Kaneo's own numbering restarted per project, so
+join key: leave it alone. Kaneo's own numbering restarted per project, so
 `SNUG-424` became `HOME-1`: an old ID and a new ID that look alike and mean
 different things. When someone gives you an ID that finds nothing, try reading
 it as the other kind before concluding the task doesn't exist.
 
 ## 3. Dedupe before you file
 
-Search first, every time — a duplicate costs far more to untangle than a search
-costs to run. Kaneo has no text-query tool, so this is a list-and-scan:
+Search before filing. Kaneo has no text-query tool, so list and scan tasks:
 
 ```
 list_tasks(projectId: "<id>", limit: 100, sortBy: "createdAt", sortOrder: "desc")
@@ -110,7 +108,7 @@ list_tasks(projectId: "<id>", limit: 100, sortBy: "createdAt", sortOrder: "desc"
 
 Boards are large (`WPFV` ~224 tasks, `SLU` ~216) and full listings are heavy,
 so narrow with `status` or `priority` when you can and page rather than pulling
-everything at once. Scan for the *symptom*, not your phrasing of it — a defect
+everything at once. Scan for the *symptom*, not your phrasing of it: a defect
 is often already filed under different words. If a matching task exists, report
 it and apply any update the request authorizes. In a duplicate-cleanup task,
 link duplicates with a `related` relation before closing the newer one; Kaneo
@@ -130,7 +128,7 @@ defect, not the fix.
 
 - [ ] Specific, checkable outcome
 - [ ] Second outcome
-- [ ] <the repo's green gate — e.g. for sluice: `scripts/verify.sh` clean>
+- [ ] <the repo's green gate: e.g. for sluice: `scripts/verify.sh` clean>
 
 ## Suggested agent
 
@@ -139,7 +137,7 @@ defect, not the fix.
 
 ## Dependencies
 
-- Blocked by HOME-2 — <one clause on what it unblocks>
+- Blocked by HOME-2: <one clause on what it unblocks>
 ```
 
 What makes the template work:
@@ -151,14 +149,14 @@ What makes the template work:
 - **`Suggested agent` sizes the work**, and must agree with the `agent:*` label:
   `agent:haiku` for mechanical single-file tasks with no design decisions,
   `agent:sonnet` for design-bearing or multi-file tasks. These are effort-tier
-  labels, not model assignments — never name a model; the orchestrator chooses
+  labels, not model assignments: never name a model; the orchestrator chooses
   the runner.
 - **`Dependencies` is a mirror, never the source of truth.** The authoritative
   form is the relation. Create the relation first; add the prose line only when
   the *why* isn't obvious from the linked title. A task whose prose claims a
   dependency it doesn't carry as a relation is a bug in the task.
 - **Title is a Conventional Commit subject**: `type(scope): imperative
-  description`, no trailing period, under 72 chars — e.g. `fix(sluice-delta):
+  description`, no trailing period, under 72 chars: e.g. `fix(sluice-delta):
   prevent SCD2 tombstone timestamp overlap`. It becomes the branch name and
   usually the commit, so getting it right here saves rework.
 
@@ -167,7 +165,7 @@ What makes the template work:
 ## 5. Labels
 
 Kaneo labels are **per-task rows, not a shared taxonomy.** Each attachment is
-its own record with its own ID that merely shares a `name` with the others —
+its own record with its own ID that merely shares a `name` with the others:
 `agent-autonomous` is 281 separate rows, not one label used 281 times. So there
 is no central list to curate, `list_workspace_labels` returns every attachment
 rather than a vocabulary, and `delete_label` removes one task's row rather than
@@ -186,18 +184,16 @@ them exist because an orchestrator or a human actually filters on them:
 | `agent:sonnet` | Design-bearing or multi-file |
 | `agent-autonomous` | Safe to run unsupervised |
 | `agent-parallel` | Safe to run concurrently with siblings |
-| `M1`–`M5` | Snugmarina roadmap milestones — the only stand-in for the milestone entity Kaneo lacks |
+| `M1`–`M5` | Snugmarina roadmap milestones: the only stand-in for the milestone entity Kaneo lacks |
 
-Apply `agent:*` **plus** `ready-for-agent` only when the task is genuinely
-self-contained — an agent could finish it from the description alone with no
-decisions left open. A half-specified task marked `ready-for-agent` wastes an
-agent run, which is the whole cost this label is supposed to prevent.
+Apply `agent:*` **plus** `ready-for-agent` only when an agent can finish
+the task from its description alone with no decisions left open.
 
 **Don't reach for a label when a field exists.** Priority is the worked
 example: set the native `priority` field (`no-priority` | `low` | `medium` |
 `high` | `urgent`), never a `priority:*` label. The board sorts on the field, so
-a label carrying the same value is a second source of truth that can only
-drift — and did: the `priority:*` labels inherited from Linear were deleted on
+a label carrying the same value can drift. The `priority:*` labels inherited
+from Linear were deleted on
 2026-08-10 after three tasks turned up whose field said `urgent` while their
 label still said `priority:high`. Don't recreate them.
 
@@ -205,15 +201,13 @@ More generally: Linear's long tail (`area:*`, `db:*`, `connector:*`,
 `format:*`, work types, per-repo labels) does not exist here and shouldn't be
 rebuilt. Most of it was a workaround for packing many projects into one
 account; separate projects now do that job structurally. Before creating a
-label, name who filters on it — if the answer is nobody, it's decoration on
-every card it touches.
+label, identify who filters on it. If nobody does, omit it.
 
-Labels attach and detach individually — `attach_label_to_task` and
+Labels attach and detach individually: `attach_label_to_task` and
 `detach_label_from_task`. Unlike Linear's `save_issue`, passing labels does not
-replace the whole set, so there's no read-union-write dance to remember.
+replace the whole set.
 
-Create a genuinely new label with `create_label`, and give it a colour — an
-uncoloured label falls back to grey and disappears into the board.
+Create new labels with `create_label` and assign a colour for visibility.
 
 ## 6. Column ladder
 
@@ -239,16 +233,16 @@ Two Linear states have no Kaneo equivalent, so handle them by convention:
   is worse than leaving it open.
 
 Reference the task from the work with the display ID in the commit body
-(`Closes HOME-2`). There is no GitHub integration — nothing auto-closes, so
+(`Closes HOME-2`). There is no GitHub integration: nothing auto-closes, so
 move the column yourself when the PR merges. Keep the branch name on the repo's
 own `type/kebab-case` convention.
 
-**The merge is the promotion.** The PR review is where the human gate lives —
+**The merge is the promotion.** The PR review is where the human gate lives:
 once a PR merges, whoever lands the merge (usually the agent in that session)
 moves the task straight to `done`; there is no separate board approval to wait
 for. Close it with the PR link and one line on what shipped. If you closed it
 without implementing everything the description asked for, say which criteria
-you dropped and why — a silently narrowed task reads as fully delivered later.
+you dropped and why: a silently narrowed task reads as fully delivered later.
 The exception is `needs-human` tasks, whose done-ness isn't PR-shaped (device,
 console, or credential work): those still wait for explicit human promotion.
 
@@ -265,7 +259,7 @@ child). Attach a new task to its epic at file time; an orphan drifts out of the
 roadmap view.
 
 Use `blocks` for sequencing between siblings. Parent/child expresses *scope*,
-blocking expresses *order* — conflating them makes both useless. `related` is
+blocking expresses *order*: conflating them makes both useless. `related` is
 bidirectional and carries no ordering, so it's the right choice for
 cross-project links and duplicates.
 
@@ -289,9 +283,9 @@ Three things worth knowing before the first call:
   `list_projects` and reuse it. Project IDs are listed in
   `references/workspace.md`, but re-derive if a call rejects one.
 - **`whoami` is not a health check.** It reports the cached device-flow session,
-  so on the API-key path it returns `null` with `isError: false` — identical to
+  so on the API-key path it returns `null` with `isError: false`: identical to
   a broken credential. Use `list_workspaces`, which returns real rows and fails
   loudly.
 
-Full workspace inventory — projects with IDs, per-project conventions, agent
+Full workspace inventory: projects with IDs, per-project conventions, agent
 contracts, and gate commands: `references/workspace.md`.

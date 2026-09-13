@@ -215,7 +215,7 @@ def short_tmp_path() -> Iterator[Path]:
     """Temporary directory short enough to hold a unix socket.
 
     ``tmp_path`` lives under ``/private/var/folders/...`` which blows past the
-    104-character ``AF_UNIX`` limit — the same limit tmux's ``%C`` hashing exists
+    104-character ``AF_UNIX`` limit: the same limit tmux's ``%C`` hashing exists
     to dodge. Socket-binding tests need a shallower root.
 
     Yielded already resolved: ``/tmp`` itself is a symlink to ``/private/tmp`` on

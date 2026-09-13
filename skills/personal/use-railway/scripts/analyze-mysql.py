@@ -543,7 +543,7 @@ def _status_ok_warn_crit(value: float, warn_threshold: float, crit_threshold: fl
 def generate_recommendations(result: MySQLAnalysisResult) -> List[Dict[str, str]]:
     recs: List[Dict[str, str]] = []
 
-    # Collection failures — surface critical issues when SSH/introspection failed
+    # Collection failures: surface critical issues when SSH/introspection failed
     if result.collection_status:
         failed = {k: v for k, v in result.collection_status.items()
                   if v.get("status") in ("failed", "error")}
@@ -555,7 +555,7 @@ def generate_recommendations(result: MySQLAnalysisResult) -> List[Dict[str, str]
             recs.append({
                 "severity": "critical",
                 "category": "collection",
-                "message": f"SSH introspection failed — unable to collect {sources}. "
+                "message": f"SSH introspection failed: unable to collect {sources}. "
                            f"Error: {errors}. "
                            f"Analysis is incomplete: InnoDB buffer pool, query throughput, "
                            f"locks, and tuning parameters could not be evaluated.",
@@ -658,7 +658,7 @@ def generate_recommendations(result: MySQLAnalysisResult) -> List[Dict[str, str]
     if cache_util >= 95:
         rec("warning", f"Table cache {cache_util}% full ({tc.get('open_tables')}/{tc.get('table_open_cache')}). Increase table_open_cache.")
     if opens_per_sec > 5:
-        rec("warning", f"Table opens at {opens_per_sec}/sec — cache may be undersized. Increase table_open_cache.")
+        rec("warning", f"Table opens at {opens_per_sec}/sec: cache may be undersized. Increase table_open_cache.")
 
     # Top queries diagnostic
     if not result.top_queries:
@@ -843,7 +843,7 @@ def format_report(result: MySQLAnalysisResult) -> str:
     else:
         heading("Top Queries (by total latency)")
         if result.top_queries_status == "performance_schema_disabled":
-            lines.append("performance_schema is disabled — no query-level data available.")
+            lines.append("performance_schema is disabled: no query-level data available.")
             lines.append("Note: enabling it requires ~400MB+ additional memory; only advisable on larger instances.")
         elif result.top_queries_status == "no_queries_recorded":
             lines.append("No queries recorded. Database may be idle or recently restarted.")

@@ -20,7 +20,7 @@ The canonical health check. Runs diagnostic checks across the daemon, brain,
 inference server, and per-source data freshness in one shot:
 
 ```bash
-hippo doctor      # full diagnostics — start here
+hippo doctor      # full diagnostics: start here
 hippo status      # daemon status only (faster)
 ```
 

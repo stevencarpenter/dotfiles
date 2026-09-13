@@ -4,7 +4,7 @@ Create, link, and organize Railway projects, services, databases, and workspaces
 
 ## Account creation & first-time onboarding
 
-A brand-new user with no Railway account is onboarded through the same unified OAuth flow as sign-in — the backend detects fresh accounts and adapts the consent + landing pages. Pick the command by intent:
+A brand-new user with no Railway account is onboarded through the same unified OAuth flow as sign-in: the backend detects fresh accounts and adapts the consent + landing pages. Pick the command by intent:
 
 - **Deploy from the current directory** → `railway up` (interactive) or `railway up -y` (skips the confirm prompt). When unauthenticated it opens a browser to sign in / sign up, then creates a project + service and deploys. Run it yourself; do not ask the user to `railway login` first.
 - **New project from cwd when already signed in** → `railway up --new` (`--name <name>` to override the project name).
@@ -12,13 +12,13 @@ A brand-new user with no Railway account is onboarded through the same unified O
   current directory does not authorize deployment. Use `railway up` when deployment
   is also requested and the intended target is established.
 
-`railway up` and `railway login` self-validate auth — don't run `railway whoami` before them.
+`railway up` and `railway login` self-validate auth: don't run `railway whoami` before them.
 
-**Headless / SSH / CI**: the CLI auto-detects these and switches to the device-code flow (RFC 8628: sign-in link + short code) on its own. Do NOT pass `--browserless` just because you are an agent — if the human is at this machine, bare `railway login` opens their browser and completes far more reliably. Reserve the flag for machines with genuinely no browser that the auto-detection missed.
+**Headless / SSH / CI**: the CLI auto-detects these and switches to the device-code flow (RFC 8628: sign-in link + short code). Use bare `railway login` when the user has a browser on this machine. Reserve `--browserless` for machines without a browser that auto-detection missed.
 
-**`railway up --json` / `--ci` do NOT auto-prompt** an unauthed user. `--json` emits a structured `{"error":"Not signed in.","code":"NOT_AUTHENTICATED", ...}` on stdout and exits non-zero — detect `NOT_AUTHENTICATED`, run `railway login`, then retry.
+**`railway up --json` / `--ci` do NOT auto-prompt** an unauthed user. `--json` emits a structured `{"error":"Not signed in.","code":"NOT_AUTHENTICATED", ...}` on stdout and exits non-zero: detect `NOT_AUTHENTICATED`, run `railway login`, then retry.
 
-**Fully unattended (no human)**: set `RAILWAY_API_TOKEN` (account-scoped) or `RAILWAY_TOKEN` (project-scoped) instead of logging in. There is no headless account-creation path — a brand-new user needs a human at the browser once.
+**Fully unattended (no human)**: set `RAILWAY_API_TOKEN` (account-scoped) or `RAILWAY_TOKEN` (project-scoped) instead of logging in. There is no headless account-creation path: a brand-new user needs a human at the browser once.
 
 ## Projects
 
@@ -89,16 +89,16 @@ Prefer service IDs from JSON output when names may collide.
 ```bash
 railway add --service <name> --json           # empty service
 railway add --database postgres --json        # managed database (postgres, redis, mysql, mongo)
-railway add                                   # interactive only — do not use non-interactively
+railway add                                   # interactive only: do not use non-interactively
 ```
 
-**Always pass `--json` to `railway add`.** Without it, a successful database create writes nothing to stdout — only a `> What do you need? Database` echo on stderr that looks identical to a stalled interactive prompt. Retrying based on "no stdout came back" silently provisions a second database. With `--json`, success prints `{"serviceId":"…","serviceName":"…"}` and failure exits non-zero.
+**Always pass `--json` to `railway add`.** Without it, a successful database create writes nothing to stdout: only a `> What do you need? Database` echo on stderr that looks identical to a stalled interactive prompt. Retrying based on "no stdout came back" silently provisions a second database. With `--json`, success prints `{"serviceId":"…","serviceName":"…"}` and failure exits non-zero.
 
-**`--database` is cumulative, not last-wins.** `railway add --database postgres --database redis` creates *both* in a single call. Don't repeat the flag — issue one `railway add` per database.
+**`--database` is cumulative, not last-wins.** `railway add --database postgres --database redis` creates *both* in a single call. Don't repeat the flag: issue one `railway add` per database.
 
 **If `railway add` output looks ambiguous, never retry blind.** Run `railway service list --json` (or query `project.services` via [request.md](request.md)) first and compare against what you expected to exist. Treat the service list as the source of truth, not the CLI's stdout shape.
 
-Before adding a database — and before retrying any `railway add` whose output you can't interpret — list existing services to avoid duplicates. Run `railway service list --json` for a fast count, or `railway environment config --json` and inspect `source.image` per service when you need to identify the engine:
+Before adding a database or retrying any `railway add` whose output you can't interpret, list existing services to avoid duplicates. Run `railway service list --json` for a fast count, or `railway environment config --json` and inspect `source.image` per service when you need to identify the engine:
 
 | Image pattern | Database |
 |---|---|

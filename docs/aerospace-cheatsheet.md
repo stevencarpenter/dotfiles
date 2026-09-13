@@ -15,7 +15,7 @@ Cmd             macOS         system shortcuts (copy, paste, quit)
 
 ---
 
-## Main Mode — Keybindings
+## Main Mode: Keybindings
 
 ### Navigation
 
@@ -100,7 +100,7 @@ These apps auto-float (won't tile): System Settings, 1Password, Raycast, Finder,
 
 ---
 
-## Personal Machine — Workspaces
+## Personal Machine: Workspaces
 
 | #   | Purpose  | Apps (auto-assigned)      |
 |-----|----------|---------------------------|
@@ -128,18 +128,18 @@ These apps auto-float (won't tile): System Settings, 1Password, Raycast, Finder,
 
 ## SketchyBar
 
-### Left — Workspace Indicators
+### Left: Workspace Indicators
 
 - Numbers 1–9 with app icons from **sketchybar-app-font**
 - Focused workspace: green number + brand-colored app icons
 - Unfocused: gray icons
 - Each workspace is a clickable bracket (number + icons)
 
-### Center — Front App
+### Center: Front App
 
 - Shows the currently focused application name
 
-### Right — Status Group (single bracket)
+### Right: Status Group (single bracket)
 
 - **Volume**: mute/unmute icon (orange/gray)
 - **WiFi**: connected/disconnected icon (purple/red)

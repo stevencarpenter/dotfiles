@@ -48,24 +48,19 @@ async function discoverFromSitemap(base, sitemapPath) {
     );
   }
   const xml = await res.text();
-  // Naive XML scrape — robust enough for sitemap-index.xml + sitemap.xml.
-  // Handles <loc>...</loc> and follows nested sitemaps one level deep.
+  // ponytail: handles plain <loc> tags and one nested sitemap level;
+  // use an XML parser if namespaced tags or deeper nesting are required.
   const locs = [...xml.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/g)].map(
     (m) => m[1],
   );
   const urls = [];
   for (const loc of locs) {
-    // Astro's sitemap output uses the configured production `site` URL
-    // (e.g. https://hippobrain.org/sitemap-0.xml), but we're hitting a local
-    // preview. Rewrite any non-base host to point at our base before fetching
-    // sub-sitemaps so DNS doesn't blow up.
+    // Astro sitemaps use the production `site` URL. Fetch from the preview origin.
     const localized = rewriteHost(loc, baseUrl);
     if (localized.endsWith(".xml")) {
       const sub = await fetch(localized).then((r) => (r.ok ? r.text() : ""));
       for (const m of sub.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/g)) {
-        // Rewrite each URL inside the sub-sitemap — they'll be production
-        // hosts too. Without this the dedup pass filters every URL as
-        // foreign-origin and we end up with zero targets.
+        // Localize page URLs before the origin filter below.
         urls.push(rewriteHost(m[1], baseUrl));
       }
     } else {
@@ -166,13 +161,13 @@ if (args.targets) {
 }
 
 if (!targets.length) {
-  console.error("no targets — did the sitemap return anything?");
+  console.error("no targets: did the sitemap return anything?");
   process.exit(1);
 }
 
 console.log(`Capturing ${targets.length} pages.`);
 
-// Viewport list. The "detail" entry is viewport-only at 1440 — useful for
+// Viewport list. The "detail" entry is viewport-only at 1440: useful for
 // reading screenshots at native pixel scale (full-page squashes detail).
 const VIEWPORTS = [
   { tag: "desktop", width: 1440, height: 900, fullPage: true },

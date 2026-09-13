@@ -79,7 +79,7 @@ class RailwayContext:
         return flags
 
 
-# Global context — set once at startup, used by all CLI calls
+# Global context: set once at startup, used by all CLI calls
 _ctx = RailwayContext()
 
 
@@ -142,7 +142,7 @@ def run_railway_command(args: List[str], timeout: int = 30) -> Tuple[int, str, s
 def _cli_fatal_error(returncode: int, stderr: str) -> Optional[str]:
     """Return a friendly error string if the CLI itself is broken, else None.
 
-    These errors are unrecoverable — retrying won't help.
+    These errors are unrecoverable: retrying won't help.
     """
     if returncode == 127 or "railway CLI not found" in stderr:
         return (
@@ -153,7 +153,7 @@ def _cli_fatal_error(returncode: int, stderr: str) -> Optional[str]:
     lower = stderr.lower()
     if "unknown flag" in lower or "flag provided but not defined" in lower:
         return (
-            "Railway CLI is outdated — the --native SSH flag is not supported. "
+            "Railway CLI is outdated: the --native SSH flag is not supported. "
             "Update it with: npm i -g @railway/cli@latest  "
             "or  brew upgrade railway"
         )
@@ -170,7 +170,7 @@ def run_ssh_query(service: str, command: str, timeout: int = 60,
 
     Retries on non-zero exit code or empty stdout (covers transient errors
     like 'exec request failed on channel 0').  Never retries when the CLI
-    itself is missing or outdated — those errors are unrecoverable.
+    itself is missing or outdated: those errors are unrecoverable.
     """
     flags = _ctx.ssh_flags()
     # Only pass --service <name> if context didn't already provide --service <id>

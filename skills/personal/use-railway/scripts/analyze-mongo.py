@@ -705,7 +705,7 @@ def generate_recommendations(result: MongoAnalysisResult) -> List[Dict[str, str]
     """Generate recommendations based on analysis results."""
     recs: List[Dict[str, str]] = []
 
-    # Collection failures — surface critical issues when SSH/introspection failed
+    # Collection failures: surface critical issues when SSH/introspection failed
     if result.collection_status:
         failed = {k: v for k, v in result.collection_status.items()
                   if v.get("status") in ("failed", "error")}
@@ -718,7 +718,7 @@ def generate_recommendations(result: MongoAnalysisResult) -> List[Dict[str, str]
             recs.append({
                 "severity": "critical",
                 "category": "collection",
-                "message": f"SSH introspection failed — unable to collect {sources}. "
+                "message": f"SSH introspection failed: unable to collect {sources}. "
                            f"Error: {errors}. "
                            f"Analysis is incomplete: WiredTiger cache, connections, "
                            f"collection stats, and replication health could not be evaluated.",

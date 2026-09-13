@@ -20,7 +20,7 @@ Chrome and Firefox made opposite architectural choices for MV3 background script
 
 ### Cross-browser manifest pattern
 
-Specify both — each browser reads what it understands and ignores the rest:
+Specify both: each browser reads what it understands and ignores the rest:
 
 ```json
 {
@@ -43,7 +43,7 @@ Specify both — each browser reads what it understands and ignores the rest:
 
 **Never use DOM APIs in background code.** Even though Firefox's event page has DOM access, using it means your extension breaks in Chrome. Write background code as if you're in a service worker: `fetch()` instead of `XMLHttpRequest`, `TextEncoder`/`TextDecoder` instead of `DOMParser`, no `document` access.
 
-If you absolutely need DOM manipulation in the background, Chrome provides the `chrome.offscreen` API — but it's Chrome-only. There is no equivalent in Firefox or Safari. Avoid this architectural dependency.
+If you need DOM manipulation in the background, Chrome provides the `chrome.offscreen` API. There is no equivalent in Firefox or Safari. Avoid this architectural dependency.
 
 ## Namespace: `chrome.*` vs `browser.*`
 
@@ -74,7 +74,7 @@ APIs that exist in some browsers but not others:
 |-----|--------|---------|--------|-------------|
 | `sidePanel` | Yes | No | No | Firefox has `sidebarAction`; Safari has neither |
 | `sidebarAction` | No | Yes | No | Chrome has `sidePanel` |
-| `offscreen` | Yes (109+) | No | No | No direct equivalent — restructure to avoid DOM in background |
+| `offscreen` | Yes (109+) | No | No | No direct equivalent: restructure to avoid DOM in background |
 | `notifications` | Yes | Yes | No | Must bridge to native app via `nativeMessaging` on Safari |
 | `declarativeNetRequest` | Yes | Yes | Partial (buggy `getMatchedRules`) | |
 | `webRequest` (blocking, MV3) | No | Yes | No | Firefox preserved blocking; Chrome/Safari use `declarativeNetRequest` only |
@@ -106,17 +106,17 @@ Safari is the most constrained browser for extensions.
 ### Distribution
 
 - **Traditional:** Requires Xcode wrapper project, Apple Developer account ($99/year), App Store distribution
-- **New (Sept 2025):** App Store Connect ZIP upload — upload extension ZIP directly, no Xcode or Mac needed for distribution. Still requires Apple Developer account.
+- **New (Sept 2025):** App Store Connect ZIP upload: upload extension ZIP directly, no Xcode or Mac needed for distribution. Still requires Apple Developer account.
 
 Convert existing extension: `xcrun safari-web-extension-converter /path/to/extension --project-location ./safari`
 
 ### API Limitations
 
-- **Silent failures.** The converter succeeds, but unsupported APIs just don't work at runtime — no errors, no warnings. This makes debugging painful.
+- **Silent failures.** The converter succeeds, but unsupported APIs just don't work at runtime: no errors, no warnings. This makes debugging painful.
 - **Cannot modify sensitive headers** (`Origin`, `Host`) via `webRequest` or `declarativeNetRequest`.
 - **No `notifications` API.** Must use native messaging bridge.
-- **`declarativeNetRequest`** has reporting bugs — `getMatchedRules` returns incomplete results.
-- Apple reverse-engineered Chromium's API independently — behavior is not identical even where API surface looks the same.
+- **`declarativeNetRequest`** has reporting bugs: `getMatchedRules` returns incomplete results.
+- Apple reverse-engineered Chromium's API independently: behavior is not identical even where API surface looks the same.
 
 ### Privacy manifest
 
@@ -124,7 +124,7 @@ Check current Apple requirements for the extension's distribution route, collect
 
 ### User permissions
 
-Safari lets users grant access for "one day", "always", or "on this website only." Extensions must function gracefully with partial permission grants — don't assume `<all_urls>` means universal access.
+Safari lets users grant access for "one day", "always", or "on this website only." Extensions must function gracefully with partial permission grants: don't assume `<all_urls>` means universal access.
 
 ## Storage Quota Differences
 
@@ -138,15 +138,15 @@ Firefox's `unlimitedStorage` can still hit quota errors when system disk space i
 
 ## Common "Works in Chrome, Breaks Elsewhere"
 
-1. **DOM in background scripts** — works in Firefox (event page), breaks in Chrome (service worker). The #1 issue.
-2. **`chrome.offscreen`** — Chrome-only. No equivalent in Firefox/Safari.
-3. **`chrome.sidePanel`** — Chrome-only. Firefox has `sidebarAction` (completely different API).
-4. **Blocking `webRequest` in MV3** — Firefox only. Chrome and Safari removed it.
-5. **`notifications` API** — absent in Safari entirely.
-6. **Header modification** — Safari blocks modifying `Origin` and `Host` headers.
-7. **Silent Safari failures** — APIs that look like they should work just silently do nothing.
-8. **Popup sizing** — Safari sizes popups differently than Chrome/Firefox. Test visual layout in all three.
-9. **`storage.session`** — supported in Chrome and Firefox 115+, limited in Safari. Feature-detect before using.
+1. **DOM in background scripts**: works in Firefox (event page), breaks in Chrome (service worker). The #1 issue.
+2. **`chrome.offscreen`**: Chrome-only. No equivalent in Firefox/Safari.
+3. **`chrome.sidePanel`**: Chrome-only. Firefox has `sidebarAction` (completely different API).
+4. **Blocking `webRequest` in MV3**: Firefox only. Chrome and Safari removed it.
+5. **`notifications` API**: absent in Safari entirely.
+6. **Header modification**: Safari blocks modifying `Origin` and `Host` headers.
+7. **Silent Safari failures**: APIs that look like they should work just silently do nothing.
+8. **Popup sizing**: Safari sizes popups differently than Chrome/Firefox. Test visual layout in all three.
+9. **`storage.session`**: supported in Chrome and Firefox 115+, limited in Safari. Feature-detect before using.
 
 ### Feature detection pattern
 
@@ -157,7 +157,7 @@ if (typeof browser.sidePanel !== 'undefined') {
 } else if (typeof browser.sidebarAction !== 'undefined') {
   // Firefox sidebarAction available
 } else {
-  // Neither — fall back to content script sidebar
+  // Neither: fall back to content script sidebar
 }
 ```
 

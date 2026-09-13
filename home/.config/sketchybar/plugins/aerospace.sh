@@ -139,7 +139,7 @@ declare -A APPS_BY_WS  # ws → newline-separated unique app names
 while IFS='|' read -r ws app; do
   [[ -z "$ws" || -z "$app" ]] && continue
   existing="${APPS_BY_WS[$ws]:-}"
-  # Dedupe — only append if we haven't seen this app on this workspace yet.
+  # Dedupe: only append if we haven't seen this app on this workspace yet.
   if [[ $'\n'"$existing"$'\n' != *$'\n'"$app"$'\n'* ]]; then
     APPS_BY_WS[$ws]="${existing:+$existing$'\n'}$app"
   fi

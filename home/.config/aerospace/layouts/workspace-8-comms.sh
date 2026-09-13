@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Workspace 8: Comms — 2x1 left, 1 right
+# Workspace 8: Comms (2x1 left, 1 right)
 #
 #   ┌──────────┬──────────┐
 #   │   Mail   │          │

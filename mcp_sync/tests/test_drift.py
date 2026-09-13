@@ -197,7 +197,7 @@ def test_claude_serializer_differences_are_not_drift(
     run_sync(home=temp_home)
 
     config = json.loads(claude_path.read_text(encoding="utf-8"))
-    config["companionPersonality"] = "no chill—screams about bugs · loudly"
+    config["companionPersonality"] = "no chill\u2014screams about bugs · loudly"
     # Claude Code writes literal UTF-8 with no trailing newline.
     claude_path.write_text(
         json.dumps(config, indent=2, ensure_ascii=False), encoding="utf-8"

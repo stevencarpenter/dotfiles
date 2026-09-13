@@ -525,7 +525,7 @@ def test_same_pane_id_on_another_socket_is_still_reapable(
 
     Every tmux server numbers panes from %0, so the caller's own id matches a
     different pane on every other socket. Comparing bare ids silently spared
-    those teammates — an under-reap of exactly the leak this tool exists to stop,
+    those teammates, an under-reap of exactly the leak this tool exists to stop,
     and one that got MORE likely after a full tmux restart renumbered everything.
     """
     pane = make_pane(pane_id="%0", socket="/tmp/scratch.sock")

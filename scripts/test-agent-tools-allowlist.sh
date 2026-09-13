@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Tests for scripts/check-agent-tools-allowlist.py — the gate that fails a sync
+# Tests for scripts/check-agent-tools-allowlist.py: the gate that fails a sync
 # when a registry-installed Claude agent lost its MCP/skill access.
 # Plain-shell convention (no bats). Everything runs against a tmp agents dir;
 # the real ~/.claude/agents is never read.

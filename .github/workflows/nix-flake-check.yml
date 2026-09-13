@@ -1,17 +1,7 @@
 name: Nix Flake Check
 
-# Branch pushes reach this through `pull_request` alone. Without the branches
-# filter both events fire on a PR branch and every push runs the whole matrix
-# twice for one answer.
-#
-# The two path lists are duplicated rather than shared through a YAML anchor:
-# the Actions workflow parser does not support anchors, so an alias here would
-# fail to parse rather than expand. Keep them in sync by hand.
-#
-# home/.config/{git/config,tmux/tmux.conf} are listed because the contract tests
-# assert on their contents. Without them the commit that breaks a seam cannot
-# trigger the job that checks it — exactly how 0fbfcc7 left the contract test
-# red without ever turning main red.
+# Limit push runs to main to avoid duplicating PR runs. Keep both path lists
+# in sync, including Git and tmux configs inspected by contract tests.
 on:
   push:
     branches: ["main"]
@@ -38,11 +28,7 @@ on:
       - "scripts/unstable-state.sh"
       - ".github/actions/install-lix/**"
       - ".github/workflows/nix-flake-check.yml"
-  # `ready_for_review` is not one of the default activity types (opened,
-  # synchronize, reopened). Without it, marking a draft ready fires no run at
-  # all, so the build job's `draft == false` guard would skip forever — the PR
-  # could squash-merge having never built a closure, since main's ruleset
-  # requires no status checks.
+  # Trigger a build when a draft becomes ready without another push.
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
@@ -69,23 +55,17 @@ on:
       - ".github/actions/install-lix/**"
       - ".github/workflows/nix-flake-check.yml"
 
-# Superseding a push cancels the run it obsoletes. The closure build is the most
-# expensive job in the repo; paying for an answer about an overwritten commit is
-# pure waste.
+# Cancel runs superseded by a newer commit on the same ref.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# Least privilege, declared in-tree. The repo default is already `read`, but
-# that lives in a settings toggle no diff would show being flipped to `write`.
+# Declare read-only permissions independently of repository settings.
 permissions:
   contents: read
 
 jobs:
-  # ONLY steps that do not realize derivations — formatting and evaluation.
-  # Anything that builds belongs in the build job instead: a closure realized
-  # here would be built twice, once per job, since the two no longer share a
-  # store. Keeping this job cache-free is what makes it genuinely fast.
+  # Formatting and evaluation only. Build derivations in the cached build job.
   checks:
     name: Fast checks
     # macOS runner: every host in lib/machines.nix is aarch64-darwin, so the
@@ -95,20 +75,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          # Full history, not the default depth-1 clone: the external-overlay
-          # contract test resolves this repo as `git+file://…`, and Lix refuses
-          # a shallow repo there ("shallow repositories are only allowed when
-          # `shallow = true;`"). Determinate Nix accepted it, so this only
-          # surfaced once CI moved onto the interpreter the machines run.
+          # Lix's git+file input in the overlay contract test requires full history.
           fetch-depth: 0
 
       - name: Install Lix
         uses: ./.github/actions/install-lix
 
-      # Deliberately NO Nix store cache here. Measured on 5a8759f: restoring it
-      # cost 256s to serve 17s of work (fmt 8s, eval 9s), and those same steps
-      # ran in 24s and 45s on a cold store in the very first run. The cache pays
-      # for itself only where a closure gets realized, which is the build job.
+      # No store cache: measured restore cost was 256s for 17s of check work.
 
       - name: Check Nix formatting
         run: git ls-files -z '*.nix' | xargs -0 nix fmt -- --check
@@ -131,16 +104,10 @@ jobs:
       - name: Validate unstable soak due-promotion reminder
         run: scripts/test-unstable-reminder.sh
 
-  # Everything that realizes a derivation, so the closure is built exactly once
-  # and the contract tests that follow reuse the warm store. ~30 minutes cold.
-  # Skipped for drafts: a draft is still being shaped, and file collisions
-  # surface once it is up for review.
+  # Build closures once and reuse the store for contract tests. Skip draft PRs.
   build:
     name: Build system closures
-    # No `needs: checks`. Chaining bought fail-fast when this job took 30
-    # minutes; with a warm cache it is ~6 and setup dominates both jobs, so
-    # serializing only added the fast job's runtime to the wall clock for a
-    # head start measured in seconds. They run concurrently instead.
+    # Run concurrently with checks; setup dominates the cached build time.
     if: github.event_name == 'push' || github.event.pull_request.draft == false
     runs-on: macos-latest
     steps:
@@ -152,10 +119,7 @@ jobs:
       - name: Install Lix
         uses: ./.github/actions/install-lix
 
-      # The only cache in this workflow. It turns a ~30 minute cold closure
-      # build into ~19s of work behind a ~5 minute restore, which is the one
-      # place that trade pays. Keyed on flake.lock, since that is what decides
-      # which store paths the build needs.
+      # Cache by flake.lock: a roughly 5-minute restore avoids a 30-minute cold build.
       - name: Restore Nix store
         uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7
         with:
@@ -178,15 +142,8 @@ jobs:
             '.#checks.aarch64-darwin.personal-mac' \
             '.#checks.aarch64-darwin.statix'
 
-      # Both of these realize derivations, so they live here rather than in the
-      # fast job: on a cold store the contract fixture builds the Home Manager
-      # files derivation itself. Splitting them out cost 35 minutes in the
-      # "fast" job while the build job restored that same store and took 8 —
-      # a 43-minute serial run against 32 for one pass. Running them after the
-      # closure means the store is already warm and they cost seconds.
-
-      # The parent/child target collision this guards occurs while realizing the
-      # Home Manager files derivation, so --no-build evaluation cannot catch it.
+      # Reuse the built store. Parent/child target collisions require realizing
+      # Home Manager files; --no-build evaluation cannot detect them.
       - name: Build external-overlay contract fixture
         run: scripts/test-external-overlay-contract.sh
 

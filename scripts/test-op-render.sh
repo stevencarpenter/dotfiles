@@ -1,20 +1,12 @@
 #!/usr/bin/env bash
-# Tests for home/.local/bin/op-render — the fail-safe 1Password Connect renderer.
-# Follows the repo's plain-shell test convention (no bats). Uses a mock `op`
-# switched by $OP_MOCK_MODE so the dangerous branches (inject failure, empty
-# output, absent creds) are exercised deterministically without a real Connect.
+# Test op-render failure handling with mocked 1Password responses.
 set -uo pipefail
 
 here="$(cd "$(dirname "$0")/.." && pwd)"
 RENDER="$here/home/.local/bin/op-render"
 
-# POLICY: this suite must NEVER touch a real 1Password CLI. CI is given no op
-# install, no session, and no secrets, and never will be — mocks only. Rather
-# than trusting that no `op` happens to be on PATH (there is one on every dev
-# machine), shadow it with a poison pill that fails loudly. Every legitimate
-# call goes through $OP_BIN as an absolute path to a mock, so nothing here
-# should ever resolve `op` from PATH; if a future test forgets to set OP_BIN,
-# this turns a silent real-op call into an obvious failure.
+# Never invoke real 1Password in tests. Shadow PATH's op with a failing stub;
+# test calls use the absolute OP_BIN mock path.
 poison="$(mktemp -d)" || { echo "mktemp failed; refusing to run without the op poison pill" >&2; exit 1; }
 trap 'rm -rf "$poison"' EXIT
 cat >"$poison/op" <<'POISON'
@@ -28,10 +20,7 @@ PATH="$poison:$PATH"
 fails=0
 run() { local name="$1"; shift; if "$@"; then echo "ok   - $name"; else echo "FAIL - $name"; fails=$((fails + 1)); fi; }
 
-# Portable permission read: GNU stat (Linux CI) then BSD stat (macOS).
-# Order matters — GNU `stat -f` means --file-system and exits 0 with garbage
-# (never triggering the fallback), whereas BSD `stat -c` fails cleanly, so the
-# GNU-first / BSD-fallback direction is the only one that works on both.
+# Try GNU stat first: BSD rejects -c, but GNU accepts -f as --file-system.
 perm() { stat -c '%a' "$1" 2>/dev/null || stat -f '%Lp' "$1"; }
 
 make_mock() {
@@ -109,9 +98,7 @@ t_interactive_renders() {
   [ "$(cat "$target")" = "export FOO=bar" ] && [ "$(perm "$target")" = "600" ]
 }
 
-# "op binary absent" and "op signed out" are different faults with different
-# fixes (PATH vs auth). op-render collapsed both into one message, which is how
-# a missing-op activation went unnoticed for weeks. Keep them distinguishable.
+# Missing op and signed-out op require distinct PATH and authentication errors.
 t_missing_op_distinct_from_signed_out() {
   setup; printf 'PRE\n' > "$target"
   local absent signed_out
@@ -125,9 +112,7 @@ t_missing_op_distinct_from_signed_out() {
     && [ "$(cat "$target")" = "PRE" ]
 }
 
-# --warn-stale-only is what home.activation runs: sentinel check only, no op
-# call and no network, so it stays inside the activation contract (offline +
-# fast + idempotent). It must never render, even when auth would succeed.
+# Activation's --warn-stale-only must not render or call op, even with valid auth.
 t_warn_stale_only_never_renders() {
   setup; printf 'PRE\n' > "$target"
   touch -t 202001010000 "$work/.last-render"
@@ -139,18 +124,12 @@ t_warn_stale_only_never_renders() {
     && printf '%s\n' "$err" | rg -q 'going stale'
 }
 
-# The activation PATH is a closed nix-store list (bash, coreutils, findutils,
-# gnused, jq, lix) with NO /opt/homebrew and NO /usr/bin — which is why a bare
-# `op` was unresolvable there. --warn-stale-only must need none of that. Pinned
-# to a minimal PATH rather than sniffing the live generation: a test that skips
-# itself when it can't find machine state silently stops covering anything.
+# Exercise --warn-stale-only with a restricted PATH and no op.
 t_warn_stale_only_needs_no_homebrew() {
   setup
   touch -t 202001010000 "$work/.last-render"
   local err
-  # Fixture HOME, not the real one: nothing in this suite may read or write
-  # live secret state, and --warn-stale-only derives its sentinel from the
-  # manifest directory anyway.
+  # Keep sentinel reads and writes inside the fixture HOME.
   err="$(env -i HOME="$work" PATH="/usr/bin:/bin" \
     OP_RENDER_MANIFEST="$OP_RENDER_MANIFEST" \
     "$RENDER" --warn-stale-only 2>&1 >/dev/null)"
@@ -160,7 +139,7 @@ t_warn_stale_only_needs_no_homebrew() {
 
 # A truncating pipe (`| head -1`) closes stdout mid-run. Without SIGPIPE
 # ignored, the second "rendered ..." log kills the script after the targets are
-# in place but before the sentinel is touched — a successful render recorded
+# in place but before the sentinel is touched: a successful render recorded
 # forever as stale. Needs >1 manifest entry to reach the fatal second write.
 t_sigpipe_does_not_skip_sentinel() {
   setup
@@ -173,13 +152,8 @@ t_sigpipe_does_not_skip_sentinel() {
   [ -f "$target2" ] && [ -f "$work/.last-render" ]
 }
 
-# Stub GNU coreutils `stat`. Without this the GNU branch is never exercised:
-# ambient stat on macOS (and on the macos-latest runner) is BSD, so the suite
-# could not fail on the very defect it documents — verified by mutation, a
-# BSD-first mtime_human() passed every test before this stub existed.
-# Mimics the two behaviours that matter: -c is a format string, and -f means
-# --file-system, so it treats the format as a FILENAME and dumps filesystem
-# info instead of a timestamp.
+# Exercise GNU stat on macOS too: -c formats output, while -f treats its
+# argument as a filename and reports filesystem details.
 make_gnu_stat() {
   mkdir -p "$work/gnu"
   cat > "$work/gnu/stat" <<'EOF'

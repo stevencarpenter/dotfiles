@@ -2,11 +2,8 @@
 # Assert that every directly-exec'd script under home/ keeps its executable
 # bit in the git index (mode 100755).
 #
-# Why: the chezmoi port dropped the `executable_` filename convention, and the
-# sketchybar plugins silently lost their x-bit — sketchybar exec's plugin
-# scripts by path, so a 644 plugin fails with EACCES and every bar item
-# renders frozen/empty (found 2026-07-17). Sourced files (zsh profile.d,
-# sketchybar items/, icon_map.sh) do NOT need the bit and are not listed here.
+# Direct execution requires mode 100755; sourced files such as zsh profile.d,
+# sketchybar items/, and icon_map.sh do not need an executable bit.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

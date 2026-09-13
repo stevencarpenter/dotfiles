@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Battery — Material Design icons with percentage and time
+# Battery: Material Design icons with percentage and time
 
 set -euo pipefail
 

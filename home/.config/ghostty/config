@@ -24,8 +24,5 @@ cursor-color=#d3c6aa
 selection-foreground=#2f383e
 selection-background=#d3c6aa
 
-# Disables macOS SecureInput auto-detection on every machine.
-# Only flip this on if SecureInput gets stuck again (a triage helper for
-# that is sip_holder() in dot_config/zsh/dot_zshrc) — treating it as a
-# transient issue for now rather than a standing security tradeoff.
+# Diagnose stuck SecureInput with sip_holder() before disabling auto-detection.
 # macos-auto-secure-input = false

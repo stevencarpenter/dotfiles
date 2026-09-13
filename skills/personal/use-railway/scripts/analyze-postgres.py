@@ -1078,7 +1078,7 @@ def analyze_postgres(service: str, timeout: int = 300, quiet: bool = False,
     result.deployment_status = get_deployment_status(service, service_id=service_id)
 
     # === SSH PRE-CHECK WITH RETRY ===
-    # SSH can be flaky — retry with increasing timeouts before giving up
+    # Retry transient SSH failures with increasing timeouts.
     progress(2, 4, "Testing SSH connectivity...", quiet)
     ssh_available, ssh_stderr = dal.check_ssh(service, quiet=quiet)
 
@@ -1101,7 +1101,7 @@ def analyze_postgres(service: str, timeout: int = 300, quiet: bool = False,
             return (1, "", f"SSH not available: {ssh_stderr or 'connection failed'}")
         code, stdout, stderr = run_psql_query_safe(service, analysis_query, timeout=timeout)
         if code != 0:
-            # Retry once — SSH sessions can drop mid-query
+            # Retry once: SSH sessions can drop mid-query
             if not quiet:
                 print(f"        Database query failed ({stderr or 'unknown'}), retrying...", file=sys.stderr, flush=True)
             code, stdout, stderr = run_psql_query_safe(service, analysis_query, timeout=timeout)
@@ -1250,7 +1250,7 @@ def generate_recommendations(result: AnalysisResult) -> List[Dict[str, str]]:
     """Generate recommendations based on analysis results."""
     recommendations = []
 
-    # Collection failures — surface critical issues when SSH/introspection failed
+    # Collection failures: surface critical issues when SSH/introspection failed
     if result.collection_status:
         failed = {k: v for k, v in result.collection_status.items()
                   if v.get("status") in ("failed", "error")}
@@ -1262,7 +1262,7 @@ def generate_recommendations(result: AnalysisResult) -> List[Dict[str, str]]:
             recommendations.append({
                 "severity": "critical",
                 "category": "collection",
-                "message": f"SSH introspection failed — unable to collect {sources}. "
+                "message": f"SSH introspection failed: unable to collect {sources}. "
                            f"Error: {errors}. "
                            f"Analysis is incomplete: connection stats, query performance, "
                            f"table bloat, and tuning parameters could not be evaluated.",

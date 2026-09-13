@@ -1,7 +1,7 @@
 #!/usr/bin/env zsh
 
 # Update the brewed world + the AI CLI constellation via each tool's native
-# self-update subcommand. Each step runs independently — a transient registry
+# self-update subcommand. Each step runs independently: a transient registry
 # blip on one package shouldn't kill the rest of the chain. Failed steps are
 # collected and printed at the end so a quick `burp` makes its own diagnostics
 # obvious.
@@ -51,7 +51,7 @@ check-arch() {
     local arch
     arch=$(file "$bin" | rg -o 'arm64|x86_64' | head -1)
     if [[ "$arch" == "x86_64" ]]; then
-      echo "⚠️  $t ($bin): x86_64 — running under Rosetta"
+      echo "⚠️  $t ($bin): x86_64: running under Rosetta"
       found_issue=1
     elif [[ "$arch" == "arm64" ]]; then
       echo "✅ $t ($bin): arm64"

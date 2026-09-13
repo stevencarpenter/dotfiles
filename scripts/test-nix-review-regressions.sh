@@ -5,22 +5,13 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
-# --no-eval-cache on this one call only: reading this value back OUT of nix's
-# eval cache fails with "Bad String Context element ... !out!...-activation-
-# carpenter.drv", so the script passed on a cold cache and failed on every
-# rerun. Only this attribute is affected — it is a string with heavy
-# derivation context; the .enable/.after/.source evals below cache fine and
-# keep their caching. CI never saw this because runners start cold.
+# This activation string's derivation context fails when read from the eval cache.
+# Disable caching for this attribute only.
 login_activation="$(
   nix eval --no-update-lock-file --no-eval-cache --raw \
     '.#darwinConfigurations.personal-mac.config.system.activationScripts.postActivation.text'
 )"
-# Anchored on the actual dscl commands, not on the words appearing somewhere.
-# The previous form checked only that 'UserShell' and '/bin/zsh' occurred in
-# the emitted text — and 'UserShell' also occurs in the block's own comment and
-# in a prefix strip, so changing the dscl read to a different attribute left
-# the assertion green (found by mutation testing, 2026-07-28). A contract test
-# has to match the line that does the work.
+# Match executable dscl commands; matching words also accepts comments.
 # shellcheck disable=SC2016  # these are literals in the EMITTED script, not expansions here
 for shell_contract in \
   '_login_shell="/bin/zsh"' \
@@ -44,39 +35,26 @@ for pin_contract in \
   fi
 done
 
-# No age secrets anywhere.
-#
-# The old assertions here pinned the shape of the synchronous agenix decrypt
-# node. That bridge is gone: no identity declares age.secrets, so the invariant
-# worth guarding is now its absence. `age.secrets` is an option contributed by
-# the agenix module — with the module unimported it does not exist at all, so a
-# successful eval of the option is itself the regression.
-# Only personal-mac remains in-repo. The external (work-identity) case is
-# covered by scripts/test-external-overlay-contract.sh, which builds a real
-# wrapper consumer and asserts zero age.secrets there.
+# age.secrets must be undefined because agenix is not imported.
+# The external work wrapper is checked by test-external-overlay-contract.sh.
 for host in personal-mac; do
-  # POSITIVE CONTROL FIRST. The assertion below is "this eval must fail", which
-  # would also be satisfied by a typo in the attribute path, a renamed user, or
-  # a broken flake — passing for entirely the wrong reason and silently stopping
-  # covering its subject. So prove the surrounding path evaluates before
-  # concluding anything from the failure of the age.secrets one.
+  # Verify the parent attribute first so unrelated eval failures cannot pass.
   if ! nix eval --no-update-lock-file --json \
     ".#darwinConfigurations.${host}.config.home-manager.users.carpenter.home.stateVersion" \
     >/dev/null 2>&1; then
-    echo "${host}: control eval failed — the attribute path is wrong, so the" >&2
+    echo "${host}: control eval failed: the attribute path is wrong, so the" >&2
     echo "  age.secrets assertion below would pass vacuously. Fix the path." >&2
     exit 1
   fi
   if nix eval --no-update-lock-file --json \
     ".#darwinConfigurations.${host}.config.home-manager.users.carpenter.age.secrets" \
     >/dev/null 2>&1; then
-    echo "${host} still exposes age.secrets — the agenix module is imported again" >&2
+    echo "${host} still exposes age.secrets: the agenix module is imported again" >&2
     exit 1
   fi
 done
 
-# skillsSync must still be ordered after writeBoundary (home.file symlinks must
-# exist before the fan-out reads them) — just no longer after a decrypt node.
+# skillsSync requires home.file symlinks created by writeBoundary.
 skills_after="$(
   nix eval --no-update-lock-file --json \
     '.#darwinConfigurations.personal-mac.config.home-manager.users.carpenter.home.activation.skillsSync.after'
@@ -90,15 +68,8 @@ if jq -e 'index("agenixDecrypt") != null' <<<"$skills_after" >/dev/null; then
   exit 1
 fi
 
-# Atuin sync POLICY.
-#
-# The wiring assertion further down derives its expectations FROM
-# lib/machines.nix, so it is blind by construction to the capability itself
-# being set wrong — flip a row and the expectation flips with it. This
-# invariant is the missing half: a machine whose identity is "work" must never
-# sync shell history to the self-hosted server. Stated as a rule over identity
-# rather than a hardcoded host list, so it covers rows that do not exist yet
-# and names no machine.
+# Work identities must never sync history to the self-hosted Atuin server.
+# Check this independently of capability-derived wiring expectations.
 sync_policy_violations="$(
   # shellcheck disable=SC2016  # ${n} is Nix interpolation, not shell expansion
   nix eval --raw --file lib/machines.nix --apply \
@@ -111,18 +82,8 @@ if [ -n "$sync_policy_violations" ]; then
   exit 1
 fi
 
-# Atuin config variant WIRING.
-#
-# modules/home/dotfiles.nix picks the deployed config with
-# `if caps.atuin then "sync" else "local"`. Nothing else proves that ternary
-# points the right way: the config files are valid either way, both host
-# closures build either way, and check-atuin-parity.py only compares the
-# two files against each other as static content. Inverting the ternary would
-# therefore pass every other check while sending history to the sync server
-# from machines meant to keep it local (found in review, 2026-07-28).
-#
-# Expectations are derived from lib/machines.nix rather than hardcoded, so a
-# new machine row is covered the moment it is added.
+# Verify each host deploys the Atuin variant selected by caps.atuin.
+# Both variants build successfully, so evaluation alone cannot detect inversion.
 expected_variants="$(
   # shellcheck disable=SC2016  # ${n} is Nix interpolation, not shell expansion
   nix eval --raw --file lib/machines.nix --apply \
@@ -148,21 +109,8 @@ while read -r host expected_variant; do
   esac
 done <<<"$expected_variants"
 
-# nixpkgs-unstable SOAK PIN.
-#
-# The input must name a 40-char rev, never a branch. Reverting it to
-# "nixpkgs-unstable" is a one-word edit that silently removes two properties
-# and breaks nothing observable: the flake still evaluates, both closures still
-# build, and every other assertion here stays green. What it loses is (1) the
-# disclosure-soak window — the lock would then track the branch tip, ingesting
-# a compromised rev as soon as Hydra certifies it builds — and (2) the
-# guarantee that a bare `nix flake update` cannot move this input, which is
-# what keeps every bump a reviewable `git diff`. Neither is recoverable by
-# inspection after the fact, so it is asserted rather than documented.
-#
-# Read from flake.nix rather than flake.lock: the lock records a rev either
-# way, so it cannot distinguish a rev pin from a branch that merely resolved to
-# one. The distinction only exists in the input URL.
+# Require a 40-character revision so nix flake update cannot bypass the soak.
+# Inspect flake.nix; flake.lock records a revision even for branch inputs.
 unstable_ref="$(
   sed -n 's|.*nixpkgs-unstable\.url = "github:NixOS/nixpkgs/\([^"]*\)".*|\1|p' flake.nix
 )"
@@ -173,7 +121,7 @@ fi
 if ! [[ "$unstable_ref" =~ ^[0-9a-f]{40}$ ]]; then
   echo "nixpkgs-unstable is pinned to '$unstable_ref', not a 40-char rev." >&2
   echo "  The soak window and the no-accidental-bump property both depend on a" >&2
-  echo "  rev pin — see the comment in flake.nix. Bump with 'just update-unstable'." >&2
+  echo "  rev pin: see the comment in flake.nix. Bump with 'just update-unstable'." >&2
   exit 1
 fi
 

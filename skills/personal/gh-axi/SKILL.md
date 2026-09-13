@@ -20,7 +20,7 @@ The version is pinned deliberately: gh-axi runs with the user's authenticated `g
 credential (full GitHub write access) in scope, so an unpinned `npx -y gh-axi`
 would execute whatever the latest published release happens to be. Bump the pin
 only after reviewing the release. Do not run the `update` command below to jump
-to `latest` — change the pin here instead.
+to `latest`: change the pin here instead.
 
 gh-axi requires the [`gh`](https://cli.github.com/) CLI installed and authenticated (`gh auth login`). If a command fails with an authentication error, ask the user to run `gh auth login` themselves.
 

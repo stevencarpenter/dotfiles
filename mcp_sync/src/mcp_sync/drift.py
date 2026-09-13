@@ -4,7 +4,7 @@ The drift definition is operational: a target is drifted exactly when running
 ``sync-mcp-configs`` would rewrite its file differently than it is on disk.
 For the patch-style targets (codex ``config.toml`` and ``~/.claude.json``)
 the render is a function of the current file contents, so keys those tools
-own are never reported as drift — only the managed portions are.
+own are never reported as drift: only the managed portions are.
 """
 
 from __future__ import annotations
@@ -75,14 +75,9 @@ def _compare_text(name: str, path: Path, expected: str) -> DriftEntry:
 def _semantic_drift(spec: PatchSpec, master: JsonDict, home: Path) -> DriftEntry:
     """Drift for a co-owned JSON file, comparing content rather than bytes.
 
-    The owning tool (e.g. Claude Code) rewrites the file with its own
-    serializer — literal UTF-8, no trailing newline, its own key order — so a
-    byte comparison would report permanent false drift. We parse the file once
-    (via :func:`render_patch_with_source`, which returns both the deployed and
-    expected documents) and compare the documents, normalizing through a
-    shared dump only to render a readable diff. A deployed file that is
-    unreadable or not valid JSON is reported as drift rather than crashing the
-    whole check with a traceback.
+    Compare parsed documents so UTF-8 escaping, trailing newlines, and key
+    order do not produce false drift. Use a shared serializer only for the
+    displayed diff. Unreadable or invalid JSON files are reported as drift.
 
     Args:
         spec: The patch target to check.
@@ -194,7 +189,7 @@ def run_check(
             log_info(f"{entry.name}: skipped ({entry.path} not deployed)")
         elif entry.status == "missing":
             dirty += 1
-            log_error(f"{entry.name}: missing — sync would create {entry.path}")
+            log_error(f"{entry.name}: missing: sync would create {entry.path}")
         else:
             dirty += 1
             log_error(f"{entry.name}: drifted from what sync would write")

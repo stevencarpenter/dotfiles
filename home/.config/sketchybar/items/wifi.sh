@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# WiFi — icon-only (Material Design icons)
+# WiFi: icon-only (Material Design icons)
 
 set -euo pipefail
 

@@ -3,7 +3,7 @@
 # requires-python = ">=3.11"
 # dependencies = []
 # ///
-"""log_pair.py — append one blind-vs-context paired-review record as JSONL.
+"""log_pair.py: append one blind-vs-context paired-review record as JSONL.
 
 Reads a JSON object from a file argument (or stdin), stamps recorded_at,
 and appends it as one line to ~/.local/share/blind-review/pairs.jsonl.

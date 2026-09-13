@@ -70,9 +70,8 @@ mapfile -t REL_PATHS < <(
   cd "$REPO_ROOT" && .claude/skills/mcp-sync-verify/scripts/print_target_paths.py
 )
 
-# A crash in the introspection above exits the process substitution, which
-# set -e cannot see — mapfile just gets zero lines and the loop below would
-# report a false "all in sync". Guard explicitly.
+# set -e does not catch process-substitution failures. An empty target list
+# must fail rather than report that every target is in sync.
 if [[ ${#REL_PATHS[@]} -eq 0 ]]; then
   echo "==> ERROR: target discovery produced no paths (introspection failed?)" >&2
   exit 1

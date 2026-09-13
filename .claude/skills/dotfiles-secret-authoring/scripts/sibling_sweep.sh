@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# sibling_sweep.sh — find EVERY occurrence of a credential/string across the whole repo
-# (code AND docs), including hidden and gitignored files, so a doc-line duplicate
-# is never left behind. Exits non-zero if any match remains.
+# Find every occurrence of a string in code and docs, including hidden and
+# gitignored files. Exits non-zero if any match remains.
 #
 # Usage: sibling_sweep.sh '<exact string or credential>'
 set -euo pipefail
@@ -26,5 +25,5 @@ fi
 printf "FOUND '%s' in:\n" "$needle"
 printf '%s\n' "$matches"
 echo
-echo "Remove EVERY occurrence above (code AND docs) before committing — 'no secrets even if trivial'."
+echo "Remove EVERY occurrence above (code AND docs) before committing: 'no secrets even if trivial'."
 exit 1

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Clock — 24h local time
+# Clock: 24h local time
 
 set -euo pipefail
 
@@ -19,7 +19,7 @@ sketchybar --add item clock right \
     script="$PLUGIN_DIR/clock.sh" \
   --subscribe clock mouse.entered mouse.exited mouse.exited.global
 
-# Calendar — US date, hover shows UTC popup
+# Calendar: US date, hover shows UTC popup
 sketchybar --add item calendar right \
   --set calendar \
     icon=󰃭 \

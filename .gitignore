@@ -55,7 +55,7 @@ build/
 .envrc
 *threat-model*.md
 
-# All CLAUDE.md files except root and home/.claude/ (tracked) — explicit allowlist
+# All CLAUDE.md files except root and home/.claude/ (tracked): explicit allowlist
 **/CLAUDE.md
 !/CLAUDE.md
 !/home/.claude/CLAUDE.md
@@ -66,12 +66,7 @@ build/
 # Codex sandbox env (machine-local)
 /.codex/environments/environment.toml
 
-# understand-anything: nothing under here is tracked any more. The committed
-# graph/fingerprints/meta went stale silently — the last index was generated
-# 2026-05-23 against a commit no longer in history, and 194 of its 246 indexed
-# paths (78%) had ceased to exist, still describing chezmoi templates, a lab-mac
-# host, and an aws_sso capability. A stale index is worse than no index: it reads
-# as current. Regenerate on demand instead of committing a snapshot that rots.
+# Generated code indexes and local agent state. Rebuild indexes from current source.
 .understand-anything/
 .codegraph/
 .agents/
@@ -91,14 +86,9 @@ result-*
 # rendered secret. Only the tier-2 personal fragment is op-rendered.
 /home/.ssh/config.d/10-homelab.conf
 
-# worktrunk runtime state, never tracked. `approvals.toml` is the per-repo hook
-# trust ledger: `wt` records the exact command string a repo's committed project
-# config asked to run, keyed by the remote identifier, and re-prompts when that
-# string changes. It cannot be generalized. A `[projects."*"]` key would work
-# (worktrunk matches `approved-commands` through the same wildcard as any other
-# project setting) but converts a per-repo, content-pinned prompt into a standing
-# grant to execute any clone's hook script unprompted. `.lock` is the save lock.
-# dotfiles.nix links only config.toml, so these should no longer appear here.
+# Worktrunk approvals are local trust decisions keyed by repo and exact command.
+# Never share them or replace them with wildcard approvals for arbitrary clone hooks.
+# dotfiles.nix links only config.toml; the ledger and its save lock stay untracked.
 /home/.config/worktrunk/approvals.toml
 /home/.config/worktrunk/approvals.toml.lock
 

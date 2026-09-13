@@ -1,19 +1,16 @@
 #!/usr/bin/env bash
 # Print a notice when the pending nixpkgs-unstable soak candidate is due.
 #
-# scripts/update-unstable.sh promotes only when someone runs it; nothing else
-# surfaces a due promotion, so an eligible candidate can sit unnoticed for
-# weeks. rebuild.sh invokes this before switching so the operator who has to
-# act sees it at the moment they act.
+# rebuild.sh shows this reminder before switching; promotion requires update-unstable.sh.
 #
-# Contract: silent unless ALL of these hold — jq on PATH, candidate file
+# Contract: silent unless ALL of these hold: jq on PATH, candidate file
 # present and valid per the shared reader (scripts/unstable-state.sh, the same
 # validity the promoter enforces), status "pending", candidate rev differs
 # from a parseable flake.nix pin, and firstSeen + soakDays elapsed. Every
-# other state exits 0 quietly: this must never block or noise a routine
+# other state exits 0 without output; this must never block a routine
 # rebuild.
 #
-# UPDATE_UNSTABLE_NOW_EPOCH (epoch seconds) overrides the clock for tests —
+# UPDATE_UNSTABLE_NOW_EPOCH (epoch seconds) overrides the clock for tests:
 # the same seam scripts/update-unstable.sh uses.
 set -uo pipefail
 
@@ -31,9 +28,7 @@ command -v jq >/dev/null 2>&1 || exit 0
 now_epoch="${UPDATE_UNSTABLE_NOW_EPOCH:-$(date -u +%s)}"
 [[ "${now_epoch}" =~ ^[0-9]+$ ]] || exit 0
 
-# An unparseable pin means the reminder cannot tell whether the candidate is
-# already promoted; say nothing rather than noise a rebuild over repo state it
-# cannot interpret.
+# An unparseable pin cannot establish whether the candidate was already promoted.
 pinned_rev="$(unstable_pinned_rev "${repo_root}/flake.nix")" || exit 0
 fields="$(unstable_read_candidate "${candidate_file}")" || exit 0
 IFS=$'\t' read -r status rev _channel_date _first_seen first_seen_epoch soak_days <<<"${fields}"

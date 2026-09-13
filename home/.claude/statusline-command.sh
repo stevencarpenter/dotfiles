@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Claude Code status line command — pimped out edition
+# Claude Code status line command
 # Reads JSON from stdin and outputs a styled, information-dense status line
 
 # -u catches unset-variable bugs. No -e: the git probes below are expected to
@@ -13,8 +13,7 @@ input=$(cat)
 # whitespace, so empty fields don't collapse and columns stay aligned. The
 # per-field gsub strips CR/LF: `read` consumes a single line, so a newline in
 # any value (e.g. a user-set session_name) would otherwise truncate that field
-# and silently drop every field after it. `jq <<<` feeds stdin verbatim —
-# unlike `echo`, which can interpret backslashes under some shell settings.
+# and drop subsequent fields. Here-strings preserve backslashes in the input.
 IFS=$'\x1f' read -r cwd model used remaining cost_usd duration_ms \
 	five_h seven_d worktree effort version pr_number pr_state agent \
 	session_name lines_added lines_removed < <(
@@ -190,9 +189,7 @@ fi
 # ── Context Progress Bar ─────────────────────────────────────
 ctx_part=""
 if [ -n "$used" ] || [ -n "$remaining" ]; then
-	# Both fields are already integers (to_int'd) or empty. Derive whichever the
-	# payload omitted so the bar still renders from a single field — the segment
-	# no longer vanishes if the schema ever drops `used_percentage`.
+	# Derive a missing percentage from the other integer field.
 	if [ -n "$used" ]; then
 		used_int="$used"
 	else
@@ -219,11 +216,7 @@ if [ -n "$used" ] || [ -n "$remaining" ]; then
 fi
 
 # ── Session Cost Meter ───────────────────────────────────────
-# Claude Code exposes NO cumulative token count: as of v2.1.132 the
-# context_window.total_{input,output}_tokens fields are a per-turn snapshot
-# (output is the LAST response only), not a session total — so summing them
-# was semantically wrong. The genuinely cumulative session signals live under
-# `cost`: dollar spend + wall-clock. Show those instead.
+# Token counts are per-turn snapshots. cost provides cumulative spend and duration.
 cost_part=""
 cost_bits=""
 # cost_usd is fractional dollars (not run through to_int); validate before awk

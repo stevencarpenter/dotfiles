@@ -1,10 +1,6 @@
-# eval-cache.zsh — cache the static output of `eval "$(tool init ...)"` calls.
+# eval-cache.zsh: cache the static output of `eval "$(tool init ...)"` calls.
 #
-# The four hot startup forks (brew shellenv, zoxide init, atuin init, wt shell
-# init) each emit output that only changes when the tool binary changes. Fork
-# them once, cache the script to disk keyed on the binary's mtime+size, and
-# source the cache on every later shell. Measured on personal-mac (2026-07-17):
-# these forks were ~50ms of an ~80ms p50 interactive startup.
+# Cache init output by binary mtime and size to avoid repeated startup processes.
 #
 # Usage: zcached [-k <path>]... <cache-name> <binary-path> <command...>
 #   zcached brew-shellenv /opt/homebrew/bin/brew /opt/homebrew/bin/brew shellenv
@@ -14,24 +10,12 @@
 # any upgrade/reinstall (new mtime) regenerates. Delete
 # ~/.cache/zsh-eval-cache to force a full refresh.
 #
-# -k adds a file to the cache key beyond the binary. Needed when a tool's init
-# output depends on a config file: `atuin init zsh` bakes the [tmux] setting
-# into the script it emits, so a config-only edit MUST invalidate the cache or
-# the change appears to do nothing — the stale script keeps exporting
-# ATUIN_TMUX_POPUP=false long after the config that caused it was replaced
-# (found 2026-07-27). The other three call sites genuinely depend only on
-# their binary and pass no -k.
-#
-# A single-input caller's stamp is byte-identical to the pre-1-input format,
-# so adding this flag does not invalidate anyone else's cache.
+# -k adds config files to the key. Atuin embeds [tmux] settings in init output,
+# so its config must invalidate the cache even when the binary is unchanged.
 
 zcached() {
   local -a extra=()
-  # Bail on a valueless trailing -k rather than looping. zsh's `shift 2` FAILS
-  # without shifting when $# < 2, so `while [[ $1 == -k ]]; shift 2` spins
-  # forever on `zcached -k` — and this runs from .zshrc, so that is an
-  # interactive shell you can only escape with `zsh -f`. ${1-} keeps a
-  # zero-arg call from dying under `setopt nounset` too.
+  # shift 2 leaves arguments unchanged when a -k value is missing, causing a loop.
   while [[ ${1-} == -k ]]; do
     if [[ -z ${2-} ]]; then
       print -u2 "zcached: -k requires a path argument"
@@ -48,9 +32,7 @@ zcached() {
   local cache_dir=${XDG_CACHE_HOME:-$HOME/.cache}/zsh-eval-cache
   local cache=$cache_dir/$name.zsh
 
-  # A missing -k path stamps as 0:0 rather than bailing, so a not-yet-deployed
-  # config can't silently disable caching; it just reads as "absent", and the
-  # stamp changes the moment it lands.
+  # Stamp missing inputs as 0:0 so creating them invalidates the cache.
   local -a inputs=("$bin" "${extra[@]}")
   local -A st
   local stamp="#" p
@@ -65,7 +47,7 @@ zcached() {
   if [[ $first != $stamp ]]; then
     mkdir -p $cache_dir
     if ! { echo $stamp; "$@" } > $cache.$$ 2>/dev/null; then
-      # Generation failed — don't poison the cache; run uncached this once.
+      # Keep the previous cache after generation failure; run uncached this time.
       command rm -f $cache.$$
       eval "$("$@")"
       return

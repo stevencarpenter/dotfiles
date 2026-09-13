@@ -4,42 +4,11 @@ timeout_secs = 300                     # HTTP timeout for chat/embed calls
 
 [models]
 # ── Chat / enrichment models ──────────────────────────────────────────
-enrichment = "Qwen3.6-35B-A3B-Uncensored-Heretic-MLX-8bit"      # Qwen 3.6 MoE, 35B total / 3B active, 8-bit MLX — ~95 tok/s on M5 Max
+enrichment = "Qwen3.6-35B-A3B-Uncensored-Heretic-MLX-8bit"      # Qwen 3.6 MoE, 35B total / 3B active, 8-bit MLX, ~95 tok/s on M5 Max
 enrichment_bulk = "Qwen3.6-35B-A3B-Uncensored-Heretic-MLX-8bit" # Same local model for bulk enrichment
 query = "Qwen3.6-35B-A3B-Uncensored-Heretic-MLX-8bit"          # Same local model for query reformulation
-# enrichment = "Qwen3.8-27B-8bit"                   # Qwen 3.8 27B dense, 8-bit MLX — ~16 tok/s on M5 Max, quality not worth 6x slowdown vs 3.6 MoE
-# enrichment_bulk = "Qwen3.8-27B-8bit"
-# query = "Qwen3.8-27B-8bit"
-# enrichment = "Qwen3.8-27B-bf16"                   # Qwen 3.8 27B dense, bf16 — ~10 tok/s on M5 Max, too slow
-# enrichment_bulk = "Qwen3.8-27B-bf16"
-# query = "Qwen3.8-27B-bf16"
-# enrichment = "DeepSeek-V4-Flash-2bit-DQ"          # DeepSeek V4 Flash, 2bit DQ — fast but lower quality
-# enrichment_bulk = "DeepSeek-V4-Flash-2bit-DQ"
-# query = "DeepSeek-V4-Flash-2bit-DQ"
-# enrichment = "MiniMax-M2.5-8bit"                  # MiniMax M2.5, 8bit — 2.5B active, strong for its size
-# enrichment_bulk = "MiniMax-M2.5-8bit"
-# query = "MiniMax-M2.5-8bit"
-# enrichment = "diffusiongemma-26B-A4B-it-bf16"    # DiffusionGemma 26B, A4B MoE, bf16 — large but sharp
-# enrichment_bulk = "diffusiongemma-26B-A4B-it-bf16"
-# query = "diffusiongemma-26B-A4B-it-bf16"
-# enrichment = "gemma-4-26B-A4B-it-MLX-8bit"       # Gemma 4 26B, A4B MoE, 8bit MLX build
-# enrichment_bulk = "gemma-4-26B-A4B-it-MLX-8bit"
-# query = "gemma-4-26B-A4B-it-MLX-8bit"
-# enrichment = "gemma-4-31B-it-MLX-8bit"           # Gemma 4 31B dense, 8bit MLX build — best quality, biggest
-# enrichment_bulk = "gemma-4-31B-it-MLX-8bit"
-# query = "gemma-4-31B-it-MLX-8bit"
-# enrichment = "gemma-4-31b-it-bf16"               # Gemma 4 31B dense, bf16 — 43 GB RAM, use with memory guard
-# enrichment_bulk = "gemma-4-31b-it-bf16"
-# query = "gemma-4-31b-it-bf16"
-# enrichment = "gpt-oss-120b-MXFP4-Q8"             # GPT-OSS 120B, MXFP4 weights + Q8 cache — extremely large
-# enrichment_bulk = "gpt-oss-120b-MXFP4-Q8"
-# query = "gpt-oss-120b-MXFP4-Q8"
-# enrichment = "MarkItDown"                         # Document → Markdown converter only (not a chat model)
-# enrichment_bulk = "MarkItDown"
-# query = "MarkItDown"
 # ── Embedding model ───────────────────────────────────────────────────
 embedding = "nomicai-modernbert-embed-base-8bit" # 768d MLX embedding (ModernBERT, nomic lineage)
-# embedding = "MarkItDown"                          # Document → Markdown converter (not an embedding model)
 
 [daemon]
 flush_interval_ms = 100 # Write buffer flush interval (ms)

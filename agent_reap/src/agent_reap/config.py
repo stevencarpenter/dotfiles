@@ -14,7 +14,7 @@ from pathlib import Path
 
 DEFAULT_CONFIG_PATH = Path("~/.config/agent-reap/config.toml")
 
-# Socket locations, in the shapes actually seen on these machines: the stock
+# Socket locations: the stock
 # per-uid directory, the /tmp variant, and z4h's private per-server sockets.
 # "{uid}" is substituted at load time.
 DEFAULT_SOCKET_GLOBS: tuple[str, ...] = (
@@ -123,8 +123,7 @@ class LoadedConfig:
 def load_config(path: Path | None = None) -> LoadedConfig:
     """Read settings from disk, falling back to defaults.
 
-    A malformed file degrades to defaults with a recorded error rather than
-    raising: a config typo must not stop you from *seeing* what is leaking.
+    A malformed file returns defaults and a recorded error so reporting still works.
 
     Args:
         path: Config file to read. Defaults to ``~/.config/agent-reap/config.toml``.
@@ -132,9 +131,7 @@ def load_config(path: Path | None = None) -> LoadedConfig:
     Returns:
         The effective config, its source path, and any parse errors.
     """
-    # AGENT_REAP_CONFIG exists so the SessionEnd hook's kill path is testable
-    # against a scratch socket, and so an unattended runner can be pointed at
-    # its own policy file. An explicit --config still wins over it.
+    # An explicit --config takes precedence over AGENT_REAP_CONFIG.
     env_path = os.environ.get("AGENT_REAP_CONFIG")
     if path is None and env_path:
         path = Path(env_path)

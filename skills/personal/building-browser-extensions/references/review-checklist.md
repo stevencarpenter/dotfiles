@@ -8,7 +8,7 @@ Checks for reviewing an existing browser extension. Select those relevant to the
 
 - [ ] **Identify all execution contexts.** What code runs as background, content script, extension page, or injected main-world script?
 - [ ] **Is logic in the right context?** Network requests and API calls should be in the background, not content scripts. DOM manipulation should be in content scripts, not background. Heavy computation should not be in content scripts (they run on every matched page).
-- [ ] **Content script weight.** Are content scripts minimal? They execute on every matched page — bloated content scripts cause visible page slowdowns. Move business logic to the background.
+- [ ] **Content script weight.** Are content scripts minimal? They execute on every matched page: bloated content scripts cause visible page slowdowns. Move business logic to the background.
 
 ### Message passing
 
@@ -48,7 +48,7 @@ Walk through **cross-browser-compat.md** known issues:
 - [ ] **Browser-specific APIs.** Any `chrome.sidePanel`, `chrome.offscreen`, or other browser-specific APIs used without fallbacks? Check cross-browser-compat.md API gaps table.
 - [ ] **Namespace usage.** Are APIs supported by the declared browsers? Native `chrome.*` is valid for a Chromium-only extension; add wrappers or a polyfill only for an actual compatibility gap.
 - [ ] **Build outputs.** Does `wxt build -b firefox` and `wxt build -b safari` succeed? Or if not using WXT, are there separate manifests per browser?
-- [ ] **Safari silent failures.** Has the extension been tested in Safari? Unsupported APIs fail silently — functionality may appear to work but actually do nothing.
+- [ ] **Safari silent failures.** Has the extension been tested in Safari? Unsupported APIs fail silently: functionality may appear to work but actually do nothing.
 
 ## Phase 4: Store Readiness (When Applicable)
 
@@ -68,13 +68,13 @@ Report verified findings with affected behavior and source locations. Include br
 ## Extension Review: [name]
 
 ### Critical (must fix before ship)
-- [issue]: [description] — [which phase/check]
+- [issue]: [description]: [which phase/check]
 
 ### High (should fix)
-- [issue]: [description] — [which phase/check]
+- [issue]: [description]: [which phase/check]
 
 ### Medium (recommended)
-- [issue]: [description] — [which phase/check]
+- [issue]: [description]: [which phase/check]
 
 ### Architecture Notes
 - [observations about structure, patterns, technical debt]

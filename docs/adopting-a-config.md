@@ -4,22 +4,19 @@ You install a tool, test-drive it for a while, and decide to keep it. This is th
 procedure for promoting its ad-hoc config (and the tool itself) into managed dotfiles so
 it reproduces on every machine.
 
-It exists because this repo uses **out-of-store symlinks**: the deployed file *is* the
-repo file (`~/.config/foo` → `~/.dotfiles/home/.config/foo`). That makes editing live with
-no rebuild — but it also means a config the tool already wrote to `~` is a *real file
-sitting where nix wants to put a symlink*. Adoption is the ritual that resolves that
-cleanly.
+This repo uses **out-of-store symlinks**: the deployed file points to the
+repo file (`~/.config/foo` → `~/.dotfiles/home/.config/foo`). Edits need no rebuild.
+An existing file at the target path must be moved before Nix can create the symlink.
 
-## Two lanes (know which one you're in)
+## When a rebuild is required
 
-- **Lane 1 — raw config content:** editing an *already-linked* file under `home/`. Live
-  immediately, no rebuild. (This is most day-to-day config tweaking.)
-- **Lane 2 — anything nix evaluates:** packages, macOS defaults, Homebrew casks,
-  capability gating — **and adding a new file/path**, because nix must create the symlink.
+- **Raw config content:** editing an *already-linked* file under `home/` needs no rebuild.
+- **Anything Nix evaluates:** packages, macOS defaults, Homebrew casks,
+  capability gating, **and adding a new file/path**, because Nix must create the symlink.
   Needs `./rebuild.sh`.
 
-**Adoption is a Lane 2 operation** (you add a new `home.file` entry), so it ends in a
-rebuild. After that, editing the adopted file is Lane 1 forever.
+**Adoption requires a rebuild** because it adds a new `home.file` entry.
+Subsequent edits to the linked file need no rebuild.
 
 ## Collision handling
 
@@ -40,7 +37,7 @@ yourself before rebuilding.
    `~/.dotfiles/home/.config/foo/config`, preserving exactly what you tuned. The `home/`
    tree mirrors `~`, so the relative path is identical.
 
-3. **Choose file-level vs directory-level linking — the load-bearing decision.**
+3. **Choose file-level vs directory-level linking.**
    See [Decision: file vs directory](#decision-file-vs-directory-linking) below.
 
 4. **Register the link in `modules/home/dotfiles.nix`.** Add the relative path to the right
@@ -48,8 +45,7 @@ yourself before rebuilding.
    - all machines → the base list (`# ---- all machines ----`)
    - personal/work-only → the `lib.optionalAttrs (identity == "personal"|"work")` block
    - capability-gated → the matching `lib.optionalAttrs caps.<x>` block
-   - needs a brand-new axis of variance → that's the heavier **[adding a
-     capability](#adding-a-capability)** flow.
+   - needs a new capability → **[add a capability](#adding-a-capability)**.
 
 5. **Clear the collision.** After verifying the repository copy, remove the exact original target:
    `rm ~/.config/foo/config`. Skipping this correctly makes activation fail.
@@ -59,7 +55,7 @@ yourself before rebuilding.
 7. **Verify.** `realpath ~/.config/foo/config` lands in `~/.dotfiles/…` and the tool still
    reads it.
 
-A helper does the mechanical parts of steps 2–5 deterministically:
+A helper plans the file copy, link, and collision handling:
 
 ```bash
 bash .claude/skills/adopt-config/scripts/plan_adoption.sh ~/.config/foo/config
@@ -67,18 +63,18 @@ bash .claude/skills/adopt-config/scripts/plan_adoption.sh ~/.config/foo/config
 
 It prints the repo target path, a file-vs-directory recommendation (by scanning for tool
 state), a collision check, and the exact `dotfiles.nix` line to add. It does **not** decide
-gating or package source — those are judgment calls it surfaces for you.
+gating or package source: those are judgment calls it surfaces for you.
 
 ## Decision: file vs directory linking
 
 The question: **does the tool write runtime state into the same directory as its config?**
 
-- **File-level** (link `.config/foo/config`) — the safe default. Use whenever the tool also
+- **File-level** (link `.config/foo/config`): the safe default. Use whenever the tool also
   writes caches, history, logs, sockets, lockfiles, or `.git` state alongside its config.
-  You manage only the config; the tool's runtime junk stays out of the repo checkout.
-- **Directory-level** (link `.config/foo`) — only when the *entire* directory is config you
-  author and the tool does not scribble state there. Convenient (sibling config files
-  auto-appear), but if the tool writes state into a dir-linked path, that state flows
+  You manage only the config; runtime state stays out of the repo checkout.
+- **Directory-level** (link `.config/foo`): only when the *entire* directory is config you
+  author and the tool does not write state there. Sibling config files
+  are linked automatically. If the tool writes state into a directory-linked path, it flows
   through the symlink into the **repo working tree** and dirties git.
 
 This repo's own precedents (all in `dotfiles.nix`):
@@ -89,21 +85,21 @@ This repo's own precedents (all in `dotfiles.nix`):
 | `nushell/config.nu` | file | nushell writes `history`/`env.nu` in the dir |
 | `github-copilot/intellij/…instructions.md` | file | copilot writes runtime state in the dir |
 | `git` | directory | pure config dir (+ `.gitignore_global`); no state written |
-| `nvim` | directory | LazyVim rewrites `lazy-lock.json` in place — expected & wanted in-repo |
+| `nvim` | directory | LazyVim rewrites `lazy-lock.json` in place: expected & wanted in-repo |
 
 When unsure, link the file. You can always widen to a directory later.
 
 ## Cross-agent note
 
-The auto-triggering skill (`.claude/skills/adopt-config/`) is **Claude Code only** — the
+The auto-triggering skill (`.claude/skills/adopt-config/`) is **Claude Code only**: the
 skills mechanism here targets `~/.claude/skills/`, which Codex and opencode do not consume.
 Codex and opencode read `AGENTS.md` (a symlink to `CLAUDE.md`), which points at *this doc*.
 So all three agents share the same procedure; only Claude Code gets first-class triggering.
 
 ## Related
 
-- `CLAUDE.md` § *Layout & module conventions* — the out-of-store-symlink model.
-- `modules/home/dotfiles.nix` — the link lists and gating blocks you edit in step 4.
+- `CLAUDE.md` § *Layout & module conventions*: the out-of-store-symlink model.
+- `modules/home/dotfiles.nix`: the link lists and gating blocks you edit in step 4.
 
 <a id="adding-a-capability"></a>
 ### Adding a capability

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Wi-Fi status — icon only (Material Design)
+# Wi-Fi status: icon only (Material Design)
 # 󰤨 nf-md-wifi | 󰤭 nf-md-wifi_off
 #
 # Asks macOS directly for the Wi-Fi service IP. Handles all three states:

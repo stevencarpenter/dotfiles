@@ -3,7 +3,7 @@
 # Shared macOS dock badge helpers for SketchyBar plugins.
 # Source for functions/constants; run as CLI: app_badge.sh <app_name>
 
-# Workspace icon notification dot styling — keep in sync with aerospace.sh --set.
+# Workspace icon notification dot styling: keep in sync with aerospace.sh --set.
 SKETCHYBAR_WS_BADGE_DOT='•'
 SKETCHYBAR_WS_BADGE_LABEL_FONT='JetBrainsMono Nerd Font:Bold:16.0'
 SKETCHYBAR_WS_BADGE_LABEL_PADDING_LEFT=-4

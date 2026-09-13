@@ -6,47 +6,30 @@
   ...
 }:
 
-# Declarative port of .chezmoiscripts/darwin/run_onchange_configure-macos-defaults.sh.
-# Each `defaults write` maps to a typed system.defaults.* option where one exists,
-# else to system.defaults.CustomUserPreferences.<domain>. The two non-defaults
-# side effects (screenshots dir, Spotlight sentinels) become an activation snippet.
-# The original's trailing `killall` is dropped — nix-darwin runs `activateSettings
-# -u` after writing defaults. Re-add killall Dock/Finder/SystemUIServer to
-# postActivation only if a key doesn't take effect until logout on the pinned release.
-# Original commands are quoted next to non-obvious mappings.
+# macOS preferences use typed options or CustomUserPreferences for unsupported keys.
+# Activation creates the screenshot directory and Spotlight exclusion sentinels.
 {
   system.defaults = {
     # ─── 1. General / UI (NSGlobalDomain) ─────────────────────────────────
     NSGlobalDomain = {
-      # defaults write NSGlobalDomain AppleInterfaceStyle -string "Dark"
       AppleInterfaceStyle = "Dark";
-      # defaults write NSGlobalDomain ApplePressAndHoldEnabled -bool false
       ApplePressAndHoldEnabled = false;
-      # defaults write NSGlobalDomain InitialKeyRepeat -int 15
       InitialKeyRepeat = 15;
-      # defaults write NSGlobalDomain KeyRepeat -int 2
       KeyRepeat = 2;
-      # defaults write NSGlobalDomain NSAutomaticCapitalizationEnabled -bool true
       NSAutomaticCapitalizationEnabled = true;
-      # defaults write NSGlobalDomain NSAutomaticPeriodSubstitutionEnabled -bool true
       NSAutomaticPeriodSubstitutionEnabled = true;
-      # defaults write NSGlobalDomain com.apple.trackpad.scaling -float 1.5
       "com.apple.trackpad.scaling" = 1.5;
     };
 
     # ─── 2. Dock ──────────────────────────────────────────────────────────
     dock = {
       autohide = true;
-      # defaults write com.apple.dock autohide-delay -float 1.0
       autohide-delay = 1.0;
-      # defaults write com.apple.dock autohide-time-modifier -float 0.6
       autohide-time-modifier = 0.6;
       orientation = "left";
       tilesize = 40;
-      # Hot corners: br = Quick Note (14), tr = Lock Screen (13). The
-      # `wvous-*-modifier` keys are not typed nix-darwin options; the
-      # modifier defaults to 0 (none), matching the original script, and is
-      # written via CustomUserPreferences."com.apple.dock" below.
+      # Bottom right: Quick Note (14). Top right: Lock Screen (13).
+      # Modifier keys use CustomUserPreferences below.
       wvous-br-corner = 14;
       wvous-tr-corner = 13;
     };
@@ -58,40 +41,28 @@
       ShowHardDrivesOnDesktop = false;
       ShowExternalHardDrivesOnDesktop = true;
       ShowRemovableMediaOnDesktop = true;
-      # NOTE: `ShowSidebar` is handled via CustomUserPreferences below — it is
+      # NOTE: `ShowSidebar` is handled via CustomUserPreferences below: it is
       # not a confirmed typed key in nix-darwin's finder submodule.
     };
 
     # ─── 4. Screenshots ───────────────────────────────────────────────────
     screencapture = {
-      # defaults write com.apple.screencapture location -string "$HOME/Desktop/screenshots"
       # nix-darwin does not create the directory; see activation snippet below.
       location = "/Users/${user}/Desktop/screenshots";
-      # defaults write com.apple.screencapture show-thumbnail -bool false
       show-thumbnail = false;
     };
 
     # ─── 5. Menu bar clock ────────────────────────────────────────────────
     menuExtraClock = {
-      # Original: `defaults write com.apple.menuextra.clock ShowDate -int 0`.
-      # NOTE (SME flag): some nix-darwin releases type ShowDate as a string
-      # enum ("0"|"1"|"2") rather than the raw int. If the build rejects `0`,
-      # use "0" (0 = never show date). A wrong value here is silent, not a
-      # build error — verify the written plist after switch.
+      # 0 = never show the date.
       ShowDate = 0;
       ShowDayOfWeek = true;
     };
 
     # ─── 6. Trackpad (internal, com.apple.AppleMultitouchTrackpad) ─────────
     trackpad = {
-      # defaults write com.apple.AppleMultitouchTrackpad Clicking -bool false
       Clicking = false;
-      # defaults write ... TrackpadThreeFingerDrag -bool false
       TrackpadThreeFingerDrag = false;
-      # NOTE (SME flag): the four-finger swipe gesture keys are not exposed by
-      # every nix-darwin trackpad submodule release. If the build rejects
-      # these two, move them into the CustomUserPreferences internal-trackpad
-      # block below alongside the Bluetooth-domain copies.
       TrackpadFourFingerHorizSwipeGesture = 2;
       TrackpadFourFingerVertSwipeGesture = 2;
     };
@@ -110,14 +81,11 @@
         wvous-tr-modifier = 0;
       };
       # Finder ShowSidebar has no confirmed typed option.
-      # defaults write com.apple.finder ShowSidebar -bool true
       "com.apple.finder" = {
         ShowSidebar = true;
       };
-      # Bluetooth (paired) trackpad domain has NO nix-darwin equivalent — the
-      # trackpad submodule only ever targets the internal multitouch domain.
-      # These duplicate the internal-trackpad values for a paired BT trackpad.
-      # defaults write com.apple.driver.AppleBluetoothMultitouch.trackpad <key> …
+      # The typed trackpad module targets the internal device only.
+      # Apply the same settings to paired Bluetooth trackpads.
       "com.apple.driver.AppleBluetoothMultitouch.trackpad" = {
         Clicking = false;
         TrackpadThreeFingerDrag = false;

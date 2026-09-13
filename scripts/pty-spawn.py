@@ -10,7 +10,7 @@ branches of sync-side-channels.sh are exercised. `script` has incompatible
 BSD/util-linux flag forms, so this allocates the pty directly.
 
 ``pty.spawn`` returns an encoded wait status, so a child exiting 1 becomes 256
-and ``sys.exit(256)`` truncates to 0 — the harness would report success for a
+and ``sys.exit(256)`` truncates to 0: the harness would report success for a
 failed run. ``waitstatus_to_exitcode`` decodes it.
 
 Usage:

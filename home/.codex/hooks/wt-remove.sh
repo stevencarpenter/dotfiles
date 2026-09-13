@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Claude Code WorktreeRemove hook — routes cleanup through wt.
+# Claude Code WorktreeRemove hook: routes cleanup through wt.
 # Reads JSON {worktree_path} from stdin.
 # Best-effort: failures are silently swallowed (per docs, this hook cannot block).
 set -euo pipefail

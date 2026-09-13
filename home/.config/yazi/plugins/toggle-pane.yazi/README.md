@@ -54,7 +54,7 @@ if os.getenv("NVIM") then
 end
 ```
 
-In the example above, when it detects that you're [using Yazi in nvim](https://yazi-rs.github.io/docs/resources#vim), the preview is hidden by default — you can always press `T` (or any key you've bound) to show it again.
+In the example above, when it detects that you're [using Yazi in nvim](https://yazi-rs.github.io/docs/resources#vim), the preview is hidden by default: you can always press `T` (or any key you've bound) to show it again.
 
 ## Tips
 

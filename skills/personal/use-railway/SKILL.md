@@ -79,7 +79,7 @@ additional deployment, project, integration, or installation.
 - State the deployment target before invoking the command. Use noninteractive
   creation flags only when creating those resources is already authorized.
 - **Do NOT ask the user to run `railway login` first.** The chain handles auth as part of the deploy.
-- If the environment can't open a browser, the CLI prints a device-code sign-in link and waits — follow [Device-code sign-in: relay the link immediately](#account-creation--sign-in) (run in background, relay the link to the user the moment it prints).
+- If the environment can't open a browser, the CLI prints a device-code sign-in link and waits: follow [Device-code sign-in: relay the link immediately](#account-creation--sign-in) (run in background, relay the link to the user the moment it prints).
 
 **Signup intent** ("sign me up", "create my Railway account", "register me", "get me on Railway"):
 - Use `railway login` for account creation or sign-in alone. If the user also
@@ -90,7 +90,7 @@ additional deployment, project, integration, or installation.
   [Account creation & sign-in](#account-creation--sign-in).
 
 **Sandbox / remote-build intent** ("give me a sandbox", "spin up a scratch environment", "build this remotely", "run this remotely", "checkpoint/snapshot the sandbox", "save this sandbox state", "restore my sandbox"):
-- Load [sandbox.md](references/sandbox.md) and follow it. Sandboxes require the feature to be enabled in Priority Boarding — if a sandbox command fails with a feature-availability error, prompt the user to enable Sandboxes in Priority Boarding rather than retrying.
+- Load [sandbox.md](references/sandbox.md) and follow it. Sandboxes require the feature to be enabled in Priority Boarding: if a sandbox command fails with a feature-availability error, prompt the user to enable Sandboxes in Priority Boarding rather than retrying.
 
 **Other intents** (querying state, listing projects, configuring variables, debugging failures):
 - Follow the Preflight section below.
@@ -106,7 +106,7 @@ RAILWAY_CALLER="skill:use-railway@1.4.0" RAILWAY_AGENT_SESSION="railway-skill-$(
 railway --version                 # check CLI version
 ```
 
-**Exception**: `railway up` and `railway login` self-validate auth and run their own unauth-aware flows. Don't run `railway whoami` before them — it adds a redundant failing call without changing what you do next. See [Account creation & sign-in](#account-creation--sign-in).
+**Exception**: `railway up` and `railway login` self-validate auth and run their own unauth-aware flows. Don't run `railway whoami` before them: it adds a redundant failing call without changing what you do next. See [Account creation & sign-in](#account-creation--sign-in).
 
 ### Local snapshot
 
@@ -135,7 +135,7 @@ npm i -g @railway/cli # npm (macOS, Linux, Windows). Requires Node.js version 16
 brew install railway # Homebrew (macOS)
 ```
 
-If not authenticated, see [Account creation & sign-in](#account-creation--sign-in) below — the CLI offers unauthed `railway up` (deploy + sign up/in in one shot) or `railway login` (sign up/in only; new accounts created on the fly). If not linked and no URL was provided, run `railway link --project <id-or-name>`.
+If not authenticated, see [Account creation & sign-in](#account-creation--sign-in) below: the CLI offers unauthed `railway up` (deploy + sign up/in in one shot) or `railway login` (sign up/in only; new accounts created on the fly). If not linked and no URL was provided, run `railway link --project <id-or-name>`.
 
 If a command is unrecognized, inspect installed help and use a supported equivalent.
 Upgrade only when the requested operation requires it and the tooling change is
@@ -143,14 +143,14 @@ within scope; do not assume every command error requires an installation change.
 
 ## Account creation & sign-in
 
-Railway uses a single unified OAuth flow for both sign-in and sign-up. The backend detects fresh accounts from durable compliance state (a CLI client that hasn't accepted ToS / Fair Use yet) and adapts the consent screen and post-auth landing page — new users land on a "Welcome to Railway!" page, existing users see the standard confirmation. The CLI does not declare signup intent up front.
+Railway uses a single unified OAuth flow for both sign-in and sign-up. The backend detects fresh accounts from durable compliance state (a CLI client that hasn't accepted ToS / Fair Use yet) and adapts the consent screen and post-auth landing page: new users land on a "Welcome to Railway!" page, existing users see the standard confirmation. The CLI does not declare signup intent up front.
 
 Two commands surface this flow, depending on intent:
 
 | Command | When to use |
 |---|---|
 | `railway up` | Agent-friendly onboarding from the current directory. Unauthenticated → opens the browser (or device-code) to sign in / sign up. With no linked project, a detected agent harness (or `-y`) auto-creates a project + service and deploys; an interactive human is offered create / link-existing / cancel. Add `-y` to skip prompts and force the create non-interactively (works even if harness detection misses). |
-| `railway login` | Sign in — *and* sign up. New accounts are created on the fly through the same OAuth surface; there is no separate signup command. |
+| `railway login` | Sign in: *and* sign up. New accounts are created on the fly through the same OAuth surface; there is no separate signup command. |
 
 Related: `railway up --new` creates a *fresh* project + service from the current directory and deploys it even if one is already linked (use when already signed in and the user wants a new app); `--name <name>` overrides the project name.
 
@@ -163,15 +163,15 @@ Related: `railway up --new` creates a *fresh* project + service from the current
 
 **Headless / no browser:**
 
-The CLI **auto-detects** SSH sessions, CI, and a missing `DISPLAY` and switches to the device-code flow on its own — you almost never need to force it.
+The CLI **auto-detects** SSH sessions, CI, and a missing `DISPLAY` and switches to the device-code flow on its own: you almost never need to force it.
 
-**Do NOT pass `--browserless` just because you are an agent or your shell is non-interactive.** If the human is at this machine (a local IDE or desktop session — the common case), bare `railway login` opens *their* browser directly, which completes far more reliably than relaying a device code (~90% vs ~60% success for agent-driven sign-ins). Being a coding agent does not make the machine headless.
+**Do NOT pass `--browserless` just because you are an agent or your shell is non-interactive.** If the human is at this machine (a local IDE or desktop session: the common case), bare `railway login` opens *their* browser directly, which completes far more reliably than relaying a device code (~90% vs ~60% success for agent-driven sign-ins). Being a coding agent does not make the machine headless.
 
 ```bash
-railway login --browserless   # ONLY for machines with genuinely no browser
+railway login --browserless   # Only for machines without a browser
 ```
 
-Forces the device-code flow (RFC 8628): prints a sign-in link and a short code for the user to open on any device. Reserve it for machines where no browser exists — SSH boxes, containers, remote VMs the auto-detection missed. When you do end up in a device-code flow, follow the relay procedure below: surface the sign-in link to the user the moment it prints.
+Forces the device-code flow (RFC 8628): prints a sign-in link and a short code for the user to open on any device. Reserve it for machines where no browser exists: SSH boxes, containers, remote VMs the auto-detection missed. When you do end up in a device-code flow, follow the relay procedure below: surface the sign-in link to the user the moment it prints.
 
 **Agent harness, human present**: the CLI may skip prompts when it detects a harness.
 That behavior is not user authorization for additional operations. A human must
@@ -179,19 +179,19 @@ still complete OAuth in the browser.
 
 **Device-code sign-in: relay the link immediately (CRITICAL):**
 
-When the CLI can't open a browser (sandboxed shell, container, SSH, no `DISPLAY`), unauthed `railway up` and `railway login` print a sign-in URL + short code and then **block, polling for up to 10 minutes** while the user completes sign-in. The code expires after 10 minutes. If you run this as a normal foreground command, your harness buffers the output until the command exits — **the user never sees the link until the code is already dead**. This is the #1 cause of failed agent-driven signups. Handle it like this:
+When the CLI can't open a browser (sandboxed shell, container, SSH, no `DISPLAY`), unauthed `railway up` and `railway login` print a sign-in URL + short code and then **block, polling for up to 10 minutes** while the user completes sign-in. The code expires after 10 minutes. If you run this as a normal foreground command, your harness buffers the output until the command exits: **the user never sees the link until the code is already dead**. This is the #1 cause of failed agent-driven signups. Handle it like this:
 
-1. **Preferred — background execution** (e.g. Claude Code: `run_in_background`, then poll with `BashOutput`):
+1. **Preferred: background execution** (e.g. Claude Code: `run_in_background`, then poll with `BashOutput`):
    - Start the command in the background.
-   - Poll its output. The instant a sign-in block appears (`Sign in with one click: <url>` on newer CLIs, or `Sign in at: <url>` / `Enter this code: <code>` on older ones), **stop everything and relay it to the user verbatim** — do not summarize, shorten, or defer it. Prefer the one-click URL when present; otherwise relay the URL and code together. Tell the user to open the link now.
+   - Poll its output. The instant a sign-in block appears (`Sign in with one click: <url>` on newer CLIs, or `Sign in at: <url>` / `Enter this code: <code>` on older ones), **stop everything and relay it to the user verbatim**: do not summarize, shorten, or defer it. Prefer the one-click URL when present; otherwise relay the URL and code together. Tell the user to open the link now.
    - Leave the command running and keep polling. When the user completes sign-in, the same process picks up the session and continues into the deploy on its own. Then verify per the deploy rules below.
-2. **No background support — set expectations, use the longest timeout:**
-   - Before running, tell the user: *"This will print a sign-in link — I'll show it to you the moment I have it. Please complete it promptly; the code expires in 10 minutes."*
+2. **No background support: set expectations, use the longest timeout:**
+   - Before running, tell the user: *"This will print a sign-in link: I'll show it to you the moment I have it. Please complete it promptly; the code expires in 10 minutes."*
    - Run with the longest timeout your harness allows.
-   - If the command times out or is killed before sign-in completed, the printed code is **no longer being monitored** — a late click does nothing. Relay whatever link appeared anyway for context, then immediately re-run the command and relay the **new** link, telling the user to always use the newest one.
+   - If the command times out or is killed before sign-in completed, the printed code is **no longer being monitored**: a late click does nothing. Relay whatever link appeared anyway for context, then immediately re-run the command and relay the **new** link, telling the user to always use the newest one.
 3. **Never** wait silently for the command to finish before showing the link, and never report the sign-in as failed without first relaying the link and giving the user a chance to act.
 
-The browser transport needs none of this — the CLI opens the browser on the user's machine itself.
+The browser transport needs none of this: the CLI opens the browser on the user's machine itself.
 
 **JSON / CI modes do not auto-prompt**: `railway up --json` and `railway up --ci` will NOT open a browser for an unauthed user. `--json` emits a structured error instead:
 
@@ -203,7 +203,7 @@ When you see `code: NOT_AUTHENTICATED`, authenticate the user with `railway logi
 
 `OAUTH_INSUFFICIENT_GRANT` is different: the session is valid but lacks access to the resource. Check IDs, workspace membership, and the integration's grant scope instead of looping through login; see [operate.md](references/operate.md).
 
-**Fully unattended (no human at all)**: set `RAILWAY_API_TOKEN` (account-scoped) or `RAILWAY_TOKEN` (project-scoped) instead of running an interactive login. A brand-new user with no token and no human present cannot complete signup — there is no headless account-creation path.
+**Fully unattended (no human at all)**: set `RAILWAY_API_TOKEN` (account-scoped) or `RAILWAY_TOKEN` (project-scoped) instead of running an interactive login. A brand-new user with no token and no human present cannot complete signup: there is no headless account-creation path.
 
 ## Agent tooling
 
@@ -269,7 +269,7 @@ railway domain list --service <svc> --json               # domains and DNS statu
 railway logs --service <svc> --lines 200 --json          # recent logs
 railway logs --service <svc> --network --lines 200 --json # network flow snapshot
 railway metrics --service <svc> --since 1h --json        # resource and HTTP metrics summary
-railway up --detach -m "<summary>"                       # deploy current directory (returns at QUEUED — verify before reporting)
+railway up --detach -m "<summary>"                       # deploy current directory (returns at QUEUED: verify before reporting)
 railway deployment list --json                           # poll newest deployment status after a detached up
 railway bucket list --json                               # list buckets in current environment
 railway bucket info --bucket <name> --json               # bucket storage and object count
@@ -292,7 +292,7 @@ For anything beyond quick operations, load the references needed for the user's 
 | Inspect costs or manage spending limits | [usage.md](references/usage.md) | Workspace/project/service usage, billing periods, workspace and Railway Agent limits |
 | Run a coding agent on Railway ("cloud agent", "railway ca", "railway code", "desktop SSH") | [cloud-agents.md](references/cloud-agents.md) | Provision, connect, wake, sleep, delete, or configure desktop access to cloud agent VMs |
 | Check health or debug failures | [operate.md](references/operate.md) | Status, logs, metrics, build/runtime triage, recovery |
-| Use a sandbox or build remotely ("sandbox", "scratch environment", "ephemeral box", "build remotely", "remote build", "run this remotely", "checkpoint", "snapshot/save/restore sandbox state") | [sandbox.md](references/sandbox.md) | Create/fork sandboxes, run commands remotely, remote template builds, checkpoints (save/restore sandbox state), port forwarding, teardown. Requires Sandboxes enabled in Priority Boarding — if unavailable, prompt the user to enable it. |
+| Use a sandbox or build remotely ("sandbox", "scratch environment", "ephemeral box", "build remotely", "remote build", "run this remotely", "checkpoint", "snapshot/save/restore sandbox state") | [sandbox.md](references/sandbox.md) | Create/fork sandboxes, run commands remotely, remote template builds, checkpoints (save/restore sandbox state), port forwarding, teardown. Requires Sandboxes enabled in Priority Boarding: if unavailable, prompt the user to enable it. |
 | Request from API, docs, or community | [request.md](references/request.md) | Railway GraphQL API queries/mutations, metrics queries, Central Station, official docs |
 
 If the request spans two areas (for example, "deploy and then check if it's healthy"), load both references and compose one response.

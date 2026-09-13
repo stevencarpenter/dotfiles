@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Clock + Calendar — local in bar, UTC in popup
+# Clock + Calendar: local in bar, UTC in popup
 # Only update UTC popup items when popup is visible (hover)
 
 set -euo pipefail
@@ -13,7 +13,7 @@ DATE="$(date '+%A, %B %d, %Y')"
 sketchybar --set clock label="${TIME}"
 sketchybar --set calendar label="${DATE}"
 
-# Hover events — both clock and calendar trigger calendar's popup.
+# Hover events: both clock and calendar trigger calendar's popup.
 # UTC labels are computed lazily on enter to avoid per-tick subshells.
 # The global exit path catches popup-window hovers that can miss per-item exits.
 case "${SENDER:-}" in

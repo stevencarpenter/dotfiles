@@ -1,4 +1,4 @@
-# agent-reap — idle Claude teammate reaper.
+# agent-reap: idle Claude teammate reaper.
 #
 # Plain out-of-store symlink (modules/home/dotfiles.nix): edits here are live,
 # no rebuild needed.
@@ -7,13 +7,8 @@
 # until you pass --kill, and interactive sessions are never killed by the reap
 # subcommand at all.
 
-# Where tmux servers keep their sockets. "{uid}" is substituted at load.
-#
-# All three shapes matter: the stock per-uid directory, its /tmp alias, and
-# z4h's private per-server sockets. Reading only $TMUX is what makes
-# `tmux kill-server` appear to do nothing — it kills the server you are attached
-# to while a team survives on another socket. Paths are symlink-resolved before
-# de-duplication, so /tmp -> /private/tmp does not double-count a server.
+# Search standard and z4h sockets. {uid} is expanded at load; symlink resolution
+# deduplicates /tmp and /private/tmp paths. $TMUX alone misses other servers.
 socket_globs = [
   "/private/tmp/tmux-{uid}/*",
   "/tmp/tmux-{uid}/*",
@@ -24,15 +19,10 @@ socket_globs = [
 # Drained-but-recent means the agent may still be finishing up.
 teammate_idle_minutes = 30
 
-# The same window, but for a SubagentStop completion event, which already proves
-# the teammate's turn ended. Short enough that finished panes do not accumulate,
-# long enough that the lead can still send a follow-up to a teammate that has
-# just replied.
+# Allow follow-up messages for 90 seconds after a SubagentStop completion event.
 completion_grace_seconds = 90
 
-# How long an interactive Claude window must be quiet before it is *reported*.
-# Reporting only — an abandoned window may hold context worth more than its
-# memory, so the call stays yours.
+# Report interactive sessions after this idle period; reap never kills them.
 interactive_idle_minutes = 240
 
 # The team lead holds the team's context. Reaping it needs --include-lead.
@@ -47,11 +37,9 @@ kill_enabled = true
 # Never reap these teammate names.
 deny_agent_names = []
 
-# If non-empty, ONLY these teammate names are reapable.
+# If non-empty, only these teammate names are reapable.
 allow_agent_names = []
 
-# Executable path prefixes treated as user-owned when hunting disowned
-# descendants. An allowlist, deliberately: blocklisting system paths produced 23
-# false positives on a real machine (bare-name launchd jobs, audio drivers,
-# vendor agents, login shells). Widen this if a real stray falls outside it.
+# Limit disowned-process candidates to user-owned executable paths.
+# An allowlist avoids classifying system services and login shells as strays.
 stray_command_prefixes = ["~/", "/nix/store/"]

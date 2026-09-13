@@ -460,10 +460,8 @@ def _strip_codex_managed_blocks(text: str, names: set[str]) -> str:
     Drops each ``[mcp_servers.NAME]`` table (and any nested subtable like
     ``[mcp_servers.NAME.env]``) whose NAME is in ``names``. It also drops the
     previous managed block emitted by this tool so servers
-    deleted from the current master do not linger. Every other line — including
-    Codex-owned ``mcp_servers`` such as ``node_repl`` and unrelated tables
-    (``plugins``, ``hooks``, ``desktop``) — is kept verbatim, which keeps the
-    rewrite idempotent.
+    deleted from the current master do not linger. Preserve all other lines,
+    including Codex-owned ``mcp_servers`` and unrelated tables, verbatim.
 
     Args:
         text: Existing ``config.toml`` contents.
@@ -573,7 +571,7 @@ def _write_json(
     ``trailing_newline=False`` completes the same set. Files this tool
     generates end with a newline (POSIX convention, and ``drift.py``
     byte-compares them against ``json.dumps(...) + "\\n"``), but a co-owned
-    file must match whatever its owner writes — Claude Code emits none, so
+    file must match whatever its owner writes: Claude Code emits none, so
     adding one makes the last byte flip back and forth on every sync.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -599,7 +597,7 @@ def _render_patched_owned_config(
 
     Shared body for the "patch-style" targets (e.g. ``~/.claude.json``):
     tools that own their file, where a sync only
-    rewrites the ``mcpServers`` key — managed servers replace their entries,
+    rewrites the ``mcpServers`` key: managed servers replace their entries,
     unmanaged (hand-added) ones are preserved, and the owning tool's
     own keys are left untouched. Reads the current file but never writes it,
     so drift checks can compare deployed vs expected.
@@ -666,12 +664,8 @@ def _patch_owned_config(
     preserved_existing = {
         key: value for key, value in existing.items() if key not in disabled_servers
     }
-    # Per-server collisions: managed config fully replaces the existing server
-    # entry. We don't shallow-merge per-server fields because that would leave
-    # stale env/args/etc. behind when master removes them. Hand-edits to
-    # individual server entries (e.g. tweaking `timeout`) will NOT survive a
-    # sync — make those changes in the master config or in the target's
-    # dot_config/mcp/overrides/<key>.json layer instead.
+    # Replace whole managed entries so removed fields cannot survive.
+    # Persist customizations in master or ~/.config/mcp/overrides/<key>.json.
     cfg["mcpServers"] = {**preserved_existing, **servers}
     cleaned_overrides = _override_without_servers(overrides)
     if cleaned_overrides:
@@ -701,7 +695,7 @@ def render_claude_config(master: JsonDict, home: Path | None = None) -> JsonDict
 def patch_claude_code_config(master: JsonDict, home: Path | None = None) -> None:
     """Patch managed MCP servers into ``~/.claude.json`` in place.
 
-    Unlike the file-generating targets, Claude Code owns this file — only the
+    Unlike the file-generating targets, Claude Code owns this file: only the
     ``mcpServers`` key is rewritten (managed servers replace their entries,
     unmanaged ones are preserved), and key order is kept to avoid churning
     Claude's own runtime state.
@@ -736,7 +730,7 @@ def patch_specs(home: Path) -> list[PatchSpec]:
 
     Single source of truth shared by the sync, ``--check`` (drift), and
     ``--capture``: adding a new patch-style target here wires it into
-    all three entry points at once. ``codex`` is intentionally absent — it is
+    all three entry points at once. ``codex`` is intentionally absent: it is
     patch-managed TOML with its own renderer, check-only and not capturable.
 
     Args:
@@ -783,12 +777,8 @@ def _render_patch(spec: PatchSpec, master: JsonDict, home: Path) -> JsonDict | N
 def _sync_patch_spec(spec: PatchSpec, master: JsonDict, home: Path) -> None:
     """Render one patch spec and write the deployed file back in place.
 
-    Preserves key order: the owning tool (e.g. Claude Code) writes its
-    own state into this file (recent projects, transient UI bits, etc.);
-    alphabetizing the whole document on every sync churns the diff and can
-    interleave managed keys with the tool's runtime state in confusing ways.
-    Per-tool outputs generated from scratch stay ``sort_keys=True`` for
-    deterministic diffs.
+    Preserve the owning tool's key order to avoid rewriting unrelated state.
+    Files generated from scratch use ``sort_keys=True`` for deterministic diffs.
 
     Args:
         spec: The patch target to sync.
@@ -808,10 +798,7 @@ def render_patch_with_source(
 ) -> tuple[JsonDict, JsonDict] | None:
     """Parse a patch target's deployed file once, returning both sides.
 
-    Drift checks and capture need the deployed document *and* the patched
-    render; going through :func:`_render_patched_owned_config` and then
-    re-reading the file would parse it twice (``~/.claude.json`` can reach
-    hundreds of KB of Claude runtime state).
+    Share the parsed document between drift checks and capture to avoid rereading it.
 
     Args:
         spec: The patch target to render.
@@ -819,9 +806,8 @@ def render_patch_with_source(
         home: Home directory override for tests.
 
     Returns:
-        ``(deployed, expected)`` — the parsed deployed document and the
-        document a sync would write — or ``None`` when the deployed file is
-        absent (the sync skips it).
+        ``(deployed, expected)`` containing the parsed deployed document and
+        the document a sync would write. ``None`` if the deployed file is absent.
 
     Raises:
         OSError: When the deployed file cannot be read.
@@ -904,7 +890,7 @@ def transform_to_identity_format(master: JsonDict) -> JsonDict:
     config = copy.deepcopy(master)
     # The master config carries an MCP-flavored `$schema` URL, but per-tool
     # outputs that use the identity transform (vscode, github-copilot) have
-    # their own schema URLs (or none). Don't propagate the master's schema —
+    # their own schema URLs (or none). Don't propagate the master's schema:
     # let the per-tool base template assert the right one.
     config.pop("$schema", None)
     config["servers"] = _servers(master)
@@ -966,7 +952,7 @@ def _build_targets(home: Path) -> list[SyncTarget]:
     return [
         SyncTarget(
             # GitHub Copilot CLI reads ~/.copilot/mcp-config.json (home dir; it
-            # does not honor XDG — only COPILOT_HOME overrides the location).
+            # does not honor XDG: only COPILOT_HOME overrides the location).
             name="copilot-cli",
             destination=home / ".copilot" / "mcp-config.json",
             transform=transform_to_copilot_format,
@@ -1032,16 +1018,9 @@ def _build_targets(home: Path) -> list[SyncTarget]:
             override_key="lmstudio",
         ),
         SyncTarget(
-            # Tool-agnostic user-global MCP config. pi-mcp-adapter reads this
-            # path as its precedence-1 source (ahead of ~/.pi/agent/mcp.json,
-            # which the adapter reserves for its own overrides), so pi needs no
-            # pi-specific file. Named for the location, not for pi: any other
-            # host that adopts the same convention picks it up unchanged.
-            #
-            # This is the one target whose destination sits in the directory
-            # that also holds sync *inputs* (mcp-master.json, overrides/*.json).
-            # The filename must stay distinct from every input the loader reads
-            # -- see test_pi_target_does_not_collide_with_master_config.
+            # pi-mcp-adapter reads this before ~/.pi/agent/mcp.json overrides.
+            # Keep the output filename distinct from sync inputs in this directory.
+            # See test_pi_target_does_not_collide_with_master_config.
             name="xdg-mcp",
             destination=home / ".config" / "mcp" / "mcp.json",
             transform=transform_to_mcpservers_format,

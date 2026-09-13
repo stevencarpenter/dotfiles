@@ -508,7 +508,7 @@ def main():
     W = 78
     print("=" * W)
     kind = "trailing" if args.trailing else args.granularity
-    print(f"AI CODING SPEND (API-rate equiv)  —  {kind}: {label}  ({tzname} tz)")
+    print(f"AI CODING SPEND (API-rate equiv) :  {kind}: {label}  ({tzname} tz)")
     print("=" * W)
     print(f"Window:  {start:%Y-%m-%d %H:%M} → {end:%Y-%m-%d %H:%M}")
     if "claude" in scan_info:

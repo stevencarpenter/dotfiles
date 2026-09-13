@@ -10,7 +10,7 @@ merge pipeline make capture exact for the common cases:
   can: a server removed by hand becomes ``servers.<name>.enabled: false`` in
   the override, which every transform filters out.
 
-Only deletions of non-server keys are genuinely uncapturable; those are
+Deletions of non-server keys cannot be captured; those are
 reported so they can be fixed in the master config instead.
 """
 
@@ -135,8 +135,8 @@ def _expected_and_deployed(
         ``(expected, deployed, override_key, rebuild)`` where ``expected`` is
         the current render, ``deployed`` is the parsed on-disk document (read
         exactly once here), and ``rebuild`` re-renders the expected doc via
-        the identical patch/build code path — re-reading overrides from disk,
-        so a just-written override is picked up — for post-write verification.
+        the identical patch/build code path (re-reading overrides from disk,
+        so a just-written override is picked up) for post-write verification.
 
     Raises:
         ValueError: For ``"codex"`` (patch-managed TOML; not capturable), for a
@@ -147,7 +147,7 @@ def _expected_and_deployed(
         raise ValueError(
             "codex is patch-managed TOML: hand edits outside the managed block "
             "already survive syncs, and edits inside it must go to the master "
-            "config or a machine overlay — capture cannot express them."
+            "config or a machine overlay: capture cannot express them."
         )
 
     for spec in patch_specs(home):
@@ -159,7 +159,7 @@ def _expected_and_deployed(
 
             def rebuild(deployed: JsonDict = deployed, spec=spec) -> JsonDict:
                 # Same patch code path as `expected`, re-reading overrides from
-                # disk; the deployed doc — which capture never writes — is
+                # disk; the deployed doc (which capture never writes) is
                 # re-patched from the parse above instead of a third file read.
                 return _patch_owned_config(
                     master,
@@ -235,10 +235,8 @@ def capture_target(name: str, master: JsonDict, home: Path) -> CaptureResult:
     verified = rebuilt == deployed
     residual: list[str] = []
     if not verified:
-        # Report exactly what a rebuild still can't reproduce, rather than a
-        # generic "residual drift" — e.g. a re-added retired server name, or an
-        # enablement flag the sync gate strips, is unrepresentable in the
-        # override layer and shows up here.
+        # Identify edits overrides cannot reproduce, such as retired servers
+        # or enablement flags removed by sync gates.
         residual_delta, residual_deletions = _diff_objects(rebuilt, deployed)
         residual = _leaf_paths(residual_delta) + [
             ".".join(deletion) for deletion in residual_deletions
@@ -300,7 +298,7 @@ def run_capture(
         )
     for path in result.uncapturable:
         log_error(
-            f"Cannot capture deletion of {path} — the override layer cannot "
+            f"Cannot capture deletion of {path}: the override layer cannot "
             "delete keys. Change the master config or base template instead."
         )
     if not result.verified:
@@ -315,7 +313,7 @@ def run_capture(
         )
         log_info(
             "This usually means a retired server name or an enablement flag the "
-            "sync gate strips — such edits belong in the master config, not an "
+            "sync gate strips: such edits belong in the master config, not an "
             "override."
         )
         return 1

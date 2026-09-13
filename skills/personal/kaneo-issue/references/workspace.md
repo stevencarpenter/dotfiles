@@ -1,20 +1,20 @@
-# Kaneo workspace — reference
+# Kaneo workspace: reference
 
 Self-hosted Kaneo at `https://kaneo.snugmarina.org`, tailnet-only (see
 `homelab: docs/runbooks/kaneo.md` for MCP wiring and the epic/DAG pattern).
 Workspace `carpenter`, ID `7tMuvznyx3ZOUb2boKJQbakZi44sT0eU`.
 
 Verified 2026-08-28. Re-derive with `list_workspaces`, `list_projects`,
-`list_workspace_labels` if anything here doesn't match — IDs are stable but
+`list_workspace_labels` if anything here doesn't match: IDs are stable but
 task counts move constantly.
 
 ## Contents
 
-- [Projects](#projects) — IDs, slugs, and what each board is for
-- [Columns](#columns) — the four-column ladder
-- [Labels](#labels) — the complete fifteen
-- [Per-project conventions](#per-project-conventions) — agent contracts, gates
-- [Migration facts](#migration-facts) — what came from Linear and what didn't
+- [Projects](#projects): IDs, slugs, and what each board is for
+- [Columns](#columns): the four-column ladder
+- [Labels](#labels): the complete fifteen
+- [Per-project conventions](#per-project-conventions): agent contracts, gates
+- [Migration facts](#migration-facts): what came from Linear and what didn't
 
 ## Projects
 
@@ -24,7 +24,7 @@ IDs (`HOME-1`).
 | Project | Slug | `projectId` | Scope |
 |---|---|---|---|
 | Snugmarina | `SNUG` | `f4ww6cb482sfi7olt8yyouxt` | Household-OS iOS app + server |
-| Carpenter | `CARP` | `vlqya8k5c0aegkyfx2bqm6e7` | Meta-workspace repo (coordination, plans, workspace tooling). Kaneo-native, created 2026-08-11 — legacy Linear `CARP-*` IDs in migrated bodies do NOT refer to this board |
+| Carpenter | `CARP` | `vlqya8k5c0aegkyfx2bqm6e7` | Meta-workspace repo (coordination, plans, workspace tooling). Kaneo-native, created 2026-08-11: legacy Linear `CARP-*` IDs in migrated bodies do NOT refer to this board |
 | Whistlepost | `WP` | `je7viaubbnripmb7ves6gah5` | Rail sighting journal, single product board (launch + vision merged 2026-08-20) |
 | Sluice | `SLU` | `rqqqk70o40v9sk1wcklxwh9a` | CDC pipeline (Rust workspace) |
 | Gringotts | `GG` | `qnr68a6537658jy4ys85f8x6` | Secret/config control plane |
@@ -35,7 +35,7 @@ IDs (`HOME-1`).
 | Hippo | `HIPO` | `i4o4byau9mfpdef7wjz7mwii` | Local knowledge base |
 | Ski Area Tycoon | `SKI` | `rs9nm9hgw6glgsbn6awyzkl5` | ski-area-tycoon repo, created 2026-08-14, fresh project (no migrated history) |
 
-There are no teams — projects are flat and are the only routing dimension.
+There are no teams: projects are flat and are the only routing dimension.
 
 ### Snugmarina server split
 
@@ -64,18 +64,18 @@ task's row rather than retiring a name everywhere.
 
 Names in circulation:
 
-**Dispatch** — `ready-for-agent` · `needs-human` · `agent:haiku` ·
+**Dispatch**: `ready-for-agent` · `needs-human` · `agent:haiku` ·
 `agent:sonnet` · `agent-autonomous` · `agent-parallel` · `orchestrator`
 
-**Structure** — `epic`
+**Structure**: `epic`
 
-**Snugmarina roadmap** — `M1` · `M2` · `M3` · `M4` · `M5`. Kaneo has no
+**Snugmarina roadmap**: `M1` · `M2` · `M3` · `M4` · `M5`. Kaneo has no
 milestone or cycle entity, so labels are the only mechanism.
 
-**Removed 2026-08-10** — `priority:high` · `priority:medium`, 122 rows deleted.
+**Removed 2026-08-10**: `priority:high` · `priority:medium`, 122 rows deleted.
 They duplicated the native `priority` field (`no-priority` | `low` | `medium` |
 `high` | `urgent`), which is what the board sorts on. Every task carrying one
-had a native priority set, so nothing was lost — and in three cases the field
+had a native priority set, so nothing was lost. In three cases the field
 said `urgent` while the label said `priority:high`, because the migration had no
 urgent label to map to. That is the drift a parallel taxonomy produces. Use the
 field; don't recreate these.
@@ -100,10 +100,10 @@ The shared shape across every board:
 > Claim by moving to `in-progress` and commenting your agent ID and plan.
 > `in-review` = PR open; the PR review is the human gate. **Close on merge:**
 > whoever lands the merge moves the task to `done` with the PR link and a
-> one-line evidence comment — no separate board approval. If scope was
+> one-line evidence comment: no separate board approval. If scope was
 > narrowed, say which criteria were dropped.
 
-`needs-human` is never auto-dispatched — surface it in the report instead.
+`needs-human` is never auto-dispatched: surface it in the report instead.
 `needs-human` tasks are also the one case still requiring explicit human
 promotion to `done`: their done-ness isn't PR-shaped, so no merge event exists
 to close on. (Contract updated 2026-08-11; before that, every board required
@@ -111,26 +111,26 @@ human promotion of `in-review` → `done`.)
 
 Project-specific notes worth knowing:
 
-- **Sluice** — gate command for the acceptance-criteria checklist is
+- **Sluice**: gate command for the acceptance-criteria checklist is
   `scripts/verify.sh` (fmt + clippy + tests + supply chain), or `just preflight`
   when the change touches connectors or anything Linux-specific. Branches use
   the repo's `type/kebab-case`, commits use a `Closes SLU-N` footer. Epics:
   SLU-1 (endurance harness), SLU-72 (release honesty). Cross-project gate:
   SNUG-356 blocks SLU-4. SLU-106 is owner-gated legal work.
-- **homelab** — deploys go through `just` recipes and the preflight/proof
+- **homelab**: deploys go through `just` recipes and the preflight/proof
   gates; read `docs/runbooks/` before touching a service.
-- **Dotfiles** — repo is `~/.dotfiles`; read its CLAUDE.md first. Secrets work
+- **Dotfiles**: repo is `~/.dotfiles`; read its CLAUDE.md first. Secrets work
   must follow the dotfiles-secret-authoring skill (op-render, never plaintext).
-- **Whistlepost** — single board since the 2026-08-20 merge of the former
+- **Whistlepost**: single board since the 2026-08-20 merge of the former
   launch (`WP`) and full-vision (`WPFV`) projects. Old `WPFV-n` = today's
   `WP-n`; old launch tasks were renumbered `n + 260` with a "Consolidated from
   launch board WP-n" provenance line. Epic list, standing owner decisions, and
   the human launch-gate index live in the project description. The emptied
   launch project (`yukuvlygrt8un3zcyw4zh8a9`) was renamed `WPOLD` and awaits
-  manual deletion in the UI — never file there.
-- **Gringotts** — flat backlog, no epics or DAG. ADR numbers in titles refer to
+  manual deletion in the UI: never file there.
+- **Gringotts**: flat backlog, no epics or DAG. ADR numbers in titles refer to
   the gringotts repo's ADR corpus.
-- **Snugmarina** — holds both the migrated backlog and the Kaneo-native M1–M5
+- **Snugmarina**: holds both the migrated backlog and the Kaneo-native M1–M5
   product roadmap.
 
 ## Migration facts
@@ -142,7 +142,7 @@ Consequences that show up in daily use:
 
 - Every migrated task's description opens with `Migrated from Linear **<ID>**`
   (or `Mirrored from Linear **<ID>**`) and a `linear.app` URL. **The URLs are
-  dead.** The ID line was the migration's join key — leave it in place as
+  dead.** The ID line was the migration's join key: leave it in place as
   provenance.
 - Task bodies and project descriptions cite old Linear IDs (`SNUG-346`,
   `WP-19`, `GG-99`, `CARP-9`) that don't match Kaneo's per-project numbering.
@@ -150,5 +150,5 @@ Consequences that show up in daily use:
 - Completed history was migrated into `done`, so boards show high task counts
   with much of it archived work rather than open backlog.
 - **Kaneo's Postgres is the only copy of this history.** The nightly
-  `just backup-kaneo` dump on i9 is the sole durability guarantee — it is not
+  `just backup-kaneo` dump on i9 is the sole durability guarantee: it is not
   optional.

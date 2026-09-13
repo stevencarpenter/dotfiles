@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Bootstrap Playwright + headless Chromium into a /tmp directory so we don't
-# pollute the project's node_modules. Idempotent — safe to run repeatedly.
+# pollute the project's node_modules. Idempotent: safe to run repeatedly.
 #
 # After this completes, $WORKDIR/node_modules/.bin/playwright is on disk and
 # Chromium is downloaded under ~/Library/Caches/ms-playwright (or platform
@@ -12,7 +12,7 @@ set -euo pipefail
 # A world-writable /tmp/screenshot-bug-hunt-pw could be pre-created by another
 # local user/process, who could then plant a hostile package.json or
 # node_modules/playwright that this script installs against and shoot.mjs
-# require()s — arbitrary code execution as the invoking user.
+# require()s: arbitrary code execution as the invoking user.
 WORKDIR="${HIPPO_PW_WORKDIR:-${XDG_CACHE_HOME:-$HOME/Library/Caches}/screenshot-bug-hunt-pw}"
 
 mkdir -p "$WORKDIR"

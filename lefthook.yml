@@ -1,21 +1,8 @@
-# Git hooks for this repo. Replaced pre-commit on 2026-08-29; the hook set is a
-# one-for-one port of the old .pre-commit-config.yaml.
-#
-# WHY THE CHECKS SHELL OUT TO uvx
-# lefthook has no hook registry of its own: a job is just a command. The
-# language-agnostic file checks (yaml/toml/json/ast/symlink/private-key/...)
-# are the same `pre-commit-hooks` package pre-commit used, pinned to the same
-# 6.0.0 that the old `rev: v6.0.0` resolved to, and run through uvx so no
-# global install is required. gitleaks and op-adopt are already on PATH
-# (modules/home/packages.nix, home/.local/bin).
-#
-# INSTALLATION
-# `lefthook install` writes .git/hooks/*. It runs from scripts/sync-side-channels.sh
-# on every `just sync`, so a machine that syncs has the hooks wired. `just lefthook`
-# runs the whole pre-commit group against every file, as CI does.
+# uvx runs pinned pre-commit-hooks checks without a global install.
+# `just sync` installs Git hooks; `just lefthook` checks every file as CI does.
 min_version: 2.0.0
 
-# Fail the commit rather than printing a wall of green on success.
+# Show failures and the result summary.
 output:
   - failure
   - summary
@@ -61,10 +48,7 @@ pre-commit:
       run: uvx --from pre-commit-hooks==6.0.0 name-tests-test --pytest-test-first {staged_files}
 
     - name: trailing-whitespace
-      # Rewrites files in place, so the fix has to be re-staged or the commit
-      # would record the unfixed copy. scripts/hook-text-files.py replaces
-      # pre-commit's `types: [text]` filter, which lefthook has no equivalent
-      # of: handing a PNG to the fixer corrupts it.
+      # Re-stage fixes. Filter out binary files to prevent corruption.
       stage_fixed: true
       # `set -o pipefail` is required: lefthook runs `run:` through `sh -c`
       # without it, so a crashed filter would hand xargs empty input and the
@@ -75,8 +59,7 @@ pre-commit:
       run: uvx --from pre-commit-hooks==6.0.0 detect-aws-credentials --allow-missing-credentials {staged_files}
 
     - name: gitleaks
-      # Staged-only: a full `gitleaks dir .` takes ~3s on this tree, which is a
-      # tax on every commit. dotfiles-hygiene-ci.yml runs the whole-tree scan.
+      # CI runs the whole-tree scan; commits scan staged changes only.
       run: gitleaks git --staged --redact --no-banner
 
     - name: op-secret-policy
@@ -84,12 +67,6 @@ pre-commit:
       # secret files. Whole-repo policy, not a per-file check.
       run: home/.local/bin/op-adopt --check-policy --policy home/.config/op/adopt-policy.json --repo-root .
 
-# The chezmoi-native `machine-capability-audit` hook was dropped in the nix
-# port: its source of truth (.chezmoidata/machines.toml) and its
-# `.tmpl`/`.chezmoiignore` grep targets no longer exist. Capability gating now
-# lives in lib/machines.nix and is enforced structurally by `nix flake check`
-# (a gate referencing an undefined cap fails evaluation). A nix-flavored audit
-# successor remains deferred.
 commit-msg:
   jobs:
     - name: strip-claude-trailer

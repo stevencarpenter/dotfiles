@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Hermetic coverage for scripts/unstable-reminder.sh — the due-promotion
+# Hermetic coverage for scripts/unstable-reminder.sh: the due-promotion
 # notice rebuild.sh prints before switching. The reminder's contract is to be
 # silent in every state except a pending candidate whose soak window has
 # elapsed against a flake.nix pin that still differs from the candidate rev.
@@ -123,7 +123,7 @@ out="$(run_reminder "$((first_epoch + 7 * 86400))" "${pin_rev}" \
 [ -n "${out}" ] || fail "exact-boundary soak did not fire"
 
 # 10. Unparseable flake.nix pin: silent. The candidate is otherwise due (same
-# state as case 1), so this isolates the pin guard — an unreadable pin must
+# state as case 1), so this isolates the pin guard: an unreadable pin must
 # never noise a rebuild over state the reminder cannot interpret.
 out="$(run_reminder "${now}" "not-a-hex-rev" \
 	"$(candidate_json pending "${ten_days_ago_iso}" 7)")"

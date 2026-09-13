@@ -10,13 +10,13 @@ machines with the `mcp` capability).
 
 Configs are merged in this order (later layers win), then transformed into each tool's format:
 
-1. **Base templates** — `mcp_sync/src/mcp_sync/templates/<tool>.base.{json,toml}` — static per-tool
+1. **Base templates**: `mcp_sync/src/mcp_sync/templates/<tool>.base.{json,toml}`: static per-tool
    scaffolding (only `codex` and `opencode` have one today).
-2. **Master config** — `dot_config/mcp/mcp-master.json` — servers shared across *all* machine types.
+2. **Master config**: `dot_config/mcp/mcp-master.json`: servers shared across *all* machine types.
    Currently **empty**: nothing is deployed everywhere (see below).
-3. **Machine overlays** — `dot_config/mcp/machine/{work.json,personal.json.tmpl,lab.json.tmpl}` —
+3. **Machine overlays**: `dot_config/mcp/machine/{work.json,personal.json.tmpl,lab.json.tmpl}`:
    servers added per machine type, selected by chezmoi's `.machine` variable.
-4. **Per-tool overrides** — each target reads `~/.config/mcp/overrides/<key>.json` at sync time to
+4. **Per-tool overrides**: each target reads `~/.config/mcp/overrides/<key>.json` at sync time to
    add/override servers for one tool. Wired in `sync.py`; no override files are managed in-repo yet
    (the deployed `~/.config/mcp/overrides/` dir exists but is empty).
 
@@ -25,7 +25,7 @@ its body is a no-op.
 
 ## Current MCP Servers
 
-The master config is intentionally empty — no server is deployed to every machine. GitHub is no
+The master config is intentionally empty: no server is deployed to every machine. GitHub is no
 longer an MCP server in this sync; any Claude Code GitHub plugin setup is managed separately in
 `dot_claude/modify_settings.json.tmpl`. The retired `github` and `xcode` MCP server names are
 scrubbed from generated targets and old in-place configs during sync. Railway was removed. All
@@ -71,7 +71,7 @@ chezmoi apply                                        # sync runs automatically
 
 A server entry uses the standard MCP shape (`type`, `command`, `args`, `env`, …). The repo also
 honours two sync-gate fields that are stripped before output: `enabled: true|false` (the canonical
-convention) and `disabled: true|false` (foreign-schema compat) — see `_is_server_enabled` in
+convention) and `disabled: true|false` (foreign-schema compat): see `_is_server_enabled` in
 `sync.py`.
 
 ## Manual Sync
@@ -84,7 +84,7 @@ uv run --project ~/.dotfiles/mcp_sync sync-mcp-configs
 
 - **AWS CCAPI**: reads `${AWS_PROFILE}` (expanded by the MCP client at launch); SSO config comes
   from the external `aws-config-gen` tool (owned by the work wrapper). No long-lived secret in the config.
-- **hippo / grafana**: no credentials — local stdio servers talking to localhost.
+- **hippo / grafana**: no credentials: local stdio servers talking to localhost.
 - **GitHub** (the plugin, not an MCP server here): authenticates via the Claude Code plugin /
   `gh` keychain token, not via this sync.
 

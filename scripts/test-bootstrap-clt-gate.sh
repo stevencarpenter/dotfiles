@@ -58,8 +58,8 @@ echo "bootstrap stops cleanly while Command Line Tools installation is pending"
 
 # Once CLT is present, bootstrap must run through without ever fetching an age
 # identity. The `op` mock below still answers the retired age-key read so this
-# harness can prove bootstrap does not call it — see the negative assertion
-# after the loop.
+# harness can prove bootstrap does not call it (see the negative assertion
+# after the loop).
 cat >"$fixture/bin/xcode-select" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -94,7 +94,7 @@ printf 'sudo %s\n' "$*" >>"$TEST_COMMAND_LOG"
 exit 0
 EOF
 
-# Homebrew lives at an absolute path, which PATH stubbing cannot reach — hence
+# Homebrew lives at an absolute path, which PATH stubbing cannot reach, hence
 # bootstrap's DOTFILES_BREW_BIN seam. Without it the install branch fires on
 # every host lacking /opt/homebrew (all Linux CI runners) and this test would
 # download and execute the real Homebrew installer.
@@ -163,8 +163,8 @@ done
 # No host may fetch or create an age identity.
 #
 # This assertion used to be asymmetric: personal must never read the key, work
-# must always read it. The age bridge is gone — this repo declares zero
-# age.secrets on every identity — so the invariant is now symmetric and
+# must always read it. The age bridge is gone: this repo declares zero
+# age.secrets on every identity, so the invariant is now symmetric and
 # strictly negative for every host bootstrap can build.
 #
 # `op read` specifically, not any `op` call: bootstrap legitimately reaches

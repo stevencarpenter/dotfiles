@@ -81,7 +81,7 @@ def _self_context(
     """Determine what belongs to the caller and must never be reaped.
 
     Three independent guards, because any one of them can be absent: process
-    ancestry (the strongest — it works even with no tmux environment), the current
+    ancestry (the strongest, it works even with no tmux environment), the current
     pane id, and the caller's own team session.
 
     Args:
@@ -95,11 +95,8 @@ def _self_context(
     del runner
     pids = ancestry(os.getpid(), processes)
 
-    # Socket-qualify the pane. $TMUX is "<socket>,<server-pid>,<session>", and a
-    # pane id is unique only WITHIN a server — every server numbers from %0. A
-    # bare id would therefore protect a same-numbered pane on every other socket,
-    # which under-reaps silently. Resolve the socket the same way discovery does
-    # so /tmp and /private/tmp compare equal.
+    # Pane IDs repeat across servers; qualify with the canonical socket path.
+    # Normalize /tmp and /private/tmp as discovery does.
     pane_ids: set[tuple[str, str]] = set()
     tmux_env = os.environ.get("TMUX", "")
     pane_env = os.environ.get("TMUX_PANE")
@@ -377,12 +374,10 @@ def _print_strays(
     if disowned:
         print("  (long-running user daemons legitimately appear here)")
 
-    # The Ctrl+D question in one number. A disowned Claude process is the only
-    # thing that would show ^D leaving work behind; daemons above are expected.
     escaped = [p for p in disowned if "claude" in p.command.lower()]
     print(f"\nclaude processes among them: {len(escaped)}")
     if not escaped:
-        print("  none — no evidence of Claude processes escaping pane teardown")
+        print("  none: no evidence of Claude processes escaping pane teardown")
     for p in escaped:
         print(f"  pid {p.pid:<8} age {_duration(p.elapsed_s):>7}  {p.command[:90]}")
 
@@ -606,7 +601,7 @@ def cli(argv: Sequence[str] | None = None, runner: Runner | None = None) -> int:
         status = _print_outcomes(outcomes)
         if not args.kill:
             print(
-                f"\ndry run — {_mb(report.reclaimable_kb)} would be reclaimed. Pass --kill."
+                f"\ndry run: {_mb(report.reclaimable_kb)} would be reclaimed. Pass --kill."
             )
         return status
 

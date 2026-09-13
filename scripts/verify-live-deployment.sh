@@ -104,7 +104,7 @@ else
   fail "managed personal skill state is absent or retains a legacy root"
 fi
 
-# ~/.ssh/config is no longer a rendered secret — it is the tracked universal
+# ~/.ssh/config is no longer a rendered secret: it is the tracked universal
 # base (tier 1), a plain symlink with no op:// reference. Only the tier-2
 # personal-host fragment is rendered, so that is what carries the 0600 contract.
 for secret in "$home_dir/.config/zsh/.personal.env" "$home_dir/.ssh/config.d/10-homelab.conf"; do
@@ -145,7 +145,7 @@ fi
 # Compare against the LOGICAL path the module embeds
 # (mkOutOfStoreSymlink "${config.home.homeDirectory}/.dotfiles/home/..."), not
 # $repo_root, which is `pwd -P` and would differ wherever ~/.dotfiles is a
-# symlink to another checkout path — a layout bootstrap.sh explicitly supports.
+# symlink to another checkout path (a layout bootstrap.sh explicitly supports).
 if [ -L "$ssh_config" ] &&
   [ "$(/usr/bin/readlink "$ssh_config")" = "$home_dir/.dotfiles/home/.ssh/config" ]; then
   pass "SSH universal base is the tracked out-of-store symlink"

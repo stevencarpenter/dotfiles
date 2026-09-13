@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Claude Code WorktreeCreate hook — delegates to Worktrunk.
+# Claude Code WorktreeCreate hook: delegates to Worktrunk.
 # Reads JSON {worktree_path?, base_branch?} from stdin (Claude Code payload).
 # Writes the wt-created worktree path to stdout (Claude Code uses this).
 # Any non-zero exit aborts worktree creation in Claude Code.

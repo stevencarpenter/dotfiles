@@ -272,7 +272,7 @@ def parse_slowlog_get(raw: str) -> List[Dict[str, Any]]:
                 except ValueError:
                     next_i += 1  # skip client name
         else:
-            # No client IP found — take command + first arg only and advance
+            # No client IP found: take command + first arg only and advance
             cmd_parts = lines[cmd_start:cmd_start + 2]
             next_i = cmd_start + 2
 
@@ -416,7 +416,7 @@ def generate_recommendations(result: RedisAnalysisResult) -> List[Dict[str, str]
     """Generate recommendations based on collected metrics."""
     recs: List[Dict[str, str]] = []
 
-    # Collection failures — surface critical issues when SSH/introspection failed
+    # Collection failures: surface critical issues when SSH/introspection failed
     if result.collection_status:
         failed = {k: v for k, v in result.collection_status.items() if v.get("status") == "failed"}
         ssh_sources = {"redis_info", "slowlog", "slowlog_entries", "big_keys"}
@@ -427,7 +427,7 @@ def generate_recommendations(result: RedisAnalysisResult) -> List[Dict[str, str]
             recs.append({
                 "severity": "critical",
                 "category": "collection",
-                "message": f"SSH introspection failed — unable to collect {sources}. "
+                "message": f"SSH introspection failed: unable to collect {sources}. "
                            f"Error: {errors}. "
                            f"Analysis is incomplete: memory fragmentation, cache hit rate, "
                            f"keyspace stats, and persistence health could not be evaluated.",
@@ -456,7 +456,7 @@ def generate_recommendations(result: RedisAnalysisResult) -> List[Dict[str, str]
             recs.append({
                 "severity": "info",
                 "category": "cache",
-                "message": f"Cache hit rate at {hit_rate:.1f}% — could be improved. Check if working set fits in memory.",
+                "message": f"Cache hit rate at {hit_rate:.1f}%: could be improved. Check if working set fits in memory.",
             })
 
     # Evicted keys
@@ -489,7 +489,7 @@ def generate_recommendations(result: RedisAnalysisResult) -> List[Dict[str, str]
                 "message": f"Blocked clients detected ({blocked}). Check for blocking operations (BLPOP, BRPOP, etc.).",
             })
 
-    # maxmemory not set — on Railway this is expected; autoscaling handles growth
+    # maxmemory not set: on Railway this is expected; autoscaling handles growth
 
     # RDB save failure
     if result.persistence:
@@ -501,7 +501,7 @@ def generate_recommendations(result: RedisAnalysisResult) -> List[Dict[str, str]
                 "message": "Last RDB save failed. Check disk space and permissions.",
             })
 
-    # Slow log — data-driven when entries are available
+    # Slow log: data-driven when entries are available
     if result.slowlog_entries:
         # Analyze the actual slow commands
         total_entries = len(result.slowlog_entries)
@@ -520,7 +520,7 @@ def generate_recommendations(result: RedisAnalysisResult) -> List[Dict[str, str]
                f"averaging {_format_usec(avg_duration)}.")
         if result.big_keys:
             big_key_types = ", ".join(f"{bk['type']} ({bk['detail']})" for bk in result.big_keys[:3])
-            msg += f" Largest keys: {big_key_types} — check if these correlate with slow commands."
+            msg += f" Largest keys: {big_key_types}. Check if these correlate with slow commands."
         severity = "warning" if (result.slowlog_len or 0) > 100 else "info"
         recs.append({"severity": severity, "category": "performance", "message": msg})
     elif result.slowlog_len is not None and result.slowlog_len > 100:
@@ -530,7 +530,7 @@ def generate_recommendations(result: RedisAnalysisResult) -> List[Dict[str, str]
             "message": f"High number of slow log entries ({result.slowlog_len}). Slow log details could not be collected.",
         })
 
-    # Big keys — standalone recommendation when no slowlog correlation
+    # Big keys: standalone recommendation when no slowlog correlation
     if result.big_keys and not result.slowlog_entries:
         big_key_summary = "; ".join(f"{bk['key']} ({bk['type']}: {bk['detail']})" for bk in result.big_keys[:5])
         recs.append({

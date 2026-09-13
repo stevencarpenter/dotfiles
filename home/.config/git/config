@@ -43,38 +43,14 @@
     mkwt = "!f() { c=$(git rev-parse --path-format=absolute --git-common-dir) || exit 1; top=${c%/.git}; b=\"$1\"; s=$(printf %s \"$b\" | tr / -); p=\"$(dirname \"$top\")/$(basename \"$top\")-$s\"; if git show-ref --verify --quiet \"refs/heads/$b\"; then git worktree add \"$p\" \"$b\"; else git worktree add -b \"$b\" \"$p\"; fi; }; f"
     rmwt = "!f() { c=$(git rev-parse --path-format=absolute --git-common-dir) || exit 1; top=${c%/.git}; b=\"$1\"; s=$(printf %s \"$b\" | tr / -); git worktree remove \"$(dirname \"$top\")/$(basename \"$top\")-$s\"; }; f"
 
-# Extension seams (LOCKED contract). git include has NO glob support, so the
-# seam is two fixed filenames; git silently skips missing include files.
-#
-# Paths are `~/`-anchored, NOT relative, and that is load-bearing. git resolves a
-# relative include against the REALPATH of the file holding it, not the path it
-# was opened through. `~/.config/git` is an out-of-store symlink into the
-# home-manager files derivation, whose own `config` entry is a second symlink into
-# ~/.dotfiles — so `../external-overlays/...` resolved to
-# ~/.dotfiles/home/.config/external-overlays/..., which does not exist and never
-# will, because the fragments deliberately live in a separate Home Manager-owned
-# tree rather than under this symlinked parent. git skips a missing include
-# silently, so the seam failed with no error and no loaded keys: verified by
-# `git config --list --show-origin`, which listed the `include.path` key itself but
-# nothing sourced from any fragment. The earlier comment here identified the
-# symlink and drew the opposite conclusion from it.
-#
-# Fragments therefore anchor at $HOME. A nested include INSIDE a fragment may stay
-# relative, but only because sibling fragments resolve to the same realpath
-# directory — they are separate symlinks into one home-manager derivation. A
-# wrapper mixing delivery mechanisms (one fragment out-of-store, its sibling
-# in-store) would land them in different realpath dirs and hit this same trap, so
-# anchor at $HOME there too if in any doubt.
+# Git includes have no glob support and silently skip missing files.
+# Anchor paths at HOME: relative includes resolve against this file's realpath
+# under .dotfiles, while fragments live in external-overlays. Nested includes
+# need the same anchoring when fragments have different realpath directories.
 [include]
     path = ~/.config/external-overlays/git/extra.inc
 
-# Self-scoping work identity: active only inside ~/work/ checkouts.
-#
-# Note for wrapper authors: a `gitdir:` condition only fires for repos actually
-# under that prefix. If an external repo's checkouts are interleaved with personal
-# ones under one shared parent, no directory condition can separate them — drop a
-# `hasconfig:remote.*.url:` conditional into extra.inc (which is unconditional)
-# and nest the identity below it instead. git evaluates `includeIf` inside an
-# included file, so that keeps the organization's name out of this public repo.
+# Work identity applies only to checkouts under ~/work/. For checkouts elsewhere,
+# extra.inc can use hasconfig:remote.*.url: to scope an external identity.
 [includeIf "gitdir:~/work/"]
     path = ~/.config/external-overlays/git/work.inc

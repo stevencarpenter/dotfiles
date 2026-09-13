@@ -14,21 +14,8 @@
 # Auto load zmv for mass renaming. This is needed before z4h init.
 autoload -Uz zmv
 
-# ── Recover from a dead $PWD (deleted-worktree inheritance) ──────────────────
-# Agent/worktrunk flows spawn ephemeral git worktrees under projects/*/.git/wt/
-# and delete them. A tmux pane parked in one leaves every NEW window/pane
-# inheriting a now-deleted directory (our split/new-window binds pin no -c). zsh
-# then can't getcwd(): PWD collapses to '.', so the p10k prompt shows '. ❯',
-# gitstatus finds no repo, and completion hangs on the orphaned inode until
-# Ctrl-C. The absolute path is already lost by now, so land in a known-good dir.
-# Must run before `z4h init` so the prompt/compinit/gitstatus all see a real cwd.
-#
-# Detection note: DON'T test `[[ -d $PWD ]]`. macOS keeps a deleted directory's
-# vnode alive for any process chdir'd into it, so `test -d .` still returns true
-# in exactly this failure mode. The honest signal is the *shape* of $PWD: zsh
-# only emits a relative '.' when getcwd() failed at startup, so a non-absolute
-# $PWD means a dead cwd. (The `&& -d` arm also catches an absolute-but-vanished
-# path, e.g. the worktree deleted while this very shell sat in it.)
+# Recover a deleted cwd before prompt and completion initialization. On macOS,
+# a deleted cwd can pass -d while getcwd failure leaves PWD non-absolute.
 [[ $PWD == /* && -d $PWD ]] || cd -q ~ 2>/dev/null
 
 # === z4h configuration (zstyles) ===
@@ -39,18 +26,8 @@ zstyle ':z4h:' auto-update-days '28'
 # Keyboard type: 'mac' or 'pc'.
 zstyle ':z4h:bindkey' keyboard  'mac'
 
-# Do not start tmux automatically. Enter it explicitly with `tmux` when wanted.
-#
-# MUST be set explicitly. Leaving this commented out does NOT mean "no tmux" —
-# z4h defaults to 'isolated' (main.zsh: `zstyle -a :z4h: start-tmux start_tmux ||
-# start_tmux=(isolated)`), which appends the shell's PID to the socket path and so
-# spins up a SEPARATE tmux server per terminal window. Measured cost of that
-# default here: 11 socket files, 8 of them stale, 4 live servers, none intentional.
-#
-# Explicit `no` preserves a normal outer shell, so detaching from a manually
-# started tmux client returns to that shell instead of closing the terminal tab.
-# An explicit `tmux` still uses the default socket and this repo's tmux.conf,
-# including the prefix c/|/- bindings that force new shells to start at $HOME.
+# Disable z4h's default isolated server per terminal. Start tmux explicitly so
+# detaching returns to the outer shell and uses the configured default socket.
 zstyle ':z4h:' start-tmux no
 
 # Whether to move prompt to the bottom when zsh starts and on Ctrl+L.
@@ -78,17 +55,8 @@ zstyle ':z4h:ssh:*'                   enable 'no'
 # z4h install ohmyzsh/ohmyzsh || return
 z4h install xs5871/p10k-jj-status || return
 
-# ── Completion search path (MUST precede `z4h init`) ─────────────────────────
-# `z4h init` runs compinit internally, so fpath is effectively frozen from that
-# point on: a later `fpath+=` registers nothing, because the lazy-load hook in
-# section 9 only re-runs compinit when ${+_comps} is unset — and z4h has already
-# set it. That is why the nix profile's completions (_bat _delta _eza _fastfetch
-# _fd _gh _git_extras _mise _rg _uv _yazi _yq _zoxide) belong here and not there.
-#
-# Probe the prefixes directly rather than reading $HOMEBREW_PREFIX: the brew
-# shellenv block that exports it does not run until section 1, below. The (N-/)
-# qualifier drops any entry that is not an existing directory, so this is inert
-# on a machine without nix, without Homebrew, or on a non-darwin host.
+# Add completion directories before z4h runs compinit. Probe Homebrew prefixes
+# directly because brew shellenv has not run yet. (N-/) excludes missing dirs.
 fpath+=(
     /etc/profiles/per-user/$USER/share/zsh/site-functions(N-/)  # nix home-manager profile
     /run/current-system/sw/share/zsh/site-functions(N-/)        # nix-darwin system profile
@@ -126,55 +94,15 @@ if [[ $OSTYPE == darwin* ]]; then
   unset brew_bin
 fi
 
-# === 2. PATH Configuration (consolidated for clarity) ===
-# Nix must outrank Homebrew. `brew shellenv` (section 1, above) PREPENDS
-# /opt/homebrew/bin, while nix's profiles are exported much earlier by
-# /etc/zshenv — so without an explicit re-order every tool this flake declares in
-# modules/home/packages.nix (bat, git, rg, jq, fd, eza, uv, tmux, delta, gh,
-# yazi, zoxide, btop, …) resolves to a brew copy instead, leaving home.packages
-# pinning a version nothing actually executes.
+# === 2. PATH Configuration ===
+# Keep local wrappers ahead of mise shims, then Nix profiles, then Homebrew.
+# This preserves local builds, mise runtime pins, and Nix package versions after
+# brew shellenv prepends its directories.
 #
-# $HOME/.local/bin stays ahead of nix deliberately: it carries the uv tool shims
-# (token-auditor / codax), op-adopt, and the agent-journal wrappers. A hand-built
-# binary dropped there therefore still wins over nix — that is the trade, not a
-# bug.
-#
-# ── mise shims: below ~/.local/bin, above nix and brew ───────────────────────
-# The slot is forced by what actually collides, not by taste:
-#   mise ∩ nix          = {}  — packages.nix ships no language runtimes, so the
-#                              two inventories are disjoint by design; ordering
-#                              against nix is free today and this keeps mise's
-#                              per-project pin winning if that ever changes.
-#   mise ∩ brew         = {node, npm, npx, goreleaser, swiftlint} — mise MUST
-#                              win these, or the version pinned in
-#                              ~/.config/mise/config.toml is not what runs.
-#   mise ∩ ~/.local/bin = {stevectl} — the hand-built binary must win, per the
-#                              paragraph directly above. The shim is also
-#                              directory-sensitive (`mise which stevectl` fails
-#                              with "not currently active" outside a project
-#                              that uses it), so letting it shadow ~/.local/bin
-#                              makes `stevectl` resolve differently per cwd.
-#
-# This used to be a blind `path=($HOME/.local/share/mise/shims $path)` at the
-# very END of this file, which landed the shims at position 1 — ahead of
-# ~/.local/bin and nix both, silently inverting the precedence declared here.
-#
-# The probe guards against a shim farm orphaned by a moved/removed mise binary:
-# all ~105 shims point at whichever mise was current when `mise reshim` last
-# ran, so they dangle as a group. A dangling shim is uniquely poisonous, because
-# zsh disagrees with itself about whether the command exists — the command hash
-# is filled from readdir(), so commands[terraform] IS set, while `=terraform`
-# does a real access(X_OK) and fails. z4h's -z4h-compinit:86 runs exactly that
-# pair, and a failed `=cmd` expansion is a FATAL zsh error that unwinds the
-# whole call stack: compinit, zsh-autosuggestions, zsh-syntax-highlighting, the
-# keybindings and the p10k prompt all die with it. One dead symlink presents as
-# "terraform not found" plus a shell with no tab completion, no right-arrow
-# accept, and a prompt that only settles when you press Enter.
-#
-# The probe MUST be an array assignment: `[[ -n <pattern> ]]` does not perform
-# filename generation in zsh, so it would test the literal pattern, always pass,
-# and silently defeat the guard. (N-*[1]) = nullglob / follow symlinks /
-# executable / stop at the first hit, so this costs one stat when healthy.
+# Exclude mise shims when none resolve. Dangling shims enter zsh's command hash
+# but fail =cmd expansion during z4h completion setup, aborting initialization.
+# Use an array glob: [[ -n pattern ]] tests literal text without glob expansion.
+# (N-*[1]) selects the first executable after following symlinks.
 _mise_shim_dir=$HOME/.local/share/mise/shims
 _mise_shims_ok=($_mise_shim_dir/*(N-*[1]))    # at least one shim resolves
 _mise_shims_any=($_mise_shim_dir/*(N[1]))     # dir holds any entry at all
@@ -182,11 +110,8 @@ _mise_shim_path=()
 if (( ${#_mise_shims_ok} )); then
     _mise_shim_path=($_mise_shim_dir)
 elif (( ${#_mise_shims_any} )); then
-    # Entries exist but none resolve — stale farm. Warn and leave it off PATH;
-    # staying silent would drop go/java/node/cargo/terraform and turn this into
-    # a second-order "command not found" mystery. An empty/absent dir (fresh
-    # machine) falls through quietly: there is nothing stale to report.
-    print -u2 "mise: every shim in $_mise_shim_dir is broken — run 'mise reshim' (or remove the dir if mise is gone)"
+    # Report broken shims; an absent or empty directory needs no warning.
+    print -u2 "mise: every shim in $_mise_shim_dir is broken, run 'mise reshim' (or remove the dir if mise is gone)"
 fi
 
 path=(
@@ -204,10 +129,7 @@ path=(
     $path
 )
 
-# The nix dirs are already present in the inherited $path (from /etc/zshenv), and
-# .zshrc is sourced for EVERY interactive shell, so the prepend above duplicates
-# them and nested shells compound it. -U keeps the first occurrence and drops the
-# rest, which is exactly the precedence we just declared.
+# Keep the first occurrence to preserve precedence across nested shells.
 typeset -U path
 
 export PATH
@@ -225,10 +147,6 @@ ulimit -n 65536
 
 # === 4. Source Local Files ===
 z4h source ~/.env.zsh
-# NOTE: the former ~/.config/zsh/.env source was removed in WS1 — its only
-# content (ENABLE_TOOL_SEARCH) now loads from profile.d/common-env.zsh, and
-# ~/.config/zsh/.personal.env loads from profile.d/personal-secrets.zsh (both
-# sourced by the profile.d loop later in this file).
 
 # === 5. Aliases ===
 # Git aliases
@@ -265,7 +183,7 @@ if command -v eza >/dev/null 2>&1; then
   # Tree variants: hide gitignored files unless --all is passed.
   # If the target itself is gitignored (e.g. `lt target/`), bypass the
   # filter so build artifacts stay visible.
-  # Always pass an explicit path — eza 0.23 returns empty with
+  # Always pass an explicit path: eza 0.23 returns empty with
   # --git-ignore when no path is given.
   _eza_tree() {
     local level=$1; shift
@@ -405,11 +323,11 @@ function goops() {
     return 1
   fi
   # The reset below is --hard, so uncommitted tracked changes are destroyed with
-  # no object in the repo to recover them from — the commits it moves are safe
+  # no object in the repo to recover them from (the commits it moves are safe
   # (git branch runs first), but staged and unstaged work is not. Refuse instead.
   # Untracked files survive --hard, so they are deliberately not grounds to stop.
   if ! git diff-index --quiet HEAD -- 2>/dev/null; then
-    echo "goops: refusing to move commits — the hard reset would destroy uncommitted changes:" >&2
+    echo "goops: refusing to move commits: the hard reset would destroy uncommitted changes:" >&2
     git status --short --untracked-files=no >&2
     echo "goops: commit or stash them first" >&2
     return 1
@@ -455,7 +373,7 @@ function gcam() {
     return 127
   fi
   local msg rc
-  msg="$(claude -p "generate commit message and only return the message in plaintext with no quoting, newlines, emoji, or formatting. Strictly plaintext formatted for direct use as a conventional commit compliant git commit message. The commit should encompass all current changes in the repo, so consider all changed files and their diffs when generating the message. Keep it concise, ideally under 72 characters, but include enough detail to be informative. Do not include any metadata, explanations, or formatting—just the raw commit message text." 2>/dev/null))"
+  msg="$(claude -p "generate commit message and only return the message in plaintext with no quoting, newlines, emoji, or formatting. Strictly plaintext formatted for direct use as a conventional commit compliant git commit message. The commit should encompass all current changes in the repo, so consider all changed files and their diffs when generating the message. Keep it concise, ideally under 72 characters, but include enough detail to be informative. Do not include any metadata, explanations, or formatting: just the raw commit message text." 2>/dev/null))"
   rc=$?
   if (( rc != 0 )); then
     echo "gcam: claude exited with status $rc; aborting commit" >&2
@@ -485,23 +403,14 @@ function copyfile() {
 }
 
 # AI CLI wrappers. Each runs the tool in the project's uv venv (so a language
-# server it spawns — e.g. Claude Code's Pyright — resolves project deps), then
+# server it spawns (e.g. Claude Code's Pyright) resolves project deps), then
 # prints a token-usage audit for the session. Two orthogonal helpers below are
 # composed per tool; provider and whether to pass --cwd are set per tool.
 
-# Run an AI CLI tool inside the project's uv venv when one exists (else run it
-# as-is), scoped to a subshell so the caller's shell is untouched. The tool is
-# resolved to an absolute path from the *current* (pre-venv) PATH up front, then
-# the venv bin dir is prepended only inside the subshell. So a child the tool
-# spawns (e.g. Claude Code's Pyright) resolves project deps via the venv, but a
-# repo-controlled .venv/bin/<tool> shim cannot shadow the trusted entrypoint.
-# Setting PATH/VIRTUAL_ENV directly (vs sourcing .venv/bin/activate) likewise
-# avoids running a repo-controlled activate script on launch; these exports are
-# activate's only functional effect, the rest being interactive-prompt cosmetics
-# a one-shot subshell never uses. A stray .venv in a non-Python repo is still
-# picked up for codex/opencode, but that only alters the confined subshell's env
-# and the tool binary itself stays the trusted one — harmless.
-# Args: $1 — tool name to resolve; $2.. — the tool's own args.
+# Resolve the CLI before prepending the project venv in a subshell. This lets
+# child language servers find project dependencies without allowing a repo-local
+# shim to replace the CLI. Set PATH/VIRTUAL_ENV without executing activate.
+# Args: $1 is the CLI name; remaining arguments are passed through.
 function _with_project_venv() {
   local bin
   bin=$(command -v -- "$1") || {
@@ -615,15 +524,8 @@ function sip_holder() {
 command -v zoxide >/dev/null 2>&1 && zcached zoxide-init "$(command -v zoxide)" zoxide init --cmd cd zsh
 
 [[ -f "$HOME/.local/bin/env" ]] && . "$HOME/.local/bin/env" || true
-# atuin (shell history) - skip silently on machines without atuin installed.
-# nix owns the binary (fastMovingPackages in modules/home/packages.nix), so
-# ~/.atuin/bin/env is deliberately NOT sourced: it PREPENDS ~/.atuin/bin to
-# PATH, which would shadow the nix atuin with whatever version the upstream
-# `curl | sh` installer last left behind. That shadowing is exactly how one host
-# sat on a pre-18.12 binary for months while its nix-managed config asked for
-# the tmux popup. Re-adding this line silently reverts that ownership.
-# Scrub a stale ATUIN_TMUX_POPUP a long-lived tmux server may have frozen in;
-# atuin's config.toml [tmux] block should be the only source of truth.
+# Nix owns Atuin. Sourcing ~/.atuin/bin/env would prepend an unmanaged binary.
+# Remove a tmux-inherited override so config.toml controls popup behavior.
 unset ATUIN_TMUX_POPUP
 # -k on the config: `atuin init zsh` reads config.toml and bakes the [tmux]
 # decision into the script it emits, so the config is a cache input alongside
@@ -633,17 +535,9 @@ command -v atuin >/dev/null 2>&1 &&
     atuin-init "$(command -v atuin)" atuin init zsh
 
 # === 9. Completions ===
-# Defer custom completion registration until after first prompt.
-# z4h calls compinit internally; we detect this via ${+_comps} and skip a redundant
-# second call. The old guard (typeset -f compinit) was unreliable — z4h autoloads
-# compinit so it always appeared defined before it had actually run.
-#
-# fpath is NOT extended here. It used to be (a bare
-# `fpath+=${HOMEBREW_PREFIX}/share/zsh/site-functions`), but that line was dead:
-# by this point z4h's compinit has already run and set ${+_comps}, so the guard
-# below never fires and nothing appended here is ever scanned. Every completion
-# directory — nix profile and Homebrew alike — is now added in the PRE-INIT
-# section, immediately above `z4h init`.
+# Register custom completions after the first prompt. ${+_comps} indicates
+# whether z4h has run compinit; an autoloaded function alone does not.
+# Completion directories must be added before z4h init.
 
 _zsh_lazy_load_completions() {
   add-zsh-hook -d precmd _zsh_lazy_load_completions 2>/dev/null || true
@@ -672,20 +566,10 @@ if [[ -d "${ZDOTDIR}/profile.d" ]]; then
     done
 fi
 
-# Dev container orchestrator (optional)
-# Not using this right now but it is a nice convention for users who do use dev containers to have a standard file where they can put container-related environment variables and functions (e.g. to automatically detect if you are in a dev container and set up your prompt accordingly, or to set environment variables that point to containerized services, etc.)
-#dev_env_file="${XDG_CONFIG_HOME:-$HOME/.config}/dev-container/dev-env.zsh"
-#[[ -f "$dev_env_file" ]] && source "$dev_env_file" || true
-
 # Worktrunk shell completions
 if command -v wt >/dev/null 2>&1; then zcached wt-shell-init "$(command -v wt)" command wt config shell init zsh; fi
 
-# mise (polyglot runtime manager) - lazy load with hook prevention
-#
-# The shims directory is NOT added here. It is declared in section 2 with the
-# rest of the PATH precedence, because adding it at this point in the file put
-# it at position 1 — ahead of ~/.local/bin and nix — which inverted the order
-# section 2 goes to some length to establish. Precedence lives in one place.
+# Activate mise on first use. Shim precedence is configured with PATH above.
 if command -v mise >/dev/null 2>&1; then
   # Create wrapper function that activates on first use
   mise() {

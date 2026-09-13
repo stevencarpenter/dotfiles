@@ -77,7 +77,7 @@ else
     | sed "s#^$abs/##" \
     | rg -i "$state_glob_regex" || true)"
   if [ -n "$state_hits" ]; then
-    echo "RECOMMEND   : FILE-level link — tool writes state in this dir:"
+    echo "RECOMMEND   : FILE-level link (tool writes state in this dir):"
     printf '%s\n' "$state_hits" | sed 's/^/                - /' | head -8
     echo "              Link only the config file(s) below, NOT the directory."
     # Best guess at the config file to link: a top-level config.* / *.toml/json/yaml.
@@ -90,7 +90,7 @@ else
       echo "              Likely config file: $cfg"
     else
       link_rel="$rel/<config-file>"
-      echo "              (couldn't auto-detect the config file — fill in <config-file>)"
+      echo "              (couldn't auto-detect the config file: fill in <config-file>)"
     fi
   else
     echo "RECOMMEND   : consider a directory link; no known state markers detected."
@@ -103,7 +103,7 @@ echo
 # --- Collision check -------------------------------------------------------
 echo "REPO TARGET : home/$link_rel"
 if [ -e "$repo_target" ] || [ -L "$repo_target" ]; then
-  echo "             (already present in repo — you may be re-adopting)"
+  echo "             (already present in repo: you may be re-adopting)"
 fi
 echo "COLLISION   : after linking, a real '$abs' would block the symlink."
 echo "             -> verify the repo copy, then preserve a non-colliding backup,"

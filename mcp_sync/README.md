@@ -124,8 +124,8 @@ uv run pytest -v
   `false` inside its `skills` object, e.g. `{ "skills": { "caveman": false } }`.
 - **Vendored skills** (git sources) are cloned into `~/.cache/mcp-sync/skills/`
   and **copied** into place; re-fetched only after `refreshPeriod`.
-- **Personal skills** come from a `local` source — the `personal` source's
-  `path` (currently `skills/personal/` in the chezmoi repo) — deployed as a
+- **Personal skills** come from a `local` source: the `personal` source's
+  `path` (currently `skills/personal/` in the chezmoi repo), deployed as a
   **symlink**, so edits to the source are live without re-running the sync.
 - **Garbage collection:** `~/.local/state/mcp-sync/skills-state.json` records
   what each run deployed; skills dropped from the manifest are removed on the
@@ -138,7 +138,7 @@ after `chezmoi apply` via `.chezmoiscripts/run_after_sync-skills.sh.tmpl`.
 
 Before this feature, `~/.claude/skills/` held symlinks into `~/.agents/skills/`.
 After the first `chezmoi apply` with `sync-skills`, remove the stale state by
-hand (destructive — review before running):
+hand (destructive, review before running):
 
 ```bash
 # Remove only dangling symlinks whose stored target points into ~/.agents/skills/.

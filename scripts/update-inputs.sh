@@ -9,7 +9,7 @@
 #
 # Extra args are forwarded to scripts/update-unstable.sh (soak days, host).
 #
-# The unstable input is a rev pin. Do not `nix flake update` it here — only
+# The unstable input is a rev pin. Do not `nix flake update` it here: only
 # scripts/update-unstable.sh may move that node.
 set -euo pipefail
 

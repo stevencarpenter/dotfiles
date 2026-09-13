@@ -1,8 +1,7 @@
 """Command execution seam.
 
-Every external command in this package goes through a ``Runner``. Tests inject a
-recorded runner so no test ever shells out to a real tmux or signals a real
-process — a hard requirement for a tool whose job is killing things.
+Every external command goes through a ``Runner``. Tests inject a recorded runner
+to avoid calling real tmux or signaling real processes.
 """
 
 from __future__ import annotations

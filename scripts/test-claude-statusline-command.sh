@@ -3,7 +3,7 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # Under nix the statusline is a raw out-of-store symlink (dotfiles.nix,
-# mkOutOfStoreSymlink) — no chezmoi source-path resolution to assert. Just
+# mkOutOfStoreSymlink), no chezmoi source-path resolution to assert. Just
 # exercise the source file directly for its rendering behavior.
 script="${repo_root}/home/.claude/statusline-command.sh"
 workdir="$(mktemp -d "${TMPDIR:-/tmp}/claude-statusline.XXXXXX")"
@@ -184,7 +184,7 @@ assert_raw_contains "${everforest_green}5h:24%"
 assert_raw_not_contains $'\033[90m'
 
 # ── Edge cases: malformed / missing / fractional numeric fields ──────────────
-# A bad field must degrade to a skipped segment, never abort the render — under
+# A bad field must degrade to a skipped segment, never abort the render: under
 # `set -u` an aborted render blanks the ENTIRE status line, not just one piece.
 render_dir_survives() {
   local label="$1" json="$2" out plain_out
@@ -209,12 +209,12 @@ render_dir_survives "non-numeric used_percentage" \
   "$(jq -n --arg cwd "${workdir}" '{cwd: $cwd, context_window: {used_percentage: "NaN"}}')"
 
 # Malformed cost fields: a non-numeric dollar value must skip the cost segment
-# (the awk guard), and a non-integer duration must degrade via to_int — neither
+# (the awk guard), and a non-integer duration must degrade via to_int; neither
 # may abort the render under set -u.
 render_dir_survives "malformed cost fields" \
   "$(jq -n --arg cwd "${workdir}" '{cwd: $cwd, cost: {total_cost_usd: "NaN", total_duration_ms: "oops"}}')"
 
-# Sparse object: every numeric field absent — must still render the dir prefix.
+# Sparse object: every numeric field absent, must still render the dir prefix.
 render_dir_survives "sparse object" \
   "$(jq -n --arg cwd "${workdir}" '{cwd: $cwd}')"
 

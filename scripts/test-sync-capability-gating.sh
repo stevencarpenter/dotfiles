@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
 # Work-host side-channel sync must never contact the personal agent registry.
 #
-# POLICY: no real 1Password CLI, ever — CI gets no op install, no session, and
-# no secrets. Both defenses are in place below: OP_BIN is always the fixture
-# mock, and run_sync pins PATH to "$fixture/bin:/usr/bin:/bin", which excludes
-# /opt/homebrew/bin where a real op lives. Keep both when adding cases.
+# Never invoke real 1Password: keep OP_BIN pointed at the fixture mock and
+# PATH restricted to "$fixture/bin:/usr/bin:/bin".
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -42,12 +40,8 @@ cat >"$fixture/bin/mise" <<'EOF'
 printf 'mise %s\n' "$*" >>"$TEST_COMMAND_LOG"
 EOF
 
-# Mock host-capability.sh directly, rather than mocking `nix` underneath the
-# real one. The work identity this test must cover belongs to an EXTERNAL wrapper
-# and so has no row in lib/machines.nix at all — the real host-capability.sh
-# would (correctly) exit 2 for it. Driving the gate inputs straight in keeps the
-# test measuring what it claims to measure: that sync-side-channels.sh honors the
-# identity/capability boundary, independent of which hosts this repo declares.
+# Mock host-capability.sh because work identities live in an external wrapper
+# and have no row in lib/machines.nix.
 cat >"$fixture/bin/host-capability" <<'EOF'
 #!/usr/bin/env bash
 case "${1:-}" in
@@ -62,9 +56,7 @@ cat >"$fixture/bin/op-render" <<'EOF'
 printf 'op-render session=%s\n' "${OP_SESSION_test:-none}" >>"$TEST_COMMAND_LOG"
 EOF
 
-# Mock `op signin`: emits the export line real op emits, so the test can prove
-# the session actually reaches op-render's environment rather than merely that
-# signin was called.
+# Emit op's export format to verify the session reaches op-render's environment.
 cat >"$fixture/bin/op" <<'EOF'
 #!/usr/bin/env bash
 printf 'op %s\n' "$*" >>"$TEST_COMMAND_LOG"
@@ -144,9 +136,7 @@ if [ -z "$render_line" ] || [ -z "$clone_line" ] || [ "$render_line" -ge "$clone
   exit 1
 fi
 
-# `op signin` blocks on input, so it must only run with a TTY. The case this
-# protects is CI and other non-interactive invocations — NOT bootstrap.sh, which
-# is interactive and therefore does (correctly) sign in.
+# op signin requires a TTY so non-interactive callers cannot block on input.
 if rg -Fq 'op signin' "$fixture/personal/commands.log"; then
   echo "sync ran a blocking 'op signin' without a TTY" >&2
   exit 1
@@ -156,7 +146,7 @@ if ! rg -Fq 'op-render session=none' "$fixture/personal/commands.log"; then
   exit 1
 fi
 
-# With a TTY, signin must run AND its exported session must reach op-render —
+# With a TTY, signin must run AND its exported session must reach op-render:
 # each just recipe line is its own shell, so the export only propagates because
 # signin happens inside this script rather than in the Justfile.
 run_sync_tty() {
@@ -173,28 +163,18 @@ run_sync_tty() {
     "TOKEN_AUDITOR_VERSION=$token_auditor_version"
     "$repo_root/scripts/sync-side-channels.sh"
   )
-  # python pty.spawn, not `script`: BSD script sees EOF on its own stdin in a
-  # non-interactive harness and can exit before the child finishes, making this
-  # check intermittently skip itself (observed locally). pty.spawn waitpid()s
-  # the child, so the pty is allocated deterministically — 10/10 vs flaky — and
-  # it behaves the same on macOS and Linux, unlike script's incompatible
-  # BSD/util-linux flag forms.
-  # scripts/pty-spawn.py decodes the wait status; see its docstring for why a
-  # raw sys.exit() of pty.spawn's return value reports a failed run as success.
+  # pty.spawn waits for the child; BSD script can exit early on stdin EOF.
+  # pty-spawn.py decodes the wait status so child failures propagate.
   "${repo_root}/scripts/pty-spawn.py" "${inner[@]}" >/dev/null 2>&1
 }
 
-# Hard failure, never a self-skip. A test that quietly stops covering its
-# subject is what let a broken render hide for two weeks; python3 is present on
-# every host that runs this suite (the same CI job already runs test_op_adopt.py
-# under an explicit Python setup step), so there is no portability case for an
-# escape hatch here.
+# Python is required by this suite and installed by CI; absence must fail the test.
 if ! run_sync_tty; then
   echo "pty harness failed to run sync under a TTY (python3 missing or pty denied)" >&2
   exit 1
 fi
 if [ ! -s "$fixture/personal-tty/commands.log" ]; then
-  echo "TTY sync produced no command log — harness ran but exercised nothing" >&2
+  echo "TTY sync produced no command log: harness ran but exercised nothing" >&2
   exit 1
 fi
 if ! rg -Fq 'op signin' "$fixture/personal-tty/commands.log"; then

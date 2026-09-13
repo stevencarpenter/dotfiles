@@ -18,7 +18,7 @@ Do not report the shared instructions as wrong; they are shared on purpose.
   `mcp__grafana`, `mcp__hippo`. Servers are lazy and only connect on first
   use, so the tool-priority rules in the shared instructions apply here as
   written.
-- `mcp__idea__*` and `mcp__railway__*` genuinely do not exist in pi. They
+- `mcp__idea__*` and `mcp__railway__*` do not exist in pi. They
   are Claude Code plugin-supplied, not `mcp_sync`-managed, so they are
   absent from `~/.config/mcp/mcp.json`. Use the CLI directly (`rg`,
   `gh-axi`, `git`, `jj`, `railway`) in their place.

@@ -646,7 +646,7 @@ def test_sync_codex_mcp_missing_config(temp_home, monkeypatch_home, master_confi
     # ...and the managed MCP servers are delimited by the begin marker.
     assert "# MCP Servers - BEGIN Codex" in result
     assert "[mcp_servers.filesystem]" in result
-    # The [features] block must not be seeded — it is inert on macOS.
+    # The [features] block must not be seeded: it is inert on macOS.
     assert "[features]" not in result
 
 
@@ -849,7 +849,7 @@ def test_sync_codex_mcp_invalid_toml_skips_tui_enforcement(
     """A config that fails TOML parsing still gets MCP servers patched.
 
     The MCP-server patching is text-based and tolerant, so a malformed
-    existing config must not crash the sync — only the ``[tui]`` enforcement
+    existing config must not crash the sync: only the ``[tui]`` enforcement
     is skipped.
 
     Args:
@@ -937,7 +937,7 @@ def test_apply_tui_settings_deep_merges_nested_subtables():
 
 
 def test_identity_format_preserves_other_top_level_keys():
-    """`$schema` is the only top-level key we strip — keep the rest."""
+    """`$schema` is the only top-level key we strip: keep the rest."""
     master = {
         "$schema": "https://example.invalid/schema.json",
         "metadata": {"machine": "work"},
@@ -976,19 +976,13 @@ def test_patch_claude_preserves_key_order(temp_home, monkeypatch_home):
 
 
 def test_patch_claude_preserves_non_ascii_verbatim(temp_home, monkeypatch_home):
-    """patch_claude_code_config must NOT escape non-ASCII in ~/.claude.json.
+    """Preserve literal non-ASCII in ~/.claude.json.
 
-    Claude Code writes this file with JS ``JSON.stringify``, which emits
-    non-ASCII literally. Python's ``json.dumps`` defaults to
-    ``ensure_ascii=True``, so a sync would rewrite every em-dash Claude
-    authored as a ``\\u2014`` escape. That is JSON-equivalent and harmless to
-    parse, but it rewrites unrelated keys on every run, which makes the file
-    oscillate between two writers and buries real mcpServers drift under a
-    wall of escaping noise. Same class of bug as key ordering above.
+    Match JSON.stringify's UTF-8 output so syncing does not rewrite unrelated keys.
     """
     claude_path = temp_home / ".claude.json"
     initial = {
-        "companion": {"personality": "no chill—screams about bugs"},
+        "companion": {"personality": "no chill\u2014screams about bugs"},
         "promo": "through Aug 19 · clau.de",
         "mcpServers": {},
     }
@@ -999,7 +993,7 @@ def test_patch_claude_preserves_non_ascii_verbatim(temp_home, monkeypatch_home):
     patch_claude_code_config({"servers": {"s": {"command": "x", "args": []}}})
 
     text = claude_path.read_text(encoding="utf-8")
-    assert "—" in text, "em-dash was escaped rather than written through"
+    assert "\u2014" in text, "em-dash was escaped rather than written through"
     assert "·" in text, "middot was escaped rather than written through"
     assert "\\u2014" not in text
     assert "\\u00b7" not in text
@@ -1015,7 +1009,7 @@ def test_trailing_newline_only_on_files_the_tool_owns(temp_home, monkeypatch_hom
     Claude Code rewrites ``~/.claude.json`` with no trailing newline, so
     appending one leaves the file oscillating by a byte between the two
     writers. Files this tool generates from scratch keep the POSIX trailing
-    newline — ``drift.py`` byte-compares those against ``json.dumps(...) +
+    newline: ``drift.py`` byte-compares those against ``json.dumps(...) +
     "\\n"``, so dropping it there would report permanent false drift.
     """
     owned = temp_home / ".config" / "owned" / "mcp.json"

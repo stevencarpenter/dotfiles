@@ -1,25 +1,9 @@
 #!/usr/bin/env bash
-# agent-reap-session-end.sh — disband a Claude Code team when its session ends.
+# agent-reap-session-end.sh: disband a Claude Code team when its session ends.
 #
-# THE GAP THIS CLOSES
-# Claude Code agent teams in tmux mode open one pane per teammate and never close
-# them. The teammates are not orphans: they are healthy panes whose leader never
-# receives EOF or SIGHUP, because nothing ever closes the pane. They therefore
-# survive indefinitely, holding RAM and subagent slots. Observed: 19 idle
-# teammates in one window at 7.18 GB, drained and untouched for 90 minutes.
-#
-# WHY --team RATHER THAN A PLAIN REAP
-# `agent-reap reap` deliberately refuses to touch the caller's own team, and
-# requires each teammate's inbox to be drained and stale. Both rules exist to
-# protect a *live* team. At SessionEnd the team is over, so `--team <id>` scopes
-# the teardown to exactly this session and skips those liveness checks. The pane
-# and process-ancestry guards still hold, so this can never kill the shell it
-# runs in.
-#
-# FAILURE POLICY
-# Always exit 0. A hook that fails, hangs, or writes to stderr on a normal exit
-# turns a cleanup convenience into a session-teardown bug. Every step is
-# best-effort and the whole thing is bounded by a timeout.
+# Tmux teammate panes survive session exit. --team scopes cleanup to the ended
+# session and bypasses live-team idle checks, retaining pane and ancestry guards.
+# Cleanup is time-limited and failures exit 0 so session teardown can finish.
 set -uo pipefail
 
 # Claude also caps this command handler at 20 seconds in settings-base.json.
@@ -37,7 +21,7 @@ readonly REAP_TERM_GRACE_SECS=1
 hook_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly HOOK_LIB="${hook_dir}/lib"
 
-# No agent-reap (fresh machine, mid-install, or install skipped) — nothing to do.
+# No agent-reap (fresh machine, mid-install, or install skipped): nothing to do.
 agent_reap_bin="$(command -v agent-reap 2>/dev/null)" || exit 0
 
 # Hook payload arrives as JSON on stdin. Read it non-blockingly: if Claude Code
@@ -60,9 +44,7 @@ session_id="$(
 [[ -n "$session_id" ]] || exit 0
 [[ "$session_id" =~ ^[[:alnum:]]+$ ]] || exit 0
 
-# Only act when this session actually owned a team. A solo session has no team
-# directory, and passing an unknown id would be a no-op anyway — but skipping
-# keeps the common case free of a subprocess.
+# Solo sessions have no team directory and need no cleanup subprocess.
 [[ -d "${HOME}/.claude/teams/session-${session_id}" ]] || exit 0
 
 team_dir="${HOME}/.claude/teams/session-${session_id}"
@@ -89,9 +71,7 @@ worker_status=1
 # it. SubagentStop must leave the live team's state intact for its siblings and
 # parent session.
 if (( worker_status == 0 )); then
-  # Still best-effort (a stale directory must not fail session teardown), but
-  # a failed removal has to leave evidence. Discarding it made "removed" and
-  # "silently left behind" identical in the log.
+  # Log removal failures without failing session teardown.
   if ! rm -rf -- "${team_dir}" 2>>"$log"; then
     printf 'warning: could not remove %s\n' "${team_dir}" >>"$log" 2>/dev/null || true
   fi

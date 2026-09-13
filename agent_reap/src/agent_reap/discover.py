@@ -19,7 +19,7 @@ from pathlib import Path
 from .runner import Result, Runner
 
 # Tab-delimited. Free-form fields (command, path) come last so a tab inside a path
-# cannot shift the earlier columns — the parser splits with a bounded maxsplit and
+# cannot shift the earlier columns: the parser splits with a bounded maxsplit and
 # lets the trailing field keep whatever it contains.
 _PANE_FORMAT = (
     "#{pane_id}\t"
@@ -34,7 +34,7 @@ _PANE_FORMAT = (
 
 _PANE_FIELDS = 8
 
-# Matches the teammate shape observed in the wild:
+# Teammate argument format:
 #   --agent-id docs-readme@session-d50ed876 --agent-name docs-readme
 _AGENT_ID_RE = re.compile(
     r"--agent-id[= ](?P<name>[^@\s]+)@session-(?P<session>[^\s]+)"
@@ -175,7 +175,7 @@ def find_sockets(globs: Iterable[str]) -> list[str]:
 
     Paths are resolved before de-duplication. On macOS ``/tmp`` is a symlink to
     ``/private/tmp``, so the default socket matches two of the stock globs and
-    would otherwise be reported — and searched — as two separate servers.
+    would otherwise be reported (and searched) as two separate servers.
 
     Args:
         globs: Glob patterns to search.

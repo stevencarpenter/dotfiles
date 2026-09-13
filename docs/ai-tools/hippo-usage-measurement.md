@@ -54,7 +54,7 @@ user had forgotten, which is the intended use, so it stays counted. The 2026-08-
 
 ## Data-source constraints
 
-These took real work to establish and should not be re-derived.
+Use the verified data-source properties when repeating the measurement.
 
 - Use `agentic_sessions.tool_calls_json`. Do not use the `events` table: it is a partial capture
   holding 12 hippo calls all-time against 178 in `tool_calls_json`.
