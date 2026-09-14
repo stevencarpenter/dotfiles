@@ -2,18 +2,12 @@
 # Readers for the nixpkgs-unstable soak state: the flake.nix pin and the
 # first-seen candidate file.
 #
-# Shared by the fail-LOUD promoter (scripts/update-unstable.sh) and the
-# fail-SILENT due-promotion reminder (scripts/unstable-reminder.sh) so the two
-# halves of the soak policy — what counts as a valid candidate, and when it is
-# due — are defined once and cannot drift. Callers keep their own failure
-# modes: each reader prints what it parsed and returns nonzero on invalid
-# input, and the caller decides whether that is an error or silence.
+# Shared by update-unstable.sh and unstable-reminder.sh. Readers print parsed
+# values and return nonzero on invalid input; callers choose whether to report errors.
 #
-# The contract test scripts/test-nix-review-regressions.sh deliberately keeps
-# its own independent copies of these reads: a contract test that sourced the
-# implementation's reader would ratify the reader's bugs.
+# test-nix-review-regressions.sh reads independently to detect bugs in these readers.
 #
-# Sourced, not executed — no exec bit, per scripts/test-exec-bits.sh.
+# Sourced, not executed: no exec bit, per scripts/test-exec-bits.sh.
 # shellcheck shell=bash
 
 # Print the rev that the flake.nix at $1 pins nixpkgs-unstable to. The raw

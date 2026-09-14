@@ -30,21 +30,14 @@ _DURATION_RE = re.compile(r"^(\d+)([smhd])$")
 DEFAULT_REFRESH = "168h"
 DEFAULT_REF = "main"
 
-# Git skill sources are LIVE tracking clones (ensure_git_source fetches +
-# reset --hard, then the skill dir is copied into each managed skills root —
-# ~/.claude/skills and ~/.pi/agent/skills — where an agent loads it). The remote owner therefore controls executed code, so every
-# git source must resolve to a repository the operator owns.
-#
-# The allowlist is "<host>/<owner>", compared on the PARSED hostname and first
-# path segment — never by substring — so lookalike hosts (github.com.evil.tld),
-# owner-shaped foreign paths, owner prefixes (owner-evil), and userinfo tricks
-# (https://github.com@evil.tld/owner) are all rejected.
-# Default names only the maintainer's forge account; a machine overlay extends
-# the list via `allowedGitOwners` (deep-merged into the manifest).
+# Git skill sources are tracking clones whose owners control executed code.
+# Match the parsed hostname and first path segment against <host>/<owner>;
+# substring matching would permit lookalike hosts, owner prefixes, and userinfo tricks.
+# Machine overlays can extend the maintainer-only default through allowedGitOwners.
 DEFAULT_ALLOWED_GIT_OWNERS = ("github.com/stevencarpenter",)
 
 # scp-style remote: user@host:path (no scheme). Anchored so it cannot match a
-# scheme URL — [^/@]+ stops at the "//" in "https://".
+# scheme URL: [^/@]+ stops at the "//" in "https://".
 _SCP_GIT_URL_RE = re.compile(r"^[^/@]+@([^:/]+):(.+)$")
 
 
@@ -106,18 +99,11 @@ def _allowed_git_owners(manifest: JsonDict) -> set[str]:
 
 _SAFE_SKILL_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
-# A source name is used DIRECTLY as a cache directory (cache_root / name), so it
-# must be a single safe path segment. Without this, a source named "../../x"
-# clones outside the cache root — skill names were validated, source names were
-# not. Same charset as skill names: must start alphanumeric, so an
-# option-shaped "-name" is rejected too.
+# Source names become cache subdirectories; reject traversal and leading hyphens.
 _SAFE_SOURCE_NAME_RE = _SAFE_SKILL_NAME_RE
 
-# A ref is passed positionally to `git fetch origin <ref>`, and git parses
-# options anywhere on the command line — so "--upload-pack=/bin/sh" is a command
-# execution vector, not just a bad ref. subprocess uses a list (no shell), so
-# quoting is not the issue; option-shaping is. Conservative charset, and a
-# leading "-" can never appear because the first character must be alphanumeric.
+# git fetch parses options anywhere in argv. Require an alphanumeric first
+# character to reject executable options such as --upload-pack=/bin/sh.
 _SAFE_GIT_REF_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")
 
 
@@ -267,7 +253,7 @@ def _safe_target(root: Path, name: str) -> Path:
         ValueError: If ``name`` is unsafe or resolves outside ``root``.
     """
     _validate_skill_name(name)
-    # Resolve only the (trusted) root chain — never the leaf, since a
+    # Resolve only the (trusted) root chain: never the leaf, since a
     # symlink-mode skill deliberately points outside the skills directory.
     root_resolved = root.resolve(strict=False)
     if (root_resolved / name).parent != root_resolved:
@@ -380,8 +366,6 @@ def write_state(path: Path, state: JsonDict) -> None:
         path: Destination path; parent directories are created as needed.
         state: The state mapping to serialize.
     """
-    # Kept deliberately parallel to sync.py's _write_json; not shared because
-    # that helper is private to that module and the duplication is trivial.
     path.parent.mkdir(parents=True, exist_ok=True)
     serialized = json.dumps(state, indent=2, sort_keys=True)
     path.write_text(serialized + "\n", encoding="utf-8")
@@ -491,7 +475,7 @@ def _assert_tree_has_no_symlinks(root: Path) -> None:
     """Reject a source tree that contains any symlink.
 
     Copy-mode deployment uses ``shutil.copytree`` with default settings, which
-    follows symlinks — vendored third-party content could otherwise smuggle a
+    follows symlinks: vendored third-party content could otherwise smuggle a
     link pointing anywhere on disk into a managed skills root.
 
     The scan itself never follows symlinked directories (``recurse_symlinks``
@@ -566,11 +550,7 @@ def deploy_skill(
         raise FileNotFoundError(f"Skill source not found: {src}")
     target.parent.mkdir(parents=True, exist_ok=True)
     if target.exists() or target.is_symlink():
-        # A dangling symlink holds no user content to protect, so the
-        # unmanaged-target guard does not apply to it. Left in place it is a
-        # permanent deploy failure: the skill is unloadable and every later run
-        # re-raises. External installers (hippo's `mise run install:skill`) do
-        # create these by relinking to a path their repo has since dropped.
+        # Dangling symlinks contain no user data; replacing them repairs deployment.
         dangling = target.is_symlink() and not target.exists()
         if not allow_replace and not dangling:
             raise FileExistsError(f"Refusing to replace unmanaged skill: {target}")
@@ -671,7 +651,7 @@ def target_roots(home: Path) -> list[Path]:
     Single source of truth shared by the deploy loop and garbage collection:
     adding a new consumer root here wires it into both at once. The state
     record stays flat (one entry per skill name) because every root carries
-    the same mode and source — only the parent directory differs.
+    the same mode and source: only the parent directory differs.
 
     Args:
         home: Home directory the deployed paths live under.
@@ -847,9 +827,7 @@ def run_skills_sync(
         deployed[skill.name] = record
         log_success(f"Deployed skill: {skill.name} ({skill.mode})")
 
-    # Garbage-collect skills no longer in the manifest, from every root. A
-    # skill still resolved but failed to deploy this run is intentionally NOT
-    # collected — its prior copies are left in place.
+    # Remove skills absent from the manifest, retaining prior copies after deploy failures.
     resolved_names = {skill.name for skill in resolved}
     for target_root in roots:
         for name in garbage_collect(prior, resolved_names, target_root):

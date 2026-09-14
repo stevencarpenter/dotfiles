@@ -1,13 +1,7 @@
 #!/usr/bin/env bash
 # Behavior tests for zcached (home/.config/zsh/lib/eval-cache.zsh).
 #
-# Why this exists: zcached runs on EVERY interactive shell startup and caches
-# the output of `<tool> init` scripts keyed on its inputs' mtime+size. Its
-# realistic failure mode is silent — a stale cached script keeps being sourced
-# after the thing it was generated from changed, with no error anywhere. That
-# exact bug shipped once already (an `atuin init zsh` cache that kept exporting
-# ATUIN_TMUX_POPUP=false after the config that caused it was replaced), which is
-# why the `-k` flag exists. Nothing tested this file until 2026-07-28.
+# Verify cache invalidation when tool binaries or -k configuration inputs change.
 #
 # Everything runs against throwaway dirs under $TMPDIR with XDG_CACHE_HOME
 # redirected, so the real ~/.cache/zsh-eval-cache is never touched.
@@ -35,8 +29,7 @@ work="$(mktemp -d "${TMPDIR:-/tmp}/eval-cache-test.XXXXXX")"
 trap 'rm -rf "${work}"' EXIT
 
 # Run a zsh snippet with the library sourced, in an isolated cache dir.
-# perl's alarm supplies a portable timeout: a parsing regression in zcached's
-# flag loop hangs forever, and a hang must fail this test rather than wedge CI.
+# Perl's alarm bounds parsing regressions that would otherwise hang CI.
 zc() {
   local script="$1"
   perl -e 'alarm 20; exec @ARGV' -- \
@@ -44,17 +37,9 @@ zc() {
 }
 
 new_tool() { # new_tool <path> <config-it-reads>
-  # Two properties this shape buys, both load-bearing:
-  #
-  # 1. The run-counter is appended when the tool is FORKED; the script it emits
-  #    only exports the marker. If the counter were written by the emitted
-  #    script instead, sourcing the cache would look identical to re-running
-  #    the tool and every cache-hit assertion would be vacuous.
-  # 2. The emitted marker is read FROM THE CONFIG at fork time, so editing only
-  #    the config changes the tool's output without touching the binary. That
-  #    is what lets the -k assertion below isolate the config as the cache key
-  #    — if the test also rewrote the binary, a single-input stamp would change
-  #    too and the assertion would pass even with -k plumbing removed.
+  # Count tool executions, not sourcing of cached output.
+  # Read the marker from config so -k invalidation can be tested without
+  # changing the binary's stamp.
   {
     printf '#!/bin/sh\n'
     printf 'echo TOOL_RAN >> %s/runs.log\n' "${work}"
@@ -82,8 +67,7 @@ out="$(zc "zcached -k ${conf} ft ${tool} ${tool}; echo MARKER=\$ZC_MARKER")"
 [[ "$(runs)" == 1 ]] || fail "cold cache ran the tool $(runs) times, expected 1"
 
 # ---------------------------------------------------------------------------
-# 2. Warm cache, nothing changed: the tool is NOT re-run. This is the whole
-#    point of the helper; if it regresses, startup silently gets slower.
+# 2. Warm cache: reuse output without running the tool.
 # ---------------------------------------------------------------------------
 reset_runs
 out="$(zc "zcached -k ${conf} ft ${tool} ${tool}; echo MARKER=\$ZC_MARKER")"
@@ -91,11 +75,9 @@ out="$(zc "zcached -k ${conf} ft ${tool} ${tool}; echo MARKER=\$ZC_MARKER")"
 [[ "$(runs)" == 0 ]] || fail "warm cache re-ran the tool $(runs) times, expected 0"
 
 # ---------------------------------------------------------------------------
-# 3. THE REGRESSION THIS FILE EXISTS FOR: a -k input changes, so the cache
-#    must be regenerated. Without -k plumbing this silently serves stale output.
+# 3. A changed -k input invalidates cached output.
 # ---------------------------------------------------------------------------
-# ONLY the config changes here — the tool binary is deliberately left alone, so
-# this can only pass if the -k path is genuinely part of the cache key.
+# Keep the binary unchanged to isolate the -k cache key.
 echo "config-v2" >"${conf}"
 touch -t 203001010101 "${conf}" # distinct mtime; the stamp is second-resolution
 reset_runs
@@ -112,8 +94,7 @@ zc "zcached -k ${conf} ft ${tool} ${tool}" >/dev/null
 [[ "$(runs)" == 1 ]] || fail "a changed binary did not invalidate the cache (tool ran $(runs) times)"
 
 # ---------------------------------------------------------------------------
-# 4. Single-input callers keep the ORIGINAL one-field stamp format. The other
-#    three call sites pass no -k; if this changes they all refork needlessly.
+# 4. Callers without -k retain the one-field stamp format.
 # ---------------------------------------------------------------------------
 solo="${work}/solotool"
 new_tool "${solo}" "${conf}"
@@ -123,21 +104,16 @@ if [[ ! "${stamp}" =~ ^\#\ [0-9]+:[0-9]+$ ]]; then
   fail "single-input stamp is not the original '# <mtime>:<size>' format: ${stamp}"
 fi
 
-# A -k caller must stamp MORE fields, otherwise the extra input is not keyed.
+# A -k caller must include the additional input's stamp.
 two_field="$(head -1 "${work}/cache/zsh-eval-cache/ft.zsh")"
 if [[ ! "${two_field}" =~ ^\#\ [0-9]+:[0-9]+\ [0-9]+:[0-9]+$ ]]; then
   fail "-k caller stamp does not carry two inputs: ${two_field}"
 fi
 
 # ---------------------------------------------------------------------------
-# 5. Argument-arity guards. A valueless trailing -k used to spin forever,
-#    because zsh's `shift 2` FAILS WITHOUT SHIFTING when $# < 2 — from .zshrc
-#    that is a shell only `zsh -f` can escape. The perl alarm in zc() turns a
-#    regression here into a failed assertion instead of a hung job.
+# 5. Reject a valueless -k: zsh's shift 2 does not advance when $# < 2.
 # ---------------------------------------------------------------------------
-# rc is captured immediately: a bare `$?` inside the failure message would
-# report the status of the `[[ ]]` test rather than of zcached (shellcheck
-# SC2319), which is how an assertion ends up printing a misleading value.
+# Capture rc before [[ ]] overwrites $? (shellcheck SC2319).
 zc "zcached -k; exit \$?" >/dev/null 2>&1
 rc=$?
 [[ ${rc} -eq 2 ]] || fail "a valueless trailing -k returned ${rc}, expected 2 (a 20s timeout here means it hung)"
@@ -151,8 +127,7 @@ rc=$?
 [[ ${rc} -ne 0 ]] || fail "a zero-argument zcached under 'setopt nounset' returned success"
 
 # ---------------------------------------------------------------------------
-# 6. A missing -k path must stamp as absent rather than disable caching, so a
-#    not-yet-deployed config does not quietly turn the cache off forever.
+# 6. A missing -k path is stamped as absent without disabling caching.
 # ---------------------------------------------------------------------------
 new_tool "${tool}" "${conf}"
 reset_runs

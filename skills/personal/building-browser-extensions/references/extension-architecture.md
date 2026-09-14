@@ -4,7 +4,7 @@ This is the domain knowledge you need. Browser extensions have a unique executio
 
 ## Execution Contexts
 
-A browser extension runs code in **four isolated contexts**. They cannot share memory or call each other's functions directly — they communicate only via message passing.
+A browser extension runs code in **four isolated contexts**. They cannot share memory or call each other's functions directly: they communicate only via message passing.
 
 | Context | API Access | DOM Access | Lifetime | Trust Level |
 |---------|-----------|-----------|----------|-------------|
@@ -17,11 +17,11 @@ A browser extension runs code in **four isolated contexts**. They cannot share m
 
 Think of these as **separate processes** that happen to be part of the same extension:
 
-- **Background service worker** is your "server." It handles API calls, state, and coordination. It has NO DOM — no `document`, no `DOMParser`, no `XMLHttpRequest`. Use `fetch()` instead. In Chrome, it's a service worker. In Firefox, it's a non-persistent event page (which does have DOM access, but **do not use DOM APIs in background code** or it will break in Chrome).
+- **Background service worker** is your "server." It handles API calls, state, and coordination. It has NO DOM: no `document`, no `DOMParser`, no `XMLHttpRequest`. Use `fetch()` instead. In Chrome, it's a service worker. In Firefox, it's a non-persistent event page (which does have DOM access, but **do not use DOM APIs in background code** or it will break in Chrome).
 
-- **Content scripts** are injected into web pages. They share the page's DOM but run in an **isolated world** — separate JS globals from the page. They can read/modify DOM elements but cannot access the page's JavaScript variables. Treat all DOM data as **attacker-controlled**.
+- **Content scripts** are injected into web pages. They share the page's DOM but run in an **isolated world**: separate JS globals from the page. They can read/modify DOM elements but cannot access the page's JavaScript variables. Treat all DOM data as **attacker-controlled**.
 
-- **Extension pages** (popup, sidebar, options) are your extension's own UI. They have full API access but are **destroyed when closed** — don't store state in their JS globals.
+- **Extension pages** (popup, sidebar, options) are your extension's own UI. They have full API access but are **destroyed when closed**: don't store state in their JS globals.
 
 - **Injected scripts** (main world) run in the page's actual JS context. They have zero extension API access. Use only when you must interact with page-level JS variables. Specify via `world: "MAIN"` in `scripting.executeScript` or `defineContentScript`.
 
@@ -50,7 +50,7 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 ```
 
-**The `return true` trap:** If your handler is async, you MUST return `true` synchronously from the listener to keep the message channel open. Forgetting this causes `sendResponse` to silently fail. Use `@webext-core/messaging` (see tech-stack.md) to avoid this entirely.
+**Callback response lifetime:** When using asynchronous `sendResponse`, return `true` synchronously to keep the response channel open. Verify Promise-returning listener support for the target browser versions. An existing typed message protocol is sufficient; adding a messaging library is optional.
 
 ### Long-lived connections
 
@@ -64,9 +64,9 @@ port.onDisconnect.addListener(() => { /* cleanup */ });
 
 ### Anti-patterns
 
-- **Sharing state directly** between contexts (e.g., global variables) — they're isolated, this doesn't work
-- **Untyped message blobs** — use typed message protocols (see `@webext-core/messaging` in tech-stack.md)
-- **Missing sender validation** on message handlers — content scripts run in hostile environments, always validate `sender.url` and `sender.tab` before acting on messages
+- **Sharing state directly** between contexts (e.g., global variables): they're isolated, this doesn't work
+- **Unstructured messages**: use a discriminated message type and validate incoming payloads at the receiving boundary. A library does not replace runtime validation.
+- **Missing sender validation** on message handlers: content scripts run in hostile environments, always validate `sender.url` and `sender.tab` before acting on messages
 
 ## Storage
 
@@ -80,7 +80,7 @@ Extension storage is async, shared across all contexts, and persists across brow
 
 ### WXT's typed storage
 
-WXT provides a typed wrapper. Use it instead of raw `browser.storage`:
+In a WXT project, its typed wrapper is available alongside native `browser.storage`. Follow the existing storage convention:
 
 ```typescript
 import { storage } from '#imports';
@@ -100,8 +100,8 @@ await apiKey.watch((newVal) => { /* react to changes */ });
 
 ### Security considerations
 
-- `storage.local` is **not encrypted on disk**. Anyone with physical access can read it. Don't store raw API keys in distributed extensions — use `storage.session` for ephemeral tokens.
-- `storage.local` is accessible from content scripts by default. Restrict sensitive data with `chrome.storage.local.setAccessLevel('TRUSTED_CONTEXTS')` so only background/popup can read it.
+- `storage.local` is **not encrypted on disk**. Anyone with physical access can read it. Don't store raw API keys in distributed extensions: use `storage.session` for ephemeral tokens.
+- `storage.local` is accessible from content scripts by default. Where supported, restrict sensitive data with `chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' })`. Check the [storage API](https://developer.chrome.com/docs/extensions/reference/api/storage) for the target browser.
 - `storage.sync` transmits data through the browser vendor's cloud (Google/Mozilla). Never store PII or secrets there.
 
 ### Schema migration
@@ -140,7 +140,7 @@ The manifest declares what your extension CAN do. Think of it as a **security co
 - **Required permissions** are granted at install. Adding new ones in an update **disables the extension** until the user re-approves.
 - **Optional permissions** are requested at runtime via `browser.permissions.request()`. No install warning, no update disruption.
 
-### `activeTab` — use this by default
+### `activeTab`: use this by default
 
 `activeTab` grants temporary access to the current tab ONLY when the user explicitly invokes the extension (clicks icon, keyboard shortcut, context menu). Access is revoked when the user navigates away. **No install warning.**
 
@@ -205,14 +205,14 @@ async function getData(): Promise<Data> {
   // Check memory cache first (fast path when worker is alive)
   if (cachedData) return cachedData;
 
-  // Worker was terminated — restore from storage
+  // Worker was terminated: restore from storage
   const stored = await browser.storage.session.get('cachedData');
   if (stored.cachedData) {
     cachedData = stored.cachedData;
     return cachedData;
   }
 
-  // Nothing cached — fetch fresh
+  // Nothing cached: fetch fresh
   cachedData = await fetchFreshData();
   await browser.storage.session.set({ cachedData });
   return cachedData;

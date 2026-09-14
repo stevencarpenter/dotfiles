@@ -1,4 +1,8 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
 """
 MySQL analysis for Railway deployments.
 
@@ -34,7 +38,7 @@ import dal
 from dal import (
     LOG_LINES_DEFAULT, ProgressTimer, RailwayContext,
     _init_context, progress, run_railway_command, run_ssh_query,
-    get_railway_status, get_deployment_status,
+    get_deployment_status,
     get_all_metrics_from_api, _analyze_window, _build_metrics_history,
     get_recent_logs,
     _safe_int, _safe_float, _format_uptime, _trend_indicator,
@@ -539,7 +543,7 @@ def _status_ok_warn_crit(value: float, warn_threshold: float, crit_threshold: fl
 def generate_recommendations(result: MySQLAnalysisResult) -> List[Dict[str, str]]:
     recs: List[Dict[str, str]] = []
 
-    # Collection failures — surface critical issues when SSH/introspection failed
+    # Collection failures: surface critical issues when SSH/introspection failed
     if result.collection_status:
         failed = {k: v for k, v in result.collection_status.items()
                   if v.get("status") in ("failed", "error")}
@@ -551,7 +555,7 @@ def generate_recommendations(result: MySQLAnalysisResult) -> List[Dict[str, str]
             recs.append({
                 "severity": "critical",
                 "category": "collection",
-                "message": f"SSH introspection failed — unable to collect {sources}. "
+                "message": f"SSH introspection failed: unable to collect {sources}. "
                            f"Error: {errors}. "
                            f"Analysis is incomplete: InnoDB buffer pool, query throughput, "
                            f"locks, and tuning parameters could not be evaluated.",
@@ -654,7 +658,7 @@ def generate_recommendations(result: MySQLAnalysisResult) -> List[Dict[str, str]
     if cache_util >= 95:
         rec("warning", f"Table cache {cache_util}% full ({tc.get('open_tables')}/{tc.get('table_open_cache')}). Increase table_open_cache.")
     if opens_per_sec > 5:
-        rec("warning", f"Table opens at {opens_per_sec}/sec — cache may be undersized. Increase table_open_cache.")
+        rec("warning", f"Table opens at {opens_per_sec}/sec: cache may be undersized. Increase table_open_cache.")
 
     # Top queries diagnostic
     if not result.top_queries:
@@ -839,7 +843,7 @@ def format_report(result: MySQLAnalysisResult) -> str:
     else:
         heading("Top Queries (by total latency)")
         if result.top_queries_status == "performance_schema_disabled":
-            lines.append("performance_schema is disabled — no query-level data available.")
+            lines.append("performance_schema is disabled: no query-level data available.")
             lines.append("Note: enabling it requires ~400MB+ additional memory; only advisable on larger instances.")
         elif result.top_queries_status == "no_queries_recorded":
             lines.append("No queries recorded. Database may be idle or recently restarted.")
@@ -883,32 +887,7 @@ def format_report(result: MySQLAnalysisResult) -> str:
             lines.append("\nNo active user queries.")
 
     # --- Infrastructure Metrics ---
-    if result.metrics_history:
-        windows = result.metrics_history.get("windows", {})
-        for window_label, window_data in windows.items():
-            mh = window_data.get("metrics", {})
-            if not mh:
-                continue
-            lines.append(f"## Infrastructure Metrics ({window_label})")
-            lines.append("| Metric | Current | Min | Max | Avg | Trend |")
-            lines.append("|--------|---------|-----|-----|-----|-------|")
-            for key in ["cpu", "memory", "disk", "network_rx", "network_tx"]:
-                if key in mh:
-                    entry = mh[key]
-                    trend = entry.get("trend", {})
-                    trend_str = trend.get("direction", "N/A")
-                    change = trend.get("change_pct", 0)
-                    if change != 0:
-                        trend_str += f" ({change:+.1f}%)"
-                    lines.append(
-                        f"| {key.replace('_', ' ').title()} "
-                        f"| {entry['current']}{entry['unit']} "
-                        f"| {entry['min']}{entry['unit']} "
-                        f"| {entry['max']}{entry['unit']} "
-                        f"| {entry['avg']}{entry['unit']} "
-                        f"| {trend_str} |"
-                    )
-            lines.append("")
+    dal.append_infrastructure_metrics(lines, result.metrics_history)
 
     # --- Collection Errors ---
     if result.errors:
@@ -952,20 +931,8 @@ def analyze_mysql(service: str, timeout: int = 60, quiet: bool = False,
         print("  [0/5] Getting Railway context...", file=sys.stderr, flush=True)
     dal._progress_timer.start()
 
-    if environment_id and service_id:
-        dal._ctx = RailwayContext(project_id=project_id, environment_id=environment_id, service_id=service_id)
-        if not quiet:
-            print(f"        using explicit IDs (env={environment_id[:8]}..., svc={service_id[:8]}...)", file=sys.stderr, flush=True)
-    else:
-        railway_status = get_railway_status()
-        if railway_status:
-            dal._ctx = RailwayContext(
-                project_id=railway_status.get("projectId"),
-                environment_id=railway_status.get("environmentId"),
-                service_id=railway_status.get("serviceId"),
-            )
-        environment_id = dal._ctx.environment_id
-        service_id = dal._ctx.service_id
+    context = _init_context(RailwayContext(project_id, environment_id, service_id), quiet=quiet)
+    environment_id, service_id = context.environment_id, context.service_id
 
     # === DEPLOYMENT STATUS ===
     progress(1, 5, "Fetching deployment status...", quiet)
@@ -973,25 +940,7 @@ def analyze_mysql(service: str, timeout: int = 60, quiet: bool = False,
 
     # === SSH PRE-CHECK ===
     progress(2, 5, "Testing SSH connectivity...", quiet)
-    ssh_available = False
-    ssh_stderr = ""
-    ssh_attempts = [30, 60, 90]
-    for attempt, attempt_timeout in enumerate(ssh_attempts, 1):
-        ssh_code, ssh_stdout, ssh_stderr = run_ssh_query(service, "echo ok", timeout=attempt_timeout)
-        if ssh_code == 0 and "ok" in ssh_stdout:
-            ssh_available = True
-            if not quiet:
-                for line in ssh_stderr.splitlines():
-                    if line.startswith("Using SSH key:"):
-                        print(f"        {line}", file=sys.stderr, flush=True)
-                        break
-            break
-        if not quiet:
-            remaining = len(ssh_attempts) - attempt
-            if remaining > 0:
-                print(f"        SSH attempt {attempt}/{len(ssh_attempts)} failed ({ssh_stderr or 'no response'}), retrying with {ssh_attempts[attempt]}s timeout...", file=sys.stderr, flush=True)
-            else:
-                print(f"        SSH attempt {attempt}/{len(ssh_attempts)} failed ({ssh_stderr or 'no response'}), giving up", file=sys.stderr, flush=True)
+    ssh_available, ssh_stderr = dal.check_ssh(service, quiet=quiet)
 
     # === PARALLEL EXECUTION ===
     progress(3, 5, "Running analysis (metrics, queries, logs in parallel)...", quiet)
@@ -1049,7 +998,7 @@ def analyze_mysql(service: str, timeout: int = 60, quiet: bool = False,
     else:
         error_msg = "; ".join(mysql_errors) if mysql_errors else "No data returned"
         if not ssh_available:
-            error_msg = f"SSH failed after {len(ssh_attempts)} attempts: {ssh_stderr or 'connection failed'}"
+            error_msg = f"SSH failed after {len(dal.SSH_CHECK_TIMEOUTS)} attempts: {ssh_stderr or 'connection failed'}"
         result.errors.append(f"MySQL data collection failed: {error_msg}")
         result.collection_status["mysql_query"] = {
             "status": "error",

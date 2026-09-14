@@ -2,19 +2,10 @@
 # Assert: every Host block pinning its own IdentityFile also pins its own
 # ControlPath, and no two resolve to the same socket.
 #
-# THE BUG: %C hashes %l%h%p%r (local host, RESOLVED hostname, port, remote
-# user) — it does not vary by alias. So `Host github-dotfiles` (HostName
-# github.com) and any block claiming `github.com` share one socket under the
-# default `ControlPath ~/.ssh/cm-%C`. Two blocks meant to use different keys
-# collapse onto one multiplexed connection; the first to authenticate wins.
-#
-# Symptom is remote and points away from the cause: GitHub answers as the wrong
-# account and reports a readable repo as "Repository not found", while
-# `ssh -G` shows the correct IdentityFile — config and live connection disagree.
-#
-# The fix must NOT use %n: it distinguishes aliases but reintroduces the 104-char
-# unix-socket limit that %C exists to dodge — prefix + 40 hex < 67 chars;
-# Teleport hostnames here are 44, and a literal prefix keeps it bounded.
+# %C hashes local host, resolved hostname, port, and remote user, excluding aliases.
+# Hosts with different keys therefore need distinct ControlPath prefixes to avoid
+# reusing the first account's authenticated connection.
+# Use bounded literal prefixes; %n can exceed the 104-character socket path limit.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -53,7 +44,7 @@ done <"${cfg}"
 
 for host in "${pinning[@]}"; do
   if [ -z "${has_cp[${host}]:-}" ]; then
-    echo "FAIL: 'Host ${host}' pins IdentityFile but not ControlPath — it will" >&2
+    echo "FAIL: 'Host ${host}' pins IdentityFile but not ControlPath, it will" >&2
     echo "      share a multiplexed socket with any other block resolving to the" >&2
     echo "      same hostname/port/user, and the first identity to connect wins." >&2
     failures=$((failures + 1))

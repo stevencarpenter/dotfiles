@@ -1,4 +1,8 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
 """
 MongoDB analysis for Railway deployments.
 
@@ -33,7 +37,7 @@ import dal
 from dal import (
     LOG_LINES_DEFAULT, ProgressTimer, RailwayContext,
     _init_context, progress, run_railway_command, run_ssh_query,
-    get_railway_status, get_deployment_status,
+    get_deployment_status,
     get_all_metrics_from_api, _analyze_window, _build_metrics_history,
     get_recent_logs,
     _trend_indicator,
@@ -488,20 +492,8 @@ def analyze_mongo(service: str, timeout: int = 300, quiet: bool = False,
         print("  [0/5] Getting Railway context...", file=sys.stderr, flush=True)
     dal._progress_timer.start()
 
-    if environment_id and service_id:
-        dal._ctx = RailwayContext(project_id=project_id, environment_id=environment_id, service_id=service_id)
-        if not quiet:
-            print(f"        using explicit IDs (env={environment_id[:8]}..., svc={service_id[:8]}...)", file=sys.stderr, flush=True)
-    else:
-        railway_status = get_railway_status()
-        if railway_status:
-            dal._ctx = RailwayContext(
-                project_id=railway_status.get("projectId"),
-                environment_id=railway_status.get("environmentId"),
-                service_id=railway_status.get("serviceId"),
-            )
-        environment_id = dal._ctx.environment_id
-        service_id = dal._ctx.service_id
+    context = _init_context(RailwayContext(project_id, environment_id, service_id), quiet=quiet)
+    environment_id, service_id = context.environment_id, context.service_id
 
     # === DEPLOYMENT STATUS ===
     progress(1, 5, "Fetching deployment status...", quiet)
@@ -509,25 +501,7 @@ def analyze_mongo(service: str, timeout: int = 300, quiet: bool = False,
 
     # === SSH PRE-CHECK ===
     progress(2, 5, "Testing SSH connectivity...", quiet)
-    ssh_available = False
-    ssh_stderr = ""
-    ssh_attempts = [30, 60, 90]
-    for attempt, attempt_timeout in enumerate(ssh_attempts, 1):
-        ssh_code, ssh_stdout, ssh_stderr = run_ssh_query(service, "echo ok", timeout=attempt_timeout)
-        if ssh_code == 0 and "ok" in ssh_stdout:
-            ssh_available = True
-            if not quiet:
-                for line in ssh_stderr.splitlines():
-                    if line.startswith("Using SSH key:"):
-                        print(f"        {line}", file=sys.stderr, flush=True)
-                        break
-            break
-        if not quiet:
-            remaining = len(ssh_attempts) - attempt
-            if remaining > 0:
-                print(f"        SSH attempt {attempt}/{len(ssh_attempts)} failed ({ssh_stderr or 'no response'}), retrying with {ssh_attempts[attempt]}s timeout...", file=sys.stderr, flush=True)
-            else:
-                print(f"        SSH attempt {attempt}/{len(ssh_attempts)} failed ({ssh_stderr or 'no response'}), giving up", file=sys.stderr, flush=True)
+    ssh_available, ssh_stderr = dal.check_ssh(service, quiet=quiet)
 
     # === PARALLEL DATA COLLECTION ===
     progress(3, 5, "Running analysis (metrics, mongo queries, logs in parallel)...", quiet)
@@ -731,7 +705,7 @@ def generate_recommendations(result: MongoAnalysisResult) -> List[Dict[str, str]
     """Generate recommendations based on analysis results."""
     recs: List[Dict[str, str]] = []
 
-    # Collection failures — surface critical issues when SSH/introspection failed
+    # Collection failures: surface critical issues when SSH/introspection failed
     if result.collection_status:
         failed = {k: v for k, v in result.collection_status.items()
                   if v.get("status") in ("failed", "error")}
@@ -744,7 +718,7 @@ def generate_recommendations(result: MongoAnalysisResult) -> List[Dict[str, str]
             recs.append({
                 "severity": "critical",
                 "category": "collection",
-                "message": f"SSH introspection failed — unable to collect {sources}. "
+                "message": f"SSH introspection failed: unable to collect {sources}. "
                            f"Error: {errors}. "
                            f"Analysis is incomplete: WiredTiger cache, connections, "
                            f"collection stats, and replication health could not be evaluated.",
@@ -1320,39 +1294,7 @@ def format_report(result: MongoAnalysisResult) -> str:
         lines.append("")
 
     # --- Infrastructure Trends ---
-    if result.metrics_history and result.metrics_history.get("windows"):
-        windows = result.metrics_history.get("windows", {})
-        for window_label, window_data in windows.items():
-            mh = window_data.get("metrics", {})
-            if not mh:
-                continue
-            lines.append(f"## Infrastructure Trends ({window_label})")
-            lines.append("")
-            lines.append("| Metric | Current | Min | Max | Avg | Trend | Change |")
-            lines.append("|--------|---------|-----|-----|-----|-------|--------|")
-            display_order = [
-                ("cpu", "CPU"),
-                ("memory", "Memory"),
-                ("disk", "Disk"),
-                ("network_rx", "Network RX"),
-                ("network_tx", "Network TX"),
-            ]
-            for key, label in display_order:
-                if key in mh:
-                    m = mh[key]
-                    unit = m["unit"]
-                    trend = m.get("trend", {})
-                    direction = trend.get("direction", "?")
-                    change = trend.get("change_pct", 0)
-                    arrow = {"increasing": "^", "decreasing": "v", "stable": "~"}.get(direction, "?")
-                    spike_note = ""
-                    if m.get("spikes"):
-                        spike_note = f" ({m['spikes']['count']} spikes)"
-                    lines.append(
-                        f"| {label} | {m['current']} {unit} | {m['min']} | {m['max']} | "
-                        f"{m['avg']} | {arrow} {direction} | {change:+.1f}%{spike_note} |"
-                    )
-            lines.append("")
+    dal.append_infrastructure_trends(lines, result.metrics_history)
 
     # --- CPU / Memory summary ---
     if result.cpu_memory:

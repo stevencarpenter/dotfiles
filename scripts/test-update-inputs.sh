@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Hermetic coverage for the default rolling-input updater: 26.05 flake inputs,
-# the unstable soak script, and Homebrew — never a switch, never a bare
+# the unstable soak script, and Homebrew: never a switch, never a bare
 # `nix flake update`, never `nix flake update nixpkgs-unstable`.
 #
 # Production change that fails this test: coordinating those steps with a

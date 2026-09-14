@@ -200,15 +200,15 @@
   fi
 
   #################################[ os_icon: os identifier ]##################################
-  # OS identifier color — everforest muted grey, subtle
+  # OS identifier color: everforest muted grey, subtle
   typeset -g POWERLEVEL9K_OS_ICON_FOREGROUND=102
   # Custom icon.
   # typeset -g POWERLEVEL9K_OS_ICON_CONTENT_EXPANSION='⭐'
 
   ################################[ prompt_char: prompt symbol ]################################
-  # Green prompt symbol if the last command succeeded — everforest green
+  # Green prompt symbol if the last command succeeded: everforest green
   typeset -g POWERLEVEL9K_PROMPT_CHAR_OK_{VIINS,VICMD,VIVIS,VIOWR}_FOREGROUND=107
-  # Red prompt symbol if the last command failed — everforest red
+  # Red prompt symbol if the last command failed: everforest red
   typeset -g POWERLEVEL9K_PROMPT_CHAR_ERROR_{VIINS,VICMD,VIVIS,VIOWR}_FOREGROUND=167
   # Default prompt symbol.
   typeset -g POWERLEVEL9K_PROMPT_CHAR_{OK,ERROR}_VIINS_CONTENT_EXPANSION='❯'
@@ -225,16 +225,16 @@
   typeset -g POWERLEVEL9K_PROMPT_CHAR_LEFT_PROMPT_FIRST_SEGMENT_START_SYMBOL=
 
   ##################################[ dir: current directory ]##################################
-  # Default current directory color — everforest teal
+  # Default current directory color: everforest teal
   typeset -g POWERLEVEL9K_DIR_FOREGROUND=73
   # If directory is too long, shorten some of its segments to the shortest possible unique
   # prefix. The shortened directory can be tab-completed to the original.
   typeset -g POWERLEVEL9K_SHORTEN_STRATEGY=truncate_to_unique
   # Replace removed segment suffixes with this symbol.
   typeset -g POWERLEVEL9K_SHORTEN_DELIMITER=
-  # Color of the shortened directory segments — everforest muted grey
+  # Color of the shortened directory segments: everforest muted grey
   typeset -g POWERLEVEL9K_DIR_SHORTENED_FOREGROUND=102
-  # Color of the anchor directory segments — steel blue, readable pop without clashing
+  # Color of the anchor directory segments: steel blue, readable pop without clashing
   typeset -g POWERLEVEL9K_DIR_ANCHOR_FOREGROUND=74
   # Display anchor directory segments in bold.
   typeset -g POWERLEVEL9K_DIR_ANCHOR_BOLD=true
@@ -385,14 +385,14 @@
     fi
 
     if (( $1 )); then
-      # Styling for up-to-date Git status — everforest palette
+      # Styling for up-to-date Git status: everforest palette
       local       meta='%f'      # default foreground
       local      clean='%107F'   # everforest green
       local   modified='%179F'   # everforest yellow
       local  untracked='%73F'    # everforest teal
       local conflicted='%167F'   # everforest red
     else
-      # Styling for incomplete and stale Git status — muted grey
+      # Styling for incomplete and stale Git status: muted grey
       local       meta='%102F'
       local      clean='%102F'
       local   modified='%102F'
@@ -502,7 +502,7 @@
   # Enable counters for staged, unstaged, etc.
   typeset -g POWERLEVEL9K_VCS_{STAGED,UNSTAGED,UNTRACKED,CONFLICTED,COMMITS_AHEAD,COMMITS_BEHIND}_MAX_NUM=-1
 
-  # Icon color — everforest green
+  # Icon color: everforest green
   typeset -g POWERLEVEL9K_VCS_VISUAL_IDENTIFIER_COLOR=107
   typeset -g POWERLEVEL9K_VCS_LOADING_VISUAL_IDENTIFIER_COLOR=102
   # Custom icon.
@@ -562,7 +562,7 @@
   typeset -g POWERLEVEL9K_COMMAND_EXECUTION_TIME_THRESHOLD=3
   # Show this many fractional digits. Zero means round to seconds.
   typeset -g POWERLEVEL9K_COMMAND_EXECUTION_TIME_PRECISION=0
-  # Execution time color — everforest muted grey
+  # Execution time color: everforest muted grey
   typeset -g POWERLEVEL9K_COMMAND_EXECUTION_TIME_FOREGROUND=102
   # Duration format: 1d 2h 3m 4s.
   typeset -g POWERLEVEL9K_COMMAND_EXECUTION_TIME_FORMAT='d h m s'
@@ -574,7 +574,7 @@
   #######################[ background_jobs: presence of background jobs ]#######################
   # Don't show the number of background jobs.
   typeset -g POWERLEVEL9K_BACKGROUND_JOBS_VERBOSE=false
-  # Background jobs color — everforest green
+  # Background jobs color: everforest green
   typeset -g POWERLEVEL9K_BACKGROUND_JOBS_FOREGROUND=107
   # Custom icon.
   # typeset -g POWERLEVEL9K_BACKGROUND_JOBS_VISUAL_IDENTIFIER_EXPANSION='⭐'
@@ -639,88 +639,88 @@
   #   typeset -g POWERLEVEL9K_ASDF_NODEJS_SHOW_ON_UPGLOB='*.js|package.json'
   typeset -g POWERLEVEL9K_ASDF_SHOW_ON_UPGLOB=
 
-  # Ruby version from asdf — everforest purple
+  # Ruby version from asdf: everforest purple
   typeset -g POWERLEVEL9K_ASDF_RUBY_FOREGROUND=139
   # typeset -g POWERLEVEL9K_ASDF_RUBY_VISUAL_IDENTIFIER_EXPANSION='⭐'
   # typeset -g POWERLEVEL9K_ASDF_RUBY_SHOW_ON_UPGLOB='*.foo|*.bar'
 
-  # Python version from asdf — everforest teal
+  # Python version from asdf: everforest teal
   typeset -g POWERLEVEL9K_ASDF_PYTHON_FOREGROUND=73
   # typeset -g POWERLEVEL9K_ASDF_PYTHON_VISUAL_IDENTIFIER_EXPANSION='⭐'
   # typeset -g POWERLEVEL9K_ASDF_PYTHON_SHOW_ON_UPGLOB='*.foo|*.bar'
 
-  # Go version from asdf — everforest teal
+  # Go version from asdf: everforest teal
   typeset -g POWERLEVEL9K_ASDF_GOLANG_FOREGROUND=73
   # typeset -g POWERLEVEL9K_ASDF_GOLANG_VISUAL_IDENTIFIER_EXPANSION='⭐'
   # typeset -g POWERLEVEL9K_ASDF_GOLANG_SHOW_ON_UPGLOB='*.foo|*.bar'
 
-  # Node.js version from asdf — everforest green
+  # Node.js version from asdf: everforest green
   typeset -g POWERLEVEL9K_ASDF_NODEJS_FOREGROUND=107
   # typeset -g POWERLEVEL9K_ASDF_NODEJS_VISUAL_IDENTIFIER_EXPANSION='⭐'
   # typeset -g POWERLEVEL9K_ASDF_NODEJS_SHOW_ON_UPGLOB='*.foo|*.bar'
 
-  # Rust version from asdf — everforest orange
+  # Rust version from asdf: everforest orange
   typeset -g POWERLEVEL9K_ASDF_RUST_FOREGROUND=173
   # typeset -g POWERLEVEL9K_ASDF_RUST_VISUAL_IDENTIFIER_EXPANSION='⭐'
   # typeset -g POWERLEVEL9K_ASDF_RUST_SHOW_ON_UPGLOB='*.foo|*.bar'
 
-  # .NET Core version from asdf — everforest purple
+  # .NET Core version from asdf: everforest purple
   typeset -g POWERLEVEL9K_ASDF_DOTNET_CORE_FOREGROUND=139
   # typeset -g POWERLEVEL9K_ASDF_DOTNET_CORE_VISUAL_IDENTIFIER_EXPANSION='⭐'
   # typeset -g POWERLEVEL9K_ASDF_DOTNET_SHOW_ON_UPGLOB='*.foo|*.bar'
 
-  # Flutter version from asdf — everforest teal
+  # Flutter version from asdf: everforest teal
   typeset -g POWERLEVEL9K_ASDF_FLUTTER_FOREGROUND=73
   # typeset -g POWERLEVEL9K_ASDF_FLUTTER_VISUAL_IDENTIFIER_EXPANSION='⭐'
   # typeset -g POWERLEVEL9K_ASDF_FLUTTER_SHOW_ON_UPGLOB='*.foo|*.bar'
 
-  # Lua version from asdf — everforest green
+  # Lua version from asdf: everforest green
   typeset -g POWERLEVEL9K_ASDF_LUA_FOREGROUND=107
   # typeset -g POWERLEVEL9K_ASDF_LUA_VISUAL_IDENTIFIER_EXPANSION='⭐'
   # typeset -g POWERLEVEL9K_ASDF_LUA_SHOW_ON_UPGLOB='*.foo|*.bar'
 
-  # Java version from asdf — everforest green
+  # Java version from asdf: everforest green
   typeset -g POWERLEVEL9K_ASDF_JAVA_FOREGROUND=107
   # typeset -g POWERLEVEL9K_ASDF_JAVA_VISUAL_IDENTIFIER_EXPANSION='⭐'
   # typeset -g POWERLEVEL9K_ASDF_JAVA_SHOW_ON_UPGLOB='*.foo|*.bar'
 
-  # Perl version from asdf — everforest teal
+  # Perl version from asdf: everforest teal
   typeset -g POWERLEVEL9K_ASDF_PERL_FOREGROUND=73
   # typeset -g POWERLEVEL9K_ASDF_PERL_VISUAL_IDENTIFIER_EXPANSION='⭐'
   # typeset -g POWERLEVEL9K_ASDF_PERL_SHOW_ON_UPGLOB='*.foo|*.bar'
 
-  # Erlang version from asdf — everforest purple
+  # Erlang version from asdf: everforest purple
   typeset -g POWERLEVEL9K_ASDF_ERLANG_FOREGROUND=139
   # typeset -g POWERLEVEL9K_ASDF_ERLANG_VISUAL_IDENTIFIER_EXPANSION='⭐'
   # typeset -g POWERLEVEL9K_ASDF_ERLANG_SHOW_ON_UPGLOB='*.foo|*.bar'
 
-  # Elixir version from asdf — everforest purple
+  # Elixir version from asdf: everforest purple
   typeset -g POWERLEVEL9K_ASDF_ELIXIR_FOREGROUND=139
   # typeset -g POWERLEVEL9K_ASDF_ELIXIR_VISUAL_IDENTIFIER_EXPANSION='⭐'
   # typeset -g POWERLEVEL9K_ASDF_ELIXIR_SHOW_ON_UPGLOB='*.foo|*.bar'
 
-  # Postgres version from asdf — everforest teal
+  # Postgres version from asdf: everforest teal
   typeset -g POWERLEVEL9K_ASDF_POSTGRES_FOREGROUND=73
   # typeset -g POWERLEVEL9K_ASDF_POSTGRES_VISUAL_IDENTIFIER_EXPANSION='⭐'
   # typeset -g POWERLEVEL9K_ASDF_POSTGRES_SHOW_ON_UPGLOB='*.foo|*.bar'
 
-  # PHP version from asdf — everforest purple
+  # PHP version from asdf: everforest purple
   typeset -g POWERLEVEL9K_ASDF_PHP_FOREGROUND=139
   # typeset -g POWERLEVEL9K_ASDF_PHP_VISUAL_IDENTIFIER_EXPANSION='⭐'
   # typeset -g POWERLEVEL9K_ASDF_PHP_SHOW_ON_UPGLOB='*.foo|*.bar'
 
-  # Haskell version from asdf — everforest orange
+  # Haskell version from asdf: everforest orange
   typeset -g POWERLEVEL9K_ASDF_HASKELL_FOREGROUND=173
   # typeset -g POWERLEVEL9K_ASDF_HASKELL_VISUAL_IDENTIFIER_EXPANSION='⭐'
   # typeset -g POWERLEVEL9K_ASDF_HASKELL_SHOW_ON_UPGLOB='*.foo|*.bar'
 
-  # Julia version from asdf — everforest green
+  # Julia version from asdf: everforest green
   typeset -g POWERLEVEL9K_ASDF_JULIA_FOREGROUND=107
   # typeset -g POWERLEVEL9K_ASDF_JULIA_VISUAL_IDENTIFIER_EXPANSION='⭐'
   # typeset -g POWERLEVEL9K_ASDF_JULIA_SHOW_ON_UPGLOB='*.foo|*.bar'
 
   ##########[ nordvpn: nordvpn connection status, linux only (https://nordvpn.com/) ]###########
-  # NordVPN connection indicator color — everforest teal
+  # NordVPN connection indicator color: everforest teal
   typeset -g POWERLEVEL9K_NORDVPN_FOREGROUND=73
   # Hide NordVPN connection indicator when not connected.
   typeset -g POWERLEVEL9K_NORDVPN_{DISCONNECTED,CONNECTING,DISCONNECTING}_CONTENT_EXPANSION=
@@ -729,49 +729,49 @@
   # typeset -g POWERLEVEL9K_NORDVPN_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   #################[ ranger: ranger shell (https://github.com/ranger/ranger) ]##################
-  # Ranger shell color — everforest yellow
+  # Ranger shell color: everforest yellow
   typeset -g POWERLEVEL9K_RANGER_FOREGROUND=179
   # Custom icon.
   # typeset -g POWERLEVEL9K_RANGER_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   ####################[ yazi: yazi shell (https://github.com/sxyazi/yazi) ]#####################
-  # Yazi shell color — everforest yellow
+  # Yazi shell color: everforest yellow
   typeset -g POWERLEVEL9K_YAZI_FOREGROUND=179
   # Custom icon.
   # typeset -g POWERLEVEL9K_YAZI_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   ######################[ nnn: nnn shell (https://github.com/jarun/nnn) ]#######################
-  # Nnn shell color — everforest bright green
+  # Nnn shell color: everforest bright green
   typeset -g POWERLEVEL9K_NNN_FOREGROUND=108
   # Custom icon.
   # typeset -g POWERLEVEL9K_NNN_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   ######################[ lf: lf shell (https://github.com/gokcehan/lf) ]#######################
-  # lf shell color — everforest bright green
+  # lf shell color: everforest bright green
   typeset -g POWERLEVEL9K_LF_FOREGROUND=108
   # Custom icon.
   # typeset -g POWERLEVEL9K_LF_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   ##################[ xplr: xplr shell (https://github.com/sayanarijit/xplr) ]##################
-  # xplr shell color — everforest bright green
+  # xplr shell color: everforest bright green
   typeset -g POWERLEVEL9K_XPLR_FOREGROUND=108
   # Custom icon.
   # typeset -g POWERLEVEL9K_XPLR_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   ###########################[ vim_shell: vim shell indicator (:sh) ]###########################
-  # Vim shell indicator color — everforest green
+  # Vim shell indicator color: everforest green
   typeset -g POWERLEVEL9K_VIM_SHELL_FOREGROUND=107
   # Custom icon.
   # typeset -g POWERLEVEL9K_VIM_SHELL_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   ######[ midnight_commander: midnight commander shell (https://midnight-commander.org/) ]######
-  # Midnight Commander shell color — everforest yellow
+  # Midnight Commander shell color: everforest yellow
   typeset -g POWERLEVEL9K_MIDNIGHT_COMMANDER_FOREGROUND=179
   # Custom icon.
   # typeset -g POWERLEVEL9K_MIDNIGHT_COMMANDER_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   #[ nix_shell: nix shell (https://nixos.org/nixos/nix-pills/developing-with-nix-shell.html) ]##
-  # Nix shell color — everforest teal
+  # Nix shell color: everforest teal
   typeset -g POWERLEVEL9K_NIX_SHELL_FOREGROUND=73
 
   # Display the icon of nix_shell if PATH contains a subdirectory of /nix/store.
@@ -797,13 +797,13 @@
   # typeset -g POWERLEVEL9K_DISK_USAGE_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   ######################################[ ram: free RAM ]#######################################
-  # RAM color — everforest teal
+  # RAM color: everforest teal
   typeset -g POWERLEVEL9K_RAM_FOREGROUND=73
   # Custom icon.
   # typeset -g POWERLEVEL9K_RAM_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   #####################################[ swap: used swap ]######################################
-  # Swap color — everforest purple
+  # Swap color: everforest purple
   typeset -g POWERLEVEL9K_SWAP_FOREGROUND=139
   # Custom icon.
   # typeset -g POWERLEVEL9K_SWAP_VISUAL_IDENTIFIER_EXPANSION='⭐'
@@ -811,17 +811,17 @@
   ######################################[ load: CPU load ]######################################
   # Show average CPU load over this many last minutes. Valid values are 1, 5 and 15.
   typeset -g POWERLEVEL9K_LOAD_WHICH=5
-  # Load color when load is under 50% — everforest green
+  # Load color when load is under 50%: everforest green
   typeset -g POWERLEVEL9K_LOAD_NORMAL_FOREGROUND=107
-  # Load color when load is between 50% and 70% — everforest yellow
+  # Load color when load is between 50% and 70%: everforest yellow
   typeset -g POWERLEVEL9K_LOAD_WARNING_FOREGROUND=179
-  # Load color when load is over 70% — everforest red
+  # Load color when load is over 70%: everforest red
   typeset -g POWERLEVEL9K_LOAD_CRITICAL_FOREGROUND=167
   # Custom icon.
   # typeset -g POWERLEVEL9K_LOAD_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   ################[ todo: todo items (https://github.com/todotxt/todo.txt-cli) ]################
-  # Todo color — everforest teal
+  # Todo color: everforest teal
   typeset -g POWERLEVEL9K_TODO_FOREGROUND=73
   # Hide todo when the total number of tasks is zero.
   typeset -g POWERLEVEL9K_TODO_HIDE_ZERO_TOTAL=true
@@ -845,7 +845,7 @@
   # typeset -g POWERLEVEL9K_TODO_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   ###########[ timewarrior: timewarrior tracking status (https://timewarrior.net/) ]############
-  # Timewarrior color — everforest teal
+  # Timewarrior color: everforest teal
   typeset -g POWERLEVEL9K_TIMEWARRIOR_FOREGROUND=73
   # If the tracked task is longer than 24 characters, truncate and append "…".
   # Tip: To always display tasks without truncation, delete the following parameter.
@@ -857,7 +857,7 @@
   # typeset -g POWERLEVEL9K_TIMEWARRIOR_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   ##############[ taskwarrior: taskwarrior task count (https://taskwarrior.org/) ]##############
-  # Taskwarrior color — everforest teal
+  # Taskwarrior color: everforest teal
   typeset -g POWERLEVEL9K_TASKWARRIOR_FOREGROUND=73
 
   # Taskwarrior segment format. The following parameters are available within the expansion.
@@ -877,9 +877,9 @@
   # typeset -g POWERLEVEL9K_TASKWARRIOR_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   ######[ per_directory_history: Oh My Zsh per-directory-history local/global indicator ]#######
-  # Color when using local history — everforest purple
+  # Color when using local history: everforest purple
   typeset -g POWERLEVEL9K_PER_DIRECTORY_HISTORY_LOCAL_FOREGROUND=139
-  # Color when using global history — everforest orange
+  # Color when using global history: everforest orange
   typeset -g POWERLEVEL9K_PER_DIRECTORY_HISTORY_GLOBAL_FOREGROUND=173
 
   # Tip: Uncomment the next two lines to hide "local"/"global" text and leave just the icon.
@@ -891,7 +891,7 @@
   # typeset -g POWERLEVEL9K_PER_DIRECTORY_HISTORY_GLOBAL_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   ################################[ cpu_arch: CPU architecture ]################################
-  # CPU architecture color — everforest orange
+  # CPU architecture color: everforest orange
   typeset -g POWERLEVEL9K_CPU_ARCH_FOREGROUND=173
 
   # Hide the segment when on a specific CPU architecture.
@@ -902,11 +902,11 @@
   # typeset -g POWERLEVEL9K_CPU_ARCH_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   ##################################[ context: user@hostname ]##################################
-  # Context color when running with privileges — everforest yellow
+  # Context color when running with privileges: everforest yellow
   typeset -g POWERLEVEL9K_CONTEXT_ROOT_FOREGROUND=179
-  # Context color in SSH without privileges — everforest warm foreground
+  # Context color in SSH without privileges: everforest warm foreground
   typeset -g POWERLEVEL9K_CONTEXT_{REMOTE,REMOTE_SUDO}_FOREGROUND=187
-  # Default context color (no privileges, no SSH) — everforest warm foreground
+  # Default context color (no privileges, no SSH): everforest warm foreground
   typeset -g POWERLEVEL9K_CONTEXT_FOREGROUND=187
 
   # Context format when running with privileges: bold user@hostname.
@@ -926,7 +926,7 @@
   # typeset -g POWERLEVEL9K_CONTEXT_PREFIX='%fwith '
 
   ###[ virtualenv: python virtual environment (https://docs.python.org/3/library/venv.html) ]###
-  # Python virtual environment color — everforest teal
+  # Python virtual environment color: everforest teal
   typeset -g POWERLEVEL9K_VIRTUALENV_FOREGROUND=73
   # Don't show Python version next to the virtual environment name.
   typeset -g POWERLEVEL9K_VIRTUALENV_SHOW_PYTHON_VERSION=false
@@ -939,7 +939,7 @@
   # typeset -g POWERLEVEL9K_VIRTUALENV_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   #####################[ anaconda: conda environment (https://conda.io/) ]######################
-  # Anaconda environment color — everforest teal
+  # Anaconda environment color: everforest teal
   typeset -g POWERLEVEL9K_ANACONDA_FOREGROUND=73
 
   # Anaconda segment format. The following parameters are available within the expansion.
@@ -972,7 +972,7 @@
   # typeset -g POWERLEVEL9K_ANACONDA_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   ################[ pyenv: python environment (https://github.com/pyenv/pyenv) ]################
-  # Pyenv color — everforest teal
+  # Pyenv color: everforest teal
   typeset -g POWERLEVEL9K_PYENV_FOREGROUND=73
   # Hide python version if it doesn't come from one of these sources.
   typeset -g POWERLEVEL9K_PYENV_SOURCES=(shell local global)
@@ -998,7 +998,7 @@
   # typeset -g POWERLEVEL9K_PYENV_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   ################[ goenv: go environment (https://github.com/syndbg/goenv) ]################
-  # Goenv color — everforest teal
+  # Goenv color: everforest teal
   typeset -g POWERLEVEL9K_GOENV_FOREGROUND=73
   # Hide go version if it doesn't come from one of these sources.
   typeset -g POWERLEVEL9K_GOENV_SOURCES=(shell local global)
@@ -1011,7 +1011,7 @@
   # typeset -g POWERLEVEL9K_GOENV_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   ##########[ nodenv: node.js version from nodenv (https://github.com/nodenv/nodenv) ]##########
-  # Nodenv color — everforest green
+  # Nodenv color: everforest green
   typeset -g POWERLEVEL9K_NODENV_FOREGROUND=107
   # Hide node version if it doesn't come from one of these sources.
   typeset -g POWERLEVEL9K_NODENV_SOURCES=(shell local global)
@@ -1024,7 +1024,7 @@
   # typeset -g POWERLEVEL9K_NODENV_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   ##############[ nvm: node.js version from nvm (https://github.com/nvm-sh/nvm) ]###############
-  # Nvm color — everforest green
+  # Nvm color: everforest green
   typeset -g POWERLEVEL9K_NVM_FOREGROUND=107
   # If set to false, hide node version if it's the same as default:
   # $(nvm version current) == $(nvm version default).
@@ -1035,7 +1035,7 @@
   # typeset -g POWERLEVEL9K_NVM_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   ############[ nodeenv: node.js environment (https://github.com/ekalinin/nodeenv) ]############
-  # Nodeenv color — everforest green
+  # Nodeenv color: everforest green
   typeset -g POWERLEVEL9K_NODEENV_FOREGROUND=107
   # Don't show Node version next to the environment name.
   typeset -g POWERLEVEL9K_NODEENV_SHOW_NODE_VERSION=false
@@ -1045,7 +1045,7 @@
   # typeset -g POWERLEVEL9K_NODEENV_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   ##############################[ node_version: node.js version ]###############################
-  # Node version color — everforest green
+  # Node version color: everforest green
   typeset -g POWERLEVEL9K_NODE_VERSION_FOREGROUND=107
   # Show node version only when in a directory tree containing package.json.
   typeset -g POWERLEVEL9K_NODE_VERSION_PROJECT_ONLY=true
@@ -1053,7 +1053,7 @@
   # typeset -g POWERLEVEL9K_NODE_VERSION_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   #######################[ go_version: go version (https://golang.org) ]########################
-  # Go version color — everforest teal
+  # Go version color: everforest teal
   typeset -g POWERLEVEL9K_GO_VERSION_FOREGROUND=73
   # Show go version only when in a go project subdirectory.
   typeset -g POWERLEVEL9K_GO_VERSION_PROJECT_ONLY=true
@@ -1061,7 +1061,7 @@
   # typeset -g POWERLEVEL9K_GO_VERSION_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   #################[ rust_version: rustc version (https://www.rust-lang.org) ]##################
-  # Rust version color — everforest orange
+  # Rust version color: everforest orange
   typeset -g POWERLEVEL9K_RUST_VERSION_FOREGROUND=173
   # Show rust version only when in a rust project subdirectory.
   typeset -g POWERLEVEL9K_RUST_VERSION_PROJECT_ONLY=true
@@ -1069,7 +1069,7 @@
   # typeset -g POWERLEVEL9K_RUST_VERSION_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   ###############[ dotnet_version: .NET version (https://dotnet.microsoft.com) ]################
-  # .NET version color — everforest purple
+  # .NET version color: everforest purple
   typeset -g POWERLEVEL9K_DOTNET_VERSION_FOREGROUND=139
   # Show .NET version only when in a .NET project subdirectory.
   typeset -g POWERLEVEL9K_DOTNET_VERSION_PROJECT_ONLY=true
@@ -1077,7 +1077,7 @@
   # typeset -g POWERLEVEL9K_DOTNET_VERSION_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   #####################[ php_version: php version (https://www.php.net/) ]######################
-  # PHP version color — everforest purple
+  # PHP version color: everforest purple
   typeset -g POWERLEVEL9K_PHP_VERSION_FOREGROUND=139
   # Show PHP version only when in a PHP project subdirectory.
   typeset -g POWERLEVEL9K_PHP_VERSION_PROJECT_ONLY=true
@@ -1085,13 +1085,13 @@
   # typeset -g POWERLEVEL9K_PHP_VERSION_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   ##########[ laravel_version: laravel php framework version (https://laravel.com/) ]###########
-  # Laravel version color — everforest red
+  # Laravel version color: everforest red
   typeset -g POWERLEVEL9K_LARAVEL_VERSION_FOREGROUND=167
   # Custom icon.
   # typeset -g POWERLEVEL9K_LARAVEL_VERSION_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   ####################[ java_version: java version (https://www.java.com/) ]####################
-  # Java version color — everforest green
+  # Java version color: everforest green
   typeset -g POWERLEVEL9K_JAVA_VERSION_FOREGROUND=107
   # Show java version only when in a java project subdirectory.
   typeset -g POWERLEVEL9K_JAVA_VERSION_PROJECT_ONLY=true
@@ -1101,7 +1101,7 @@
   # typeset -g POWERLEVEL9K_JAVA_VERSION_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   ###[ package: name@version from package.json (https://docs.npmjs.com/files/package.json) ]####
-  # Package color — everforest teal
+  # Package color: everforest teal
   typeset -g POWERLEVEL9K_PACKAGE_FOREGROUND=73
   # Package format. The following parameters are available within the expansion.
   #
@@ -1113,7 +1113,7 @@
   # typeset -g POWERLEVEL9K_PACKAGE_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   #############[ rbenv: ruby version from rbenv (https://github.com/rbenv/rbenv) ]##############
-  # Rbenv color — everforest purple
+  # Rbenv color: everforest purple
   typeset -g POWERLEVEL9K_RBENV_FOREGROUND=139
   # Hide ruby version if it doesn't come from one of these sources.
   typeset -g POWERLEVEL9K_RBENV_SOURCES=(shell local global)
@@ -1126,7 +1126,7 @@
   # typeset -g POWERLEVEL9K_RBENV_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   #######################[ rvm: ruby version from rvm (https://rvm.io) ]########################
-  # Rvm color — everforest purple
+  # Rvm color: everforest purple
   typeset -g POWERLEVEL9K_RVM_FOREGROUND=139
   # Don't show @gemset at the end.
   typeset -g POWERLEVEL9K_RVM_SHOW_GEMSET=false
@@ -1136,13 +1136,13 @@
   # typeset -g POWERLEVEL9K_RVM_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   ###########[ fvm: flutter version management (https://github.com/leoafarias/fvm) ]############
-  # Fvm color — everforest teal
+  # Fvm color: everforest teal
   typeset -g POWERLEVEL9K_FVM_FOREGROUND=73
   # Custom icon.
   # typeset -g POWERLEVEL9K_FVM_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   ##########[ luaenv: lua version from luaenv (https://github.com/cehoffman/luaenv) ]###########
-  # Lua color — everforest green
+  # Lua color: everforest green
   typeset -g POWERLEVEL9K_LUAENV_FOREGROUND=107
   # Hide lua version if it doesn't come from one of these sources.
   typeset -g POWERLEVEL9K_LUAENV_SOURCES=(shell local global)
@@ -1155,7 +1155,7 @@
   # typeset -g POWERLEVEL9K_LUAENV_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   ###############[ jenv: java version from jenv (https://github.com/jenv/jenv) ]################
-  # Java color — everforest green
+  # Java color: everforest green
   typeset -g POWERLEVEL9K_JENV_FOREGROUND=107
   # Hide java version if it doesn't come from one of these sources.
   typeset -g POWERLEVEL9K_JENV_SOURCES=(shell local global)
@@ -1168,7 +1168,7 @@
   # typeset -g POWERLEVEL9K_JENV_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   ###########[ plenv: perl version from plenv (https://github.com/tokuhirom/plenv) ]############
-  # Perl color — everforest teal
+  # Perl color: everforest teal
   typeset -g POWERLEVEL9K_PLENV_FOREGROUND=73
   # Hide perl version if it doesn't come from one of these sources.
   typeset -g POWERLEVEL9K_PLENV_SOURCES=(shell local global)
@@ -1181,7 +1181,7 @@
   # typeset -g POWERLEVEL9K_PLENV_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   ###########[ perlbrew: perl version from perlbrew (https://github.com/gugod/App-perlbrew) ]############
-  # Perlbrew color — everforest teal
+  # Perlbrew color: everforest teal
   typeset -g POWERLEVEL9K_PERLBREW_FOREGROUND=73
   # Show perlbrew version only when in a perl project subdirectory.
   typeset -g POWERLEVEL9K_PERLBREW_PROJECT_ONLY=true
@@ -1191,7 +1191,7 @@
   # typeset -g POWERLEVEL9K_PERLBREW_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   ############[ phpenv: php version from phpenv (https://github.com/phpenv/phpenv) ]############
-  # PHP color — everforest purple
+  # PHP color: everforest purple
   typeset -g POWERLEVEL9K_PHPENV_FOREGROUND=139
   # Hide php version if it doesn't come from one of these sources.
   typeset -g POWERLEVEL9K_PHPENV_SOURCES=(shell local global)
@@ -1204,7 +1204,7 @@
   # typeset -g POWERLEVEL9K_PHPENV_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   #######[ scalaenv: scala version from scalaenv (https://github.com/scalaenv/scalaenv) ]#######
-  # Scala color — everforest red
+  # Scala color: everforest red
   typeset -g POWERLEVEL9K_SCALAENV_FOREGROUND=167
   # Hide scala version if it doesn't come from one of these sources.
   typeset -g POWERLEVEL9K_SCALAENV_SOURCES=(shell local global)
@@ -1217,7 +1217,7 @@
   # typeset -g POWERLEVEL9K_SCALAENV_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   ##########[ haskell_stack: haskell version from stack (https://haskellstack.org/) ]###########
-  # Haskell color — everforest orange
+  # Haskell color: everforest orange
   typeset -g POWERLEVEL9K_HASKELL_STACK_FOREGROUND=173
   # Hide haskell version if it doesn't come from one of these sources.
   #
@@ -1265,7 +1265,7 @@
       # '*prod*'  PROD    # These values are examples that are unlikely
       # '*test*'  TEST    # to match your needs. Customize them as needed.
       '*'       DEFAULT)
-  # Kubecontext color — everforest purple
+  # Kubecontext color: everforest purple
   typeset -g POWERLEVEL9K_KUBECONTEXT_DEFAULT_FOREGROUND=139
   # typeset -g POWERLEVEL9K_KUBECONTEXT_DEFAULT_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
@@ -1348,12 +1348,12 @@
       # '*prod*'  PROD    # These values are examples that are unlikely
       # '*test*'  TEST    # to match your needs. Customize them as needed.
       '*'         OTHER)
-  # Terraform color — everforest teal
+  # Terraform color: everforest teal
   typeset -g POWERLEVEL9K_TERRAFORM_OTHER_FOREGROUND=73
   # typeset -g POWERLEVEL9K_TERRAFORM_OTHER_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   #############[ terraform_version: terraform version (https://www.terraform.io) ]##############
-  # Terraform version color — everforest teal
+  # Terraform version color: everforest teal
   typeset -g POWERLEVEL9K_TERRAFORM_VERSION_FOREGROUND=73
   # Custom icon.
   # typeset -g POWERLEVEL9K_TERRAFORM_VERSION_VISUAL_IDENTIFIER_EXPANSION='⭐'
@@ -1390,7 +1390,7 @@
       # '*prod*'  PROD    # These values are examples that are unlikely
       # '*test*'  TEST    # to match your needs. Customize them as needed.
       '*'       DEFAULT)
-  # AWS color — everforest orange
+  # AWS color: everforest orange
   typeset -g POWERLEVEL9K_AWS_DEFAULT_FOREGROUND=173
   # typeset -g POWERLEVEL9K_AWS_DEFAULT_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
@@ -1401,7 +1401,7 @@
   typeset -g POWERLEVEL9K_AWS_CONTENT_EXPANSION='${P9K_AWS_PROFILE//\%/%%}${P9K_AWS_REGION:+ ${P9K_AWS_REGION//\%/%%}}'
 
   #[ aws_eb_env: aws elastic beanstalk environment (https://aws.amazon.com/elasticbeanstalk/) ]#
-  # AWS Elastic Beanstalk environment color — everforest green
+  # AWS Elastic Beanstalk environment color: everforest green
   typeset -g POWERLEVEL9K_AWS_EB_ENV_FOREGROUND=107
   # Custom icon.
   # typeset -g POWERLEVEL9K_AWS_EB_ENV_VISUAL_IDENTIFIER_EXPANSION='⭐'
@@ -1439,7 +1439,7 @@
       # '*test*'  TEST    # to match your needs. Customize them as needed.
       '*'         OTHER)
 
-  # Azure account name color — everforest teal
+  # Azure account name color: everforest teal
   typeset -g POWERLEVEL9K_AZURE_OTHER_FOREGROUND=73
   # Custom icon.
   # typeset -g POWERLEVEL9K_AZURE_OTHER_VISUAL_IDENTIFIER_EXPANSION='⭐'
@@ -1448,7 +1448,7 @@
   # Show gcloud only when the command you are typing invokes one of these tools.
   # Tip: Remove the next line to always show gcloud.
   typeset -g POWERLEVEL9K_GCLOUD_SHOW_ON_COMMAND='gcloud|gcs|gsutil'
-  # Google cloud color — everforest teal
+  # Google cloud color: everforest teal
   typeset -g POWERLEVEL9K_GCLOUD_FOREGROUND=73
 
   # Google cloud format. Change the value of POWERLEVEL9K_GCLOUD_PARTIAL_CONTENT_EXPANSION and/or
@@ -1520,7 +1520,7 @@
       # '*:*prod*:*'  PROD    # These values are examples that are unlikely
       # '*:*test*:*'  TEST    # to match your needs. Customize them as needed.
       '*'             DEFAULT)
-  # Google App Cred color — everforest teal
+  # Google App Cred color: everforest teal
   typeset -g POWERLEVEL9K_GOOGLE_APP_CRED_DEFAULT_FOREGROUND=73
   # typeset -g POWERLEVEL9K_GOOGLE_APP_CRED_DEFAULT_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
@@ -1541,7 +1541,7 @@
   typeset -g POWERLEVEL9K_GOOGLE_APP_CRED_DEFAULT_CONTENT_EXPANSION='${P9K_GOOGLE_APP_CRED_PROJECT_ID//\%/%%}'
 
   ##############[ toolbox: toolbox name (https://github.com/containers/toolbox) ]###############
-  # Toolbox color — everforest yellow
+  # Toolbox color: everforest yellow
   typeset -g POWERLEVEL9K_TOOLBOX_FOREGROUND=179
   # Don't display the name of the toolbox if it matches fedora-toolbox-*.
   typeset -g POWERLEVEL9K_TOOLBOX_CONTENT_EXPANSION='${P9K_TOOLBOX_NAME:#fedora-toolbox-*}'
@@ -1551,13 +1551,13 @@
   # typeset -g POWERLEVEL9K_TOOLBOX_PREFIX='%fin '
 
   ###############################[ public_ip: public IP address ]###############################
-  # Public IP color — everforest muted grey
+  # Public IP color: everforest muted grey
   typeset -g POWERLEVEL9K_PUBLIC_IP_FOREGROUND=102
   # Custom icon.
   # typeset -g POWERLEVEL9K_PUBLIC_IP_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   ########################[ vpn_ip: virtual private network indicator ]#########################
-  # VPN IP color — everforest teal
+  # VPN IP color: everforest teal
   typeset -g POWERLEVEL9K_VPN_IP_FOREGROUND=73
   # When on VPN, show just an icon without the IP address.
   # Tip: To display the private IP address when on VPN, remove the next line.
@@ -1573,7 +1573,7 @@
   # typeset -g POWERLEVEL9K_VPN_IP_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   ###########[ ip: ip address and bandwidth usage for a specified network interface ]###########
-  # IP color — everforest teal
+  # IP color: everforest teal
   typeset -g POWERLEVEL9K_IP_FOREGROUND=73
   # The following parameters are accessible within the expansion:
   #
@@ -1595,7 +1595,7 @@
   # typeset -g POWERLEVEL9K_IP_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   #########################[ proxy: system-wide http/https/ftp proxy ]##########################
-  # Proxy color — everforest teal
+  # Proxy color: everforest teal
   typeset -g POWERLEVEL9K_PROXY_FOREGROUND=73
   # Custom icon.
   # typeset -g POWERLEVEL9K_PROXY_VISUAL_IDENTIFIER_EXPANSION='⭐'
@@ -1614,7 +1614,7 @@
   typeset -g POWERLEVEL9K_BATTERY_VERBOSE=false
 
   #####################################[ wifi: wifi speed ]#####################################
-  # WiFi color — everforest teal
+  # WiFi color: everforest teal
   typeset -g POWERLEVEL9K_WIFI_FOREGROUND=73
   # Custom icon.
   # typeset -g POWERLEVEL9K_WIFI_VISUAL_IDENTIFIER_EXPANSION='⭐'
@@ -1640,7 +1640,7 @@
   #   P9K_WIFI_BARS         | signal strength in bars, from 0 to 4 (derived from P9K_WIFI_RSSI and P9K_WIFI_NOISE)
 
   ####################################[ time: current time ]####################################
-  # Current time color — everforest muted grey (subtle)
+  # Current time color: everforest muted grey (subtle)
   typeset -g POWERLEVEL9K_TIME_FOREGROUND=102
   # Format for the current time: 09:51:02. See `man 3 strftime`.
   typeset -g POWERLEVEL9K_TIME_FORMAT='%D{%H:%M:%S}'

@@ -3,7 +3,7 @@
 # requires-python = ">=3.11"
 # dependencies = []
 # ///
-"""strip_context.py — PoC comment/docstring/doc stripper for blind code review.
+"""strip_context.py: PoC comment/docstring/doc stripper for blind code review.
 
 Produces a scratch workspace whose files have identical line and column
 numbers to the originals, with all comments, docstrings, and documentation
@@ -206,7 +206,7 @@ def strip_python(source: str) -> str:
         if tok.type == tokenize.COMMENT:
             blank_span(*tok.start, *tok.end, "")
         # Standalone string statement: previous significant token opens a
-        # suite or line (or start of file) — treat as docstring and blank.
+        # suite or line (or start of file): treat as docstring and blank.
         elif tok.type == tokenize.STRING and prev_significant in (
             None,
             "NEWLINE",
@@ -214,8 +214,6 @@ def strip_python(source: str) -> str:
             "DEDENT",
         ):
             blank_span(*tok.start, *tok.end, '""')
-        # NEWLINE/INDENT/DEDENT are already excluded from NL and COMMENT, so
-        # this single test covers what used to be two identical branches.
         if tok.type not in (tokenize.NL, tokenize.COMMENT):
             prev_significant = tokenize.tok_name[tok.type]
     return "".join(lines)
@@ -300,10 +298,6 @@ def strip_slash(source: str, nested_blocks: bool = False) -> str:
             out.append(ch if ch == "\n" else " ")
             i += 1
         else:  # str
-            if ch == "\\" and quote != "`":
-                out.append(ch + nxt)
-                i += 2
-                continue
             if ch == "\\":  # escapes are meaningful in templates too
                 out.append(ch + nxt)
                 i += 2
@@ -319,7 +313,7 @@ def strip_slash(source: str, nested_blocks: bool = False) -> str:
             if ch == quote:
                 state = "code"
             elif ch == "\n" and quote != "`":
-                state = "code"  # unterminated string line — bail to code
+                state = "code"  # unterminated string line: bail to code
             out.append(ch)
             i += 1
     return "".join(out)
@@ -329,7 +323,7 @@ def strip_hash(source: str, indented_strings: bool = False) -> str:
     """Strip #-comments (shell/yaml/toml/ruby/...), quote- and position-aware.
 
     A # opens a comment only at line start or after whitespace, outside
-    quotes — so ${#var}, "a#b", and foo#bar survive.
+    quotes: so ${#var}, "a#b", and foo#bar survive.
 
     When ``indented_strings`` is true (Nix), ``''...''`` is a string.
     A closer is ``''`` not followed by ``'``, ``$``, or ``\\`` (Nix escapes).
@@ -459,11 +453,8 @@ def strip_sql(source: str) -> str:
 
 def strip_xml(source: str) -> str:
     """Strip <!-- --> comments, space-preserving, attribute-aware."""
-    # A comment cannot open inside a tag's quoted attribute value, so `<!--`
-    # there is ordinary text. Without the tag/attr states, `alt="see <!-- x -->"`
-    # loses real content, and validate_strip cannot object: blanking to spaces
-    # is exactly what a legitimate strip looks like. Every sibling stripper
-    # tracks string state for the same reason.
+    # Preserve `<!--` inside quoted attributes. The space-mask validator cannot
+    # distinguish blanked attribute text from a stripped comment.
     out: list[str] = []
     i, n = 0, len(source)
     state = "text"
@@ -684,10 +675,7 @@ def _assert_diff_applies(repo: Path, diff_path: Path) -> None:
 def cmd_diff(args: argparse.Namespace) -> int:
     repo = Path(args.repo).resolve()
     out = Path(args.out).resolve()
-    # `git diff --name-only` omits untracked files, but a newly added file is
-    # part of the change under review. Dropping it silently would hand the two
-    # arms different diffs, and every context-only finding on a new file would
-    # be an artifact of this tool rather than of comment bias.
+    # Include untracked files so both review passes receive the same changes.
     tracked = _git(repo, "diff", "--name-only", args.base).splitlines()
     untracked = _git(repo, "ls-files", "--others", "--exclude-standard").splitlines()
     seen: set[str] = set()

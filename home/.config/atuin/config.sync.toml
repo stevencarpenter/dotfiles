@@ -1,10 +1,5 @@
-# Atuin client config — SYNCING variant. Selected by modules/home/dotfiles.nix
-# when caps.atuin is true; the non-syncing twin is config.local.toml.
-#
-# The history_filter blocks in the two files MUST stay byte-identical —
-# enforced by scripts/test-atuin-filter-parity.sh in dotfiles-hygiene-ci.
-# Everything OUTSIDE that block is free to differ; the sync stanza is the
-# whole point of the split.
+# Syncing variant, selected when caps.atuin is true.
+# Keep history_filter identical to config.local.toml; CI checks parity.
 #
 # Self-hosted sync target. Server lives on i9 (homelab repo: services/atuin/,
 # fronted by Caddy at logbook.snugmarina.org).
@@ -12,7 +7,7 @@
 # Verify the server is healthy from any tailnet device:
 #   curl -fsSL https://logbook.snugmarina.org   # → "goodbye and good luck"
 #
-# Bootstrap on a fresh machine (server registration must be open — see
+# Bootstrap on a fresh machine (server registration must be open, see
 # homelab repo services/atuin/README.md "Bootstrap: register accounts"):
 #   atuin register -u <username> -e <email> -p <password>   # first machine
 #   atuin login    -u <username>                            # subsequent machines
@@ -35,12 +30,7 @@ history_filter = [
 ]
 # --- END history_filter ---
 
-# Render the interactive search UI in a tmux popup rather than inline in the
-# current pane. This drives BOTH ctrl-r and the up-arrow binding: `atuin init
-# zsh` reads this key at init time and emits `export ATUIN_TMUX_POPUP=false`
-# when it is absent or false, after which __atuin_tmux_popup_check fails and
-# __atuin_search_cmd falls back to rendering inline. Requires tmux >= 3.2;
-# outside tmux it renders inline regardless. The ATUIN_TMUX_POPUP env var can
-# override at runtime.
+# Ctrl-r and up-arrow use a popup under tmux >= 3.2, otherwise inline search.
+# Init output embeds this setting; ATUIN_TMUX_POPUP can override it at runtime.
 [tmux]
 enabled = true

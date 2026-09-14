@@ -5,7 +5,7 @@ For common analysis patterns (output structure, collection status handling, perf
 
 ## What the Script Collects
 
-**`collection_status`** — check this FIRST. Shows what succeeded vs failed:
+**`collection_status`**: check this FIRST. Shows what succeeded vs failed:
 - `database_query`: SSH → psql batched query (connections, cache, vacuum, queries, etc.)
 - `metrics_api`: Railway API for disk, CPU, memory
 - `logs_api`: Railway API for recent log lines
@@ -66,9 +66,9 @@ All in ONE operation (no additional queries needed):
 - `blocked_queries`: Queries waiting on locks
 - `cluster_logs`: HA cluster events (Patroni)
 
-**Important:** Always analyze the raw `recent_logs` array thoroughly. This is 1000 lines of unfiltered database output — treat it as a goldmine.
+**Important:** Always analyze the raw `recent_logs` array thoroughly. This is 1000 lines of unfiltered database output: treat it as a goldmine.
 
-**Log analysis checklist — go through ALL of these:**
+**Log analysis checklist: go through ALL of these:**
 
 1. **Error/Fatal/Panic messages**: Count them, categorize them, quote the exact messages
    - `ERROR: deadlock detected` → cross-reference with deadlock count in database_stats
@@ -81,7 +81,7 @@ All in ONE operation (no additional queries needed):
 2. **Slow query log entries** (if `log_min_duration_statement` is set):
    - Count how many slow queries appear
    - Identify which tables/queries are mentioned most often
-   - Cross-reference with top_queries — the same patterns should appear in both
+   - Cross-reference with top_queries: the same patterns should appear in both
    - Note the actual durations logged vs mean_ms from pg_stat_statements
 
 3. **Autovacuum activity**:
@@ -93,7 +93,7 @@ All in ONE operation (no additional queries needed):
 4. **Checkpoint activity**:
    - `LOG: checkpoint starting` / `LOG: checkpoint complete` → how frequent?
    - `checkpoint complete: wrote X buffers (Y%)` → high Y% means lots of dirty data
-   - Time between checkpoints — if < 5 minutes, write load is high
+   - Time between checkpoints: if < 5 minutes, write load is high
    - `checkpoints are occurring too frequently` → increase max_wal_size
 
 5. **Connection patterns**:
@@ -119,10 +119,10 @@ State what you found with specifics: "Analyzed 1000 log lines covering 2024-01-1
 When `collection_status.database_query` failed and you only have logs:
 
 **Startup vs steady-state logs:**
-- `LOG: database system is ready to accept connections` — normal startup, NOT evidence of a crash
-- `LOG: started streaming WAL` — normal replication, NOT an error
-- `LOG: checkpoint starting` / `LOG: checkpoint complete` — routine operation
-- `FATAL: the database system is starting up` — transient during restarts, NOT a persistent problem
+- `LOG: database system is ready to accept connections`: normal startup, NOT evidence of a crash
+- `LOG: started streaming WAL`: normal replication, NOT an error
+- `LOG: checkpoint starting` / `LOG: checkpoint complete`: routine operation
+- `FATAL: the database system is starting up`: transient during restarts, NOT a persistent problem
 
 **What you CAN say from logs alone:**
 - Whether errors or warnings are present and their frequency
@@ -136,7 +136,7 @@ When `collection_status.database_query` failed and you only have logs:
 - Whether queries are slow
 - Any tuning recommendations
 
-If only logs are available, explicitly state: "No performance conclusions possible — database metrics were not collected."
+If only logs are available, explicitly state: "No performance conclusions possible: database metrics were not collected."
 
 **Active Issues:**
 - Long-running queries (>5s)
@@ -144,7 +144,7 @@ If only logs are available, explicitly state: "No performance conclusions possib
 - Blocked queries (waiting on locks)
 - Lock contention details
 
-**Infrastructure (7d + 24h)** — show both windows so trends can be compared:
+**Infrastructure (7d + 24h)**: show both windows so trends can be compared:
 
 **7-Day Trends**
 | Metric | Current | Avg | Min | Max | Trend |
@@ -162,7 +162,7 @@ If only logs are available, explicitly state: "No performance conclusions possib
 
 Compare: "Disk growing slowly over 7d but stable over 24h → gradual data growth, not an acute event."
 
-Do NOT show cpu_limit/memory_limit columns or utilization %. Railway auto-scales — these limits are just the ceiling. See [analyze-db.md](analyze-db.md) autoscale rules.
+Do NOT show cpu_limit/memory_limit columns or utilization %. Railway auto-scales: these limits are just the ceiling. See [analyze-db.md](analyze-db.md) autoscale rules.
 
 **Replication / HA (if applicable):**
 - Replication status
@@ -223,7 +223,7 @@ See [analyze-db.md](analyze-db.md) for full autoscale rules. For PostgreSQL spec
 
 - Tune parameters relative to the **current** RAM from `metrics_history.memory.current`, not `memory_limit`.
 - If shared_buffers is undersized relative to current RAM, recommend increasing it to 25% of current RAM.
-- If the working set far exceeds what 25% of current RAM can hold, note this as a limitation of the current memory footprint — but do NOT tell the user to increase RAM. The platform handles that automatically.
+- If the working set far exceeds what 25% of current RAM can hold, note this as a limitation of the current memory footprint, but do NOT tell the user to increase RAM. The platform handles that automatically.
 
 ## Thresholds for Reasoning
 
@@ -251,7 +251,7 @@ A 1 MB table with 25% dead rows has ~250 KB of bloat. Not worth mentioning as "c
 
 ## Applying Fixes
 
-When recommending changes, include the actual SQL and **always explain side effects** — especially for settings that add overhead or change behavior.
+When recommending changes, include the actual SQL and **always explain side effects**, especially for settings that add overhead or change behavior.
 
 ```sql
 -- Memory tuning (example for 4GB RAM)
@@ -276,7 +276,7 @@ VACUUM FREEZE "TableName";
 | Setting | Side Effect to Explain |
 |---------|----------------------|
 | `track_io_timing` | Adds a system call (gettimeofday) per block read/write. On most modern systems the overhead is <1%, but on systems with slow clock sources it can be measurable. Worth it for the diagnostic value in pg_stat_statements (blk_read_time, blk_write_time). |
-| `shared_buffers` | Requires restart. Allocates memory at startup — over-allocating can starve OS cache and other processes. |
+| `shared_buffers` | Requires restart. Allocates memory at startup: over-allocating can starve OS cache and other processes. |
 | `work_mem` | Multiplied by concurrent operations (sorts, hashes, joins). 64MB × 50 concurrent ops = 3.2 GB. Recommend conservatively. |
 | `log_min_duration_statement` | Logging slow queries adds I/O. A threshold too low (e.g., 100ms) on a high-throughput DB can generate massive log volume. Start at 1000ms. |
 | `idle_in_transaction_session_timeout` / `statement_timeout` | Will kill queries/transactions that exceed the timeout. Existing application code that relies on long-running transactions or queries will break. Warn the user to verify their application can handle this. |
@@ -342,9 +342,9 @@ Example chain:
 - High connection % + many idle connections = connection pooling needed
 - Old connections (days) + idle_in_transaction = potential connection leaks or stuck transactions
 
-### Slow Query Analysis — Go Deep
+### Slow Query Analysis: Go Deep
 
-The `top_queries` array is the **most valuable data** for customers. This is where you can give the most actionable, specific advice. Don't skim it — analyze every query in the top 10-15 thoroughly.
+The `top_queries` array is the **most valuable data** for customers. This is where you can give the most actionable, specific advice. Don't skim it: analyze every query in the top 10-15 thoroughly.
 
 #### Per-Query Fields and What Each Tells You
 
@@ -352,31 +352,31 @@ The `top_queries` array is the **most valuable data** for customers. This is whe
 |-------|---------------|------------------|
 | `calls` | Number of times this query pattern executed | High calls × even small mean_ms = huge cumulative impact. A 5ms query called 10M times = 833 minutes of DB time |
 | `total_min` | Total execution time in minutes | The primary sort key. This is the query's total footprint on the database |
-| `mean_ms` | Average execution time per call | Compare with stddev — if stddev >> mean, the query has wildly variable performance |
+| `mean_ms` | Average execution time per call | Compare with stddev: if stddev >> mean, the query has wildly variable performance |
 | `min_ms` / `max_ms` | Fastest and slowest execution | A 2ms min with 30,000ms max means the query sometimes hits pathological cases (lock waits, cache misses, bloated tables) |
 | `stddev_ms` | Standard deviation of execution time | High stddev = unpredictable. The query probably performs well when data is cached but terribly when it's not. This is often the query causing random user-visible latency spikes |
-| `rows_per_call` | Average rows returned per execution | 0.01 rows/call means the query usually returns nothing — might be a polling pattern or existence check that could use EXISTS instead. 50,000 rows/call suggests missing pagination or bulk fetch |
+| `rows_per_call` | Average rows returned per execution | 0.01 rows/call means the query usually returns nothing: might be a polling pattern or existence check that could use EXISTS instead. 50,000 rows/call suggests missing pagination or bulk fetch |
 | `mean_plan_ms` | Average planning time | If plan time is >5ms, the planner is spending significant time. Could indicate: too many partitions, complex joins needing better statistics (`ALTER TABLE SET STATISTICS`), or pg_catalog bloat |
 | `cache_hit_pct` | % of blocks found in shared_buffers | <90% = query is constantly going to disk. Cross-reference with the table it touches in `cache_per_table` |
 | `shared_blks_read` | Blocks read from disk (not cache) | This is the raw I/O cost. Each block = 8KB. 1M blocks read = 8GB of disk I/O |
 | `shared_blks_dirtied` | Blocks this query modified | High dirtied blocks = write-heavy query. These blocks will need to be flushed to disk during checkpoints |
-| `shared_blks_written` | Blocks this query had to flush to disk itself | Should be 0 in a healthy system. >0 means the query was forced to do its own I/O because shared_buffers was full of dirty pages — a sign of severe memory pressure |
+| `shared_blks_written` | Blocks this query had to flush to disk itself | Should be 0 in a healthy system. >0 means the query was forced to do its own I/O because shared_buffers was full of dirty pages: a sign of severe memory pressure |
 | `temp_blks_read` / `temp_blks_written` | Blocks spilled to temp files | Any nonzero value means the query exceeded work_mem. Each block = 8KB. temp_blks_written of 1M = 8GB spilled to disk for sorts/hashes |
 | `blk_read_time_ms` / `blk_write_time_ms` | Time spent on actual disk I/O (requires `track_io_timing`) | If available and high, this tells you exactly how much time was spent waiting on disk vs CPU. If 0, track_io_timing may be off |
 | `wal_records` / `wal_bytes` | WAL generated by this query | High WAL = write-heavy. If one query generates most WAL, it's driving replication lag and checkpoint pressure |
-| `local_blks_hit` / `local_blks_read` | Blocks for temporary tables | If nonzero, query uses temp tables — common in complex CTEs or materialized subqueries |
+| `local_blks_hit` / `local_blks_read` | Blocks for temporary tables | If nonzero, query uses temp tables: common in complex CTEs or materialized subqueries |
 
-#### Red Flags — What Demands Explanation
+#### Red Flags: What Demands Explanation
 
 | Signal | What It Means | Example | What to Tell the Customer |
 |--------|---------------|---------|---------------------------|
-| Low cache_hit_pct (< 90%) | Query hitting disk constantly | `cache_hit_pct: 47.19` | "This query reads X blocks from disk each call. The table it touches (Y) is Z GB but shared_buffers is only W MB — the data physically cannot stay cached" |
+| Low cache_hit_pct (< 90%) | Query hitting disk constantly | `cache_hit_pct: 47.19` | "This query reads X blocks from disk each call. The table it touches (Y) is Z GB but shared_buffers is only W MB: the data physically cannot stay cached" |
 | High temp_blks (any nonzero) | Query spilling sorts/hashes to disk | `temp_blks_written: 39102928` | "This query spills ~X GB to temp files per execution because work_mem (Y MB) is too small for its sort/hash. Each spill means disk I/O instead of memory" |
 | Huge rows_per_call (>1000) | Missing pagination or bulk fetch | `rows_per_call: 12177` | "Each call returns ~12K rows. If this is a user-facing query, it likely needs LIMIT/OFFSET or cursor-based pagination. If it's a batch job, it's expected" |
 | Near-zero rows_per_call with high calls | Polling or existence check pattern | 0.01 rows/call, 500K calls | "This query runs 500K times but almost never finds data. If it's checking for new work, consider LISTEN/NOTIFY instead of polling. If it's an existence check, ensure it uses EXISTS with LIMIT 1" |
 | stddev >> mean | Wildly variable performance | mean=15ms, stddev=2400ms, max=45000ms | "This query averages 15ms but sometimes takes 45 SECONDS. The high stddev means unpredictable latency. Likely causes: lock contention, cache misses on cold data, or table bloat causing variable scan times" |
 | High mean_plan_ms (>5ms) | Expensive query planning | `mean_plan_ms: 23.4` | "The planner spends 23ms just deciding HOW to run this query, before executing it. With X calls, that's Y minutes of pure planning overhead. Consider: PREPARE'd statements, simpler joins, or increasing default_statistics_target for better stats" |
-| shared_blks_written > 0 | Memory pressure forcing query I/O | `shared_blks_written: 50000` | "This query was forced to flush dirty pages to disk itself because shared_buffers was full. This is a sign of severe buffer pool pressure — increase shared_buffers" |
+| shared_blks_written > 0 | Memory pressure forcing query I/O | `shared_blks_written: 50000` | "This query was forced to flush dirty pages to disk itself because shared_buffers was full. This is a sign of severe buffer pool pressure: increase shared_buffers" |
 | High wal_bytes relative to others | Write-heavy query driving replication | `wal_bytes: 5000000000` | "This query generates X GB of WAL, which is Y% of total WAL. It's the primary driver of replication lag and checkpoint I/O" |
 | max_ms >> 10× mean_ms | Pathological worst cases | mean=50ms, max=120000ms | "The worst execution was 2400× slower than average. Investigate: was it blocked by a lock? Did it hit a cold cache after restart? Is there table bloat causing some scans to be much longer?" |
 
@@ -392,37 +392,37 @@ The `top_queries` array is the **most valuable data** for customers. This is whe
 | SELECT Content... | 1.3K | 12 | 563 | 180/3200 | 420 | 0.65 | 1.8% | 0/0 | 8.3 | 31000 |
 ```
 
-**Then analyze EACH query** — this is the most valuable part. For each of the top 10 queries, explain:
+**Then analyze EACH query**: this is the most valuable part. For each of the top 10 queries, explain:
 
-1. **What the query does** — identify the tables, the pattern (lookup, join, aggregation, pagination)
-2. **Why it's slow** — connect the specific metrics to a root cause
-3. **The cascading impact** — how this query affects overall database health
-4. **Specific fix** — not generic advice, but targeted to what the metrics show
+1. **What the query does**: identify the tables, the pattern (lookup, join, aggregation, pagination)
+2. **Why it's slow**: connect the specific metrics to a root cause
+3. **The cascading impact**: how this query affects overall database health
+4. **Specific fix**: not generic advice, but targeted to what the metrics show
 
 Example deep analysis:
 
 > **Query 1: Email.ccFull join** (78K calls, 101ms mean, 132 min total)
 > - **Pattern**: Joins Email → EmailThreadKind → Thread → EmailEntry. ORM-generated N+1 or bulk join.
-> - **Root cause**: 47% cache hit means 53% of blocks come from disk. The Email table is 1.7GB but shared_buffers is 128MB — only 7.5% of this table can be cached at once. Every call displaces other data from cache, creating a cascading eviction problem.
-> - **The stddev of 340ms** with max of 8200ms means some calls take 80× longer — likely when the needed pages were just evicted by another query.
+> - **Root cause**: 47% cache hit means 53% of blocks come from disk. The Email table is 1.7GB but shared_buffers is 128MB: only 7.5% of this table can be cached at once. Every call displaces other data from cache, creating a cascading eviction problem.
+> - **The stddev of 340ms** with max of 8200ms means some calls take 80× longer: likely when the needed pages were just evicted by another query.
 > - **I/O time of 45,000ms** total confirms this: the query has spent 45 seconds just waiting for disk across all calls.
-> - **rows_per_call = 0.05** means it almost never finds a match — it's doing all this I/O for an existence-check pattern. An `EXISTS()` subquery with proper index could eliminate the full table scan.
+> - **rows_per_call = 0.05** means it almost never finds a match: it's doing all this I/O for an existence-check pattern. An `EXISTS()` subquery with proper index could eliminate the full table scan.
 > - **Fix**: (a) Increase shared_buffers to 1GB so the hot portion stays cached. (b) Add index on Email(ccFull, threadId) to avoid the sequential scan. (c) Rewrite as EXISTS if the app only needs presence, not the full row.
 
 > **Query 2: Thread pagination** (48K calls, 279ms mean, 223 min total)
 > - **Pattern**: SELECT Thread... ORDER BY with large result set. Pagination query.
-> - **Root cause**: rows_per_call = 12,177 — returning 12K rows per call is a pagination bug (missing LIMIT) or an admin/batch endpoint.
-> - **temp_blks_written = 39M** (312 GB of temp files!) — the ORDER BY creates a sort that exceeds work_mem (4MB), so it spills to disk every single time.
-> - **stddev = 2400ms with max = 45,000ms** — some executions take 45 seconds, likely when disk temp files compete with other I/O.
-> - **Cache hit is 98.8%** — the data itself is cached, but the sort still spills because work_mem is separate from shared_buffers.
+> - **Root cause**: rows_per_call = 12,177: returning 12K rows per call is a pagination bug (missing LIMIT) or an admin/batch endpoint.
+> - **temp_blks_written = 39M** (312 GB of temp files!): the ORDER BY creates a sort that exceeds work_mem (4MB), so it spills to disk every single time.
+> - **stddev = 2400ms with max = 45,000ms**: some executions take 45 seconds, likely when disk temp files compete with other I/O.
+> - **Cache hit is 98.8%**: the data itself is cached, but the sort still spills because work_mem is separate from shared_buffers.
 > - **Fix**: (a) Add `LIMIT` if this is user-facing. (b) Create an index matching the ORDER BY clause to eliminate the sort entirely. (c) Increase work_mem to 32-64MB so the sort fits in memory.
 
 #### Truncate Long Queries Intelligently
 - Show the table names and key operations (JOIN, WHERE, ORDER BY)
 - Don't dump 2000-character ORM-generated SQL
 - Identify the pattern: "Thread zone assignment lookup" not the full SQL
-- For ORM queries with `$1, $2, ...` parameters, note that the actual values aren't available — the pattern matters more than specific values
-- **Note on query truncation**: pg_stat_statements stores full query text up to `track_activity_query_size` (default 1024 chars). ORM-generated queries often exceed this — if a query ends abruptly, it was truncated by PostgreSQL, not by our script. The JSON output preserves the full text from pg_stat_statements; only the human-readable text report truncates for display
+- For ORM queries with `$1, $2, ...` parameters, note that the actual values aren't available: the pattern matters more than specific values
+- **Note on query truncation**: pg_stat_statements stores full query text up to `track_activity_query_size` (default 1024 chars). ORM-generated queries often exceed this: if a query ends abruptly, it was truncated by PostgreSQL, not by our script. The JSON output preserves the full text from pg_stat_statements; only the human-readable text report truncates for display
 
 #### Query Workload Profile
 
@@ -430,7 +430,7 @@ After analyzing individual queries, summarize the overall workload:
 - **Read vs write ratio**: Use tup_returned/tup_fetched vs tup_inserted/tup_updated/tup_deleted from database_stats
 - **Top 3 time consumers**: Which queries dominate total_min? If 3 queries account for 80% of execution time, that's where to focus
 - **Cache pressure sources**: Which queries have the most shared_blks_read? They're driving cache misses for everything else
-- **Temp file culprits**: Which specific queries create temp files? Don't say "increase work_mem" generically — say "Query X creates Y GB of temp files per day"
+- **Temp file culprits**: Which specific queries create temp files? Don't say "increase work_mem" generically: say "Query X creates Y GB of temp files per day"
 - **WAL generators**: If applicable, which queries generate the most WAL bytes? They're driving replication lag
 
 ### Correlate Across Sections

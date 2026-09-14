@@ -2,26 +2,16 @@
 # Advance nixpkgs-unstable through a first-seen soak queue, build the result
 # WITHOUT switching, and print the closure diff for review.
 #
-# Why a first-seen queue rather than commit timestamps:
-#
-# flake.lock's narHash proves that fetched content matches the locked tree. It
-# does not prove that the tree was benign when it was locked. Likewise, a
-# commit's author/committer timestamp does not say when the nixpkgs-unstable
-# channel first exposed that commit: timestamps can be old before a commit is
-# added to the channel. A GitHub `commits?until=...` query therefore is not a
-# soak window.
-#
-# This script uses two deliberate invocations instead:
+# narHash verifies content integrity, not safety. Commit timestamps can predate
+# channel publication, so soaking uses this machine's recorded first-seen time.
 #
 #   1. Record the channel's current Hydra-certified tip and this machine's
 #      first-seen time in versions/nixpkgs-unstable-candidate.json.
 #   2. On a later invocation, promote that exact SHA only after the requested
 #      elapsed time and only if it is still an ancestor of the channel tip.
 #
-# The state file is reviewable policy evidence, not a cryptographic timestamp
-# authority. Do not hand-edit its firstSeen value. A hostile local operator can
-# bypass any local policy; this control prevents accidental immediate adoption
-# of a newly exposed, backdated channel commit.
+# Do not hand-edit firstSeen. The local state prevents accidental immediate
+# adoption of backdated commits; it cannot resist a hostile local operator.
 #
 # Only `fastMovingPackages` in modules/home/packages.nix consume this input.
 # Keep that allowlist short: each package brings its unstable runtime closure.
@@ -290,7 +280,7 @@ out="$(nix build --no-link --print-out-paths --no-update-lock-file ".#darwinConf
 
 echo
 echo "==> Closure diff vs the running system"
-echo "    (an unexpected package name here is a real signal — review before switching)"
+echo "    (an unexpected package name here is a real signal, review before switching)"
 nix store diff-closures /run/current-system "${out}"
 
 write_candidate promoted "${CANDIDATE_REV}" "${CANDIDATE_DATE}" "${FIRST_SEEN}" "${CANDIDATE_SOAK_DAYS}"

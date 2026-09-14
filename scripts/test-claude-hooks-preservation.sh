@@ -6,7 +6,7 @@
 # live file (under any event), while still enforcing managed hooks and sweeping
 # stale/capability-off managed hooks. The jq is extracted verbatim from
 # ai-stack.nix between the `# hooks-merge-jq:begin/end` sentinels, so this test
-# always exercises the exact program the activation runs — no drift-prone copy.
+# always exercises the exact program the activation runs (no drift-prone copy).
 set -euo pipefail
 
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

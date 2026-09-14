@@ -413,7 +413,7 @@ def test_deploy_skill_copy_rejects_symlink_inside_source(tmp_path):
 
 
 def test_deploy_skill_copy_rejects_symlinked_directory(tmp_path):
-    # A symlinked *directory* must be reported, not descended into — the scan
+    # A symlinked *directory* must be reported, not descended into: the scan
     # never follows it, so a symlink loop cannot stall the safety check.
     src = _make_skill(tmp_path / "src", "tdd")
     (src / "loop").symlink_to(src)
@@ -452,7 +452,7 @@ def test_garbage_collect_keeps_replaced_symlink(tmp_path):
 
 
 def test_garbage_collect_skips_symlink_without_recorded_target(tmp_path):
-    # Pre-feature state has no recorded target — treat conservatively, keep it.
+    # Pre-feature state has no recorded target: treat conservatively, keep it.
     target_root = tmp_path / "skills"
     target_root.mkdir()
     real = tmp_path / "real"
@@ -947,7 +947,7 @@ def test_run_skills_sync_skips_skill_with_unexpected_error_and_continues(tmp_pat
     good = repo / "skills" / "personal" / "good"
     good.mkdir(parents=True)
     (good / "SKILL.md").write_text("# good")
-    # A vendored skill whose cached source smuggles in a symlink — deploy
+    # A vendored skill whose cached source smuggles in a symlink: deploy
     # raises ValueError, which must be logged-and-skipped, not abort the run.
     cached = home / ".cache" / "mcp-sync" / "skills" / "mp" / "skills" / "bad"
     cached.mkdir(parents=True)
@@ -1030,7 +1030,7 @@ def test_run_skills_sync_keeps_prior_copy_of_failed_resolved_skill(tmp_path):
     )
     rc = run_skills_sync(home=home, repo_root=repo, now=1.0)
     assert rc == 1
-    # x failed to deploy but is still resolved — its prior copy must survive.
+    # x failed to deploy but is still resolved: its prior copy must survive.
     assert (prior_x / "SKILL.md").read_text() == "# old x"
     written = json.loads(state.read_text())
     assert written["deployed"]["x"] == {"mode": "copy", "source": "personal"}
@@ -1121,7 +1121,7 @@ def test_run_skills_sync_prunes_dropped_source_from_state(tmp_path):
     rc = run_skills_sync(home=home, repo_root=repo, now=1.0)
     assert rc == 0
     written = json.loads(state.read_text())
-    # "deadsource" is referenced by nothing in the manifest — pruned.
+    # "deadsource" is referenced by nothing in the manifest: pruned.
     assert written["sources"] == {}
 
 

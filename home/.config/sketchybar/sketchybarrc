@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# SketchyBar configuration — Everforest Dark Hard theme
+# SketchyBar configuration: Everforest Dark Hard theme
 # Docs: https://felixkratz.github.io/SketchyBar/config/bar
 
 set -euo pipefail

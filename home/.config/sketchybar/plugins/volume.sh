@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Volume — mute/unmute icon only (Material Design)
+# Volume: mute/unmute icon only (Material Design)
 # 󰕾 nf-md-volume_high | 󰖁 nf-md-volume_off
 
 set -euo pipefail

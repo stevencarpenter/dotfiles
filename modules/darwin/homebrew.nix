@@ -7,25 +7,9 @@
   ...
 }:
 
-# Declarative Homebrew via nix-darwin's `homebrew` module (taps/brews/casks,
-# replacing the old dot_config/homebrew/Brewfile.tmpl). Homebrew ITSELF is an
-# independent, self-updating install at /opt/homebrew (and /usr/local for the
-# Rosetta prefix) — nix references that install but does not own it. This
-# replaced nix-homebrew (zhaofengli), whose brew-src pin froze brew at a
-# patched 6.0.1 while homebrew-core moved on (gcc 16.1's
-# `configure_gcc_runtime` post-install step broke installs). Bootstrap of a
-# fresh machine installs brew via the official installer BEFORE the first
-# darwin-rebuild switch.
-# Only GUI apps, macOS-native tooling with no nixpkgs equivalent, bespoke
-# fonts, and shell binaries the zshrc probes at the Homebrew prefix stay
-# here; pure CLI tools moved to home.packages (see modules/home/packages.nix).
-#
-# Capability gating mirrors the Brewfile's template blocks:
-#   tiling  → WM/status-bar tap+brew+cask stack
-#   gui     → GUI casks + GUI fonts
-#   dev     → railway CLI + Swift toolchain + dev-flavored font casks
-#   identity != "work" → tailscale (homelab access; matches the tailscale.zsh
-#                        profile.d gate in modules/home/dotfiles.nix)
+# Nix declares packages in an independent Homebrew install at /opt/homebrew.
+# Bootstrap installs brew before the first switch. Native macOS tools, GUI apps,
+# selected fonts, and shell binaries stay here; Nix CLI packages use packages.nix.
 let
   isAarch64 = pkgs.stdenv.hostPlatform.isAarch64;
 in
@@ -38,16 +22,12 @@ in
     global.autoUpdate = false;
 
     onActivation = {
-      # A rebuild must be idempotent: it installs missing declarations but never
-      # turns a locked Nix generation into an implicit rolling Homebrew upgrade.
+      # Rebuilds install missing packages; upgrades require `just brew-upgrade`.
       autoUpdate = false;
       upgrade = false;
 
-      # Keep unmanaged formulae/casks in place. `cleanup = "check"` aborts
-      # activation when any exist, and this machine still has reviewed-useful
-      # legacy inventory. `just brew-audit` is the explicit drift report;
-      # destructive cleanup remains a reviewed operator action. NEVER use
-      # "zap" here; it removes application data.
+      # Preserve unmanaged packages. `just brew-audit` reports drift for review.
+      # Never use cleanup = "zap"; it removes application data.
       cleanup = "none";
 
       extraEnv = {
@@ -76,39 +56,26 @@ in
       "zsh-completions"
       "bash"
       "bash-completion"
-      # GNU `watch` (procps) has spotty Darwin packaging in nixpkgs — kept
+      # GNU `watch` (procps) has spotty Darwin packaging in nixpkgs: kept
       # brew to preserve current behavior.
       "watch"
-      # Git worktree helper; not confirmed in nixpkgs — kept brew.
+      # Git worktree helper; not confirmed in nixpkgs: kept brew.
       "worktrunk"
       # No nixpkgs equivalent; both are homebrew/core formulae.
       "herdr"
       "mole"
-      # charmbracelet/tap/crush. Stays brew: it is UNFREE in nixpkgs (FSL-1.1),
-      # so Hydra never builds it (no binary cache → local source build on every
-      # bump), and the pinned nixpkgs-unstable rev carries 0.86.0 against the
-      # 0.88.0 installed (a downgrade). Brew also keeps it inside `just brew-upgrade`,
-      # where AI-harness tools stay current.
-      # Fully-qualified + `trusted` because Homebrew 6 requires explicit trust
-      # for third-party tap code (see the sketchybar/borders block).
+      # Crush's FSL-1.1 license prevents Hydra caching, requiring local Nix builds.
+      # Homebrew 6 requires formula-level trust and a fully qualified tap name.
       {
         name = "charmbracelet/tap/crush";
         trusted = true;
       }
-      # NOTE: `docker-completion` from the old Brewfile is dropped — OrbStack
-      # (gui cask below) ships the docker CLI + its shell completions.
-      #
-      # NOTE: `archon` (coleam00/archon) is deliberately NOT declared — it is
-      # being retired from this machine rather than adopted.
+      # OrbStack supplies Docker CLI completions.
     ]
-    # mactop is a macOS-native (Apple Silicon) power monitor — only builds/
-    # makes sense on aarch64 (guard is defensive; both current hosts qualify).
+    # mactop requires Apple Silicon.
     ++ lib.optionals isAarch64 [ "mactop" ]
-    # Homelab access runs over Tailscale on non-work machines. Kept in Homebrew
-    # rather than nixpkgs on purpose: nixpkgs ships the binaries only, and
-    # nix-darwin has no `services.tailscale` (that option is NixOS-only), so
-    # `brew services` remains what actually supervises tailscaled. Mirrors the
-    # `identity != "work"` gate on profile.d/tailscale.zsh in dotfiles.nix.
+    # brew services supervises tailscaled; nix-darwin has no services.tailscale.
+    # Match the non-work tailscale.zsh gate in dotfiles.nix.
     ++ lib.optionals (identity != "work") [ "tailscale" ]
     ++ lib.optionals caps.tiling [
       # Homebrew 6 requires explicit trust for third-party tap code. Keep
@@ -125,31 +92,19 @@ in
       }
     ]
     ++ lib.optionals caps.dev [
-      # railway CLI: kept brew, but this is a cadence trade, not an availability
-      # one — nixpkgs does package it, free and cached (narinfo 200, verified
-      # 2026-08-07). Promoting it to `fastMovingPackages` would work; it was
-      # measured and declined. At the pinned unstable rev the attr is 5.27.0
-      # (2026-07-17) against 5.31.0 from brew, and the 7-day soak window on that
-      # input (see flake.nix) puts steady state ~3-4 weeks behind. That is the
-      # whole cost — the upside would have been a lockfile-pinned version rather
-      # than whatever each machine last resolved. Revisit if the lag matters more
-      # than the currency.
+      # Homebrew supplies newer Railway releases than the soaked unstable pin.
+      # At the 2026-08-07 comparison: Nix 5.27.0, Homebrew 5.31.0.
       "railway"
-      # Swift toolchain. These four DO exist in the locked nixpkgs, but
-      # available != cached: a Swift build on aarch64-darwin can turn a switch
-      # into a multi-hour source compile, the same hazard that keeps iosevka a
-      # cask. Homebrew ships bottles. Promote to home.packages individually
-      # only once `nix build --dry-run` reports one under "will be fetched".
+      # Keep Homebrew bottles until `nix build --dry-run` confirms Darwin cache
+      # coverage; uncached Swift builds can take hours.
       "swiftlint"
       "swiftformat"
       "swift-format"
       "xcbeautify"
     ];
-    # NOTE: `conftest` moved to nixpkgs — see the work-only condition in
-    # modules/home/packages.nix.
 
     casks = [
-      # `op` — kept brew to pair its update/signing cadence with the
+      # `op`: kept brew to pair its update/signing cadence with the
       # 1Password.app GUI cask for consistent biometric/keychain integration.
       "1password-cli"
     ]
@@ -162,7 +117,7 @@ in
       "orbstack"
       "codex"
       "handy"
-      # Bespoke Powerlevel10k-patched Meslo build — not a standard nixpkgs
+      # Bespoke Powerlevel10k-patched Meslo build: not a standard nixpkgs
       # font, stays a cask.
       "font-meslo-for-powerlevel10k"
     ]
@@ -170,15 +125,11 @@ in
     ++ lib.optionals caps.tiling [
       "nikitabobko/tap/aerospace"
     ]
-    # FelixKratz's custom sketchybar icon font — gui AND tiling in the
-    # original (nested gate).
+    # SketchyBar icon font requires both GUI and tiling.
     ++ lib.optionals (caps.gui && caps.tiling) [
       "font-sketchybar-app-font"
     ]
-    # Dev-flavored fonts NOT confidently available (or too heavy to build,
-    # e.g. iosevka) in nixpkgs are kept as dev-gated casks. The
-    # high-confidence subset moved to home.packages fonts. Together these two
-    # sets cover every font from the Brewfile's dev block with none dropped.
+    # Homebrew supplies fonts without confirmed Nix cache coverage.
     ++ lib.optionals caps.dev [
       "font-input"
       "font-intel-one-mono"
@@ -187,12 +138,8 @@ in
     ];
   };
 
-  # The independent brew install keeps its zsh completion at
-  # completions/zsh/_brew (prefix-relative); the installer normally links it
-  # into share/zsh/site-functions. Re-anchor that link on every activation so
-  # a fresh prefix self-heals even if the link was lost (this replaced the
-  # nix-homebrew migration that left the link dangling). Both sides are
-  # existence-checked: ln -sfn would happily create a dangling link.
+  # Restore brew's completion symlink only when source and destination directory
+  # exist, avoiding a dangling link on a fresh install.
   system.activationScripts.postActivation.text = lib.mkAfter (
     ''
       _brew_completion_src="/opt/homebrew/completions/zsh/_brew"
@@ -204,13 +151,9 @@ in
       fi
     ''
     + lib.optionalString caps.tiling ''
-      # Converge the third-party-tap pin policy (see onActivation comment).
-      # Pin state is imperative brew metadata; re-asserting it every switch means
-      # a fresh machine self-heals after its first bundle run. Homebrew activation
-      # and Home Manager activation can overlap on a first run, so wait briefly
-      # for each formula and pin them independently. Runs as root, and brew
-      # refuses root, so drop to the owning user with a clean user environment.
-      # Warn-never-fail.
+      # Pin third-party formulae after installation. Activation phases can overlap,
+      # so retry each formula separately. Run brew as the user, with no SUDO_* flags.
+      # Pin failures warn without aborting the switch.
       if [ -x /opt/homebrew/bin/brew ]; then
         _brew_as_user() {
           /usr/bin/sudo -H -u ${user} \
@@ -220,8 +163,7 @@ in
         _brew_pinned_dir="/opt/homebrew/var/homebrew/pinned"
 
         for _brew_formula in sketchybar borders; do
-          # `brew pin` is already converged when this symlink exists. Recognize
-          # that state directly so every later rebuild is quiet and idempotent.
+          # Existing pin symlinks need no brew invocation.
           if [ -L "$_brew_pinned_dir/$_brew_formula" ]; then
             continue
           fi

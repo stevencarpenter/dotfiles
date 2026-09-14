@@ -1,4 +1,8 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
 """
 Redis analysis for Railway deployments.
 
@@ -34,7 +38,7 @@ import dal
 from dal import (
     LOG_LINES_DEFAULT, ProgressTimer, RailwayContext,
     _init_context, progress, run_railway_command, run_ssh_query,
-    get_railway_status, get_deployment_status,
+    get_deployment_status,
     get_all_metrics_from_api, _analyze_window, _build_metrics_history,
     get_recent_logs,
     _safe_int, _safe_float, _format_uptime,
@@ -268,7 +272,7 @@ def parse_slowlog_get(raw: str) -> List[Dict[str, Any]]:
                 except ValueError:
                     next_i += 1  # skip client name
         else:
-            # No client IP found — take command + first arg only and advance
+            # No client IP found: take command + first arg only and advance
             cmd_parts = lines[cmd_start:cmd_start + 2]
             next_i = cmd_start + 2
 
@@ -412,7 +416,7 @@ def generate_recommendations(result: RedisAnalysisResult) -> List[Dict[str, str]
     """Generate recommendations based on collected metrics."""
     recs: List[Dict[str, str]] = []
 
-    # Collection failures — surface critical issues when SSH/introspection failed
+    # Collection failures: surface critical issues when SSH/introspection failed
     if result.collection_status:
         failed = {k: v for k, v in result.collection_status.items() if v.get("status") == "failed"}
         ssh_sources = {"redis_info", "slowlog", "slowlog_entries", "big_keys"}
@@ -423,7 +427,7 @@ def generate_recommendations(result: RedisAnalysisResult) -> List[Dict[str, str]
             recs.append({
                 "severity": "critical",
                 "category": "collection",
-                "message": f"SSH introspection failed — unable to collect {sources}. "
+                "message": f"SSH introspection failed: unable to collect {sources}. "
                            f"Error: {errors}. "
                            f"Analysis is incomplete: memory fragmentation, cache hit rate, "
                            f"keyspace stats, and persistence health could not be evaluated.",
@@ -452,7 +456,7 @@ def generate_recommendations(result: RedisAnalysisResult) -> List[Dict[str, str]
             recs.append({
                 "severity": "info",
                 "category": "cache",
-                "message": f"Cache hit rate at {hit_rate:.1f}% — could be improved. Check if working set fits in memory.",
+                "message": f"Cache hit rate at {hit_rate:.1f}%: could be improved. Check if working set fits in memory.",
             })
 
     # Evicted keys
@@ -485,7 +489,7 @@ def generate_recommendations(result: RedisAnalysisResult) -> List[Dict[str, str]
                 "message": f"Blocked clients detected ({blocked}). Check for blocking operations (BLPOP, BRPOP, etc.).",
             })
 
-    # maxmemory not set — on Railway this is expected; autoscaling handles growth
+    # maxmemory not set: on Railway this is expected; autoscaling handles growth
 
     # RDB save failure
     if result.persistence:
@@ -497,7 +501,7 @@ def generate_recommendations(result: RedisAnalysisResult) -> List[Dict[str, str]
                 "message": "Last RDB save failed. Check disk space and permissions.",
             })
 
-    # Slow log — data-driven when entries are available
+    # Slow log: data-driven when entries are available
     if result.slowlog_entries:
         # Analyze the actual slow commands
         total_entries = len(result.slowlog_entries)
@@ -516,7 +520,7 @@ def generate_recommendations(result: RedisAnalysisResult) -> List[Dict[str, str]
                f"averaging {_format_usec(avg_duration)}.")
         if result.big_keys:
             big_key_types = ", ".join(f"{bk['type']} ({bk['detail']})" for bk in result.big_keys[:3])
-            msg += f" Largest keys: {big_key_types} — check if these correlate with slow commands."
+            msg += f" Largest keys: {big_key_types}. Check if these correlate with slow commands."
         severity = "warning" if (result.slowlog_len or 0) > 100 else "info"
         recs.append({"severity": severity, "category": "performance", "message": msg})
     elif result.slowlog_len is not None and result.slowlog_len > 100:
@@ -526,7 +530,7 @@ def generate_recommendations(result: RedisAnalysisResult) -> List[Dict[str, str]
             "message": f"High number of slow log entries ({result.slowlog_len}). Slow log details could not be collected.",
         })
 
-    # Big keys — standalone recommendation when no slowlog correlation
+    # Big keys: standalone recommendation when no slowlog correlation
     if result.big_keys and not result.slowlog_entries:
         big_key_summary = "; ".join(f"{bk['key']} ({bk['type']}: {bk['detail']})" for bk in result.big_keys[:5])
         recs.append({
@@ -707,32 +711,7 @@ def format_report(result: RedisAnalysisResult) -> str:
         lines.append("")
 
     # --- Infrastructure Metrics ---
-    if result.metrics_history:
-        windows = result.metrics_history.get("windows", {})
-        for window_label, window_data in windows.items():
-            mh = window_data.get("metrics", {})
-            if not mh:
-                continue
-            lines.append(f"## Infrastructure Metrics ({window_label})")
-            lines.append("| Metric | Current | Min | Max | Avg | Trend |")
-            lines.append("|--------|---------|-----|-----|-----|-------|")
-            for key in ["cpu", "memory", "disk", "network_rx", "network_tx"]:
-                if key in mh:
-                    entry = mh[key]
-                    trend = entry.get("trend", {})
-                    trend_str = trend.get("direction", "N/A")
-                    change = trend.get("change_pct", 0)
-                    if change != 0:
-                        trend_str += f" ({change:+.1f}%)"
-                    lines.append(
-                        f"| {key.replace('_', ' ').title()} "
-                        f"| {entry['current']}{entry['unit']} "
-                        f"| {entry['min']}{entry['unit']} "
-                        f"| {entry['max']}{entry['unit']} "
-                        f"| {entry['avg']}{entry['unit']} "
-                        f"| {trend_str} |"
-                    )
-            lines.append("")
+    dal.append_infrastructure_metrics(lines, result.metrics_history)
 
     # --- Collection Status ---
     if result.collection_status:
@@ -790,20 +769,8 @@ def analyze_redis(service: str, timeout: int = 300, quiet: bool = False,
         print("  [0/5] Getting Railway context...", file=sys.stderr, flush=True)
     dal._progress_timer.start()
 
-    if environment_id and service_id:
-        dal._ctx = RailwayContext(project_id=project_id, environment_id=environment_id, service_id=service_id)
-        if not quiet:
-            print(f"        using explicit IDs (env={environment_id[:8]}..., svc={service_id[:8]}...)", file=sys.stderr, flush=True)
-    else:
-        railway_status = get_railway_status()
-        if railway_status:
-            dal._ctx = RailwayContext(
-                project_id=railway_status.get("projectId"),
-                environment_id=railway_status.get("environmentId"),
-                service_id=railway_status.get("serviceId"),
-            )
-        environment_id = dal._ctx.environment_id
-        service_id = dal._ctx.service_id
+    context = _init_context(RailwayContext(project_id, environment_id, service_id), quiet=quiet)
+    environment_id, service_id = context.environment_id, context.service_id
 
     # Get deployment status via API (~1s)
     progress(1, 5, "Fetching deployment status...", quiet)
@@ -811,25 +778,7 @@ def analyze_redis(service: str, timeout: int = 300, quiet: bool = False,
 
     # === SSH PRE-CHECK WITH RETRY ===
     progress(2, 5, "Testing SSH connectivity...", quiet)
-    ssh_available = False
-    ssh_stderr = ""
-    ssh_attempts = [30, 60, 90]
-    for attempt, attempt_timeout in enumerate(ssh_attempts, 1):
-        ssh_code, ssh_stdout, ssh_stderr = run_ssh_query(service, "echo ok", timeout=attempt_timeout)
-        if ssh_code == 0 and "ok" in ssh_stdout:
-            ssh_available = True
-            if not quiet:
-                for line in ssh_stderr.splitlines():
-                    if line.startswith("Using SSH key:"):
-                        print(f"        {line}", file=sys.stderr, flush=True)
-                        break
-            break
-        if not quiet:
-            remaining = len(ssh_attempts) - attempt
-            if remaining > 0:
-                print(f"        SSH attempt {attempt}/{len(ssh_attempts)} failed ({ssh_stderr or 'no response'}), retrying with {ssh_attempts[attempt]}s timeout...", file=sys.stderr, flush=True)
-            else:
-                print(f"        SSH attempt {attempt}/{len(ssh_attempts)} failed ({ssh_stderr or 'no response'}), giving up", file=sys.stderr, flush=True)
+    ssh_available, ssh_stderr = dal.check_ssh(service, quiet=quiet)
 
     # === PARALLEL EXECUTION ===
     progress(3, 5, "Running analysis (Redis INFO, slowlog, bigkeys, metrics, logs in parallel)...", quiet)

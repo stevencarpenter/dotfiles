@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Volume — mute indicator only (Material Design icons)
+# Volume: mute indicator only (Material Design icons)
 
 set -euo pipefail
 

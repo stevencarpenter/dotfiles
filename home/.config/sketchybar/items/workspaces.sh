@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Workspace indicators — bracketed groups with colored app icons
+# Workspace indicators: bracketed groups with colored app icons
 # Each workspace: [number + app icons] in one rounded rectangle
 
 set -euo pipefail
@@ -18,7 +18,7 @@ WORKSPACES=(1 2 3 4 5 6 7 8 9)
 for sid in "${WORKSPACES[@]}"; do
   # Workspace number. icon.padding_left sets the bracket's left-edge padding.
   # icon.padding_right is the gap between the number and the first app icon
-  # (and is also the right-edge padding when no apps are visible — the end-cap
+  # (and is also the right-edge padding when no apps are visible: the end-cap
   # below adds the same amount on the right to keep empty brackets symmetric).
   sketchybar --add item "workspace.$sid" left \
     --set "workspace.$sid" \
@@ -51,7 +51,7 @@ for sid in "${WORKSPACES[@]}"; do
         drawing=off
   done
 
-  # End cap — invisible, always drawn. Its padding_left (5) plus the preceding
+  # End cap: invisible, always drawn. Its padding_left (5) plus the preceding
   # element's icon.padding_right (2, from either the last app slot or the
   # workspace number when empty) gives a constant 7px right-edge padding that
   # matches 6px of icon.padding_left + 1px balance for the icon's visual
@@ -81,7 +81,7 @@ for sid in "${WORKSPACES[@]}"; do
       background.corner_radius=8
 done
 
-# Controller — hidden, off-bar item whose script does all the per-event work for
+# Controller: hidden, off-bar item whose script does all the per-event work for
 # every workspace in a single pass. The position "right" keeps it out of the
 # visible left-side group; `drawing=off` means nothing is rendered.
 # Badge freshness is event-driven (aerospace_workspace_change / front_app_switched

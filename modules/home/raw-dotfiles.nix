@@ -1,8 +1,5 @@
-# Reusable out-of-store symlink machinery (public API: homeModules.rawDotfiles,
-# LOCKED contract v1.0). Generalizes dotfiles.nix's link helper to ANY source
-# root so an external overlay repo gets the same edit-live-without-rebuild
-# property for its own files. The home-relative target path always equals the
-# path under `root` (mirror-tree convention, same as home/).
+# Public API (homeModules.rawDotfiles, contract v1.0): link ~/<path> to
+# <root>/<path> out of store so external overlay config edits are live.
 { config, lib, ... }:
 {
   options.rawDotfiles.trees = lib.mkOption {

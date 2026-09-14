@@ -1,18 +1,7 @@
-"""Leak classes that pane teardown provably cannot reach.
+"""Report processes that survive pane teardown.
 
-Destroying a pane SIGHUPs the pane leader and its non-disowned children. Two kinds
-of process escape that entirely:
-
-* **ssh control masters** — ``ControlPersist`` keeps a master alive on purpose,
-  refreshed on every use. It was never a child of the shell that created it, so
-  closing the pane does nothing to it.
-* **disowned or nohup'd descendants** — the only measured path by which ``^D``
-  can leave something behind. A plain ``sleep &`` is SIGHUP'd and does *not*
-  survive; ``disown``/``nohup`` reparent to init and do.
-
-Both are report-only. The second doubles as an instrument: a non-zero count is the
-evidence that would revive the "Ctrl+D orphans processes" hypothesis, which
-otherwise measures as false.
+SSH ControlPersist masters and disowned or nohup'd descendants can survive the
+SIGHUP sent during pane destruction. Both categories are report-only.
 """
 
 from __future__ import annotations
@@ -131,7 +120,7 @@ def disowned_descendants(
     descendant of a tmux pane.
 
     Precision matters more than recall here: this counter exists to answer one
-    question — did anything escape pane teardown — and a report full of daemons is
+    question (did anything escape pane teardown) and a report full of daemons is
     a report nobody reads. Widen ``interest_prefixes`` in config if a real stray
     ever falls outside them.
 

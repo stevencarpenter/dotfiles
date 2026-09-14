@@ -1,95 +1,37 @@
 ---
 name: branch-first-pr
-description: Drive this repo's branch-and-PR procedure and recover when work has already landed on the default branch. USE THIS SKILL whenever the user says "commit this", "commit and push", "open a PR", "cut a branch", "cut a branch for review", "push this up for review", "ready to commit", "ship this", "split the PRs" / "split this into separate PRs"; whenever you are ABOUT to `git commit` while HEAD is on `main` or `master`; whenever the user says "you committed to master/main, pull that back" or "move these commits onto a branch"; or whenever you see the protected-branch signals "GH013: Repository rule violations", "Changes must be made through a pull request", "! [remote rejected] main -> main", or "fatal: Needed a single revision" during a reset/rebase. Bias toward triggering at the FIRST commit of any work session: branch protection hard-rejects pushes to the default branch, so committing on it is always a dead end that must be rewound. The skill cuts a feature branch, writes a one-line Conventional-Commit message (NO Co-Authored-By trailer — already stripped by the commit-msg hook, do not re-add), pushes with the sandbox disabled, opens a PR, and splits unrelated concerns into separate PRs.
+description: Commit and publish this repository's requested changes on a feature branch, or diagnose commits made on the default branch. Use for commit, push, PR, or protected-branch recovery requests.
 ---
 
 # Branch-first PR
 
-Never commit to the default branch. Cut a feature branch first, commit with a one-line
-Conventional-Commit message, push (sandbox disabled), and open a PR — and if work already
-landed on the default branch, rewind it onto a branch using guardrail-safe moves.
+Inspect `git status`, the staged and unstaged diff, the current branch, and
+`refs/remotes/origin/HEAD`. Confirm the actual base before creating a branch.
+In a Jujutsu-managed checkout, use its configured workflow instead of moving Git
+HEAD directly. Preserve unrelated work.
 
-## Why this skill exists
+For this Git checkout:
 
-This is the single most-repeated *correction* in the session history — it appears across
-Claude, Codex, and OpenCode ("no, cut a branch and open a PR"; "You committed once to
-master during this work. Pull that back ... onto a branch I can review."). Two structural
-facts make it a real gap, not just a preference:
+1. Create a feature branch before committing if the current branch is the default
+   branch. Reuse an appropriate existing feature branch.
+2. Stage only the intended changes. Run the relevant checks and configured hooks.
+3. Use a concise Conventional Commit message without attribution trailers. Existing
+   commit-message hooks own normalization; do not add another stripping mechanism.
+4. When publication is requested, push the feature branch and use the configured
+   `gh-axi` skill to create or update its PR. Use a body file for multiline text.
+   Include the behavior change, relevant paths, and actual validation evidence.
 
-- The installed `git-guardrails-claude-code` hook blocks `git push`, `reset --hard`,
-  `clean`, and `branch -D` — **but not `git commit`** (verified in
-  `block-dangerous-git.sh`). So committing to the default branch is *unguarded*, and the
-  naive recovery (`reset --hard`) is *blocked*. The agent gets stuck.
-- Branch protection rejects the eventual push (`GH013 ... Changes must be made through a
-  pull request`), and the recovery has fumbled before (`Exit code 128 ... fatal: Needed a
-  single revision`).
+Keep independently reviewable concerns separate when combining them would obscure
+the change. Do not split a cohesive fix into artificial PRs or publish a local-only
+request. If the branch has no difference from the base, report that fact instead of
+creating an empty commit or unrelated PR.
 
-## Preflight (run before the first commit)
+If commits already exist on the default branch, preserve them by creating a feature
+branch at the current commit. Inspect ancestry before changing any other reference.
+Do not force-move the default branch, reset, or delete work without explicit scope
+and a verified recovery path. A guardrail rejection is not permission to perform the
+same operation through another command.
 
-```bash
-bash .claude/skills/branch-first-pr/scripts/branch_preflight.sh
-```
-
-It resolves the real default branch (`origin/HEAD`, not a hardcoded name), reports whether
-HEAD is on it, and prints the guardrail-safe recovery recipe parameterized by that name.
-
-## Happy path
-
-```bash
-git switch -c <type>/<short-desc>            # type ∈ feat|fix|chore|docs|refactor
-git add -A
-git commit -m "type: imperative summary (#NN)"   # one line; NO Co-Authored-By (see note)
-# push hits the GitHub network -> sandbox must be disabled (see sandbox-preflight)
-git push -u origin HEAD                        # dangerouslyDisableSandbox: true
-gh pr create --fill                            # dangerouslyDisableSandbox: true
-```
-
-## Recovery — work already on the default branch
-
-`reset --hard` is blocked by git-guardrails, so use the safe sequence instead:
-
-```bash
-default="$(git symbolic-ref --quiet refs/remotes/origin/HEAD | sed 's#^refs/remotes/origin/##')"
-git switch -c <type>/<short-desc>     # carries your commits onto a new branch
-git branch -f "$default" "origin/$default"   # move the default pointer back — NOT reset --hard
-git log --oneline "origin/$default..$default"  # MUST be empty: default now matches origin
-```
-
-If a push to the default branch was rejected with `GH013` / `remote rejected main -> main`,
-that is the protection working as intended — switch to a branch (above) and push that.
-
-## PR-split judgment
-
-If the change touches 2+ unrelated concerns, split them into separate branches/PRs
-("split them so we can review on their merits"). One concern per PR; cherry-pick or
-`git restore --staged` to separate.
-
-## Commit-message note (do NOT re-implement)
-
-One plaintext line, Conventional prefix, optional `(#NN)`, no emoji/markdown, and **never**
-a `Co-Authored-By` / "generated by Claude" trailer. This is already enforced two ways — the
-`strip-claude-trailer` lefthook commit-msg job (`scripts/strip-claude-trailer.sh`) and
-the `gcam()`/`gcamp()` shell functions. Do not add trailer-stripping logic here; just don't
-emit the trailer.
-
-## When NOT to use this skill
-
-- A single trivial concern already on a correct feature branch — just commit.
-- Routine fixup commits during an active review cycle on an existing PR branch.
-- Local-only experiments the user explicitly said not to push.
-
-## Common failure modes
-
-| Signal | Cause | Action |
-|---|---|---|
-| `GH013 ... Changes must be made through a pull request` | pushed to a protected default branch | switch to a branch, push that, open PR |
-| `! [remote rejected] main -> main` | same | same |
-| `fatal: Needed a single revision` | recovery couldn't resolve the base ref | use `origin/<default>` explicitly (preflight script prints it) |
-| guardrail blocked your `reset --hard` | git-guardrails hook | use `git branch -f <default> origin/<default>` instead |
-
-## Reference
-
-- `scripts/branch_preflight.sh` — default-branch detection + safe recovery recipe.
-- `~/.claude/skills/git-guardrails-claude-code/scripts/block-dangerous-git.sh` — what is blocked (note: `git commit` is not).
-- [sandbox-preflight](../sandbox-preflight/SKILL.md) — why `git push` / `gh pr create` need the sandbox disabled.
-- `lefthook.yml` (commit-msg), `scripts/strip-claude-trailer.sh`, `home/.config/zsh/.zshrc` (`gcam`/`gcamp`) — the commit-message enforcement this skill defers to.
+Use current harness permissions for network operations. For a demonstrated sandbox
+failure, consult [sandbox-preflight](../sandbox-preflight/SKILL.md); do not disable
+the sandbox solely because the command uses GitHub.

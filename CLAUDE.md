@@ -39,7 +39,7 @@ team leads and idle interactive sessions are never killed without a further expl
 just reap            # report (kills nothing)
 just reap-sockets    # every tmux server; shows why `tmux kill-server` missed one
 just reap-strays     # ssh control masters + disowned descendants (report-only)
-just reap-kill       # actually reap idle teammate panes
+just reap-kill       # reap idle teammate panes
 
 uv run --project agent_reap --group dev ruff check agent_reap/src agent_reap/tests
 uv run --project agent_reap --group dev ruff format --check agent_reap/src agent_reap/tests
@@ -97,8 +97,8 @@ just update                  # Default pin bump: 26.05 inputs + unstable soak + 
                              #   Never switches the system, and evaluates the
                              #   bumped inputs (`nix flake check`) before it
                              #   recommends one. Review, then `just sync`.
-                             #   Caveat: the Homebrew half is NOT staged for
-                             #   review — `brew bundle install --upgrade`
+                             #   Homebrew upgrades are not staged for
+                             #   review: `brew bundle install --upgrade`
                              #   upgrades formulae and casks in place.
 just update 14               # Same, with a 14-day unstable soak window
 just update-unstable         # Record today's nixpkgs-unstable tip; after 7 elapsed
@@ -168,10 +168,9 @@ Conventions:
 - **Adopting a new tool's config** (promote a test-driven config into the repo): follow
   `docs/adopting-a-config.md`. Copy it under `home/`, choose file or directory linking, add the
   `mkLinks` entry, clear the collision, rebuild. Claude Code has the `adopt-config` skill for this.
-- **Templates were resolved at port time.** What used to be `.tmpl` is now either a static per-host
-  file selected by `identity` (e.g. `aerospace.{personal,work}.toml` in `tiling.nix`) or a small
-  nix-generated `home.file.<x>.text` (e.g. `sketchybar/machine.env` from
-  `caps.sketchybar_workspace_badges`).
+- **No `.tmpl` templates remain.** Per-host variance is either a static file selected by `identity`
+  (e.g. `aerospace.{personal,work}.toml` in `tiling.nix`) or a small nix-generated `home.file.<x>.text`
+  (e.g. `sketchybar/machine.env` from `caps.sketchybar_workspace_badges`).
 - **Nix manages packages and system state**, not in-shell initialization: `home.packages` (CLI + fonts),
   `modules/darwin/homebrew.nix` (GUI casks + macOS-native tooling), `system.defaults.*` (macOS
   preferences), `launchd` agents, and the login-shell pin. z4h manages the shell (`programs.zsh.enable =
@@ -254,7 +253,7 @@ contains the capability table. Each capability is enforced at these locations:
 
 Identity-specific configurations (personal/work/lab shell profiles, hippo, and
 homelab-over-Tailscale for `!= "work"`) are defined as
-`lib.optionalAttrs (identity == "…")` blocks across the home modules — chiefly
+`lib.optionalAttrs (identity == "…")` blocks across the home modules, chiefly
 `modules/home/dotfiles.nix`, with identity-based file selection in
 `tiling.nix` (aerospace variants) and identity/capability gating in
 `ai-stack.nix`. There is no secrets module: the age bridge was removed.

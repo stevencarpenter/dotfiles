@@ -2,8 +2,7 @@
 
 Tmux, z4h, Claude Code, and side-channel tools all retain runtime state outside the tracked
 configuration. A correct file in this repo does not prove that a long-lived server, pane, hook, or
-installed tool is using it. These failures are slow: they accumulate across shells and sessions,
-then look unrelated to the change that introduced them.
+installed tool is using it. Retained state can affect later shells and sessions.
 
 Use this guide when tmux opens a shell in an unexpected directory, detaching closes the terminal,
 agent panes survive completed work, a removed plugin still changes behavior, or a deployed tool
@@ -13,10 +12,10 @@ does not match the checkout.
 
 Always inspect all four layers before calling a runtime-state problem fixed:
 
-1. **Tracked source** — the file under `home/`, `modules/`, or `scripts/`.
-2. **Deployed artifact** — the live symlink, generated config, or installed executable.
-3. **Long-lived runtime** — tmux server options, key bindings, environment, panes, and hooks.
-4. **Processes and sockets** — what survived, who owns it, and which tmux server it belongs to.
+1. **Tracked source**: the file under `home/`, `modules/`, or `scripts/`.
+2. **Deployed artifact**: the live symlink, generated config, or installed executable.
+3. **Long-lived runtime**: tmux server options, key bindings, environment, panes, and hooks.
+4. **Processes and sockets**: what survived, who owns it, and which tmux server it belongs to.
 
 Useful read-only checks:
 
@@ -44,8 +43,7 @@ state before proving which server owns the problem.
 
 Bare `new-window` and `split-window` commands inherit a working directory from tmux's current
 context. With a long-lived agent in the foreground, that can be the directory where the agent was
-launched rather than the location the user expects. The result looks like invisible pane identity
-or a resurrected directory even though it is ordinary cwd inheritance.
+launched rather than the location the user expects.
 
 The prefix bindings in `home/.config/tmux/tmux.conf` deliberately break that inheritance:
 
@@ -67,8 +65,8 @@ tmux source-file ~/.config/tmux/tmux.conf
 tmux list-keys -T prefix | rg 'new-window|split-window'
 ```
 
-No Nix rebuild is needed for the raw file, but an already-running tmux server never reloads it by
-magic. `scripts/test-tmux-lifecycle-contract.sh` loads the config into an isolated server in CI and
+No Nix rebuild is needed for the raw file. Reload it explicitly in an already-running tmux server.
+`scripts/test-tmux-lifecycle-contract.sh` loads the config into an isolated server in CI and
 asserts the effective bindings, not merely the presence of matching text.
 
 ## Explicit tmux startup and detach behavior
@@ -83,7 +81,7 @@ The pane shell survived a detach, but the client had no outer shell to return to
 tab closed. That was process topology rather than tmux killing the pane.
 
 Do not remove the setting and assume that means "no tmux". z4h's unset default is isolated tmux,
-which creates the socket sprawl this configuration was intended to remove.
+which creates additional tmux sockets.
 
 ## Pane, process, and socket leaks
 

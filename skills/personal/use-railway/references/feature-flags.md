@@ -12,7 +12,7 @@ Railway feature flags are **project- or workspace-scoped** configuration values 
 
 Project flags are managed in **Project Settings → Feature Flags**. Workspace flags are visible there read-only.
 
-Runtime apps read **one scope** at a time (`project:<id>` or `workspace:<id>`) via the [TypeScript SDK](https://github.com/railwayapp/railway-ts-sdk) or GraphQL — flags from other scopes are separate registries.
+Runtime apps read **one scope** at a time (`project:<id>` or `workspace:<id>`) via the [TypeScript SDK](https://github.com/railwayapp/railway-ts-sdk) or GraphQL: flags from other scopes are separate registries.
 
 ## Agent / MCP workflow
 
@@ -87,9 +87,9 @@ Poll interval defaults are suitable for most apps; flags refresh when registry v
 
 ## Do not confuse with
 
-- **Environment variables** — static per-environment config (`railway variable set`). Use flags when you need typed defaults, targeting, and central registry semantics.
-- **Priority Boarding / account toggles** — internal beta switches on your Railway account, unrelated to project feature flags.
-- **Platform feature flags** — Railway staff tooling only.
+- **Environment variables**: static per-environment config (`railway variable set`). Use flags when you need typed defaults, targeting, and central registry semantics.
+- **Priority Boarding / account toggles**: internal beta switches on your Railway account, unrelated to project feature flags.
+- **Platform feature flags**: Railway staff tooling only.
 
 ## Dashboard
 

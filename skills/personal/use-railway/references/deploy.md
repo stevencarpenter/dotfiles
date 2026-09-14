@@ -12,7 +12,7 @@ railway up --detach -m "<release summary>"
 
 `--detach` (alias `--no-wait`) returns after upload without waiting for the deployment. An existing-project `up` also returns after upload when stdout is not a TTY and neither `--ci`, `--json`, nor CI environment mode is active. Do not assume omitting `--detach` makes an agent invocation wait. Include `-m` with a release summary for auditability.
 
-### Verify before reporting — `--detach` only means QUEUED
+### Verify before reporting: `--detach` only means QUEUED
 
 A detached `up` confirms upload, not a successful deployment. Capture the deployment ID from the upload (`--detach --json` includes `deploymentId` for an authenticated deployment). Poll for that deployment's terminal state; do not mistake a concurrent newer deployment for the one just submitted:
 

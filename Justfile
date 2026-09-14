@@ -73,25 +73,9 @@ bootstrap *HOST:
 
 # ── Sync (full deploy) ───────────────────────────────────
 
-# Ordering is load-bearing, not incidental:
-#   1. darwin-rebuild switch — writes the symlinks the rest depends on,
-#      including ~/.config/op/render-manifest and the op:// templates.
-#   2. op-render (inside sync-side-channels.sh, ordered first there) — needs
-#      step 1's manifest, and renders the ~/.ssh/config step 3 authenticates
-#      with.
-#   3. remaining side channels — the agent-registry clone uses git@github.com
-#      over SSH and so must follow step 2.
-# An explicit HOST must reach BOTH halves: rebuild.sh takes it positionally,
-# while sync-side-channels.sh re-derives the host via host-capability.sh, which
-# reads $DOTFILES_HOST. Forwarding only the first would switch to one host's
-# generation and then run the OTHER host's identity gates — e.g. rendering
-# personal 1Password secrets on top of a work deployment. Precedence: an
-# explicit argument wins; $DOTFILES_HOST only fills an empty argument, so an
-# inherited env var can never desync the two halves. With both empty,
-# DOTFILES_HOST="" — which host-capability.sh already treats as unset.
-# Rendering deliberately does NOT run inside activation: 1Password authorizes
-# the CLI by process ancestry and will not serve a `sudo darwin-rebuild` hook.
-# Running it here means it inherits this terminal's approval.
+# Switch creates symlinks; op-render supplies SSH secrets before Git side channels.
+# Forward HOST to both phases so identity gates agree. An explicit argument wins
+# over DOTFILES_HOST. Render in this terminal for interactive 1Password approval.
 
 # Full deploy: switch the generation, then run every network/SSH side channel.
 sync *HOST:
@@ -104,7 +88,7 @@ sync-side-channels:
 
 # ── MCP Sync ─────────────────────────────────────────────
 
-# Lint/test/fmt loop over both Python projects (was: 6x mcp-*/reap-* dupes).
+# Lint, test, and format both Python projects.
 lint:
     for p in mcp_sync agent_reap; do uv run --project $p --group dev ruff check $p/src $p/tests; done
     for p in mcp_sync agent_reap; do uv run --project $p --group dev ruff format --check $p/src $p/tests; done
@@ -115,18 +99,8 @@ test *FLAGS:
 fmt:
     for p in mcp_sync agent_reap; do uv run --project $p --group dev ruff format $p/src $p/tests; done
 
-# Run mcp sync manually.
-#
-# The machine overlay is NOT optional. `sync-mcp-configs` with no
-# --machine-config regenerates every target from the master alone, which
-# DELETES the overlay-only servers (hippo, kaneo on personal) from the
-# deployed configs rather than leaving them alone — a silent downgrade that
-# still reports `[ok] Synced` for every path.
-#
-# The mcpSync activation hook in modules/home/sync-hooks.nix selects the
-# overlay by `identity` at nix eval time. This recipe has no eval context, so
-# it reads the single overlay dotfiles.nix deployed for this host and refuses
-# to guess if it ever finds more than one.
+# Require exactly one deployed machine overlay. Syncing from the master alone
+# would remove overlay-only servers from live configs.
 mcp-sync:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -142,7 +116,7 @@ mcp-sync:
 reap:
     uv run --project agent_reap agent-reap report
 
-# Every tmux server and its sessions — shows why `tmux kill-server` missed one
+# Every tmux server and its sessions: shows why `tmux kill-server` missed one
 reap-sockets:
     uv run --project agent_reap agent-reap sockets
 

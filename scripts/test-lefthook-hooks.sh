@@ -1,10 +1,5 @@
 #!/usr/bin/env bash
-# Assert the lefthook config still covers everything .pre-commit-config.yaml did.
-#
-# Why: the pre-commit -> lefthook port (2026-08-29) re-expressed 14 checks as
-# shell jobs. Two failure modes are silent. A job whose glob matches nothing
-# never runs and reports success, and a check dropped in the port leaves no
-# trace at all. This pins the job list and proves the config parses.
+# Validate lefthook configuration and the required job list.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -23,8 +18,7 @@ fi
 
 lefthook validate >/dev/null || { echo "FAIL: lefthook validate rejected lefthook.yml" >&2; exit 1; }
 
-# Every check carried over from the retired pre-commit config, plus the two
-# local ones. A rename here is a deliberate act, not a drive-by edit.
+# Required checks from the pre-commit migration and local additions.
 required_jobs=(
   check-yaml
   check-toml
@@ -51,15 +45,13 @@ for job in "${required_jobs[@]}"; do
   fi
 done
 
-# The commit-msg hook is what strips AI attribution trailers; losing it would
-# be invisible until a bad trailer reached a public commit.
+# Preserve the commit-msg hook that strips prohibited attribution trailers.
 if ! printf '%s' "${dump}" | rg -Fq "scripts/strip-claude-trailer.sh"; then
   echo "FAIL: commit-msg job does not run scripts/strip-claude-trailer.sh" >&2
   failures=$((failures + 1))
 fi
 
-# A rewriting job handed a binary corrupts it, so the text filter must stay in
-# the trailing-whitespace pipeline (verified during the port on a PNG).
+# Filter out binary files before trailing-whitespace rewrites to prevent corruption.
 if ! printf '%s' "${dump}" | rg -Fq "scripts/hook-text-files.py"; then
   echo "FAIL: trailing-whitespace job lost its scripts/hook-text-files.py filter" >&2
   failures=$((failures + 1))

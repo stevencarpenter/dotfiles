@@ -1,13 +1,8 @@
-"""The kill path.
+"""Destroy candidate panes with tmux kill-pane.
 
-``tmux kill-pane`` is the only primitive. Pane destruction with
-``remain-on-exit off`` SIGHUPs the pane leader and its non-disowned children, so
-it is a complete teardown — signal escalation in the normal path would be dead
-code dressed as a safety net.
-
-Panes are addressed by pane *id* (``%68``), never by index. Indices are positional
-and renumber as panes die, so an index-based loop kills the wrong pane partway
-through.
+Pane destruction with ``remain-on-exit off`` sends SIGHUP to the pane leader and
+its non-disowned children. Address panes by stable IDs (``%68``); positional
+indices renumber as panes close.
 """
 
 from __future__ import annotations

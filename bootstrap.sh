@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Bootstrap a fresh Mac into the nix-darwin + home-manager dotfiles flake.
-# Idempotent: safe to re-run. First run only — routine rebuilds use rebuild.sh.
+# Idempotent: safe to re-run. First run only; routine rebuilds use rebuild.sh.
 set -euo pipefail
 
 # Resolve the physical checkout path. When bootstrap is invoked through the
@@ -16,7 +16,7 @@ source "${REPO_ROOT}/scripts/host-detect.sh"
 
 # ── 0. Xcode Command Line Tools ──────────────────────────────────────────
 # nix-darwin has no option for CLT; they must exist before nix can build
-# anything native. Idempotent — no-op if already installed/accepted.
+# anything native. Idempotent: no-op if already installed/accepted.
 if ! xcode-select -p >/dev/null 2>&1; then
   echo "==> Installing Xcode Command Line Tools ..."
   xcode-select --install || true
@@ -26,7 +26,7 @@ fi
 sudo xcodebuild -license accept 2>/dev/null || true
 
 # ── 1. Lix ───────────────────────────────────────────────────────────────
-# nix.enable = true + nix.package = pkgs.lix in modules/darwin/core.nix —
+# nix.enable = true + nix.package = pkgs.lix in modules/darwin/core.nix:
 # nix-darwin manages the daemon, Lix is the interpreter. The nix-darwin
 # prerequisites recommend the Lix installer because it ships an uninstaller
 # (`/nix/nix-installer uninstall`); the upstream installer does not.
@@ -50,11 +50,6 @@ if [ -z "${HOST:-}" ]; then
 fi
 echo "==> Using host config: $HOST"
 
-# ── 3. (removed) age identity key ────────────────────────────────────────
-# This repo declares zero age.secrets on every identity, so no host needs an
-# age identity. All secrets here render from 1Password via op-render; secrets
-# for an externally-owned host are that wrapper's custody, fetched by its own
-# bootstrap. Bootstrap must never write ~/.config/age/keys.txt.
 
 # ── 4. ~/.dotfiles symlink (out-of-store root for raw dotfiles) ───────────
 if [ "$REPO_ROOT" = "$HOME/.dotfiles" ]; then
@@ -65,27 +60,13 @@ elif [ "$(readlink "$HOME/.dotfiles" 2>/dev/null || true)" != "$REPO_ROOT" ]; th
   ln -sfn "$REPO_ROOT" "$HOME/.dotfiles"
 fi
 
-# ── 4.5 Homebrew (independent install; nix references but does not own it) ──
-# nix-darwin's homebrew module runs `brew bundle` during activation, so brew
-# must exist BEFORE the first switch. This replaced nix-homebrew, whose
-# brew-src pin froze brew at a patched 6.0.1 while homebrew-core moved on.
-#
-# DOTFILES_BREW_BIN is a test seam, NOT a relocation knob — modules/darwin/
-# homebrew.nix and modules/home/tiling.nix hardcode /opt/homebrew. It exists so
-# scripts/test-bootstrap-clt-gate.sh can drive both branches hermetically: an
-# absolute path is invisible to that harness's PATH-based stubbing, so on any
-# host without brew (i.e. every Linux CI runner) bootstrap would otherwise
-# download and execute the real Homebrew installer in the middle of the test.
+# Install Homebrew before nix-darwin runs brew bundle during activation.
+# DOTFILES_BREW_BIN is for test isolation; runtime modules require /opt/homebrew.
 BREW_BIN="${DOTFILES_BREW_BIN:-/opt/homebrew/bin/brew}"
 if [ ! -x "$BREW_BIN" ]; then
   echo "==> Installing Homebrew (independent of nix) ..."
-  # Download to a file first: in `bash -c "$(curl …)"` a curl failure is
-  # swallowed (the substitution's exit status is lost) and bootstrap would
-  # continue with no brew installed. Under set -e this aborts instead.
-  # Explicit XXXXXX template rather than `-t homebrew-install`: BSD mktemp
-  # treats -t's argument as a prefix and appends randomness, but GNU mktemp
-  # rejects it ("too few X's in template"), and the hygiene test runs this
-  # script on a Linux runner. Same accommodation as perm() in that test.
+  # Download separately so set -e catches curl failures.
+  # An explicit XXXXXX template works with both BSD and GNU mktemp.
   brew_install_sh="$(mktemp "${TMPDIR:-/tmp}/homebrew-install.XXXXXX")"
   curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh -o "$brew_install_sh"
   NONINTERACTIVE=1 /bin/bash "$brew_install_sh"
@@ -110,34 +91,19 @@ sudo nix run \
   switch --flake "$REPO_ROOT#${HOST}" \
   --option sandbox false
 
-# ── 6. rustup (dev toolchain) ────────────────────────────────────────────
-# Kept as an imperative bootstrap rather than a nixpkgs toolchain: rustup's
-# toolchain-switching workflow differs from a pinned nix toolchain, and that
-# behavior change was deliberately NOT applied during the port. Idempotent —
-# no-op if rustup already present.
+# rustup manages switchable development toolchains independently of Nix.
 if ! command -v rustup >/dev/null 2>&1; then
   echo "==> Installing rustup ..."
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y || true
 fi
 
-# ── 7. Network/SSH side channels ─────────────────────────────────────────
-# The switch in step 5 just created these profiles, but THIS shell's PATH was
-# computed before they existed — so on a fresh machine the `command -v just`
-# guard below always failed and the whole side channel (tpm, agent-registry,
-# token-auditor) silently never provisioned. Prepend the profiles rather than
-# resolving `just` alone: scripts/sync-side-channels.sh needs `git` too, and
-# hard-exits 1 when `uv` is not on PATH.
+# Load the new profiles so this shell can resolve just, git, and uv for sync.
 PATH="/etc/profiles/per-user/$(id -un)/bin:/run/current-system/sw/bin:$PATH"
 export PATH
 JUST_BIN="${DOTFILES_JUST_BIN:-just}"
 
-# Side channels only — NOT `just sync`, which now begins with its own
-# darwin-rebuild switch. Step 5 above already switched this host, and `just
-# sync` forwards no host to rebuild.sh, so on a fresh machine whose
-# LocalHostName is not yet in the detect_host map (exactly the case the $HOST
-# argument exists to handle) the nested rebuild would exit 1 and the `||` below
-# would swallow it — silently skipping tpm, the agent registry, token-auditor,
-# and op-render.
+# The host is already switched. Run side channels directly and forward HOST;
+# another auto-detected rebuild could select a different host or fail detection.
 echo "==> Running side channels for git externals + token-auditor ..."
 if command -v "$JUST_BIN" >/dev/null 2>&1; then
   DOTFILES_HOST="$HOST" "$JUST_BIN" --justfile "$REPO_ROOT/Justfile" sync-side-channels \

@@ -1,6 +1,6 @@
 # Codebase Review Checklist
 
-Structured 4-phase review process for auditing an existing browser extension codebase. Each phase references detailed guidance in other reference files.
+Checks for reviewing an existing browser extension. Select those relevant to the requested scope and target browsers. Each group links to detailed guidance.
 
 ## Phase 1: Architecture Assessment
 
@@ -8,12 +8,12 @@ Structured 4-phase review process for auditing an existing browser extension cod
 
 - [ ] **Identify all execution contexts.** What code runs as background, content script, extension page, or injected main-world script?
 - [ ] **Is logic in the right context?** Network requests and API calls should be in the background, not content scripts. DOM manipulation should be in content scripts, not background. Heavy computation should not be in content scripts (they run on every matched page).
-- [ ] **Content script weight.** Are content scripts minimal? They execute on every matched page — bloated content scripts cause visible page slowdowns. Move business logic to the background.
+- [ ] **Content script weight.** Are content scripts minimal? They execute on every matched page: bloated content scripts cause visible page slowdowns. Move business logic to the background.
 
 ### Message passing
 
-- [ ] **Typed protocols?** Are messages structured with type fields and typed payloads, or are they unstructured object blobs? Recommend `@webext-core/messaging` for type-safe messaging.
-- [ ] **Async response handling.** Do `onMessage` listeners correctly `return true` for async handlers? Missing `return true` causes silent `sendResponse` failures.
+- [ ] **Typed protocols?** Are messages structured with discriminants and checked payloads? Reuse the existing protocol; a messaging dependency is optional.
+- [ ] **Async response handling.** Do callback-based `onMessage` listeners keep the response channel open? Check Promise listener support against the target browser versions.
 - [ ] **Error propagation.** Are errors in async handlers caught and sent back via `sendResponse`? Uncaught rejections silently drop the response.
 
 ### State management
@@ -36,7 +36,7 @@ Walk through each section of **security-review.md** against the codebase:
 - [ ] **CSP compliance.** No remote code loading, no dynamic code execution from strings, no inline scripts. Check that `content_security_policy` in manifest is restrictive.
 - [ ] **Content script XSS.** Search for `innerHTML`, `outerHTML`, `insertAdjacentHTML` in content scripts. All must use sanitized or text-only content.
 - [ ] **Sender validation.** Every `onMessage` and `onMessageExternal` handler must validate `sender`. Check for `postMessage` listeners without `event.origin` validation.
-- [ ] **Storage access levels.** Sensitive data in `storage.local` should use `setAccessLevel('TRUSTED_CONTEXTS')`. Secrets should use `storage.session`. Nothing sensitive in `storage.sync`.
+- [ ] **Storage access levels.** Where supported, restrict sensitive `storage.local` data with `setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' })`. Prefer `storage.session` for ephemeral secrets. Nothing sensitive in `storage.sync`.
 - [ ] **Data flow.** Trace data from content script to background. Is untrusted data validated at the boundary? Are there paths where page-controlled data reaches sensitive operations?
 
 ## Phase 3: Cross-Browser Readiness
@@ -46,9 +46,9 @@ Walk through **cross-browser-compat.md** known issues:
 - [ ] **Background context.** Any DOM API usage (`document`, `DOMParser`, `XMLHttpRequest`, `Image`) in background code? This breaks Chrome. Use `fetch()`, `TextEncoder`/`TextDecoder`, etc.
 - [ ] **Manifest compatibility.** Does manifest include both `service_worker` and `scripts` for cross-browser? Is `browser_specific_settings.gecko` present for Firefox?
 - [ ] **Browser-specific APIs.** Any `chrome.sidePanel`, `chrome.offscreen`, or other browser-specific APIs used without fallbacks? Check cross-browser-compat.md API gaps table.
-- [ ] **Namespace usage.** Using `chrome.*` directly instead of WXT's `browser` from `#imports`? If not using WXT, is there a polyfill or are APIs wrapped?
+- [ ] **Namespace usage.** Are APIs supported by the declared browsers? Native `chrome.*` is valid for a Chromium-only extension; add wrappers or a polyfill only for an actual compatibility gap.
 - [ ] **Build outputs.** Does `wxt build -b firefox` and `wxt build -b safari` succeed? Or if not using WXT, are there separate manifests per browser?
-- [ ] **Safari silent failures.** Has the extension been tested in Safari? Unsupported APIs fail silently — functionality may appear to work but actually do nothing.
+- [ ] **Safari silent failures.** Has the extension been tested in Safari? Unsupported APIs fail silently: functionality may appear to work but actually do nothing.
 
 ## Phase 4: Store Readiness (When Applicable)
 
@@ -58,23 +58,23 @@ Walk through **cross-browser-compat.md** known issues:
 - [ ] **Source code reproducibility.** For Firefox AMO: can a reviewer run your build and get identical output? Are build instructions documented?
 - [ ] **No obfuscation.** Only standard minification. No control flow obfuscation, no deliberate name mangling beyond what standard bundlers do.
 - [ ] **Single-purpose compliance.** Does the extension do one clear thing? Bundled unrelated features trigger rejection.
-- [ ] **Safari privacy manifest.** `PrivacyInfo.xcprivacy` present and accurate if targeting Safari.
+- [ ] **Safari privacy declarations.** Check current requirements for the target distribution route, SDKs, and required-reason APIs.
 
 ## Review Output Format
 
-After completing all phases, summarize findings as:
+Report verified findings with affected behavior and source locations. Include browser status only for targeted browsers and distinguish tested from untested. Omit empty categories. For a broad review, an example format is:
 
 ```markdown
 ## Extension Review: [name]
 
 ### Critical (must fix before ship)
-- [issue]: [description] — [which phase/check]
+- [issue]: [description]: [which phase/check]
 
 ### High (should fix)
-- [issue]: [description] — [which phase/check]
+- [issue]: [description]: [which phase/check]
 
 ### Medium (recommended)
-- [issue]: [description] — [which phase/check]
+- [issue]: [description]: [which phase/check]
 
 ### Architecture Notes
 - [observations about structure, patterns, technical debt]

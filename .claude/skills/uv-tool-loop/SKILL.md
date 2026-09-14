@@ -1,82 +1,41 @@
 ---
 name: uv-tool-loop
-description: Run the correct uv lint/test loop for the vendored Python tool (`mcp_sync`) on the first try, and guard that tests never write real machine state. USE THIS SKILL whenever you edit or test a file under `mcp_sync/`; whenever you need to lint/test the vendored tool before opening a PR; whenever you hit "ModuleNotFoundError: No module named mcp_sync.skills", "ImportError: cannot import ..." in a just-added test, "I001 Import block is un-sorted" on a test file, or "No module named toml" (system python, not the venv); whenever the user asks "run the tests for the python tool", "which uv invocation does this tool use", or says "the tests wrote a real config file". The invocation form is `uv run --project mcp_sync --group dev <cmd>` (ruff + pytest with a coverage report, NO ty step, NO 100% gate). Enforce TDD ordering (create+export the module symbol BEFORE importing it in tests), run `ruff check --fix && ruff format` on new files BEFORE pytest, and assert tool tests use tmp_path / monkeypatched HOME and NEVER touch real `~/.aws` or other live `$HOME` state. All uv calls run with the sandbox disabled (see sandbox-preflight). token-auditor and aws_config_gen were de-vendored to their own repos (github.com/stevencarpenter/token-auditor, github.com/stevencarpenter/aws-config-generator) and are no longer covered here.
+description: Run the repository's mcp_sync lint and test commands, diagnose environment or collection failures, and keep tests isolated from deployed user configuration.
 ---
 
-# uv tool loop
+# UV tool loop
 
-One uv project rides along in this repo (`mcp_sync`), invoked via
-`uv run --project mcp_sync --group dev`. The test-isolation rules below bite regardless. Run the
-right lint/test sequence with tests isolated from real machine state.
-
-## Why this skill exists
-
-CLAUDE.md lists the commands, yet sessions still (a) used the wrong invocation form, (b) ran
-**system python** (`python -c 'import toml'` → `No module named toml`), (c) imported a symbol
-before the module exported it (`ModuleNotFoundError: No module named mcp_sync.skills`, four
-collection errors), (d) tripped `I001 Import block is un-sorted` on a just-written test, and
-— most damaging — (e) wrote a **real `~/.aws/config`** with duplicate prod profiles from a
-test (*"if the tests are creating real config files that is a massive problem"*). The facts
-are documented but not converting to first-try behavior; this skill makes the per-tool recipe
-and the isolation guard explicit.
-
-> `mcp-sync-verify` covers the mcp_sync **fan-out pipeline** (sandbox-HOME dry-run + diff).
-> This skill covers the **dev loop** (lint/test) for `mcp_sync`. Different jobs.
-
-## The recipe (per tool)
-
-Print the exact sequence for a changed path:
+Run from the repository root. `mcp_sync` uses its own uv project and the PEP 735
+`dev` dependency group:
 
 ```bash
-bash .claude/skills/uv-tool-loop/scripts/tool_ci.sh <path-under-a-tool>
+uv run --project mcp_sync --group dev ruff check mcp_sync/src mcp_sync/tests
+uv run --project mcp_sync --group dev ruff format --check mcp_sync/src mcp_sync/tests
+uv run --project mcp_sync --group dev pytest mcp_sync/tests --cov=mcp_sync --cov-report=term-missing
 ```
 
-| Tool | Invocation | ty? | coverage gate |
-|---|---|:---:|---|
-| `mcp_sync` | `uv run --project mcp_sync --group dev ruff check mcp_sync/src mcp_sync/tests` / `uv run --project mcp_sync --group dev ruff format --check mcp_sync/src mcp_sync/tests` / `uv run --project mcp_sync --group dev pytest mcp_sync/tests --cov=mcp_sync --cov-report=term-missing` | no | report only |
+Coverage is reported without a minimum threshold. There is no type-checking gate.
+For iteration, select the affected test file or case. Run the complete MCP suite
+before handing off a change to shared sync behavior.
 
-All `uv` calls write `~/.cache/uv`, which the sandbox blocks — run them with
-`dangerouslyDisableSandbox: true` (see [sandbox-preflight](../sandbox-preflight/SKILL.md)).
-Note the dependency group is `--group dev` (PEP 735), **not** the older `--extra dev`.
+- Use the project environment for imports and tests. A system Python environment
+  may lack the project's dependencies.
+- On collection failure, inspect the imported module and its intended public API.
+  Add exports only when that API requires them.
+- Fix lint or formatting failures in the affected files, then rerun those checks.
+  Do not automatically rewrite the entire project before testing.
+- Use the current tool permissions. If a command reports a permission denial, see
+  [sandbox-preflight](../sandbox-preflight/SKILL.md).
 
-## Ordering rules that prevent the recurring errors
-
-1. **Module before import.** Create *and export* the symbol (in `__init__.py` / the module)
-   before a test imports it, or pytest collection fails before a single test runs.
-2. **Lint-fix before test.** Run `ruff check --fix && ruff format` on new/edited files
-   *before* `pytest`, so `I001` import-sort never fails the run.
-3. **Never system python.** `python -c ...` resolves the wrong interpreter (no deps). Run
-   module checks via `uv run` inside the project, or rely on the `claade` wrapper's venv.
-
-## Test-isolation guard (the `~/.aws` incident)
-
-Tool tests must write only to `tmp_path` / a monkeypatched `HOME` — **never** real
-`~/.aws`, `~/.config`, or other live `$HOME` state. Lint for violations:
+Tests must write to temporary directories or a monkeypatched `HOME`. Never write
+to real `~/.aws`, `~/.config`, or other deployed user state. This authoring check
+flags suspicious references, but passing it does not prove isolation:
 
 ```bash
 bash .claude/skills/uv-tool-loop/scripts/assert_no_home_writes.sh
-# flags test files that reference Path.home()/expanduser/~/.aws without tmp_path or monkeypatch
 ```
 
-## When NOT to use this skill
-
-- The mcp_sync **fan-out** verification (generated per-tool configs, sandbox-HOME diff) —
-  use [mcp-sync-verify](../mcp-sync-verify/SKILL.md).
-- Generic Python work outside the `mcp_sync/` tree — use the language-agnostic `tdd` skill.
-- Authoring a brand-new tool/`SyncTarget` — that's a code change, not this loop.
-
-## Common failure modes
-
-| Error | Cause | Action |
-|---|---|---|
-| `ModuleNotFoundError: No module named mcp_sync.skills` | test imports a symbol the module doesn't export yet | export it first (module-before-import) |
-| `I001 Import block is un-sorted` | ran pytest before ruff | `ruff check --fix && ruff format` then re-run |
-| `No module named toml` | used system python | run via `uv run` inside the project |
-| tests wrote real `~/.aws/config` | missing `tmp_path`/`monkeypatch` HOME | fix the test; run `assert_no_home_writes.sh` |
-| `Failed to initialize cache at ~/.cache/uv` | sandbox | disable sandbox (sandbox-preflight) |
-
-## Reference
-
-- `scripts/tool_ci.sh` — print the exact CI command sequence for a changed path.
-- `scripts/assert_no_home_writes.sh` — authoring lint for tests touching real `$HOME`.
-- CLAUDE.md § *Commands* — the canonical per-tool invocations this skill encodes.
+Use [mcp-sync-verify](../mcp-sync-verify/SKILL.md) when the change also requires
+previewing generated configuration. Agent Reap has separate commands in the root
+`CLAUDE.md`. Token Auditor and AWS Config Generator are maintained in their own
+repositories.

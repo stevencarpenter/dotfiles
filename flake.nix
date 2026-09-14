@@ -1,10 +1,8 @@
 {
-  description = "carpenter dotfiles — nix-darwin + home-manager, thin out-of-store wrapper";
+  description = "carpenter dotfiles: nix-darwin + home-manager, thin out-of-store wrapper";
 
   inputs = {
-    # Pinned to the 26.05 stable line to mirror the reference repo. Bump to the
-    # current stable darwin channel (and the matching nix-darwin/home-manager
-    # release below) when rolling forward.
+    # Keep nixpkgs, nix-darwin, and home-manager on matching stable releases.
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-26.05-darwin";
 
     nix-darwin.url = "github:nix-darwin/nix-darwin/nix-darwin-26.05";
@@ -13,18 +11,9 @@
     home-manager.url = "github:nix-community/home-manager/release-26.05";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
 
-    # Escape hatch for tools whose upstream release cadence outruns the stable
-    # channel's backport window — the allowlist lives in
-    # modules/home/packages.nix. This input IS nixpkgs (no separate input), so
-    # no `follows` is set.
-    #
-    # Pinned to a REV, not the branch, for two load-bearing reasons: (1) the
-    # updater soak-window in scripts/update-unstable.sh needs a fixed rev to
-    # record first-seen time before promoting ~7 days later — commit timestamps
-    # are not trusted as channel tips; and (2) a rev cannot be moved by a bare
-    # `nix flake update`, so bumping is always deliberate + reviewable. Reverting
-    # to a branch name silently disables both and fails the assertion in
-    # scripts/test-nix-review-regressions.sh.
+    # packages.nix selects tools from this independent unstable pin.
+    # Keep an exact revision so flake update cannot bypass update-unstable.sh's
+    # first-seen soak period. Commit timestamps do not establish channel age.
     nixpkgs-unstable.url = "github:NixOS/nixpkgs/5545adfad2e98de106a5544ca7067e03010410bd"; # nixpkgs-unstable @ 2026-09-03
   };
 
@@ -42,7 +31,7 @@
 
       # Canonical capability keys, defined by this repo's own rows. External
       # host rows (wrapper flakes calling lib.mkHost) must carry AT LEAST
-      # these keys, all booleans — they MAY add caps their own modules gate
+      # these keys, all booleans. They MAY add caps their own modules gate
       # on (superset contract; validating extra caps is the wrapper's job).
       canonicalCapKeys = builtins.attrNames machines.personal-mac.caps;
       capsOk =
@@ -51,7 +40,7 @@
         && builtins.all (k: builtins.isBool caps.${k}) (builtins.attrNames caps);
 
       # One host = one row of the capability table. All per-host variance flows
-      # from `caps`/`identity` through specialArgs + extraSpecialArgs — modules
+      # from `caps`/`identity` through specialArgs + extraSpecialArgs. Modules
       # never branch on hostName. External wrappers compose via the optional
       # extraDarwinModules / extraHomeModules row attrs (LOCKED contract,
       # docs/external-overlays.md).
@@ -61,7 +50,7 @@
         assert capsOk host.caps;
         let
           # Identical payload for darwin (specialArgs) and home-manager
-          # (extraSpecialArgs) modules — the locked specialArgs contract.
+          # (extraSpecialArgs) modules: the locked specialArgs contract.
           args = {
             inherit inputs hostName;
             inherit (host) user caps identity;
@@ -74,7 +63,7 @@
           inherit (host) system;
           specialArgs = args;
           modules = [
-            # hosts/${hostName}.nix only exists for in-repo hosts — an external
+            # hosts/${hostName}.nix only exists for in-repo hosts. An external
             # wrapper's host row references its own shim, so fall back to the
             # darwin module set directly when no in-repo shim exists.
             (
@@ -92,21 +81,9 @@
               home-manager = {
                 useGlobalPkgs = true;
                 useUserPackages = true;
-                # home-manager's checkLinkTargets aborts the WHOLE activation on
-                # the first pre-existing unmanaged file at any target path. On a
-                # box still carrying files from a previous (non-nix) dotfile
-                # manager that is every target, so the first switch can never
-                # succeed without this. With it, each colliding file is renamed
-                # to <target>.chezmoi-bak and activation proceeds.
-                #
-                # NOT durable rollback material. The pinned home-manager's
-                # backup step is `mv "$target" "$target.$ext"` with no -n, and it
-                # only `rm`s a pre-existing backup when HOME_MANAGER_BACKUP_
-                # OVERWRITE is set (nothing here sets it). So a SECOND collision
-                # at the same target silently overwrites the first backup — if a
-                # real file reappears at a managed path and you switch again, the
-                # original pre-nix content is gone. Copy anything you actually
-                # care about out of band before the first switch.
+                # Rename conflicting unmanaged files so activation can proceed.
+                # Back up valuable files separately: another collision at the same
+                # path can overwrite the previous .chezmoi-bak copy.
                 backupFileExtension = "chezmoi-bak";
                 extraSpecialArgs = args;
                 sharedModules = extraHome;

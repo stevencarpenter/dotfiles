@@ -1,15 +1,21 @@
 ---
 name: screenshot-bug-hunt
-description: "Visual review of running frontends: screenshots, layout/rendering bugs, regressions, responsive checks, and UI-change sanity checks."
+description: Inspect screenshots and the rendered DOM of a running frontend for layout defects and responsive regressions. Use for a visual review or verification of a UI change.
 ---
 
-# Screenshot bug hunt
+# Screenshot Bug Hunt
 
-1. Use `:4321`, `:3000`, or `:5173`. If none runs, use `pnpm build && pnpm preview`, not `pnpm dev`.
-2. Bootstrap: `bash "$SKILL_DIR/scripts/setup.sh"`.
-3. Capture: `node "$SKILL_DIR/scripts/shoot.mjs" --base http://localhost:4321 --out /tmp/shots`. It uses the sitemap; pass `--targets file.json` for custom pages. Review responsive widths.
-4. Read `detail/*.png` with the image-aware Read tool. Check home, key pages, docs, and 404 before fixing.
-5. Inspect `dist/` for broken links, missing alt text, and dropped transformations. Markdown sites should have no `.md` hrefs.
-6. Fix high-severity issues, then build, recapture, and reread affected images. Keep 10–20 PNGs in `/tmp`.
+Identify the requested pages and their running URL from the task or project configuration. Reuse the existing server. If a build or preview is needed, use the project's package manager and scripts; do not assume a port, framework, or static output directory.
 
-Not for backend projects, pixel-exact snapshots, or standalone accessibility audits.
+Use the configured browser tools for targeted captures and DOM inspection. For a sitemap-based batch, the bundled helper provides multiple viewports:
+
+```bash
+bash "$SKILL_DIR/scripts/setup.sh"
+node "$SKILL_DIR/scripts/shoot.mjs" --base "$SITE_URL" --out /tmp/shots
+```
+
+Set `SKILL_DIR` to this skill's directory and `SITE_URL` to the verified running URL. The setup script installs the helper's browser dependency in a user cache. Reuse an existing installation when available. Pass `--targets file.json` for selected pages or sites without a sitemap.
+
+Inspect the captured images with an image-capable tool. Pair visible defects with relevant DOM checks from [dom-checks.md](references/dom-checks.md). Check affected pages at representative narrow and wide viewports; expand to shared components when the evidence warrants it.
+
+A review request produces findings. When fixes are requested, use [iteration-loop.md](references/iteration-loop.md) to verify them. Keep artifacts outside the repository unless the user requests committed snapshots.

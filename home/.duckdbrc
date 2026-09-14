@@ -1,4 +1,4 @@
--- ~/.duckdbrc — DuckDB startup configuration
+-- ~/.duckdbrc: DuckDB startup configuration
 -- Symlinked from ~/.dotfiles/home/.duckdbrc by modules/home/dotfiles.nix
 
 -- Output formatting

@@ -14,9 +14,9 @@ For common analysis patterns (output structure, collection status handling, perf
 
 **Via Railway API:** Same infrastructure metrics (CPU, memory, disk, network).
 
-## MySQL Metric Sections — Present ALL of These
+## MySQL Metric Sections: Present ALL of These
 
-When the script returns MySQL data, present **every section below** with its metrics. This matches the full MySQL metrics view. Don't skip sections — if data is present, show it.
+When the script returns MySQL data, present **every section below** with its metrics. This matches the full MySQL metrics view. Don't skip sections: if data is present, show it.
 
 ### 1. Overview
 
@@ -26,8 +26,8 @@ When the script returns MySQL data, present **every section below** with its met
 | Uptime | `overview.uptime_seconds` | Format as Xd Xh Xm |
 | Connections | `overview.connection_usage_percent` | `XX%` with `threads_connected / max_connections` as sub-value |
 | Threads Running | `overview.threads_running` | As-is |
-| Aborted Clients | `overview.aborted_clients` | Warn if > 0 — apps not closing connections |
-| Aborted Connects | `overview.aborted_connects` | Warn if > 0 — auth failures or limit hits |
+| Aborted Clients | `overview.aborted_clients` | Warn if > 0: apps not closing connections |
+| Aborted Connects | `overview.aborted_connects` | Warn if > 0: auth failures or limit hits |
 
 **Presentation:**
 ```
@@ -63,15 +63,15 @@ Show the query mix distribution. A healthy OLTP workload is SELECT-heavy. INSERT
 | Rows Updated | `innodb_row_ops.rows_updated` |
 | Rows Deleted | `innodb_row_ops.rows_deleted` |
 
-These are cumulative since server start. Compare read vs write ratios. A read-heavy workload with low row reads may indicate queries returning few results (good) or not using indexes (bad — cross-reference with table scan ratio).
+These are cumulative since server start. Compare read vs write ratios. A read-heavy workload with low row reads may indicate queries returning few results (good) or not using indexes (bad: cross-reference with table scan ratio).
 
 ### 4. Query Efficiency
 
 | Metric | JSON Path | How to Interpret |
 |--------|-----------|------------------|
 | Temp Tables to Disk | `query_efficiency.tmp_disk_table_percent` | `XX%` (disk/total). > 10% = queries creating large temp results |
-| Table Scan Ratio | `query_efficiency.table_scan_percent` | `XX%`. > 50% = most reads are full scans — missing indexes |
-| Full Joins | `query_efficiency.select_full_join` | Warn if > 0. Joins without indexes — extremely expensive |
+| Table Scan Ratio | `query_efficiency.table_scan_percent` | `XX%`. > 50% = most reads are full scans: missing indexes |
+| Full Joins | `query_efficiency.select_full_join` | Warn if > 0. Joins without indexes: extremely expensive |
 | Range Selects | `query_efficiency.select_range` | Index range scans (good). Higher is better relative to full scans |
 | Sort Merge Passes | `query_efficiency.sort_merge_passes` | Warn if > 0. Sorts exceeding `sort_buffer_size` |
 
@@ -89,8 +89,8 @@ These are cumulative since server start. Compare read vs write ratios. A read-he
 
 **Analysis guidance:**
 - Hit ratio < 99% + usage > 95% = buffer pool too small for the working set
-- Hit ratio < 95% = severe cache pressure — increase `innodb_buffer_pool_size`
-- Dirty pages are modified pages not yet flushed to disk — high dirty count means heavy writes or slow I/O
+- Hit ratio < 95% = severe cache pressure: increase `innodb_buffer_pool_size`
+- Dirty pages are modified pages not yet flushed to disk: high dirty count means heavy writes or slow I/O
 
 ### 6. InnoDB I/O
 
@@ -143,12 +143,12 @@ Low cache hit = table_open_cache may be too small. Many opened_tables relative t
 ```
 
 **Per-query analysis:**
-- `no_index_used > 0` → Flag with "! No Index" — these are the biggest optimization targets
-- `tmp_disk_tables > 0` → Query creates on-disk temp tables — needs optimization
-- High `rows_examined / rows_sent` ratio → Scanning many rows to return few — missing or suboptimal index
+- `no_index_used > 0` → Flag with "! No Index": these are the biggest optimization targets
+- `tmp_disk_tables > 0` → Query creates on-disk temp tables: needs optimization
+- High `rows_examined / rows_sent` ratio → Scanning many rows to return few: missing or suboptimal index
 - Truncate query text to essential parts (tables, WHERE clauses, JOINs). Don't dump full ORM SQL.
 
-**If `top_queries` is empty or null:** performance_schema is likely disabled — this is the default on Railway. Do not suggest enabling it without caveats: it requires ~400MB+ additional memory and is only advisable on larger instances. Just note that query-level data is unavailable.
+**If `top_queries` is empty or null:** performance_schema is likely disabled: this is the default on Railway. Do not suggest enabling it without caveats: it requires ~400MB+ additional memory and is only advisable on larger instances. Just note that query-level data is unavailable.
 
 ### 11. Tables
 
@@ -171,7 +171,7 @@ Show if any non-Sleep, non-Daemon processes are running:
 | app | mydb | Query | 45 | SELECT ... |
 ```
 
-Long-running queries (> 30s) warrant investigation. Cross-reference with lock waits — a long query may be holding locks that block others.
+Long-running queries (> 30s) warrant investigation. Cross-reference with lock waits: a long query may be holding locks that block others.
 
 ## MySQL Performance Patterns
 
@@ -207,7 +207,7 @@ Long-running queries (> 30s) warrant investigation. Cross-reference with lock wa
 | Table scan ratio | < 50% | 50-75% | > 75% |
 | Table lock contention | < 1% | 1-5% | > 5% |
 | Full joins | 0 | 1-100 | > 100 |
-| Sort merge passes | 0 | > 0 | — |
+| Sort merge passes | 0 | > 0 | N/A |
 
 ## MySQL Tuning Knowledge
 
@@ -222,8 +222,8 @@ Long-running queries (> 30s) warrant investigation. Cross-reference with lock wa
 
 ## MySQL-Specific Notes
 
-- **`performance_schema=0` in start command** disables query-level metrics. This is the default on Railway. Note it when detected but do not recommend enabling it without caveats — it adds ~400MB+ memory overhead and is only practical on larger instances (2GB+ RAM).
-- **`disable-log-bin` in start command** means no binary logging — point-in-time recovery is not possible. Note if relevant.
+- **`performance_schema=0` in start command** disables query-level metrics. This is the default on Railway. Note it when detected but do not recommend enabling it without caveats: it adds ~400MB+ memory overhead and is only practical on larger instances (2GB+ RAM).
+- **`disable-log-bin` in start command** means no binary logging: point-in-time recovery is not possible. Note if relevant.
 - **`innodb-use-native-aio=0`** is common on Railway (container filesystem limitation). Not a concern.
 - **Cumulative counters**: All SHOW GLOBAL STATUS values are cumulative since server start. Use uptime to compute rates (e.g., questions/uptime = queries per second).
 
@@ -247,7 +247,7 @@ Show both windows side by side to compare trends:
 
 Compare windows to distinguish sustained vs transient trends.
 
-Do NOT show cpu_limit/memory_limit columns or utilization %. Railway auto-scales — these limits are just the ceiling. See [analyze-db.md](analyze-db.md) autoscale rules.
+Do NOT show cpu_limit/memory_limit columns or utilization %. Railway auto-scales: these limits are just the ceiling. See [analyze-db.md](analyze-db.md) autoscale rules.
 
 ## Validated against
 

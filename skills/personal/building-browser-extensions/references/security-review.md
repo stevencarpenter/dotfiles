@@ -1,14 +1,14 @@
 # Security Review
 
-Checklist for auditing browser extension security. Works for both new builds and existing codebase reviews. Extension-specific concerns — not generic web security.
+Checklist for auditing browser extension security. Works for both new builds and existing codebase reviews. Extension-specific concerns: not generic web security.
 
 ## Permissions Audit
 
-Every permission in the manifest must have a written justification. If you can't explain why it's needed, remove it.
+Trace each permission to the behavior that needs it. Report unused or broader-than-required permissions; remove them when fixes are in scope and the affected behavior is understood.
 
 ### Default choice: `activeTab`
 
-`activeTab` grants temporary access ONLY when the user explicitly invokes the extension. No install warning. Revoked on navigation. **Start here, not with host permissions.**
+`activeTab` grants temporary access when the user explicitly invokes the extension. Use it when that covers the requested behavior. Automatic site-specific features may require scoped host permissions.
 
 ### Dangerous permissions
 
@@ -16,9 +16,9 @@ Every permission in the manifest must have a written justification. If you can't
 |-----------|---------|----------------------|
 | `<all_urls>` / `*://*/*` | Read/modify all web content | Why can't you scope to specific hosts? |
 | `webRequest` / `declarativeNetRequest` | Intercept/modify all network traffic | Why do you need to see network requests? |
-| `cookies` | Read/write cookies for any host with permission | Session hijacking risk — why not use `storage`? |
-| `debugger` | Full DevTools Protocol access to tabs | Essentially root — extreme justification needed |
-| `tabs` | See URL/title of ALL open tabs | Browsing surveillance — use `activeTab` instead |
+| `cookies` | Read/write cookies for any host with permission | Session hijacking risk: why not use `storage`? |
+| `debugger` | Full DevTools Protocol access to tabs | Essentially root: extreme justification needed |
+| `tabs` | See URL/title of ALL open tabs | Browsing surveillance: use `activeTab` instead |
 | `management` | Enable/disable/uninstall other extensions | Almost never legitimate |
 | `nativeMessaging` | Communicate with native apps on machine | Escapes browser sandbox |
 | `clipboardRead/Write` | Read/write clipboard | Credential exfiltration risk |
@@ -87,12 +87,12 @@ import DOMPurify from 'dompurify';
 const clean = DOMPurify.sanitize(message.noteContent);
 ```
 
-The same applies to `outerHTML`, `insertAdjacentHTML`, and any other DOM API that parses HTML strings. Content scripts run on potentially hostile pages — all DOM data is attacker-controlled.
+The same applies to `outerHTML`, `insertAdjacentHTML`, and any other DOM API that parses HTML strings. Content scripts run on potentially hostile pages: all DOM data is attacker-controlled.
 
 ### `scripting.executeScript` risks
 
 - **Never pass user/page-controlled data as function arguments without validation**
-- **`world: "MAIN"`** injects into the page's JS context — subject to page CSP, page can spoof globals. Use only when you must interact with page-level JS.
+- **`world: "MAIN"`** injects into the page's JS context: subject to page CSP, page can spoof globals. Use only when you must interact with page-level JS.
 - MV3 requires the `files` parameter (static bundled script) or `func` reference (function object). String code execution is blocked by CSP.
 
 ### Message passing without sender validation
@@ -112,7 +112,7 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 ```
 
-**`onMessageExternal`** is especially dangerous — it receives messages from OTHER extensions and websites. Always validate `sender.id` against an allowlist. If you don't need cross-extension communication, don't add this listener.
+**`onMessageExternal`** is especially dangerous: it receives messages from OTHER extensions and websites. Always validate `sender.id` against an allowlist. If you don't need cross-extension communication, don't add this listener.
 
 ### `window.postMessage` in content scripts
 
@@ -126,13 +126,13 @@ window.addEventListener('message', (event) => {
 });
 ```
 
-Without origin validation, any iframe, ad script, or injected code on the page can send messages that your content script forwards to the background — creating a bridge from attacker to privileged context.
+Without origin validation, any iframe, ad script, or injected code on the page can send messages that your content script forwards to the background: creating a bridge from attacker to privileged context.
 
 ### Storage security
 
-- `storage.local` is readable by content scripts by default. Use `chrome.storage.local.setAccessLevel('TRUSTED_CONTEXTS')` for sensitive data.
-- `storage.session` defaults to `TRUSTED_CONTEXTS` — prefer it for tokens and secrets.
-- `storage.sync` traverses vendor cloud infrastructure — never store PII or credentials.
+- `storage.local` is readable by content scripts by default. Where supported, use `chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' })` for sensitive data. Check the [storage API](https://developer.chrome.com/docs/extensions/reference/api/storage) for the target browser.
+- `storage.session` defaults to `TRUSTED_CONTEXTS`: prefer it for tokens and secrets.
+- `storage.sync` traverses vendor cloud infrastructure: never store PII or credentials.
 
 ## Data Handling
 
@@ -146,14 +146,14 @@ Untrusted                                    Trusted
 └──────────┘    └──────────────┘    └──────────────────┘
 ```
 
-- **Every message from a content script should be validated** in the background — the content script runs in a hostile page environment.
+- **Every message from a content script should be validated** in the background: the content script runs in a hostile page environment.
 - **Sensitive data should not transit through content scripts** if avoidable. Have the background fetch directly from APIs.
 - **HTTPS enforcement** for all external API calls. Never send credentials over HTTP.
 
 ### Privacy implications
 
-- Content scripts that read page DOM are processing user data — disclose this in privacy policy.
-- Extensions with broad host permissions can observe all browsing activity — high-value supply chain attack target.
+- Content scripts that read page DOM are processing user data: disclose this in privacy policy.
+- Extensions with broad host permissions can observe all browsing activity: high-value supply chain attack target.
 - `storage.sync` data traverses Google/Mozilla cloud. Disclose this.
 
 ## Store Rejection Pitfalls
@@ -172,31 +172,25 @@ Things that will get your extension rejected or cause friction during review.
 
 ### Firefox AMO
 
-- **Source code required** if code is transpiled/minified. You must submit source + build instructions. The reviewer runs your build and diffs the output — it must match exactly.
+- **Source code required** if code is transpiled/minified. You must submit source + build instructions. The reviewer runs your build and diffs the output: it must match exactly.
 - **Build tools must be maintained.** Deprecated build tools are grounds for rejection.
 - **No obfuscation.** Minification for size is allowed; code that deliberately hides its purpose is banned.
 - **All features must be disclosed.** No "surprise functionality."
 
 ### Safari App Store
 
-- **Privacy manifest required** (`PrivacyInfo.xcprivacy`) since May 2024 — declares data collected, tracking domains, Required Reasons API usage.
-- **Host app must have meaningful functionality** — an empty container app may be rejected.
-- **Permission minimization enforced** — reviewers check that you don't claim more access than necessary.
-- **More restrictive user grants** — Safari lets users grant "one day", "always", or "this website only." Extensions must function gracefully with partial permissions.
+- **Privacy declarations:** Check current Apple requirements for the distribution route, data collected, bundled SDKs, and required-reason API use.
+- **Host app must have meaningful functionality**: an empty container app may be rejected.
+- **Permission minimization enforced**: reviewers check that you don't claim more access than necessary.
+- **More restrictive user grants**: Safari lets users grant "one day", "always", or "this website only." Extensions must function gracefully with partial permissions.
 
 ## Supply Chain Awareness
 
-Browser extensions auto-update to all users instantly. A compromised publishing credential = compromised users.
-
-### Real-world incidents
-
-- **Cyberhaven (Dec 2024):** OAuth phishing gave attackers publish access. Malicious update pushed to 400K users. Detected in 60 minutes, but part of campaign hitting 36+ extensions / 2.6M users.
-- **Trust Wallet (Dec 2025):** Leaked Chrome Web Store API key. Malicious version published, $8.5M in crypto theft.
-- **Claude extension (March 2026):** Zero-click XSS via prompt injection in content script. Any website could execute arbitrary JS through the extension.
+Extension updates distribute privileged code to users. Protect the publishing path and review the packaged output.
 
 ### Mitigations
 
 - Secure publishing credentials with hardware keys
 - Limit who has publish access
-- Review your own extension updates before publishing (CI/CD pipeline with approval gate)
+- Verify packaged extension changes before an authorized publication; follow the repository's release policy.
 - Use `web_accessible_resources` with `use_dynamic_url: true` to prevent resource URL prediction

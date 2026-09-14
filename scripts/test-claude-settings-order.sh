@@ -1,21 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Claude settings merge-order regression test (nix shape).
-#
-# Under chezmoi this rendered dot_claude/modify_settings.json.tmpl via
-# `chezmoi execute-template` and drove the resulting modify_ script. The merge
-# now lives in modules/home/ai-stack.nix as a home.activation jq pipeline whose
-# core step is a recursive merge of the live settings over the managed block:
-#     merged = existing * managed        (jq '. * $managed')
-# That `*` operator is exactly what preserves the user's existing top-level key
-# ordering while appending managed-only keys — the property this test guards.
-#
-# This test does NOT require nix or chezmoi. It reads the real managed base
-# (home/.claude/settings-base.json) and replays the same jq merge semantics
-# against a Claude-authored sample, asserting the existing key order survives.
-# The capability-varying `variant` slice and the SessionStart strip pass are
-# exercised by ai-stack.nix at switch time (verified with jq during the port).
+# Verify ai-stack.nix's jq merge preserves existing top-level key order.
+# Apply settings-base.json with existing * managed, which appends new keys.
+# This test excludes capability variants and SessionStart hook stripping.
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 base="${repo_root}/home/.claude/settings-base.json"

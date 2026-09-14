@@ -20,7 +20,7 @@ The version is pinned deliberately: gh-axi runs with the user's authenticated `g
 credential (full GitHub write access) in scope, so an unpinned `npx -y gh-axi`
 would execute whatever the latest published release happens to be. Bump the pin
 only after reviewing the release. Do not run the `update` command below to jump
-to `latest` — change the pin here instead.
+to `latest`: change the pin here instead.
 
 gh-axi requires the [`gh`](https://cli.github.com/) CLI installed and authenticated (`gh auth login`). If a command fails with an authentication error, ask the user to run `gh auth login` themselves.
 
@@ -30,13 +30,13 @@ Use gh-axi whenever a task touches GitHub: listing, filing, or editing issues; v
 
 ## Workflow
 
-1. Run `npx -y gh-axi@0.1.23` with no arguments for a dashboard of the current repo - open issues, open PRs, and suggested next commands.
+1. Run the command that answers the request. With no arguments, `npx -y gh-axi@0.1.23` shows a repository dashboard when an overview is needed.
 2. Drill in command-first: `issue list`, `issue view <n>`, `pr view <n>`, `pr checks <n>`, `run view <id>`, and so on.
 3. Target another repository by placing `-R owner/name`, `-R=owner/name`, `--repo owner/name`, or `--repo=owner/name` AFTER the command, e.g. `npx -y gh-axi@0.1.23 issue list --repo=owner/name` - the flag is not accepted before the command.
 4. Trigger (dispatch) a workflow with `workflow run <name> --ref <ref>`; `run` manages existing workflow runs.
 5. Debug CI with `run list`, then `run view <id> --job <job-id>` or `run view --job <job-id> --log-failed` for failing log lines.
    Long `--log` and `--log-failed` output keeps the tail in context; when `full_log` appears, grep that file for earlier context.
-6. Every response ends with contextual next-step hints under `help:` - follow them.
+6. Treat `help:` hints as command suggestions. Execute them only when they advance the authorized task.
 
 ## Commands
 
@@ -46,7 +46,7 @@ commands[13]:
 ```
 
 Installed copies also inherit the SDK built-in `update` command.
-Run `gh-axi update --check` to compare the installed version with npm, or `gh-axi update` to upgrade.
+`gh-axi update --check` compares an installed version with npm. Preserve the reviewed pin for this skill.
 When using `npx -y gh-axi@0.1.23`, npx already resolves the package on demand.
 
 Run `npx -y gh-axi@0.1.23 --help` for global flags, or `npx -y gh-axi@0.1.23 <command> --help` for per-command usage.
@@ -55,7 +55,7 @@ Run `npx -y gh-axi@0.1.23 --help` for global flags, or `npx -y gh-axi@0.1.23 <co
 
 - Output is TOON-encoded and token-efficient; pipe through grep/head only when a list is very long.
 - Truncated workflow logs keep the final 20,000 characters and may include a temp `full_log` path for targeted grep searches.
-- Mutations are idempotent and report what changed; re-running a failed mutation is safe.
+- After a mutation times out or returns an ambiguous failure, inspect the resulting state before retrying. Creating issues, comments, releases, or workflow runs can produce duplicates.
 - For multi-line markdown bodies, comments, or release notes, write the text to a UTF-8 file and pass `--body-file <path>` or the release `--notes-file <path>` alias on commands that support file-backed text.
 - Secret values are stdin-only: `echo -n "<value>" | npx -y gh-axi@0.1.23 secret set <name>`.
 - Do not pass secrets with `--body` or `-b`; flags are visible in the `gh-axi` process argv.

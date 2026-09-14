@@ -1,17 +1,13 @@
 #!/usr/bin/env bash
-# tmux-refresh-env — re-seed the tmux server's global environment from a
+# tmux-refresh-env: re-seed the tmux server's global environment from a
 # pristine login shell, without restarting the server (and without killing
 # long-running TUIs in existing panes).
 #
-# Why this exists: the tmux server snapshots the environment of whichever
-# shell first ran `tmux new`, and every new pane inherits that snapshot.
-# Only the vars in `update-environment` (TERM/TERM_PROGRAM + tmux's SSH/
-# display defaults) are ever refreshed, so rebuild-delivered env changes —
-# and any project secrets exported in the launching shell — persist in the
-# server until it dies. See docs/ai-tools/tmux-runtime-lifecycle.md.
+# New panes inherit the server's initial environment. Variables outside
+# update-environment retain old values, including project secrets.
+# See docs/ai-tools/tmux-runtime-lifecycle.md.
 #
-# Report-only by default (names only — values are never printed, since the
-# whole point is often evicting secrets). Pass --apply to execute.
+# Report names only by default. Pass --apply to update the server environment.
 #
 # The pristine environment comes from `env -i ... zsh -l -i`: an empty
 # environment rebuilt by the full login+interactive startup chain
@@ -33,7 +29,7 @@ EXCLUDE_RE='^(PWD|OLDPWD|SHLVL|_|TTY|TERM|TERM_SESSION_ID|GPG_TTY|HIPPO_SESSION_
 # Never pruned from the server env: tmux refreshes the first group into the
 # session env on client attach (its default update-environment list), and
 # the rest is launchd / terminal-app / tpm plumbing that a pristine `env -i`
-# shell cannot reproduce but new panes genuinely want (TMPDIR is the
+# shell cannot reproduce but new panes need (TMPDIR is the
 # per-user /var/folders path; GHOSTTY_* pairs with the running terminal;
 # TMUX_PLUGIN_MANAGER_PATH was set by tmux.conf itself).
 PROTECT_RE='^(DISPLAY|KRB5CCNAME|SSH_ASKPASS|SSH_AUTH_SOCK|SSH_AGENT_PID|SSH_CONNECTION|WINDOWID|XAUTHORITY|TERM_PROGRAM|TERM_PROGRAM_VERSION|TMPDIR|LANG|COLORTERM|GHOSTTY_.*|TMUX_PLUGIN_MANAGER_PATH)$'
@@ -83,7 +79,7 @@ done <"$fresh_file"
 declare -A server
 while IFS= read -r line; do
   [[ $line =~ ^([A-Za-z_][A-Za-z0-9_]*)=(.*)$ ]] || continue
-  # Capture both groups NOW: the =~ in the exclude check below clobbers
+  # Capture both groups before another regex match: the =~ in the exclude check below clobbers
   # BASH_REMATCH. ${..:-}: an empty value leaves [2] unset under `set -u`.
   name=${BASH_REMATCH[1]} value=${BASH_REMATCH[2]:-}
   [[ $name =~ $EXCLUDE_RE ]] && continue
@@ -138,4 +134,4 @@ done
 echo
 echo "Done. New panes now inherit the refreshed environment."
 echo 'Existing shells: eval "$(tmux show-environment -g -s)"'
-echo "(Running TUIs keep their env until restarted — that is per-process and unfixable.)"
+echo "(Running TUIs keep their env until restarted: that is per-process and unfixable.)"

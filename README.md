@@ -4,9 +4,9 @@ Personal macOS dotfiles built as a **nix-darwin + home-manager flake**, in the "
 shape modeled on [kunchenguid/dotfiles](https://github.com/kunchenguid/dotfiles): nix owns
 *packages*, macOS defaults, capability gating, and orchestration, while the raw config files live
 under [`home/`](home/) with their real dotted names and are symlinked into place **out of the nix
-store** (through `~/.dotfiles`). Editing a raw config is live immediately — no rebuild required.
+store** (through `~/.dotfiles`). Editing a raw config is live immediately: no rebuild required.
 
-One flake drives its hosts — currently just `personal-mac` — from a single
+One flake drives its hosts (currently just `personal-mac`) from a single
 capability table ([`lib/machines.nix`](lib/machines.nix)), so the same checkout produces a
 different environment on each host with no hostname checks inside any module.
 
@@ -18,43 +18,43 @@ regenerates machine-specific AI-tool config after every switch.
 ## Repo tour
 
 ```
-flake.nix                 # inputs + one-screen mkHost fold (darwinConfigurations.<host>)
-lib/machines.nix          # capability table — the single source of per-host variance
-hosts/personal-mac.nix    # thin shim, host-scoped decls only (other hosts: external wrapper flakes)
+flake.nix                 # inputs + mkHost fold (darwinConfigurations.<host>)
+lib/machines.nix          # capability table: the single source of per-host variance
+hosts/personal-mac.nix    # host-scoped declarations (other hosts: external wrapper flakes)
 modules/
   darwin/                 # system scope (specialArgs): core, macos-defaults, homebrew
   home/                   # home scope (extraSpecialArgs): dotfiles, shell, packages,
                           #   tiling, dev-tools, ai-stack, sync-hooks
 home/                     # raw dotfiles (live, symlinked out-of-store through ~/.dotfiles)
-secrets/                  # documentation only — no ciphertext, no age secrets
-mcp_sync/                 # vendored uv tool — MCP + skills fan-out
+secrets/                  # documentation only: no ciphertext, no age secrets
+mcp_sync/                 # vendored uv tool: MCP + skills fan-out
 bootstrap.sh  rebuild.sh  # fresh-machine setup / routine switch (host auto-detect)
 Justfile                  # nix + python + sync task runner
 ```
 
-- **`flake.nix`** — pins `nixpkgs`/`nix-darwin`/`home-manager` to the **26.05** stable darwin line, then
+- **`flake.nix`**: pins `nixpkgs`/`nix-darwin`/`home-manager` to the **26.05** stable darwin line, then
   folds `lib/machines.nix` into
   `darwinConfigurations.<host>` via a `mkHost` helper. Every host receives the same specialArgs
-  payload — `{ inherit inputs hostName; user; caps; identity; }` — for both the darwin modules
+  payload (`{ inherit inputs hostName; user; caps; identity; }`) for both the darwin modules
   (`specialArgs`) and home-manager (`extraSpecialArgs`). Adding a machine stays a one-row edit.
-- **`lib/machines.nix`** — the capability table: each machine maps to `system`, `user`, an
+- **`lib/machines.nix`**: the capability table: each machine maps to `system`, `user`, an
   `identity` string (`personal`/`work`, replacing the old `hasPrefix` gates), and a `caps`
-  set of booleans. Modules gate on `caps.<x>` / `identity` — never on hostname.
-- **`hosts/*.nix`** — deliberately thin. They import `modules/darwin` and hold only genuinely
-  host-scoped declarations. All real variance flows from the caps table.
-- **`modules/darwin/`** — system scope. `core.nix` (nix-daemon ownership, login
+  set of booleans. Modules gate on `caps.<x>` / `identity`, never on hostname.
+- **`hosts/*.nix`**: import `modules/darwin` and hold host-scoped declarations.
+  Per-host variance comes from the capability table.
+- **`modules/darwin/`**: system scope. `core.nix` (nix-daemon ownership, login
   shell pin, `maxfiles` launchd agent, `stateVersion`), `macos-defaults.nix` (declarative
   `system.defaults.*`), `homebrew.nix` (declarative taps/brews/casks against an independent, self-updating brew install,
   gated per caps).
-- **`modules/home/`** — home scope. `dotfiles.nix` is the heart of the thin wrapper (out-of-store
-  symlinks); the rest own shell, packages, tiling, dev tooling, the AI stack, and the post-switch
+- **`modules/home/`**: home scope. `dotfiles.nix` manages out-of-store
+  symlinks; the rest own shell, packages, tiling, dev tooling, the AI stack, and the post-switch
   sync hooks. Each self-gates on caps/identity.
-- **`home/`** — the actual dotfiles, mirroring `~` (e.g. `home/.config/nvim`,
+- **`home/`**: the actual dotfiles, mirroring `~` (e.g. `home/.config/nvim`,
   `home/.config/zsh/.zshrc`, `home/.claude/hooks/…`). Symlinked live; safe to edit in place.
-- **`secrets/`** — documentation only. No ciphertext is tracked in this repo. Templates live
+- **`secrets/`**: documentation only. No ciphertext is tracked in this repo. Templates live
   under `home/` and contain only `op://` references. See
   [`secrets/README.md`](secrets/README.md).
-- **`mcp_sync/`** — isolated `uv` project (Python 3.14+, no runtime deps) that
+- **`mcp_sync/`**: isolated `uv` project (Python 3.14+, no runtime deps) that
   fans config out to per-tool formats after each switch. Run standalone or via the activation hooks.
 
 ## Machines and capability gating
@@ -75,7 +75,7 @@ adding a machine is a one-row change and no gate site needs editing.
 | `agent_journal` | yes | no | Obsidian agent-journal config, CLI wrappers, Claude hook |
 | `agents` | yes | no | personal agent-registry clone + fan-out installer |
 
-`identity` (`personal`/`work`) additionally splits ownership-flavored gates — personal-only
+`identity` (`personal`/`work`) additionally selects personal-only
 shell profiles + hippo, work-only shell/AWS profiles, homelab-over-Tailscale (`!= "work"`) SSH +
 `tailscale.zsh`. `work` is corporate-curated (`dev`/`atuin` off, its own dev tooling); `personal`
 is the daily driver. Both current machines are `aarch64-darwin`.
@@ -87,12 +87,12 @@ the owning module on `caps.<capability>`.
 
 ## Fresh-machine setup
 
-`bootstrap.sh` is idempotent — safe to re-run. It:
+`bootstrap.sh` is idempotent: safe to re-run. It:
 
 1. Installs **Xcode Command Line Tools** (nix-darwin has no option for CLT; native builds need
    them first).
 2. Installs **Lix** if `nix` isn't on PATH, via the Lix installer. (`nix.enable = true` with
-   `nix.package = pkgs.lix` in `modules/darwin/core.nix` — nix-darwin manages the daemon and
+   `nix.package = pkgs.lix` in `modules/darwin/core.nix`: nix-darwin manages the daemon and
    runs Lix as the interpreter.)
 3. Resolves the host config. No host fetches an age identity: every identity's secret surface is
    fully 1Password-rendered and evaluates to zero `age.secrets`.
@@ -118,7 +118,7 @@ Then run it:
 ```
 
 A handful of TCC-protected first-run steps can't be scripted (Reduce Transparency, Caps-Lock
-remap, granting AeroSpace/SketchyBar Accessibility) — `bootstrap.sh` prints them at the end.
+remap, granting AeroSpace/SketchyBar Accessibility): `bootstrap.sh` prints them at the end.
 
 ## Daily use
 
@@ -137,8 +137,8 @@ a flake config, and `exec`s `sudo darwin-rebuild switch` against that physical p
 
 **Editing raw configs needs no rebuild.** Everything under `home/` is an out-of-store symlink, so a
 change to `~/.config/nvim/…` or `~/.config/zsh/.zshrc` is live the moment you save. A rebuild is
-only needed when you change *packages*, *macOS defaults*, *gating*, or a *secret/hook declaration*
-— anything nix actually owns.
+only needed when you change Nix-managed *packages*, *macOS defaults*, *gating*, or a
+*secret/hook declaration*.
 
 Long-lived programs still cache state after a raw file changes. For tmux/z4h/Claude behavior,
 follow the [tmux runtime lifecycle runbook](docs/ai-tools/tmux-runtime-lifecycle.md): it separates
@@ -168,13 +168,13 @@ Personal machines declare zero `age.secrets`. `home/.local/bin/op-render` atomic
 references. It preserves the last known-good targets on any failure.
 
 It runs from **`just sync`**, not from Home Manager activation. Rendering needs the network and a
-live `op` session, and `op` sessions expire after ~30 minutes of inactivity — so `just sync` runs
+live `op` session. Sessions expire after ~30 minutes of inactivity, so `just sync` runs
 `eval "$(op signin)"` itself, immediately before rendering, and `op-render` inherits the exported
 `OP_SESSION_*` as a child process. That signin is TTY-guarded (`[ -t 0 ]`): `op signin` blocks on
 input, and this script also runs from `bootstrap.sh` and non-interactive contexts where hanging
-would be worse than skipping. Activation cannot do any of this — its PATH (a closed nix-store list)
-does not even contain `/opt/homebrew/bin/op`. Activation keeps only the
-cheap staleness nag (`op-render --warn-stale-only`), which reads the `.last-render` sentinel,
+would block provisioning. Activation's PATH (a closed nix-store list)
+does not contain `/opt/homebrew/bin/op`. Activation runs the
+staleness check (`op-render --warn-stale-only`), which reads the `.last-render` sentinel,
 touches no network, and warns when the last successful render is older than `OP_RENDER_STALE_DAYS`
 (default 7).
 
@@ -189,12 +189,11 @@ host are administered by that wrapper. See [`secrets/README.md`](secrets/README.
 
 ## Side channels (`just sync` / `just bootstrap`)
 
-Some provisioning is deliberately kept **out of `darwin-rebuild switch`** because it needs the
-network, SSH auth, or `sudo` — things a `switch` should not silently depend on. Those live in the
-Justfile instead:
+Provisioning that requires network access, SSH authentication, or `sudo` runs through the
+Justfile, outside `darwin-rebuild switch`:
 
-- **`just sync`** — the one-command full deploy: `darwin-rebuild switch`, then every side channel,
-  in the only order that works. Rendering personal `op://` secrets comes first (personal identity
+- **`just sync`**: runs `darwin-rebuild switch`, then every side channel.
+  Rendering personal `op://` secrets comes first (personal identity
   only) because it produces the `~/.ssh/config` the agent-registry clone authenticates with, and it
   needs the manifest symlink the switch just wrote. Then: clone/refresh tpm over HTTPS; install and
   validate the personal `agent-registry` from `~/projects/agents` when that working copy exists,
@@ -202,9 +201,9 @@ Justfile instead:
   `agents` capability is enabled; and install the immutable `token-auditor` release pinned in the
   Justfile. Safe to re-run; `bootstrap.sh` passes its resolved host explicitly. A failed side
   channel makes this explicit command fail instead of leaving a silently partial install.
-- **`just sync-side-channels`** — the side channels alone, skipping the rebuild, for when the
+- **`just sync-side-channels`**: the side channels alone, skipping the rebuild, for when the
   generation is already current.
-- **`just bootstrap`** — the full fresh-machine flow (`bootstrap.sh`): Lix, Homebrew, first
+- **`just bootstrap`**: the full fresh-machine flow (`bootstrap.sh`): Lix, Homebrew, first
   switch, rustup.
 
 The rule: declarative or offline+fast+idempotent work
@@ -220,7 +219,7 @@ does not depend on an untracked `npm install --global` operation. Inspect the cu
 
 Rebuilds are idempotent: they neither update Homebrew metadata nor upgrade installed packages.
 Activation keeps unmanaged inventory in place because nix-darwin's `"check"` mode would abort
-while the migrated prefix still contains reviewed-useful extras. Run `just brew-upgrade` for
+while the prefix contains retained unmanaged packages. Run `just brew-upgrade` for
 deliberate updates and `just brew-audit` to compare declared and installed inventory using read-only
 `brew list`, `brew leaves`, and `brew tap` queries. It never invokes Homebrew cleanup or uninstall.
 **Never** set activation cleanup to `"zap"`; it deletes application data.
@@ -232,12 +231,12 @@ What stays in Homebrew rather than nixpkgs, and why:
 | GUI casks, bespoke fonts | no nixpkgs equivalent, or too heavy to build (e.g. iosevka) |
 | `zsh`, `bash` + completions | the zshrc probes the Homebrew prefix for them |
 | `tailscale` (`identity != "work"`) | nixpkgs ships binaries only; nix-darwin has no `services.tailscale`, so `brew services` supervises `tailscaled` |
-| Swift toolchain (`caps.dev`) | in nixpkgs but not reliably cached for aarch64-darwin — a switch would compile Swift from source |
+| Swift toolchain (`caps.dev`) | in nixpkgs but not reliably cached for aarch64-darwin: a switch would compile Swift from source |
 | `railway`, `crush` | packaged in nixpkgs (or not), but ship far faster than the stable channel tracks |
 | `worktrunk`, `herdr`, `mole` | no nixpkgs equivalent |
 
-Everything else that is a plain CLI belongs in `modules/home/packages.nix`. Note that nix only
-*wins* a name collision because `home/.config/zsh/.zshrc` explicitly orders the nix profiles ahead
+Everything else that is a plain CLI belongs in `modules/home/packages.nix`. Nix binaries take
+precedence because `home/.config/zsh/.zshrc` explicitly orders the Nix profiles ahead
 of `/opt/homebrew/bin`; `brew shellenv` prepends itself, so removing that ordering silently makes
 every duplicated `home.packages` entry inert.
 
@@ -250,13 +249,13 @@ Selection is explicit rather than an overlay, so unstable versions never leak in
 dependency graphs and the rest of the closure keeps its cache hits. An eval-time assertion fails the
 build if a package is declared in both channels.
 
-Currently allowlisted: `mise`, `uv`, `fzf`, `lazygit`, `zoxide`, `ripgrep` — measured 2026-07-26 at
-between one minor version and ~15 releases behind upstream (`mise` was the worst, ~2 months). Most
+Currently allowlisted: `mise`, `uv`, `fzf`, `lazygit`, `zoxide`, `ripgrep`. On 2026-07-26, their stable
+versions were between one minor version and ~15 releases behind upstream (`mise` lagged ~2 months). Most
 CLI tools do **not** belong here: `gh`, `yazi`, `neovim`, `delta`, `bat`, `fd`, and `btop` were all
 exactly current on stable. Add a tool only after measuring it.
 
 The `railway` and `crush` rows above predate this mechanism, and their stated reason no longer
-holds — on unstable they sit one release behind upstream rather than months. They remain brews only
+holds: on unstable they sit one release behind upstream rather than months. They remain brews only
 because moving them is a package-manager migration rather than a channel change. A follow-up should
 also revisit the `worktrunk` row: it *is* packaged in nixpkgs-unstable, at 0.66.0.
 
@@ -265,8 +264,8 @@ also revisit the `worktrunk` row: it *is* packaged in nixpkgs-unstable, at 0.66.
 An isolated `uv` project (Python 3.14+, no runtime deps). See [CLAUDE.md](CLAUDE.md) for
 the full lint/test matrix.
 
-- `mcp_sync/` — MCP + skills fan-out (the `sync-mcp-configs` / `sync-skills` entry points).
-- [`agent_reap/`](agent_reap/) — reports and reaps idle Claude teammate panes across every tmux
+- `mcp_sync/`: MCP + skills fan-out (the `sync-mcp-configs` / `sync-skills` entry points).
+- [`agent_reap/`](agent_reap/): reports and reaps idle Claude teammate panes across every tmux
   socket (`agent-reap`); automatic cleanup is a Claude `SessionEnd` hook, not a daemon.
 
 ```bash

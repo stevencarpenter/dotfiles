@@ -1,13 +1,16 @@
 ---
 name: claude-cost
-description: Estimate AI coding-agent spend from local session logs — both Claude Code (Anthropic) and Codex (OpenAI) — broken down by provider and model with cache-aware pricing. Use when the user asks how much they've spent, their Claude/Codex/Anthropic/OpenAI API cost or token spend, a cost roundup, or burn rate over a day, week, month, or year.
+description: >
+  Estimate AI coding-agent spend from local Claude Code (Anthropic) and Codex (OpenAI) session logs, broken down by provider and model with cache-aware pricing. Use when the user asks how much they've spent, their Claude/Codex/Anthropic/OpenAI API cost or token spend, a cost roundup, or burn rate over a day, week, month, or year.
 ---
 
 # Claude Cost
 
-Estimates what your AI coding-agent token usage **would cost at pay-as-you-go API rates**, from local logs: Claude Code (`~/.claude/projects`) and Codex (`~/.codex/sessions`). The result is an API-rate *equivalent*, **not an invoice** — a Max/Pro or ChatGPT subscription is a flat fee, not per-token.
+Estimates what your AI coding-agent token usage **would cost at pay-as-you-go API rates**, from local logs: Claude Code (`~/.claude/projects`) and Codex (`~/.codex/sessions`). The result is an API-rate *equivalent*, **not an invoice**: a Max/Pro or ChatGPT subscription is a flat fee, not per-token.
 
 ## Quick start
+
+Use this skill's actual directory for `CLAUDE_SKILL_DIR` when the host does not set it. The same script supports Claude Code and Codex logs.
 
 ```bash
 "${CLAUDE_SKILL_DIR}/scripts/cost.py"                 # current month, both providers
@@ -39,7 +42,7 @@ Shared: window isolation by per-message/per-turn timestamp; system-local-tz buck
 
 **Claude Code (Anthropic):** global dedup by `message.id` (resumed/branched sessions replay lines; without dedup the total inflates ~2×), max-merging fields to recover final usage from partial-stream flushes. Cache-aware: input + output + cache read (0.1×) + 5m write (1.25×) + 1h write (2×). Applies `batch` (0.5×), `fast` (6×), `us-geo` (1.1×) modifiers when present.
 
-**Codex (OpenAI):** scans `~/.codex/sessions` + `archived_sessions`, deduped by session UUID. Codex logs *cumulative* usage, so it sums per-turn `last_token_usage` (not `total_token_usage`) attributed by event timestamp — this also bills resumed/subagent threads correctly. Buckets: uncached input + cached input (discounted read; OpenAI has no cache-write cost or TTL) + output (reasoning tokens are already inside `output_tokens`). Applies the long-context (>272K input) tier where a model defines one.
+**Codex (OpenAI):** scans `~/.codex/sessions` + `archived_sessions`, deduped by session UUID. Codex logs *cumulative* usage, so it sums per-turn `last_token_usage` (not `total_token_usage`) attributed by event timestamp: this also bills resumed/subagent threads correctly. Buckets: uncached input + cached input (discounted read; OpenAI has no cache-write cost or TTL) + output (reasoning tokens are already inside `output_tokens`). Applies the long-context (>272K input) tier where a model defines one.
 
 ## Updating prices
 

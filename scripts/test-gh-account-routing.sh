@@ -1,20 +1,6 @@
 #!/usr/bin/env bash
-# Assert that home/.local/bin/gh routes to the owner-mapped account, and — more
-# importantly — that it declines to route in every case where routing would be
-# wrong or surprising.
-#
-# Why this exists: the routing started life as a zsh function, which meant it
-# silently did not apply to subprocesses. An agent running `gh pr create`
-# through a non-interactive bash shell got the active (work) account in a
-# personal repo and failed with:
-#
-#   GraphQL: <work-user> does not have the correct permissions to execute
-#   `CreatePullRequest`
-#
-# Moving it onto PATH fixes that, but a PATH script shadows `gh` for EVERY
-# caller on the machine — so the failure modes worth guarding are the
-# fall-through cases, not the happy path. A wrapper that breaks `gh auth` or
-# stomps a CI token is far worse than no wrapper.
+# Verify owner-based gh account routing, auth-command passthrough, and CI tokens.
+# The PATH wrapper must work in non-interactive subprocesses too.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -49,7 +35,7 @@ check() {
   if [ "${actual}" = "${expected}" ]; then
     echo "ok: ${label}"
   else
-    echo "FAIL: ${label} — expected '${expected}', got '${actual}'" >&2
+    echo "FAIL: ${label}: expected '${expected}', got '${actual}'" >&2
     failures=$((failures + 1))
   fi
 }
@@ -79,7 +65,7 @@ set_remote "git@github-dotfiles:stevencarpenter/dotfiles.git"
 # status` would report the injected token instead of real account state.
 check "gh auth is never routed" "<unset>" "$(token_for "${tmp}/repo" auth status)"
 
-# CI sets these deliberately; overriding them would be surprising and wrong.
+# Preserve explicit CI authentication tokens.
 check "caller GH_TOKEN wins" "caller-tok" \
   "$(cd "${tmp}/repo" && GH_TOKEN=caller-tok gh pr create 2>&1 | sed -n 's/^GH_TOKEN=//p')"
 check "caller GITHUB_TOKEN wins" "<unset>" \
@@ -119,7 +105,7 @@ set_remote "git@github-dotfiles:stevencarpenter/dotfiles.git"
 
 check "outside a git repo falls through" "<unset>" "$(token_for "${tmp}/norepo" pr list)"
 
-# Not being logged into the mapped account is not worth failing a command over.
+# Missing mapped credentials fall back to gh's active account.
 cat >"${tmp}/realbin/gh" <<'FAKE'
 #!/usr/bin/env bash
 if [ "${1:-}" = auth ] && [ "${2:-}" = token ]; then exit 1; fi
@@ -132,7 +118,7 @@ check "mapped account not logged in falls through" "<unset>" "$(token_for "${tmp
 # If self-exclusion regressed, the wrapper would re-exec itself forever. Run it
 # with ONLY the wrapper dir on PATH: it must fail fast with 127, not hang.
 # macOS ships no `timeout` (it is gtimeout from coreutils), and a missing
-# command also exits 127 — which would make this check pass for the wrong
+# command also exits 127, which would make this check pass for the wrong
 # reason. Use it only where it exists.
 # Resolve to an ABSOLUTE path: the subshell below strips PATH down to the
 # wrapper dir, so a bare `timeout` would not resolve there either.
@@ -141,7 +127,7 @@ if to_bin="$(command -v timeout 2>/dev/null)" && [ -n "${to_bin}" ]; then
 else
   to=()
 fi
-# /usr/bin:/bin so the `#!/usr/bin/env bash` shebang and `git` still resolve —
+# /usr/bin:/bin so the `#!/usr/bin/env bash` shebang and `git` still resolve;
 # neither ships a `gh`, which is the condition under test.
 out="$(cd "${tmp}/repo" && PATH="${tmp}/wrap:/usr/bin:/bin" "${to[@]}" "${tmp}/wrap/gh" pr create 2>&1)" && rc=0 || rc=$?
 check "no real gh on PATH exits 127" "127" "${rc}"
@@ -153,14 +139,8 @@ case "${out}" in
   ;;
 esac
 
-# --- a shim that defers to PATH must not ping-pong ---------------------------
-# THE BUG THIS GUARDS: a mise shim whose tool is not active in the current
-# directory does not error — it falls back to a PATH lookup, finds this wrapper
-# again, and the two call each other forever. It hangs rather than failing, so
-# without a bounded test it looks like a slow network call.
-#
-# Layout mirrors the real one: wrapper dir first, then a shim that re-execs
-# whatever `gh` PATH offers next, then the genuine binary.
+# A mise shim with an inactive tool falls back to PATH and can recurse into
+# the wrapper. Test wrapper -> shim -> genuine binary with a timeout.
 mkdir -p "${tmp}/shim" "${tmp}/realbin2"
 cat >"${tmp}/shim/gh" <<'SHIM'
 #!/usr/bin/env bash

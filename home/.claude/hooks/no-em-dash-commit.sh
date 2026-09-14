@@ -1,20 +1,9 @@
 #!/usr/bin/env bash
 # PreToolUse(Bash) guard: keep em dashes and AI attribution out of authored artifacts.
 #
-# home/.claude/CLAUDE.md bans em dashes (and en dashes used as separators) in prose that
-# lands in an artifact, and bans AI attribution in commits and PRs. Both rules are stated
-# there, and both still get violated: the model slips, and the Claude Code harness itself
-# appends "Co-Authored-By: Claude" / "Generated with [Claude Code]" boilerplate. State the
-# rule once, enforce it mechanically at the moment the artifact is written.
-#
-# Scope is the write path, not the file: `git commit`, `git tag -m`, and the `gh` commands
-# that publish prose (pr/issue create, edit, comment, plus a raw `gh api` PATCH of a pull
-# or issue). scripts/strip-claude-trailer.sh covers the same trailer rule for this repo's
-# own commit-msg hook; this covers every OTHER repo the agent touches.
-#
-# Exit 2 blocks the tool call and feeds stderr back to the model, so it rewrites and retries.
-# Escape hatch: prefix the command with ALLOW_EM_DASH=1. CLAUDE.md permits a verbatim quote
-# to keep its own punctuation, and misquoting a source is worse than a style violation.
+# Inspect commit/tag messages and GitHub PR/issue writes, including body files.
+# Exit 2 blocks the call and returns the reason to the model.
+# ALLOW_EM_DASH=1 permits verbatim quotes with their original punctuation.
 set -uo pipefail
 
 payload="$(cat)"
@@ -48,7 +37,7 @@ fail() {
 	exit 2
 }
 
-if printf '%s' "$text" | grep -q '—'; then
+if printf '%s' "$text" | grep -q $'\342\200\224'; then
 	fail "the message contains an em dash (U+2014), which ~/.claude/CLAUDE.md bans in commit messages, PR bodies, tickets, docs, and code comments." \
 		"Rewrite with a period, comma, colon, or parentheses. If the dash is inside a verbatim quote, keep the quote exact and re-run the command with ALLOW_EM_DASH=1 prefixed."
 fi

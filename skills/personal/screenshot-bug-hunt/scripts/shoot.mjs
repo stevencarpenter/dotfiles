@@ -9,48 +9,12 @@
 // the user's project. See scripts/setup.sh.
 
 import { mkdirSync } from "node:fs";
-import { resolve, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
+import { parseArgs } from "node:util";
 
 // ---------- arg parsing ----------
-
-function parseArgs(argv) {
-  const args = {
-    base: "http://127.0.0.1:4321",
-    out: "/tmp/screenshot-bug-hunt-out",
-    workdir:
-      process.env.HIPPO_PW_WORKDIR ||
-      `${process.env.XDG_CACHE_HOME || `${process.env.HOME}/Library/Caches`}/screenshot-bug-hunt-pw`,
-    targets: null,
-    only: null,                 // viewport tag filter, e.g. "desktop"
-    sitemapPath: "/sitemap-index.xml",
-  };
-  for (let i = 2; i < argv.length; i++) {
-    const a = argv[i];
-    const eq = a.indexOf("=");
-    const [key, val] =
-      eq >= 0 ? [a.slice(0, eq), a.slice(eq + 1)] : [a, argv[++i]];
-    switch (key) {
-      case "--base": args.base = val; break;
-      case "--out": args.out = val; break;
-      case "--workdir": args.workdir = val; break;
-      case "--targets": args.targets = val; break;
-      case "--only": args.only = val; break;
-      case "--sitemap": args.sitemapPath = val; break;
-      case "--help":
-      case "-h":
-        printHelp();
-        process.exit(0);
-      default:
-        console.error(`unknown arg: ${a}`);
-        printHelp();
-        process.exit(2);
-    }
-  }
-  return args;
-}
 
 function printHelp() {
   console.log(`Usage: node shoot.mjs [options]
@@ -84,24 +48,19 @@ async function discoverFromSitemap(base, sitemapPath) {
     );
   }
   const xml = await res.text();
-  // Naive XML scrape — robust enough for sitemap-index.xml + sitemap.xml.
-  // Handles <loc>...</loc> and follows nested sitemaps one level deep.
+  // ponytail: handles plain <loc> tags and one nested sitemap level;
+  // use an XML parser if namespaced tags or deeper nesting are required.
   const locs = [...xml.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/g)].map(
     (m) => m[1],
   );
   const urls = [];
   for (const loc of locs) {
-    // Astro's sitemap output uses the configured production `site` URL
-    // (e.g. https://hippobrain.org/sitemap-0.xml), but we're hitting a local
-    // preview. Rewrite any non-base host to point at our base before fetching
-    // sub-sitemaps so DNS doesn't blow up.
+    // Astro sitemaps use the production `site` URL. Fetch from the preview origin.
     const localized = rewriteHost(loc, baseUrl);
     if (localized.endsWith(".xml")) {
       const sub = await fetch(localized).then((r) => (r.ok ? r.text() : ""));
       for (const m of sub.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/g)) {
-        // Rewrite each URL inside the sub-sitemap — they'll be production
-        // hosts too. Without this the dedup pass filters every URL as
-        // foreign-origin and we end up with zero targets.
+        // Localize page URLs before the origin filter below.
         urls.push(rewriteHost(m[1], baseUrl));
       }
     } else {
@@ -149,8 +108,32 @@ function pathToSlug(p) {
 
 // ---------- main ----------
 
-const args = parseArgs(process.argv);
-const __dirname = dirname(fileURLToPath(import.meta.url));
+let args;
+try {
+  ({ values: args } = parseArgs({
+    options: {
+      base: { type: "string", default: "http://127.0.0.1:4321" },
+      out: { type: "string", default: "/tmp/screenshot-bug-hunt-out" },
+      workdir: {
+        type: "string",
+        default: process.env.HIPPO_PW_WORKDIR ||
+          `${process.env.XDG_CACHE_HOME || `${process.env.HOME}/Library/Caches`}/screenshot-bug-hunt-pw`,
+      },
+      targets: { type: "string" },
+      only: { type: "string" },
+      sitemap: { type: "string", default: "/sitemap-index.xml" },
+      help: { type: "boolean", short: "h" },
+    },
+  }));
+} catch (err) {
+  console.error(err.message);
+  printHelp();
+  process.exit(2);
+}
+if (args.help) {
+  printHelp();
+  process.exit(0);
+}
 
 mkdirSync(args.out, { recursive: true });
 mkdirSync(resolve(args.out, "detail"), { recursive: true });
@@ -173,18 +156,18 @@ if (args.targets) {
   const json = await readFile(args.targets, "utf8");
   targets = JSON.parse(json);
 } else {
-  console.log(`Auto-discovering pages from ${args.base}${args.sitemapPath} …`);
-  targets = await discoverFromSitemap(args.base, args.sitemapPath);
+  console.log(`Auto-discovering pages from ${args.base}${args.sitemap} …`);
+  targets = await discoverFromSitemap(args.base, args.sitemap);
 }
 
 if (!targets.length) {
-  console.error("no targets — did the sitemap return anything?");
+  console.error("no targets: did the sitemap return anything?");
   process.exit(1);
 }
 
 console.log(`Capturing ${targets.length} pages.`);
 
-// Viewport list. The "detail" entry is viewport-only at 1440 — useful for
+// Viewport list. The "detail" entry is viewport-only at 1440: useful for
 // reading screenshots at native pixel scale (full-page squashes detail).
 const VIEWPORTS = [
   { tag: "desktop", width: 1440, height: 900, fullPage: true },

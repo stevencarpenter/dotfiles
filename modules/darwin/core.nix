@@ -10,22 +10,12 @@
 # login-shell pin, and the maxfiles launchd agent. Everything per-machine flows
 # in through specialArgs (user); no hostname checks live here.
 {
-  # nix-darwin owns and manages the nix daemon (the standard model): it installs
-  # the nix package into the system profile, writes /etc/nix/nix.conf from
-  # `nix.settings`, and manages the launchd daemon. We run Lix as the interpreter
-  # — the nix-darwin prerequisites recommend the Lix installer (it ships an
-  # uninstaller; the upstream installer does not) and `nix.package = pkgs.lix` as
-  # the supported way to select it. Unlike Determinate (which required
-  # `nix.enable = false` and owned nix.conf itself), this hands nix.conf back to
-  # nix-darwin, so the `nix.settings.*` options below are once again authoritative.
+  # nix-darwin manages the Lix package, nix.conf, and launchd daemon.
   nix = {
     enable = true;
     package = pkgs.lix;
 
-    # nix-darwin does NOT enable flakes by default (only the Determinate installer
-    # did). The whole repo is a flake and `darwin-rebuild switch --flake` needs both
-    # features, so pin them here. Once nix-darwin owns /etc/nix/nix.conf this is the
-    # durable source of truth, replacing whatever the Lix installer wrote at bootstrap.
+    # darwin-rebuild --flake needs both features; nix-darwin leaves them off by default.
     settings.experimental-features = [
       "nix-command"
       "flakes"
@@ -37,9 +27,7 @@
     # compatibility bug is fixed and a full system closure builds successfully.
     settings.sandbox = false;
 
-    # Keep rollbacks useful while bounding store growth. Garbage collection and
-    # optimisation run in separate weekly windows to avoid competing for the
-    # store lock. Thirty days preserves ample recovery room for daily use.
+    # Keep 30 days of rollbacks. Separate GC and optimisation to avoid store-lock contention.
     gc = {
       automatic = true;
       interval = {
@@ -59,13 +47,8 @@
     };
   };
 
-  # Login-shell pin. The primary account is a pre-existing macOS admin user
-  # (nix-darwin explicitly warns against adding it to knownUsers), so
-  # postActivation below owns the Directory Services update, not users.users.*.
-  # Pinned to the LITERAL /bin/zsh, not pkgs.zsh: a nix store / Homebrew path
-  # can dangle across upgrades and brick login — /bin/zsh is the one shell
-  # Apple guarantees. Interactive richness comes from z4h config, not the
-  # login binary. Home is still needed for system.primaryUser.
+  # Keep the existing admin account out of knownUsers. postActivation sets its
+  # login shell to /bin/zsh; versioned Nix or Homebrew paths can vanish on upgrade.
   users.users.${user}.home = "/Users/${user}";
 
   # /bin/zsh is already in /etc/shells; keep pkgs.zsh registered too so a
@@ -113,16 +96,11 @@
       fi
     '';
 
-    # Compatibility baseline from the first nix-darwin deployment. This does NOT
-    # track the nix-darwin input release; leave it unchanged across upgrades unless
-    # the corresponding state-version migrations have been reviewed deliberately.
+    # Compatibility baseline, not the input release. Review migrations before changing it.
     stateVersion = 6;
   };
 
-  # Raise the open-files limit at login. Direct 1:1 port of the old
-  # ~/Library/LaunchAgents/com.user.maxfiles.plist (RunAtLoad LaunchAgent that
-  # calls `launchctl limit maxfiles 65536 2097152`). nix-darwin renders the
-  # plist and manages load/unload; Label is derived from the attr name.
+  # Raise the open-files limit at login; nix-darwin manages the LaunchAgent.
   launchd.user.agents.maxfiles = {
     serviceConfig = {
       ProgramArguments = [

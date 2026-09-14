@@ -6,8 +6,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 flake_ref="git+file://${repo_root}"
 
-# A bare `rg -Fq` under `set -e` aborts with no output, which reports a seam
-# regression as an unexplained exit 1. Name the missing string instead.
+# Name missing strings before failing under set -e.
 assert_contains() {
   local pattern="$1" file="$2"
   if ! rg -Fq "${pattern}" "${file}"; then
@@ -16,18 +15,14 @@ assert_contains() {
   fi
 }
 
-# These includes must stay $HOME-anchored. git resolves a RELATIVE include
-# against the realpath of the file holding it, which for this out-of-store
-# symlink lands on a path that does not exist — and git skips a missing include
-# silently, so the seam breaks with no error and no loaded keys. The full
-# derivation is in the comment above [include] in home/.config/git/config.
+# Keep includes HOME-anchored: Git resolves relative paths against the symlink's
+# real location and silently skips missing include files.
 assert_contains 'path = ~/.config/external-overlays/git/extra.inc' \
   "${repo_root}/home/.config/git/config"
 assert_contains 'path = ~/.config/external-overlays/git/work.inc' \
   "${repo_root}/home/.config/git/config"
 
-# Assert the regression direction too: reverting to a relative path is invisible
-# at runtime, so presence-only checks above would still pass alongside it.
+# Reject relative includes even when the required absolute includes are present.
 if rg -Fq 'path = ../external-overlays/git/' "${repo_root}/home/.config/git/config"; then
   echo "git overlay include regressed to a relative path: it resolves outside the" >&2
   echo "overlay tree and git will skip it silently. Anchor it at ~/ instead." >&2
@@ -132,7 +127,7 @@ echo "external-overlay-contract: revision, isolated fragment build, and zero-age
 #
 # The consumer above deliberately runs with all caps FALSE (it tests the seams).
 # This second one turns the relevant caps on so those branches are evaluated and
-# asserted. Not a wrapper being tested — a coverage floor for this repo's own
+# asserted. Not a wrapper being tested: a coverage floor for this repo's own
 # files.
 caps_on_expr="
 let
@@ -148,7 +143,7 @@ let
 in host.config.home-manager.users.\"contract-test\"
 "
 
-# mkOutOfStoreSymlink embeds a path STRING and never checks that it resolves —
+# mkOutOfStoreSymlink embeds a path STRING and never checks that it resolves,
 # so asserting readlink alone verifies the wiring but not that the file exists.
 # Renaming the source away leaves the derivation byte-identical and the symlink
 # merely dangling (found by mutation testing; the first version of this block

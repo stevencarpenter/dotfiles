@@ -3,20 +3,10 @@
 # requires-python = ">=3.14"
 # dependencies = []
 # ///
-"""Assert the two atuin config variants stay in sync where they must and
-different where they must.
+"""Check shared Atuin history filters, tmux settings, and distinct sync policies.
 
-Why: caps.atuin used to gate the file, so machines with the cap off ran with
-no history_filter + no [tmux].enabled (ctrl-r/up-arrow rendered inline, not in
-a popup). Splitting fixed that but duplicated the filter list — now it can
-drift. This test makes that drift a CI failure.
-
-Both files are parsed with tomllib (stdlib), so quoting, comments, table
-scoping, and reformatting are handled by the parser instead of hand-rolled
-text matching. A built-in mutation self-check re-runs the assertions against
-deliberately broken copies, so a guard that cannot fail is itself a CI
-failure (the original bash guard's first version PASSED while the defect it
-was written to catch was reproducible).
+Parse both variants with tomllib. Mutation checks verify the assertions reject
+broken configurations.
 """
 
 import sys
@@ -52,9 +42,7 @@ def check(sync_text: str, local_text: str) -> list[str]:
         failures.append(f"{LOCAL_PATH} does not parse: {exc}")
         local = {}
 
-    # history_filter: must exist, be non-trivial, and be identical. The
-    # non-trivial floor guards against both files being emptied in lockstep,
-    # which plain list equality alone reports as "identical, therefore fine".
+    # Require a minimum size so equally empty filter lists cannot pass parity.
     sync_filter = sync.get("history_filter")
     local_filter = local.get("history_filter")
     for label, value in ((SYNC_PATH, sync_filter), (LOCAL_PATH, local_filter)):
@@ -66,15 +54,13 @@ def check(sync_text: str, local_text: str) -> list[str]:
         if sync_filter != local_filter:
             failures.append("history_filter blocks have drifted between the variants")
 
-    # tmux popup: enabled must be true INSIDE the [tmux] table. Top-level or
-    # [daemon]/[dotfiles] does nothing for the popup and atuin silently
-    # accepts unknown keys, so the regression would be invisible upstream.
+    # Atuin accepts unknown keys; require enabled inside the tmux table.
     for label, cfg in ((SYNC_PATH, sync), (LOCAL_PATH, local)):
         tmux = cfg.get("tmux")
         if not isinstance(tmux, dict) or tmux.get("enabled") is not True:
             failures.append(
                 f"{label} does not set 'enabled = true' inside [tmux]"
-                " — search UI will render inline, not as a popup"
+                " (search UI will render inline, not as a popup)"
             )
 
     # Sync stanzas: the variants must differ, explicitly. The non-syncing
@@ -89,7 +75,7 @@ def check(sync_text: str, local_text: str) -> list[str]:
     if "sync_address" in local:
         failures.append(
             f"{LOCAL_PATH} assigns a top-level sync_address"
-            " — it is the non-syncing variant"
+            " (it is the non-syncing variant)"
         )
     if sync.get("sync_address") != EXPECTED_SYNC_ADDRESS:
         failures.append(
@@ -102,7 +88,7 @@ def check(sync_text: str, local_text: str) -> list[str]:
     # cached `atuin init zsh` output survives the switch.
     if len(sync_text.encode()) == len(local_text.encode()):
         failures.append(
-            "the two variants are identical in byte size — identical size"
+            "the two variants are identical in byte size: identical size"
             " can defeat zcached's mtime:size stamp when switching variants"
         )
     return failures

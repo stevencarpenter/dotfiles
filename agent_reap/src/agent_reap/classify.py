@@ -1,16 +1,8 @@
 """Turn raw panes into reap candidates, with reasons for every exclusion.
 
-Two categories, because they leak for different reasons and carry very different
-risk:
-
-* **Teammates** — a team member pane whose work is done. Auto-reapable.
-* **Interactive sessions** — a Claude window you walked away from. These are the
-  other half of the accumulation problem (``^D`` does not close a Claude pane, so
-  an abandoned window stays alive), but each may hold conversation context worth
-  more than its memory. Report-only; killing them takes a separate explicit flag.
-
-Every pane that is *not* a candidate carries a reason, so the report can explain
-itself rather than silently omitting things.
+Completed teammates can be reaped automatically. Idle interactive sessions retain
+conversation context and require an explicit flag to kill. Every excluded pane
+is reported with a reason.
 """
 
 from __future__ import annotations
@@ -177,19 +169,19 @@ def classify(
         processes: Process table keyed by pid.
         config: Effective settings.
         now: Current unix timestamp.
-        protected_pids: Pids that must never be reaped — normally the caller's own
+        protected_pids: Pids that must never be reaped, normally the caller's own
             ancestry, so the tool cannot kill the session running it.
         protected_panes: (socket, pane_id) pairs that must never be reaped.
             Qualified by socket on purpose: a pane id is unique only WITHIN a
             tmux server, so comparing bare ids lets the caller's own id protect a
-            same-numbered pane on every other socket — which silently under-reaps
+            same-numbered pane on every other socket, which silently under-reaps
             exactly the leak this tool exists to stop.
         protected_sessions: Team session ids that must never be reaped, normally
             the caller's own team.
         sockets: Sockets searched, recorded on the report.
         teams_dir: Override for the teams root; defaults to the configured path.
         team_scope: Tear down exactly this team session id. Used by the
-            ``SessionEnd`` hook, where the team's lifecycle has *ended* — so the
+            ``SessionEnd`` hook, where the team's lifecycle has *ended*, so the
             inbox-drained, idle-threshold, and sleeping checks no longer apply
             (they exist to avoid reaping mid-work agents in a *live* team), and
             the own-team guard is deliberately lifted for this id. The pane and
@@ -348,10 +340,7 @@ def classify(
             skipped.append(Skipped(pane, f"inbox has queued work ({inbox.size}b)"))
             continue
         idle_s = inbox.idle_seconds(now) or 0.0
-        # A completion event shortens this window but does not remove it. The
-        # lead may still send the finished teammate a follow-up, and reaping it
-        # seconds after its turn ends would destroy the context that makes the
-        # follow-up worth sending.
+        # Retain a grace period after completion so a follow-up can reuse the teammate.
         min_idle_s = (
             completion_grace_s if live_team_scope is not None else teammate_idle_s
         )

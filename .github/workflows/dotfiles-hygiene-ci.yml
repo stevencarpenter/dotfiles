@@ -44,11 +44,7 @@ permissions:
 
 jobs:
   hygiene:
-    # macOS runner: these scripts exercise real macOS dotfiles config (stat,
-    # mktemp, sed, and other BSD-vs-GNU-divergent behavior) and one guards a
-    # macOS-only bootstrap path. ubuntu-latest previously ran the same scripts
-    # against GNU userland, which is a different program on the coreutils/BSD
-    # divergences and requires portability shims that add no coverage here.
+    # Exercise macOS bootstrap and BSD stat, mktemp, and sed behavior.
     runs-on: macos-latest
     steps:
       - name: Checkout
@@ -68,12 +64,7 @@ jobs:
         with:
           python-version: "3.14"
 
-      # bash: modules/darwin/homebrew.nix installs this on every real machine,
-      # replacing Apple's frozen /usr/bin/bash 3.2 (GPLv2 license freeze) with
-      # a modern one on the front of PATH. Scripts like sketchybar's
-      # aerospace.sh plugin rely on that machine invariant (associative
-      # arrays need bash >= 4) via a bare `bash` invocation rather than a
-      # pinned path — a fresh runner without this formula fails that check.
+      # Match homebrew.nix's Bash; SketchyBar associative arrays need Bash >= 4.
       - name: Install shell test dependencies
         run: brew install ripgrep bash tmux
 
@@ -178,12 +169,16 @@ jobs:
       - name: Validate Railway psql failure propagation
         run: scripts/test-railway-psql-errors.sh
 
+      - name: Validate Railway analysis helpers
+        run: uv run --script scripts/test_railway_analysis.py
+
+      - name: Validate skill helper command behavior
+        run: bash scripts/test-skill-helper-cli.sh
+
       - name: Validate atuin config variant parity (includes mutation audit)
         run: scripts/check-atuin-parity.py
 
-      # zsh ships by default on macOS runners, but this stays a real install
-      # rather than an assumption: a silently skipped test is indistinguishable
-      # from a passing one if that ever stops being true.
+      # Require zsh so shell checks cannot silently skip.
       - name: Ensure zsh is available
         run: command -v zsh >/dev/null 2>&1 || brew install zsh
 

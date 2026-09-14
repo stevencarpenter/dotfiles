@@ -1,93 +1,26 @@
 ---
 name: sandbox-preflight
-description: Pre-classify the command classes this repo's Claude Code sandbox blocks and run them with dangerouslyDisableSandbox on the FIRST attempt instead of looping on "Operation not permitted". USE THIS SKILL whenever a Bash command just failed with "Operation not permitted", "OSStatus -26276", "could not write config file .git/config", "Failed to initialize cache at `~/.cache/uv`", "Control socket connect ... Operation not permitted", or "mkdtemp/mktemp failed"; whenever you are ABOUT to run `uv`/`uvx`/`ruff`/`pytest`/`ty` in mcp_sync; whenever you are about to run ANY `gh` API call or `git push`/`fetch`/`pull`/`remote set-url`/`config`/`branch -m` (anything that writes `.git/config` or hits the GitHub network); whenever you use git over ssh with ControlMaster; or whenever the user asks "should I disable the sandbox", "why does uv/gh/git keep failing", "the sandbox is blocking this". Bias toward triggering BEFORE the command: these failures are structural (only `~/.cache/uv`, `~/projects/agents`, and `$TMPDIR` are pre-allowed by the settings merge in `modules/home/ai-stack.nix`; `.git` and `~/.ssh` are NOT), so a sandboxed first attempt is a guaranteed wasted round-trip. Also carries the rule to NOT co-batch a risky call with independent commands, since one sandbox failure cancels every sibling in a parallel batch.
+description: Diagnose an observed sandbox or filesystem permission failure in this repository. Use when a command is blocked or the user asks about sandbox configuration, not before every Git or Python command.
 ---
 
 # Sandbox preflight
 
-Decide *before* you run a Bash command whether the Claude Code command sandbox will block
-it, and pass `dangerouslyDisableSandbox: true` on the first attempt for the classes that
-always fail. This turns the repo's single largest failure class into zero wasted retries.
+Use the current harness permission policy and effective configuration. A command
+name does not establish whether it needs additional access. Past failures on another
+machine are evidence to investigate, not a blanket instruction to disable protection.
 
-## Why this skill exists
+1. Read the actual error and identify the denied path, network destination, or
+   permission. Distinguish sandbox denial from authentication, certificate, missing
+   executable, and ordinary filesystem errors.
+2. Check the effective settings. `modules/home/ai-stack.nix` seeds Claude's cache and
+   working-directory permissions, but local settings and other harnesses may differ.
+3. Use an already permitted location such as the task's temporary directory when
+   that preserves behavior. Otherwise use the harness's supported approval mechanism
+   for the specific required access. If escalation is unavailable, report the exact
+   blocked operation; do not supply flags from another harness or bypass a denial.
+4. Retry only after changing the condition that caused failure. Check whether a
+   mutating command partially completed before repeating it.
 
-The sandbox allows reads broadly but only permits writes to a small allowlist (`.`,
-`$TMPDIR`, and a few cache dirs). Verified against the settings merge in `modules/home/ai-stack.nix`:
-the paths pre-seeded into `sandbox.filesystem.allowWrite` are `~/.cache/uv` and `~/projects/agents`.
-`~/.cache/uv`, `.git/config`, and `~/.ssh` are **not** allowlisted, and the GitHub network
-path fails certificate verification under the sandbox (`OSStatus -26276`). So `uv`, `gh`,
-and config-writing `git` commands fail *deterministically* — yet the rule lives only in
-CLAUDE.md prose, which does not convert to first-attempt behavior (sessions even
-re-inject "for ANY uv call set dangerouslyDisableSandbox" by hand). This skill makes the
-decision mechanical.
-
-> This skill only decides the sandbox flag. It does not change *what* command to run — the
-> calling skill (e.g. [branch-first-pr](../branch-first-pr/SKILL.md),
-> [uv-tool-loop](../uv-tool-loop/SKILL.md)) owns that.
-
-## The decision table
-
-| Command pattern | Sandbox? | Reason class |
-|---|---|---|
-| `uv` / `uvx` / `ruff` / `pytest` / `ty` (any of the 3 tools) | **DISABLE** | writes `~/.cache/uv` (not allowlisted) |
-| `gh ...` (any API call) | **DISABLE** | GitHub TLS fails — `OSStatus -26276` |
-| `git push` / `fetch` / `pull` / `clone` / `ls-remote` | **DISABLE** | GitHub network |
-| `git config` / `branch -m` / `remote set-url` / `init` | **DISABLE** | writes `.git/config` |
-| `ssh` with ControlMaster, or any new control socket | **DISABLE** | binds `~/.ssh/cm-*` socket |
-| `mktemp`/`mkdtemp` targeting `/tmp` or `/var` (not `$TMPDIR`) | **DISABLE** | write outside allowlist |
-| plain `git status`/`diff`/`log`/`add`/`commit`/`switch`/`checkout` | OK | local `.git` writes are inside `.` |
-| anything writing only to `$TMPDIR` or `~/.cache/uv` | OK | already allowlisted |
-
-When unsure, run the classifier:
-
-```bash
-bash .claude/skills/sandbox-preflight/scripts/classify_command.sh '<the command string>'
-# prints:  DISABLE_SANDBOX <reason>   or   SANDBOX_OK local-or-allowlisted
-```
-
-## Batching rule
-
-Never co-batch a sandbox-risky call (`gh`/`uv`/networked `git push`/`fetch`/`pull`/`clone`/`ls-remote`) with independent
-read-only commands in one parallel tool block. A single sandbox failure reports as
-`Cancelled: parallel tool call ... errored` and takes its siblings down with it. Run risky
-calls on their own, sandbox disabled.
-
-## Reactive routing (a command already failed)
-
-| Failure signature | Re-run the SAME command with |
-|---|---|
-| `Failed to initialize cache at ~/.cache/uv` | `dangerouslyDisableSandbox: true` |
-| `tls: failed to verify certificate ... OSStatus -26276` | `dangerouslyDisableSandbox: true` |
-| `could not write config file .git/config: Operation not permitted` | `dangerouslyDisableSandbox: true` |
-| `Control socket connect(... ): Operation not permitted` | `dangerouslyDisableSandbox: true` |
-| `PermissionError ... /Users/.../.cache/uv` | already allowlisted — re-run `just rebuild` (the settings merge re-seeds it) or disable sandbox once |
-
-## Structural cure (do this once, not per-command)
-
-The `uv`-cache slice is handled by the generated Claude settings merge in
-`modules/home/ai-stack.nix`, which allowlists `~/.cache/uv` and `~/projects/agents`.
-That removes uv-cache failures without per-command
-judgment. The irreducible classes remain (gh `OSStatus -26276` is a keychain cert-path
-problem, not a writable-dir problem; `.git/config` and `~/.ssh` writes) — those always need
-the flag, which is why this skill stays useful even after the pre-seed.
-
-## When NOT to use this skill
-
-- Plain local git (`status`, `diff`, `log`, `add`, `commit`, `switch`) — sandbox-safe; do
-  not reflexively disable the sandbox for everything (that defeats its purpose).
-- Commands writing only to `$TMPDIR` or `~/.cache/uv`.
-
-## Common failure modes
-
-| Symptom | Cause | Action |
-|---|---|---|
-| `uv`/`ruff`/`pytest` "Operation not permitted (os error 1)" | `~/.cache/uv` not allowlisted | disable sandbox; consider the structural cure |
-| `gh` GraphQL/REST TLS error `OSStatus -26276` | sandbox blocks keychain cert verification | disable sandbox for all `gh` |
-| `git branch -m` / `push` fails "could not write config file" | `.git/config` write blocked | disable sandbox |
-| whole parallel batch `Cancelled` | one risky call co-batched with siblings | split the risky call out, disable its sandbox |
-
-## Reference
-
-- `modules/home/ai-stack.nix` — the generated Claude sandbox allowWrite merge.
-- `scripts/classify_command.sh` — deterministic SANDBOX_OK / DISABLE_SANDBOX classifier.
-- CLAUDE.md § *Command sandbox* — the prose rule this skill operationalizes.
+Do not change global permissions, reinstall tooling, or rebuild the system merely
+because a command failed. Those actions require a demonstrated cause and appropriate
+task scope. Keep successful independent reads when a parallel operation fails.

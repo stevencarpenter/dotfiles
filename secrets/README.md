@@ -1,7 +1,7 @@
 # Secret management
 
 This directory holds documentation only. **No ciphertext is tracked in this repository**, and no
-host declares `age.secrets` or an age identity — the agenix module is not imported at all. Every
+host declares `age.secrets` or an age identity: the agenix module is not imported at all. Every
 secret this repo owns renders from 1Password. Secrets for an externally-owned host are that
 wrapper's custody, administered by its own flake.
 
@@ -20,7 +20,7 @@ home/.ssh/config.d/10-homelab.conf.tpl -> ~/.ssh/config.d/10-homelab.conf
 field, and reverse-adoption permission. Home Manager links both only for
 `identity == "personal"`; `just sync` invokes the renderer (via
 `scripts/sync-side-channels.sh`, which signs in first when it has a TTY). The personal-only
-`opRenderStaleCheck` activation entry only warns when the last render has gone stale — it never
+`opRenderStaleCheck` activation entry only warns when the last render has gone stale: it never
 renders, because activation can neither reach `op` nor authenticate.
 
 The renderer:
@@ -48,9 +48,9 @@ keeps the last-good files but cannot refresh them.
 3. Add only that exact reference to the appropriate `*.tpl` file under `home/`.
 4. Add a manifest entry only when introducing a new template/target pair.
 5. Run `just sync` (or `home/.local/bin/op-render` directly) from an interactive terminal with an
-   authenticated `op` session. It cannot run from a `darwin-rebuild` activation hook — 1Password
+   authenticated `op` session. It cannot run from a `darwin-rebuild` activation hook: 1Password
    authorizes CLI access by calling-process ancestry, so only a terminal you have approved can
-   render. Activation runs `op-render --warn-stale-only`, which nags but never renders.
+   render. Activation runs `op-render --warn-stale-only`, which warns but never renders.
 6. Run the documented secret-policy, renderer, and live-deployment checks.
 
 Never commit the rendered target, copy a literal value into a template, or use agenix for a new
@@ -58,8 +58,7 @@ personal secret.
 
 ### Adopt a reviewed live personal-env change
 
-`op-adopt` provides a deliberately narrower reverse path for
-`~/.config/zsh/.personal.env`. It does not behave like a general dotfile importer:
+`op-adopt` updates approved 1Password fields from `~/.config/zsh/.personal.env`:
 
 - the live target must be a current-user-owned regular file with mode `0600`;
 - every non-comment line must be one already-approved exported variable;
@@ -106,13 +105,13 @@ age-identity fetch.
 
 Do not add it back. Two tests enforce this:
 
-- `scripts/test-nix-review-regressions.sh` — asserts `age.secrets` does not evaluate on any host.
-- `scripts/test-external-overlay-contract.sh` — asserts a wrapper-built external work host
+- `scripts/test-nix-review-regressions.sh`: asserts `age.secrets` does not evaluate on any host.
+- `scripts/test-external-overlay-contract.sh`: asserts a wrapper-built external work host
   declares zero `age.secrets` and no `age.identityPaths`.
 
-If a future secret genuinely cannot use 1Password, the requirements are: org-scoped recipients,
+If a secret cannot use 1Password, the requirements are: org-scoped recipients,
 teammate-decryptable, and **no reuse of a personal age recipient or any single person's key**.
-Deleting a ciphertext from git does not remove it from history — rotate any credential that was
+Deleting a ciphertext from git does not remove it from history: rotate any credential that was
 ever committed.
 
 Never `builtins.readFile` a decrypted value. Ciphertext may enter the public Nix store; plaintext

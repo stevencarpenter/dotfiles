@@ -36,7 +36,7 @@ map \r <Action>(ReformatCode)
 "map \b <Action>(ToggleLineBreakpoint)
 
 " =============================================================================
-" .ideavimrc — matched to your LazyVim config
+" IdeaVim bindings aligned with LazyVim
 " =============================================================================
 " Your nvim setup is stock LazyVim defaults + Trouble, Harpoon2, Flash,
 " Yanky, Dial, and Dadbod. This maps all of those conventions to IntelliJ
@@ -48,20 +48,20 @@ map \r <Action>(ReformatCode)
 " =============================================================================
 
 " ---------------------------------------------------------------------------
-" IdeaVim Plugins (bundled — just declare to activate)
+" Bundled IdeaVim plugins
 " ---------------------------------------------------------------------------
-set surround               " cs'" ds" ysiw) — you use this in nvim via mini.surround/LazyVim
-set commentary             " gcc, gc + motion — maps to ts-comments.nvim behavior
-set argtextobj             " cia, dia, via — function argument text object
-set textobj-entire         " ae, ie — entire buffer text object
-set textobj-indent         " ii, ai — indent-level text object (great for YAML/Python)
-set highlightedyank        " visual flash on yank — matches your yanky.nvim feedback
+set surround               " cs'" ds" ysiw): mini.surround/LazyVim equivalent
+set commentary             " gcc, gc + motion: maps to ts-comments.nvim behavior
+set argtextobj             " cia, dia, via: function argument text object
+set textobj-entire         " ae, ie: entire buffer text object
+set textobj-indent         " ii, ai: indent-level text object
+set highlightedyank        " visual flash on yank: yanky.nvim equivalent
 set nerdtree               " file explorer via :NERDTree
 set matchit                " % jumps between matching tags/brackets
 set exchange               " cx to swap regions
 set ReplaceWithRegister    " gr + motion to replace with register
 
-" AceJump — Flash.nvim equivalent (requires AceJump plugin from marketplace)
+" AceJump: Flash.nvim equivalent (requires AceJump plugin from marketplace)
 set acejump
 
 " ---------------------------------------------------------------------------
@@ -102,7 +102,7 @@ set timeoutlen=5000
 " ---------------------------------------------------------------------------
 " Essential Remaps
 " ---------------------------------------------------------------------------
-" Clear search highlighting — LazyVim default <Esc> behavior
+" Clear search highlighting: LazyVim default <Esc> behavior
 nnoremap <Esc> :noh<CR><Esc>
 
 " Better escape
@@ -123,7 +123,7 @@ nnoremap <C-u> <C-u>zz
 nnoremap n nzzzv
 nnoremap N Nzzzv
 
-" Move lines in visual mode — LazyVim default
+" Move lines in visual mode: LazyVim default
 vnoremap J :action MoveLineDown<CR>
 vnoremap K :action MoveLineUp<CR>
 
@@ -144,7 +144,7 @@ xmap s :action AceAction<CR>
 omap s :action AceAction<CR>
 
 " ---------------------------------------------------------------------------
-" Window Navigation — LazyVim <C-h/j/k/l>
+" Window Navigation: LazyVim <C-h/j/k/l>
 " ---------------------------------------------------------------------------
 nnoremap <C-h> <C-w>h
 nnoremap <C-l> <C-w>l
@@ -152,7 +152,7 @@ nnoremap <C-j> <C-w>j
 nnoremap <C-k> <C-w>k
 
 " ---------------------------------------------------------------------------
-" Buffer / Tab Navigation — LazyVim H/L + <leader>b*
+" Buffer / Tab Navigation: LazyVim H/L + <leader>b*
 " ---------------------------------------------------------------------------
 nnoremap H :action PreviousTab<CR>
 nnoremap L :action NextTab<CR>
@@ -176,7 +176,7 @@ nnoremap <leader>4 :action GotoBookmark4<CR>
 nnoremap <leader>5 :action GotoBookmark5<CR>
 
 " ---------------------------------------------------------------------------
-" [f]ind — LazyVim <leader>f* → IntelliJ search
+" [f]ind: LazyVim <leader>f* → IntelliJ search
 " ---------------------------------------------------------------------------
 nnoremap <leader>ff :action GotoFile<CR>
 nnoremap <leader>fg :action FindInPath<CR>
@@ -189,7 +189,7 @@ nnoremap <leader>/ :action FindInPath<CR>
 nnoremap <leader><space> :action GotoFile<CR>
 
 " ---------------------------------------------------------------------------
-" [c]ode — LSP-equivalent actions
+" [c]ode: LSP-equivalent actions
 " ---------------------------------------------------------------------------
 nnoremap <leader>ca :action ShowIntentionActions<CR>
 nnoremap <leader>cr :action RenameElement<CR>
@@ -202,7 +202,7 @@ nnoremap <leader>cs :action FileStructurePopup<CR>
 nnoremap <leader>cl :action ActivateProblemsViewToolWindow<CR>
 
 " ---------------------------------------------------------------------------
-" [g]o-to — LSP navigation
+" [g]o-to: LSP navigation
 " ---------------------------------------------------------------------------
 nnoremap gd :action GotoDeclaration<CR>
 nnoremap gD :action GotoTypeDeclaration<CR>
@@ -214,14 +214,14 @@ nnoremap K :action QuickJavaDoc<CR>
 nnoremap <leader>k :action ParameterInfo<CR>
 
 " ---------------------------------------------------------------------------
-" [d]iagnostics — ]d [d from LazyVim
+" [d]iagnostics: ]d [d from LazyVim
 " ---------------------------------------------------------------------------
 nnoremap ]d :action GotoNextError<CR>
 nnoremap [d :action GotoPreviousError<CR>
 nnoremap <leader>cd :action ShowErrorDescription<CR>
 
 " ---------------------------------------------------------------------------
-" Trouble.nvim — <leader>x* from your example.lua
+" Trouble.nvim equivalents: <leader>x*
 " ---------------------------------------------------------------------------
 nnoremap <leader>xx :action ActivateProblemsViewToolWindow<CR>
 nnoremap <leader>xX :action ShowErrorDescription<CR>
@@ -244,7 +244,7 @@ nnoremap <leader>wm :action MoveEditorToOppositeTabGroup<CR>
 nnoremap <leader>wo :action UnsplitAll<CR>
 
 " ---------------------------------------------------------------------------
-" [g]it — LazyVim defaults + gitsigns hunk nav
+" [g]it: LazyVim defaults + gitsigns hunk nav
 " ---------------------------------------------------------------------------
 nnoremap <leader>gg :action ActivateVersionControlToolWindow<CR>
 nnoremap <leader>gc :action CheckinProject<CR>

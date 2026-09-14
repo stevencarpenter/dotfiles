@@ -5,17 +5,11 @@
 # ///
 """Fail when a generated Claude agent declares a built-in-only tools allowlist.
 
-An agent whose ``tools:`` frontmatter names nothing but Claude's built-in tools
-silently loses the MCP servers and skills it was configured with. That is a
-failed sync, not a degraded-but-usable install, so scripts/install-agent-registry.sh
-treats it as fatal.
+Built-in-only ``tools:`` frontmatter removes MCP servers and skills, so
+scripts/install-agent-registry.sh treats it as a sync failure.
 
-The check covers the agents the registry itself installed, named by the manifest
-the installer writes beside them. ``~/.claude/agents`` is a shared directory:
-Claude Code plugins drop their own agents there, and a plugin agent that is
-deliberately built-in only (the impeccable-* set, for one) is not a failed sync
-of this repo's registry. Globbing the directory turned every such third-party
-file into a hard `just sync` failure.
+Check only agents named in the installer manifest. The shared ~/.claude/agents
+directory also contains independently managed plugin agents.
 
 Usage:
     check-agent-tools-allowlist.py <agents-dir> [manifest]

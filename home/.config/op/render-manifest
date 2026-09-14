@@ -1,4 +1,4 @@
-# op-render manifest — `template:target` per line (~ expands to $HOME).
+# op-render manifest: `template:target` per line (~ expands to $HOME).
 # Read by home/.local/bin/op-render (default path ~/.config/op/render-manifest).
 # Rendered files are 0600 secrets; only the *.tpl templates are committed.
 # adopt-policy.json pins the exact allowed references and reverse-adoption scope.

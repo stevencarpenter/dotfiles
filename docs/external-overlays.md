@@ -1,10 +1,9 @@
-# External overlay repos — extension contract (LOCKED v1.0)
+# External overlay repos: extension contract (LOCKED v1.0)
 
 > Status: **locked 2026-07-18** after a multi-round adversarial review.
 > Changes require an explicit new review round, not silent edits. Describes the
-> seam this repo exposes so an external repo can extend it. Nothing here names
-> or assumes any specific organization; that is a design requirement, not an
-> accident.
+> extension points this repo exposes. The contract must not name or assume
+> a specific organization.
 >
 > v1.0 = original draft + round-2 amendments: dual-mode non-nix path,
 > tools-are-not-fragments, repo-access-as-boundary secrets option, caps
@@ -15,7 +14,7 @@
 This repo is a personal, public nix-darwin + home-manager flake. Some machines
 (identity `work`) additionally need organization-specific configuration that
 must live in that organization's own source control, be usable by teammates
-who do not run nix, and be swappable when the owner changes employers —
+who do not run nix, and be replaceable when the owner changes employers
 without any change to this repo.
 
 ## Architecture: the dependency points inward
@@ -38,9 +37,9 @@ Why this direction:
 
 - A private input URL in a public flake leaks the organization, breaks
   `nix flake check` for every machine and CI job without org credentials,
-  and must be ripped out on every job change.
-- Inverted, a job change means the *new* org writes a ~30-line wrapper; this
-  repo changes zero lines.
+  and must be removed on every job change.
+- With an external wrapper, a new organization supplies its own wrapper without
+  changing this repo.
 - The work machine runs `darwin-rebuild switch --flake <org-repo>#work-host`;
   personal machines keep using this repo directly.
 
@@ -49,8 +48,8 @@ Why this direction:
 The personal repo owns **every base file plus a declared extension seam**.
 The external repo only ever contributes **fragments dropped into seams** or
 **whole files this repo has explicitly marked overridable**. If a proposed
-work config needs to edit a file this repo owns, that is a contract violation
-— the fix is a new seam here, not a patch there.
+work config needs to edit a file this repo owns, add an extension point here
+before implementing the external config.
 
 ## Declared seams
 
@@ -69,77 +68,76 @@ work config needs to edit a file this repo owns, that is a contract violation
 
 Mechanism as shipped, per seam (deviations from the original draft called out):
 
-- **ssh `config.d/` fragment requirements (hard, not stylistic):** the glob is
+- **ssh `config.d/` fragment requirements:** the glob is
   `*.conf`, and a fragment MUST be written atomically and MUST parse. ssh does
-  not skip a bad include — it exits `terminating, 1 bad configuration options`
+  not skip a bad include: it exits `terminating, 1 bad configuration options`
   and every connection on the machine fails, including the one you would use to
   repair it. Verified by dropping one malformed file into the directory. Render
   to a tmpfile and rename; never write a fragment in place.
-- **ssh `config.d/`** — `~/.ssh/config.d/.keep` is a real `home.file` entry
+- **ssh `config.d/`**: `~/.ssh/config.d/.keep` is a real `home.file` entry
   (`modules/home/dotfiles.nix`): `~/.ssh` itself is not directory-linked (only
   `~/.ssh/config` is materialized, by `op-render` from an `op://` template), so
   the seam dir needs its own home-manager-owned entry to exist pre-fragment.
-- **git overlay tree** — fixed include filenames, not a glob:
+- **git overlay tree**: fixed include filenames, not a glob:
   `~/.config/git/config` sources
   `~/.config/external-overlays/git/extra.inc` and `work.inc` explicitly. The
   neutral overlay tree is a real Home Manager-owned directory; it is not nested
   below the existing out-of-store `~/.config/git` parent link.
-- **tmux overlay tree** — fragments live at
+- **tmux overlay tree**: fragments live at
   `~/.config/external-overlays/tmux/*.conf`. This has the same isolated-owner
   shape as git while preserving the existing base tmux directory and runtime
   plugin behavior.
-- **Claude settings fragment** — `~/.claude/settings.d/.keep` is a real
+- **Claude settings fragment**: `~/.claude/settings.d/.keep` is a real
   `home.file` entry (parallels ssh: `.claude` is not whole-directory-linked
-  either). The activation-time merge hardened its commit to only fire on
-  successful `jq` output (a Task 5 review catch) so a fragment parse failure
-  can't wipe the managed base with an empty/partial merge result.
+  either). The activation-time merge replaces the target only after
+  successful `jq` output, so a fragment parse failure cannot replace the
+  managed base with an empty or partial merge result.
 - **hostName collision rule:** an external wrapper's host row name must not
   collide with a basename under this repo's `hosts/*.nix` (currently only
   `personal-mac`). `lib.mkHost` selects the host-specific import by
   `builtins.pathExists ./hosts/${hostName}.nix` first and only falls back to
-  the generic `modules/darwin` import when no such file exists — so a wrapper
+  the generic `modules/darwin` import when no such file exists. A wrapper
   reusing an in-repo basename gets this repo's in-tree shim silently
   substituted instead of its own module, with no eval error to flag the
   mistake. Wrapper authors must pick a hostName distinct from every file in
   `hosts/`.
 
   `hosts/work-mac.nix` was deleted with the work host row (step 6b), so
-  `work-mac` no longer collides — but do not rely on that. The rule is about
-  the mechanism, not the current file list, and a name like `work-wrapper` is
-  unambiguous regardless of what this repo declares later.
+  `work-mac` no longer collides. Check the current `hosts/` file list before
+  choosing a wrapper name.
 
 Design preference, in order: **native layering** (git/ssh/tmux includes) →
 **sync-time structured merge** (mcp/skills/settings) → **whole-file identity
 swap** (last resort; forked copies stop receiving base improvements).
 
-Self-scoping seams beat deploy-time gating. The model case is git:
+Prefer tool-native scoping where available. For git,
 `[includeIf "gitdir:~/work/"]` activates org identity, email, signing key, and
-URL rewrites per-directory on the same machine — the fragment needs no
+URL rewrites per-directory on the same machine: the fragment needs no
 knowledge of how it was deployed.
 
-### SSH ordering note (trap)
+### SSH include ordering
 
 `ssh_config` is **first-match-wins**. The `Include ~/.ssh/config.d/*.conf` line
-must sit at the top of the base config — after the OrbStack include, before
-`Host i9` and `Host *` — or org host stanzas can never take effect. Include
+must sit at the top of the base config (after the OrbStack include, before
+`Host i9` and `Host *`) or org host stanzas cannot take effect. Include
 placement is base-file design and is owned by this repo.
 
 ## Flake API this repo will export (m5)
 
-- `lib.mkHost` — accepts a host row `{ system, user, identity, caps,
+- `lib.mkHost`: accepts a host row `{ system, user, identity, caps,
   configurationRevision ?, extraDarwinModules ? [], extraHomeModules ? [] }`.
   External wrappers should pass their own `self.rev or self.dirtyRev or null`;
   the base revision is only the default and an extra Darwin module may also
   override it without `mkForce`.
-- `darwinModules.default` / `homeModules.default` — the module sets, importable
+- `darwinModules.default` / `homeModules.default`: the module sets, importable
   without forking.
-- `homeModules.rawDotfiles` — the out-of-store symlink machinery from
+- `homeModules.rawDotfiles`: the out-of-store symlink machinery from
   `dotfiles.nix`, parameterized by source root, so an external repo gets the
   same edit-live-without-rebuild property for its own files.
 - Caps contract: the row-shape assertion relaxes from *exact key equality* to
-  *superset of this repo's canonical keys* — external rows may add caps their
-  own modules gate on. Tradeoff accepted knowingly: a dropped canonical cap is
-  still caught; a **misspelled extra cap is not** — validating external-added
+  *superset of this repo's canonical keys*: external rows may add caps their
+  own modules gate on. A dropped canonical cap is
+  still caught; a **misspelled extra cap is not**: validating external-added
   caps is the external repo's responsibility (its wrapper may assert its own
   cap list).
 - Naming: `homeModules.default` is canonical; `homeManagerModules` is exported
@@ -152,7 +150,7 @@ placement is base-file design and is owned by this repo.
 
 Required:
 
-1. **`files/`** — plain configs with real names. The primary interface.
+1. **`files/`**: plain configs with real names. The primary interface.
 2. **A non-nix path, dual-mode.** The seams above describe layering on a
    machine whose base *is* this repo (the owner). Teammates have their own
    dotfiles and none of these include lines, so for them the installer is a
@@ -160,27 +158,27 @@ Required:
    (`~/.claude/skills`, MCP config merge, `uv tool install`, rendered creds)
    without touching their base configs, reversible via `uninstall.sh`.
    Content-copy is the teammate default; seam-drop is an optional mode for
-   consumers who share this repo's base. The nix module is optional sugar on
-   top of either.
-3. **Fragments only** on any machine based on this repo — everything lands in
+   consumers who share this repo's base. The optional Nix module supports
+   either mode.
+3. **Fragments only** on any machine based on this repo: everything lands in
    a seam from the table above. (Teammate machines are the teammate's own
    files; the rule there is "standard tool locations, reversible".)
 
 Not every deliverable is a file fragment: **tools + activation hooks** (e.g.
-an AWS SSO profile generator) ride `extraHomeModules` on the nix path and
+an AWS SSO profile generator) use `extraHomeModules` on the nix path and
 `uv tool install` (public `git+https`) + a generation step on the non-nix
 path. The seam table governs *configs*; tools compose through the
 module/installer, not a seam.
 
 Optional:
 
-4. **`flake.nix`** — consumes this repo, calls `lib.mkHost` with its host row
+4. **`flake.nix`**: consumes this repo, calls `lib.mkHost` with its host row
    and `extraHomeModules = [ ./module.nix ]`.
-5. **`module.nix`** — uses `homeModules.rawDotfiles` to link `files/`, takes
+5. **`module.nix`**: uses `homeModules.rawDotfiles` to link `files/`, takes
    over the `<identity>.json` overlay symlinks, registers a Claude settings
    fragment, declares its own secrets.
-6. **Secrets** — org-chosen mechanism, and now **entirely** the external
-   repo's problem: this repo declares zero `age.secrets`, imports no agenix,
+6. **Secrets**: the external repo owns the mechanism. This repo declares zero
+   `age.secrets`, imports no agenix,
    and tracks no ciphertext. Encrypted-at-rest (SOPS, op-connect, org agenix)
    **or repo-access-as-boundary**: non-credential work content as plaintext in
    the private repo, with only credential-class values as `op://` references
@@ -189,8 +187,7 @@ Optional:
    never a single person's keys as the team's decryption path, and no
    credential-class value in plaintext even in the private repo.
 
-   Note the operational constraint learned on the personal side: a renderer
-   that shells out to `op` can **never** run from a `home.activation` hook.
+   A renderer that shells out to `op` cannot run from a `home.activation` hook.
    The activation PATH is a closed nix-store list with no `op` on it, and
    1Password authorizes CLI access by calling-process ancestry, so only an
    approved interactive terminal can render. Drive it from a task-runner
@@ -207,9 +204,9 @@ caps + extra modules).
 Agent-harness guidance splits three ways: global-personal
 (`~/.claude/CLAUDE.md`, this repo), machine-global-work (the Claude settings
 fragment seam above), and per-project (each org repo's own `CLAUDE.md` /
-`.github/copilot-instructions.md` — no dotfiles involvement). Prefer pushing
+`.github/copilot-instructions.md`: no dotfiles involvement). Prefer pushing
 org guidance into org repos over layering it on the machine; the fragment
-seam is for genuinely machine-global behavior only.
+seam is for machine-global behavior only.
 
 ## m5 preparation checklist
 
@@ -241,7 +238,7 @@ seam is for genuinely machine-global behavior only.
    work machine's daily flow becoming `darwin-rebuild switch --flake
    <org-repo>#<host>`, and that repo taking ownership of its own
    bootstrap/rebuild scripts and host resolution. This repo can no longer build
-   a work host at all, by design — the work-identity path is covered only by
+   a work host at all, by design: the work-identity path is covered only by
    `scripts/test-external-overlay-contract.sh`, which builds a synthetic
    external consumer.
 
