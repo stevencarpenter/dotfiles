@@ -3,6 +3,7 @@ set -euo pipefail
 
 # Verify ai-stack.nix's jq merge preserves existing top-level key order.
 # Apply settings-base.json with existing * managed, which appends new keys.
+# Also exercise the production normalization/publication block on failures.
 # This test excludes capability variants and SessionStart hook stripping.
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -150,3 +151,46 @@ printf '%s\n' "${merged_with_bad}" | jq -e 'has("badFragmentKey") | not' >/dev/n
 }
 
 echo "claude settings.d loop skips a malformed fragment and keeps prior fragment state"
+
+# Extract the actual final transforms and publication, not a copy of the jq.
+# Substitute only Nix's executable interpolation so hygiene CI needs no Nix.
+normalization="$(awk '
+  /# Seed cross-machine defaults/ { emit = 1 }
+  emit && /^[[:space:]]*\) \|\| true/ { exit }
+  emit { gsub(/\$\{jq\}/, "jq"); print }
+' "${repo_root}/modules/home/ai-stack.nix")"
+[ -n "$normalization" ] || { echo "could not extract settings normalization" >&2; exit 1; }
+
+mkdir -p "$baddir/normalization-home"
+printf '%s\n' "$sample_settings" > "$baddir/settings.before"
+normalize_settings() (
+  export HOME="$baddir/normalization-home"
+  SETTINGS="$HOME/settings.json"
+  merged="$1"
+  eval "$normalization"
+)
+
+# First transform: malformed input. Second: syntactically valid but wrong type.
+for invalid in '{not json' '{"sandbox":{"filesystem":"invalid"}}'; do
+  cp "$baddir/settings.before" "$baddir/normalization-home/settings.json"
+  # Match production's outer || true, which suppresses inherited errexit.
+  normalize_settings "$invalid" > "$baddir/normalize.stdout" 2> "$baddir/normalize.stderr" || true
+  if ! cmp -s "$baddir/settings.before" "$baddir/normalization-home/settings.json"; then
+    echo "failed normalization replaced existing Claude settings" >&2
+    exit 1
+  fi
+  if ! rg -Fq 'keeping existing settings' "$baddir/normalize.stderr"; then
+    echo "failed normalization did not warn that settings were preserved" >&2
+    exit 1
+  fi
+done
+
+# The extracted block must still publish valid input and retain in-tool choices.
+normalize_settings "$sample_settings" || true
+jq -e --arg home "$baddir/normalization-home" '
+  .model == "haiku" and .effortLevel == "medium" and .theme == "dark"
+  and (.sandbox.filesystem.allowWrite | index($home + "/.cache/uv") != null)
+  and (.sandbox.filesystem.allowWrite | index($home + "/projects/agents") != null)
+' "$baddir/normalization-home/settings.json" >/dev/null
+
+echo "Claude settings normalization preserves the file on failure and publishes valid input"
