@@ -19,6 +19,10 @@ in
     (lib.mkIf caps.dev {
       ".config/mise/conf.d/dev.toml".source = link ".config/mise/conf.d/dev.toml";
     })
+    # Firstmate follows the same gate as the Pi configuration.
+    (lib.mkIf caps.mcp {
+      ".config/mise/conf.d/firstmate.toml".source = link ".config/mise/conf.d/firstmate.toml";
+    })
     # External overlays can replace the infrastructure tool list.
     (lib.mkIf caps.infra {
       ".config/mise/conf.d/infra.toml".source = lib.mkDefault (link ".config/mise/conf.d/infra.toml");

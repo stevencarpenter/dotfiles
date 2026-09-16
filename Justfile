@@ -86,6 +86,10 @@ sync *HOST:
 sync-side-channels:
     TOKEN_AUDITOR_VERSION="{{ TOKEN_AUDITOR_VERSION }}" scripts/sync-side-channels.sh
 
+# Install the pinned Firstmate distro after rebuild has linked its configuration.
+firstmate-setup:
+    firstmate --setup
+
 # ── MCP Sync ─────────────────────────────────────────────
 
 # Lint, test, and format both Python projects.

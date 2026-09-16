@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Firstmate is a project-local Pi distro, not a global Pi extension.
+set -euo pipefail
+
+export FM_HOME="$HOME/.local/share/firstmate"
+export FM_PI_HARNESS=pi
+checkout="$FM_HOME/repo"
+revision="$(tr -d '\n' <"$HOME/.config/firstmate/revision")"
+if [[ ! "$revision" =~ ^[0-9a-f]{40}$ ]]; then
+  echo "firstmate: expected a full commit SHA in ~/.config/firstmate/revision" >&2
+  exit 1
+fi
+
+if [[ "${1:-}" == --setup ]]; then
+  if [[ ! -e "$checkout" ]]; then
+    mkdir -p "$FM_HOME"
+    git clone --no-checkout https://github.com/kunchenguid/firstmate.git "$checkout"
+    git -C "$checkout" checkout --detach "$revision"
+  fi
+elif [[ ! -d "$checkout/.git" ]]; then
+  echo "firstmate: run firstmate --setup before launching" >&2
+  exit 1
+fi
+
+# Never reset a running or locally modified distro during sync or launch.
+actual_revision="$(git -C "$checkout" rev-parse HEAD)"
+checkout_status="$(git -C "$checkout" status --porcelain)"
+if [[ "$actual_revision" != "$revision" || -n "$checkout_status" ]]; then
+  echo "firstmate: $checkout differs from the reviewed pin; stop Firstmate and inspect it before updating" >&2
+  exit 1
+fi
+
+if [[ "${1:-}" == --setup ]]; then
+  echo "firstmate: ready at $checkout ($revision)"
+  exit 0
+fi
+
+# Keep the normal trust prompt: approving this checkout loads its bundled
+# .pi/extensions and .agents/skills without affecting ordinary Pi projects.
+cd "$checkout"
+exec pi --tui-mode regular "$@"

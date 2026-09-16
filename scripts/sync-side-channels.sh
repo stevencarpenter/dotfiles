@@ -24,6 +24,12 @@ else
   exit 1
 fi
 
+# Firstmate is a standalone checkout; never install its supervisor globally in Pi.
+if [ "$("$capability_bin" mcp)" = "1" ]; then
+  echo "==> Ensuring pinned Firstmate distro"
+  "${FIRSTMATE_BIN:-$repo_root/home/.local/bin/firstmate}" --setup
+fi
+
 # Render personal secrets before the agent-registry clone needs ~/.ssh/config.
 # Rendering requires network and interactive 1Password authorization, unavailable
 # during sudo activation. Activation only runs op-render --warn-stale-only.

@@ -40,6 +40,11 @@ cat >"$fixture/bin/mise" <<'EOF'
 printf 'mise %s\n' "$*" >>"$TEST_COMMAND_LOG"
 EOF
 
+cat >"$fixture/bin/firstmate" <<'EOF'
+#!/usr/bin/env bash
+printf 'firstmate %s\n' "$*" >>"$TEST_COMMAND_LOG"
+EOF
+
 # Mock host-capability.sh because work identities live in an external wrapper
 # and have no row in lib/machines.nix.
 cat >"$fixture/bin/host-capability" <<'EOF'
@@ -47,6 +52,7 @@ cat >"$fixture/bin/host-capability" <<'EOF'
 case "${1:-}" in
   --identity) printf '%s' "${MOCK_IDENTITY:?}" ;;
   agents) printf '%s' "${MOCK_AGENTS:?}" ;;
+  mcp) printf '%s' "${MOCK_MCP:-1}" ;;
   *) exit 2 ;;
 esac
 EOF
@@ -65,7 +71,7 @@ exit 0
 EOF
 
 chmod +x "$fixture/bin/git" "$fixture/bin/uv" "$fixture/bin/mise" "$fixture/bin/host-capability" \
-  "$fixture/bin/op-render" "$fixture/bin/op"
+  "$fixture/bin/op-render" "$fixture/bin/op" "$fixture/bin/firstmate"
 
 # run_sync <identity> <agents-capability> [run-name]
 run_sync() {
@@ -83,6 +89,7 @@ run_sync() {
     GIT_BIN="$fixture/bin/git" \
     UV_BIN="$fixture/bin/uv" \
     MISE_BIN="$fixture/bin/mise" \
+    FIRSTMATE_BIN="$fixture/bin/firstmate" \
     OP_RENDER_BIN="$fixture/bin/op-render" \
     OP_BIN="$fixture/bin/op" \
     "$repo_root/scripts/sync-side-channels.sh" >/dev/null
@@ -158,7 +165,7 @@ run_sync_tty() {
     "HOST_CAPABILITY_BIN=$fixture/bin/host-capability"
     "HOME=$run_root/home" "PATH=$fixture/bin:/usr/bin:/bin"
     "GIT_BIN=$fixture/bin/git" "UV_BIN=$fixture/bin/uv"
-    "MISE_BIN=$fixture/bin/mise"
+    "MISE_BIN=$fixture/bin/mise" "FIRSTMATE_BIN=$fixture/bin/firstmate"
     "OP_RENDER_BIN=$fixture/bin/op-render" "OP_BIN=$fixture/bin/op"
     "TOKEN_AUDITOR_VERSION=$token_auditor_version"
     "$repo_root/scripts/sync-side-channels.sh"
@@ -211,4 +218,14 @@ if TOKEN_AUDITOR_VERSION=latest \
   exit 1
 fi
 
-echo "side-channel sync honors the agents capability boundary"
+if ! rg -Fq 'firstmate --setup' "$fixture/work/commands.log"; then
+  echo "sync did not ensure Firstmate for a Pi-enabled host" >&2
+  exit 1
+fi
+MOCK_MCP=0 run_sync work 0 without-pi
+if rg -Fq 'firstmate' "$fixture/without-pi/commands.log"; then
+  echo "sync installed Firstmate with the Pi/MCP capability disabled" >&2
+  exit 1
+fi
+
+echo "side-channel sync honors the agents and Pi/MCP capability boundaries"

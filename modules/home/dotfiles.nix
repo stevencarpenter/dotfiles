@@ -167,6 +167,12 @@ in
         ".pi/agent/extensions/omlx-discovery.ts"
         ".pi/agent/extensions/package.json"
         ".pi/agent/extensions/package-lock.json"
+
+        # Firstmate owns its checkout and runtime state, never the whole directory.
+        ".local/bin/firstmate"
+        ".config/firstmate/revision"
+        ".local/share/firstmate/config/backend"
+        ".local/share/firstmate/config/crew-harness"
       ]))
       (lib.optionalAttrs caps.mcp {
         ".config/mcp/overrides/.keep".text = "";
