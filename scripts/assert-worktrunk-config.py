@@ -3,11 +3,10 @@
 # requires-python = ">=3.11"
 # dependencies = []
 # ///
-"""Assert the checked-in Worktrunk config keeps its behavior-defining settings.
+"""Validate Worktrunk configuration types without freezing user preferences.
 
 Parsed independently of the installed Worktrunk version. These assertions catch
-a Nix store path accidentally committed as file contents, and preserve the
-settings whose absence changes worktree and merge behavior.
+a Nix store path accidentally committed as file contents.
 
 Usage:
     assert-worktrunk-config.py <config.toml>
@@ -36,12 +35,17 @@ def main(argv: list[str]) -> int:
         return 2
 
     config = tomllib.loads(Path(argv[0]).read_text())
-    assert config["worktree-path"] == "{{ repo_path }}/../{{ repo }}-{{ branch | sanitize }}"
-    assert config["pre-start"] == [{"copy": "wt step copy-ignored"}]
-    assert config["list"]["json-schema"] == 2
-    assert config["commit"]["stage"] == "all"
-    assert config["commit"]["generation"]["command"]
-    assert config["merge"] == {"squash": True, "commit": True}
+    if "worktree-path" in config:
+        assert isinstance(config["worktree-path"], str) and config["worktree-path"]
+    for section in ("list", "commit", "merge"):
+        assert isinstance(config.get(section, {}), dict), f"{section} must be a table"
+    for key in ("squash", "commit"):
+        if key in config.get("merge", {}):
+            assert type(config["merge"][key]) is bool, f"merge.{key} must be boolean"
+    generation = config.get("commit", {}).get("generation", {})
+    assert isinstance(generation, dict), "commit.generation must be a table"
+    if "command" in generation:
+        assert isinstance(generation["command"], str) and generation["command"]
     return 0
 
 

@@ -153,7 +153,7 @@ def test_refresh_keeps_fallback_when_down(monkeypatch) -> None:
     assert out == config
 
 
-def test_build_applies_live_refresh(tmp_path, monkeypatch) -> None:
+def test_build_applies_live_refresh(tmp_path, monkeypatch, synthetic_templates) -> None:
     """The opencode target unions live IDs over the template block."""
     from mcp_sync.sync import SyncTarget, transform_to_opencode_format
 
@@ -169,7 +169,9 @@ def test_build_applies_live_refresh(tmp_path, monkeypatch) -> None:
     assert "Live-Model" in config["provider"]["omlx"]["models"]
 
 
-def test_build_falls_back_when_refresh_raises(tmp_path, monkeypatch) -> None:
+def test_build_falls_back_when_refresh_raises(
+    tmp_path, monkeypatch, synthetic_templates
+) -> None:
     """A refresh failure keeps the template block instead of failing sync."""
     import mcp_sync.sync as sync_mod
 
@@ -185,10 +187,14 @@ def test_build_falls_back_when_refresh_raises(tmp_path, monkeypatch) -> None:
         override_key="opencode",
     )
     config = target.build({"servers": {}}, home=tmp_path)
-    assert "Qwen3.8-Flash-Next-MLX-4bit" in config["provider"]["omlx"]["models"]
+    assert config["provider"]["omlx"]["models"] == {
+        "Fixture-Model": {"name": "fixture"}
+    }
 
 
-def test_build_without_omlx_block_makes_no_request(tmp_path, monkeypatch) -> None:
+def test_build_without_omlx_block_makes_no_request(
+    tmp_path, monkeypatch, synthetic_templates
+) -> None:
     """Targets without an omlx block never touch the network."""
 
     def boom(*args: object, **kwargs: object) -> object:
@@ -207,7 +213,9 @@ def test_build_without_omlx_block_makes_no_request(tmp_path, monkeypatch) -> Non
     target.build({"servers": {}}, home=tmp_path)
 
 
-def test_build_live_false_skips_discovery(tmp_path, monkeypatch) -> None:
+def test_build_live_false_skips_discovery(
+    tmp_path, monkeypatch, synthetic_templates
+) -> None:
     """Drift/capture (live=False) never touch the network."""
 
     def boom(*args: object, **kwargs: object) -> object:
@@ -224,4 +232,6 @@ def test_build_live_false_skips_discovery(tmp_path, monkeypatch) -> None:
         override_key="opencode",
     )
     config = target.build({"servers": {}}, home=tmp_path, live=False)
-    assert "Qwen3.8-Flash-Next-MLX-4bit" in config["provider"]["omlx"]["models"]
+    assert config["provider"]["omlx"]["models"] == {
+        "Fixture-Model": {"name": "fixture"}
+    }

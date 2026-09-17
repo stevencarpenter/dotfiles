@@ -9,6 +9,35 @@ import pytest
 
 
 @pytest.fixture
+def synthetic_templates(tmp_path, monkeypatch):
+    """Isolate template merge behavior from the user's current preferences.
+
+    Args:
+        tmp_path: Temporary directory for fixture templates.
+        monkeypatch: Fixture replacing the production template directory.
+
+    Returns:
+        Directory containing synthetic Codex and OpenCode templates.
+    """
+    directory = tmp_path / "templates"
+    directory.mkdir()
+    (directory / "codex.base.toml").write_text(
+        'model = "fixture-model"\n'
+        '[tui]\nstatus_line = ["fixture-first", "fixture-last"]\n'
+        "status_line_use_colors = true\n",
+        encoding="utf-8",
+    )
+    (directory / "opencode.base.json").write_text(
+        json.dumps(
+            {"provider": {"omlx": {"models": {"Fixture-Model": {"name": "fixture"}}}}}
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("mcp_sync.sync.TEMPLATES_DIR", directory)
+    return directory
+
+
+@pytest.fixture
 def temp_home(tmp_path):
     """Create a temporary home directory for testing."""
     home = tmp_path / "home"

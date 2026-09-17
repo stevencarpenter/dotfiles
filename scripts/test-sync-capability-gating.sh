@@ -24,7 +24,7 @@ printf 'git %s\n' "$*" >>"$TEST_COMMAND_LOG"
 if [ "${1:-}" = "clone" ]; then
   target="${@: -1}"
   mkdir -p "$target/.git"
-  if [[ "$*" == *"stevencarpenter/agents.git"* ]]; then
+  if [[ "$target" == */agent-registry ]]; then
     touch "$target/pyproject.toml"
   fi
 fi
@@ -40,6 +40,11 @@ cat >"$fixture/bin/mise" <<'EOF'
 printf 'mise %s\n' "$*" >>"$TEST_COMMAND_LOG"
 EOF
 
+cat >"$fixture/bin/firstmate" <<'EOF'
+#!/usr/bin/env bash
+printf 'firstmate %s\n' "$*" >>"$TEST_COMMAND_LOG"
+EOF
+
 # Mock host-capability.sh because work identities live in an external wrapper
 # and have no row in lib/machines.nix.
 cat >"$fixture/bin/host-capability" <<'EOF'
@@ -47,6 +52,7 @@ cat >"$fixture/bin/host-capability" <<'EOF'
 case "${1:-}" in
   --identity) printf '%s' "${MOCK_IDENTITY:?}" ;;
   agents) printf '%s' "${MOCK_AGENTS:?}" ;;
+  mcp) printf '%s' "${MOCK_MCP:-1}" ;;
   *) exit 2 ;;
 esac
 EOF
@@ -65,7 +71,7 @@ exit 0
 EOF
 
 chmod +x "$fixture/bin/git" "$fixture/bin/uv" "$fixture/bin/mise" "$fixture/bin/host-capability" \
-  "$fixture/bin/op-render" "$fixture/bin/op"
+  "$fixture/bin/op-render" "$fixture/bin/op" "$fixture/bin/firstmate"
 
 # run_sync <identity> <agents-capability> [run-name]
 run_sync() {
@@ -83,6 +89,7 @@ run_sync() {
     GIT_BIN="$fixture/bin/git" \
     UV_BIN="$fixture/bin/uv" \
     MISE_BIN="$fixture/bin/mise" \
+    FIRSTMATE_BIN="$fixture/bin/firstmate" \
     OP_RENDER_BIN="$fixture/bin/op-render" \
     OP_BIN="$fixture/bin/op" \
     "$repo_root/scripts/sync-side-channels.sh" >/dev/null
@@ -93,13 +100,17 @@ if ! rg -Fq 'mise install' "$fixture/work/commands.log"; then
   echo "sync did not reconcile mise-managed tools" >&2
   exit 1
 fi
-if rg -Fq 'git@github.com:stevencarpenter/agents.git' "$fixture/work/commands.log"; then
+if ! rg -Fxq 'mise upgrade --no-prune' "$fixture/work/commands.log"; then
+  echo "sync did not upgrade all mise tools within their configured version constraints" >&2
+  exit 1
+fi
+if rg -q '^git clone .* /[^ ]*/agent-registry$' "$fixture/work/commands.log"; then
   echo "work sync contacted the personal agent registry" >&2
   exit 1
 fi
 
 run_sync personal 1
-if ! rg -Fq 'git@github.com:stevencarpenter/agents.git' "$fixture/personal/commands.log"; then
+if ! rg -q '^git clone .* /[^ ]*/agent-registry$' "$fixture/personal/commands.log"; then
   echo "personal sync did not retain the agent registry clone" >&2
   exit 1
 fi
@@ -130,7 +141,7 @@ if ! rg -Fq 'op-render' "$fixture/personal/commands.log"; then
   exit 1
 fi
 render_line="$(rg -n -Fm1 'op-render' "$fixture/personal/commands.log" | cut -d: -f1)"
-clone_line="$(rg -n -Fm1 'stevencarpenter/agents.git' "$fixture/personal/commands.log" | cut -d: -f1)"
+clone_line="$(rg -n -m1 '^git clone .* /[^ ]*/agent-registry$' "$fixture/personal/commands.log" | cut -d: -f1)"
 if [ -z "$render_line" ] || [ -z "$clone_line" ] || [ "$render_line" -ge "$clone_line" ]; then
   echo "op-render must precede the SSH agent-registry clone (renders its ssh config)" >&2
   exit 1
@@ -158,7 +169,7 @@ run_sync_tty() {
     "HOST_CAPABILITY_BIN=$fixture/bin/host-capability"
     "HOME=$run_root/home" "PATH=$fixture/bin:/usr/bin:/bin"
     "GIT_BIN=$fixture/bin/git" "UV_BIN=$fixture/bin/uv"
-    "MISE_BIN=$fixture/bin/mise"
+    "MISE_BIN=$fixture/bin/mise" "FIRSTMATE_BIN=$fixture/bin/firstmate"
     "OP_RENDER_BIN=$fixture/bin/op-render" "OP_BIN=$fixture/bin/op"
     "TOKEN_AUDITOR_VERSION=$token_auditor_version"
     "$repo_root/scripts/sync-side-channels.sh"
@@ -189,7 +200,7 @@ fi
 mkdir -p "$fixture/personal-working/home/projects/agents"
 touch "$fixture/personal-working/home/projects/agents/pyproject.toml"
 run_sync personal 1 personal-working
-if rg -Fq 'git@github.com:stevencarpenter/agents.git' \
+if rg -q '^git clone .* /[^ ]*/agent-registry$' \
   "$fixture/personal-working/commands.log"; then
   echo "personal sync cloned a redundant registry beside the working copy" >&2
   exit 1
@@ -211,4 +222,14 @@ if TOKEN_AUDITOR_VERSION=latest \
   exit 1
 fi
 
-echo "side-channel sync honors the agents capability boundary"
+if ! rg -Fq 'firstmate --setup' "$fixture/work/commands.log"; then
+  echo "sync did not ensure Firstmate for a Pi-enabled host" >&2
+  exit 1
+fi
+MOCK_MCP=0 run_sync work 0 without-pi
+if rg -Fq 'firstmate' "$fixture/without-pi/commands.log"; then
+  echo "sync installed Firstmate with the Pi/MCP capability disabled" >&2
+  exit 1
+fi
+
+echo "side-channel sync honors the agents and Pi/MCP capability boundaries"

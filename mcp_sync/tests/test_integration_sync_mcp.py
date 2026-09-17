@@ -53,14 +53,12 @@ def test_full_sync_copilot_format_has_tools_array(
         assert server_config["tools"] == ["*"]
 
 
-def test_full_sync_opencode_includes_local_providers(
+def test_full_sync_opencode_preserves_template_fields(
     temp_home, monkeypatch_home, master_config_file
 ):
-    """OpenCode config carries the lmstudio + omlx local inference providers.
+    """OpenCode sync carries the current template's non-MCP fields.
 
-    Pins the base template's provider section through the real sync path
-    (main()), now that the standalone sync_opencode_mcp helper is gone, so a
-    future refactor can't silently drop the local providers.
+    Verify propagation without freezing the user's provider choices.
 
     Args:
         temp_home: Path fixture for the isolated home directory.
@@ -70,14 +68,15 @@ def test_full_sync_opencode_includes_local_providers(
     Returns:
         None.
     """
+    from mcp_sync.sync import _load_json_template
+
+    expected = _load_json_template("opencode", temp_home)
+    expected.pop("mcp", None)
     main()
 
     cfg = json.loads((temp_home / ".config/opencode/opencode.json").read_text())
-    providers = cfg.get("provider", {})
-    assert {"lmstudio", "omlx"} <= providers.keys()
-    assert providers["lmstudio"]["npm"] == "@ai-sdk/openai-compatible"
-    assert providers["lmstudio"]["options"]["baseURL"] == "http://localhost:1234/v1"
-    assert providers["omlx"]["options"]["baseURL"] == "http://localhost:42069/v1"
+    cfg.pop("mcp", None)
+    assert cfg == expected
 
 
 def test_full_sync_cursor_writes_home_dotfolder(
@@ -154,7 +153,7 @@ def test_sync_with_existing_claude_config(
 
 
 def test_sync_with_existing_opencode_config(
-    temp_home, monkeypatch_home, master_config_file
+    temp_home, monkeypatch_home, master_config_file, synthetic_templates
 ):
     """Integration test: existing OpenCode config is overwritten from base template."""
 

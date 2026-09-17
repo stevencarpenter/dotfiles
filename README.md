@@ -126,10 +126,29 @@ remap, granting AeroSpace/SketchyBar Accessibility): `bootstrap.sh` prints them 
 ./rebuild.sh                # auto-detect host, sudo darwin-rebuild switch
 ./rebuild.sh personal-mac   # force a host config
 just rebuild                # same, via the task runner
-just update                 # bump 26.05 inputs + unstable soak (staged for review; does not
-                            #   switch) and upgrade Homebrew (applied in place, not staged)
-just sync                   # apply a reviewed generation, then side channels
+just update                 # preview Nix/Homebrew/mise updates, approve, then upgrade + sync
+just update -y              # same preview and apply, without the update confirmation
+just sync                   # deploy current Nix pins + side channels (including mise upgrades)
+just sync-side-channels     # skip the Nix switch; run only side channels
 ```
+
+`update` includes `sync`; `sync` includes `rebuild` and `sync-side-channels`.
+Run the outer command once rather than running each included command separately.
+`just --list` groups daily commands, targeted maintenance, validation, and utilities.
+
+`just update [ -y ] [SOAK_DAYS [HOST]]` updates stable Nix inputs and reuses the unstable
+24-hour default soak policy, builds the candidate system, and displays its package and input diffs. It also
+refreshes Homebrew metadata and previews upgrades for installed unpinned formulae/casks and
+mise tools. Approval upgrades Homebrew and invokes `just sync HOST`. Existing exact pins,
+Homebrew pins, and the unstable soak duration are respected. This does not upgrade macOS or
+independently managed application/plugin ecosystems.
+
+Declining, EOF, or a preparation failure restores the Nix input files to their pre-run contents,
+including uncommitted edits. Download/build caches and refreshed Homebrew metadata remain.
+Once apply begins, failures may leave partially completed upgrades; the reviewed input files are
+retained. `-y` skips the update confirmation, not sudo or 1Password authentication. Package managers
+resolve rolling releases again during application; the preview is not an immutable lock for Homebrew
+or mise. Sync also refreshes Git sources and renders secrets as described below.
 
 `rebuild.sh` verifies that `~/.dotfiles` resolves to the physical checkout, maps `LocalHostName` to
 a flake config, and `exec`s `sudo darwin-rebuild switch` against that physical path. There's also a
@@ -210,17 +229,18 @@ The rule: declarative or offline+fast+idempotent work
 goes in the switch (as `home.activation` hooks); anything touching network/SSH/sudo goes in
   `just sync` / `just bootstrap`. This keeps a switch reproducible and offline-safe.
 
-Global npm CLIs are declared in `home/.config/mise/config.toml` with exact versions. The side-channel
-sync runs `mise install` before other network-backed provisioning, so a new machine or a version bump
-does not depend on an untracked `npm install --global` operation. Inspect the current inventory with
-`npm ls -g --depth=0` and the declarative inventory with `mise ls`.
+Global npm CLIs are declared in `home/.config/mise/config.toml`. Side-channel sync runs
+`mise install` and `mise upgrade --no-prune`: `latest` tracks releases, partial versions track
+their declared range, and exact versions stay pinned. Older installs remain available to running
+sessions. Inspect the inventory with `mise ls`.
 
 ## Homebrew policy
 
 Rebuilds are idempotent: they neither update Homebrew metadata nor upgrade installed packages.
 Activation keeps unmanaged inventory in place because nix-darwin's `"check"` mode would abort
-while the prefix contains retained unmanaged packages. Run `just brew-upgrade` for
-deliberate updates and `just brew-audit` to compare declared and installed inventory using read-only
+while the prefix contains retained unmanaged packages. Run `just update` for reviewed upgrades
+across package managers, or `just brew-upgrade` for Homebrew alone. Both upgrade installed unpinned
+packages, including retained unmanaged packages. Use `just brew-audit` to compare declared and installed inventory using read-only
 `brew list`, `brew leaves`, and `brew tap` queries. It never invokes Homebrew cleanup or uninstall.
 **Never** set activation cleanup to `"zap"`; it deletes application data.
 

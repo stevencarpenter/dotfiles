@@ -66,8 +66,8 @@ tmux list-keys -T prefix | rg 'new-window|split-window'
 ```
 
 No Nix rebuild is needed for the raw file. Reload it explicitly in an already-running tmux server.
-`scripts/test-tmux-lifecycle-contract.sh` loads the config into an isolated server in CI and
-asserts the effective bindings, not merely the presence of matching text.
+`scripts/test-tmux-lifecycle-contract.sh` loads the config into an isolated server in CI to
+test pane classification and cleanup. Key bindings and working-directory choices remain preferences.
 
 ## Explicit tmux startup and detach behavior
 

@@ -11,11 +11,29 @@ config="${repo_root}/home/.config/worktrunk/config.toml"
 
 # Parse the checked-in config independently of the installed Worktrunk version.
 # These assertions catch a store path accidentally committed as file contents
-# and preserve the settings whose absence changes worktree and merge behavior.
+# without fixing the user's worktree layout or merge preferences.
 "${repo_root}/scripts/assert-worktrunk-config.py" "${config}"
 
 fixture="$(mktemp -d)"
 trap 'rm -rf "${fixture}"' EXIT
+
+# Routine preference changes and omitted defaults remain valid.
+cat >"${fixture}/alternate.toml" <<'TOML'
+worktree-path = "../{{ branch }}"
+[commit]
+stage = "tracked"
+[merge]
+squash = false
+commit = false
+TOML
+"${repo_root}/scripts/assert-worktrunk-config.py" "${fixture}/alternate.toml"
+: >"${fixture}/defaults.toml"
+"${repo_root}/scripts/assert-worktrunk-config.py" "${fixture}/defaults.toml"
+printf '[merge]\nsquash = "false"\n' >"${fixture}/invalid.toml"
+if "${repo_root}/scripts/assert-worktrunk-config.py" "${fixture}/invalid.toml" >/dev/null 2>&1; then
+  echo "FAIL: malformed merge setting passed structural validation" >&2
+  exit 1
+fi
 
 assert_invalid() {
   local message="$1" expected="$2"
@@ -82,13 +100,13 @@ fi
 rg -Fxq "fix: validate generated output" "${fixture}/generated.out"
 rg -Fq "previous candidate failed local validation" "${fixture}/prompt-2"
 
-expected_flags="-p --no-session-persistence --model=haiku --tools= --safe-mode --disable-slash-commands --setting-sources=user --system-prompt="
-if [ "$(sed -n '1p' "${fixture}/args")" != "${expected_flags}" ]; then
-  echo "FAIL: Claude safety flags drifted" >&2
-  cat "${fixture}/args" >&2
-  exit 1
-fi
-if ! rg -Fxq "CLAUDECODE=<> MAX_THINKING_TOKENS=<0>" "${fixture}/env"; then
+for flag in -p --no-session-persistence --tools= --safe-mode --disable-slash-commands --setting-sources=user --system-prompt=; do
+  if [[ " $(sed -n '1p' "${fixture}/args") " != *" ${flag} "* ]]; then
+    echo "FAIL: missing Claude safety flag ${flag}" >&2
+    exit 1
+  fi
+done
+if ! rg -Fq "CLAUDECODE=<>" "${fixture}/env"; then
   echo "FAIL: Claude environment controls drifted" >&2
   cat "${fixture}/env" >&2
   exit 1

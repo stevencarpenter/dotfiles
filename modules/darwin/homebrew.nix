@@ -50,6 +50,8 @@ in
     ];
 
     brews = [
+      # Atuin migrations require a current client; avoid the soaked Nix pin lag.
+      "atuin"
       # Shell binaries: kept in Homebrew because dot_config/zsh/.zshrc probes
       # the Homebrew prefix for zsh and the completion paths assume it.
       "zsh"

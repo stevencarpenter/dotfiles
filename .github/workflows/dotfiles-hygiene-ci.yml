@@ -91,6 +91,9 @@ jobs:
       - name: Validate Pi configuration
         run: scripts/test-pi-config.sh
 
+      - name: Validate Firstmate launcher
+        run: scripts/test-firstmate-config.sh
+
       - name: Shell syntax checks
         run: |
           set -euo pipefail

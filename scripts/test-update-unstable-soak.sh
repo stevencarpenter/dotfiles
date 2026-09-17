@@ -58,6 +58,10 @@ case "$*" in
   mv "${tmp}" flake.lock
   ;;
 build*)
+  case " $* " in
+    *' --option sandbox false '*) ;;
+    *) echo 'promotion did not disable the incompatible Darwin sandbox' >&2; exit 1 ;;
+  esac
   if [ "${TEST_FAIL_BUILD:-0}" = 1 ]; then
     echo "simulated build failure" >&2
     exit 9
@@ -84,10 +88,11 @@ export TEST_TIP_DATE="2000-01-01T00:00:00Z"
 start_epoch=1786147200 # 2026-08-08T00:00:00Z
 
 run_update() {
-  local now="$1" days="${2:-7}"
+  local now="$1"
+  shift
   (
     cd "${fixture}"
-    UPDATE_UNSTABLE_NOW_EPOCH="${now}" scripts/update-unstable.sh "${days}" personal-mac
+    DOTFILES_HOST=personal-mac UPDATE_UNSTABLE_NOW_EPOCH="${now}" scripts/update-unstable.sh "$@"
   )
 }
 
@@ -95,7 +100,7 @@ run_update "${start_epoch}" >/dev/null
 jq -e \
   --arg rev "${candidate_rev}" \
   '.status == "pending" and .rev == $rev
-   and .firstSeen == "2026-08-08T00:00:00Z" and .soakDays == 7' \
+   and .firstSeen == "2026-08-08T00:00:00Z" and .soakDays == 1' \
   "${fixture}/versions/nixpkgs-unstable-candidate.json" >/dev/null
 if [ -e "${TEST_NIX_LOG}" ]; then
   echo "recording a candidate unexpectedly invoked nix" >&2
@@ -104,9 +109,9 @@ fi
 
 # A backdated channel commit must still wait based on when this repo observed
 # it, not the commit's year-2000 metadata.
-run_update "$((start_epoch + 604799))" >/dev/null
+run_update "$((start_epoch + 86399))" >/dev/null
 if [ -e "${TEST_NIX_LOG}" ]; then
-  echo "candidate promoted before seven elapsed days" >&2
+  echo "candidate promoted before 24 elapsed hours" >&2
   exit 1
 fi
 if ! rg -Fq "${old_rev}" "${fixture}/flake.nix"; then
@@ -114,7 +119,7 @@ if ! rg -Fq "${old_rev}" "${fixture}/flake.nix"; then
   exit 1
 fi
 
-run_update "$((start_epoch + 604800))" >/dev/null
+run_update "$((start_epoch + 86400))" >/dev/null
 if ! rg -Fq "${candidate_rev}" "${fixture}/flake.nix"; then
   echo "mature candidate did not update flake.nix" >&2
   exit 1
@@ -138,10 +143,10 @@ done
 # ingesting the new tip through the already-aged state.
 export TEST_TIP_REV="${next_rev}"
 export TEST_TIP_DATE="2026-08-08T01:00:00Z"
-run_update "$((start_epoch + 604900))" >/dev/null
+run_update "$((start_epoch + 86500))" >/dev/null
 jq -e \
   --arg rev "${next_rev}" \
-  '.status == "pending" and .rev == $rev and .firstSeen == "2026-08-15T00:01:40Z"' \
+  '.status == "pending" and .rev == $rev and .firstSeen == "2026-08-09T00:01:40Z"' \
   "${fixture}/versions/nixpkgs-unstable-candidate.json" >/dev/null
 
 # If a force-push removes a pending candidate from channel ancestry, discard
@@ -153,22 +158,22 @@ jq \
   "${fixture}/versions/nixpkgs-unstable-candidate.json" >"${tmp}"
 mv "${tmp}" "${fixture}/versions/nixpkgs-unstable-candidate.json"
 export TEST_COMPARE_STATUS=diverged
-run_update "$((start_epoch + 604901))" >/dev/null
+run_update "$((start_epoch + 86501))" >/dev/null
 jq -e \
   --arg rev "${next_rev}" \
-  '.status == "pending" and .rev == $rev and .firstSeen == "2026-08-15T00:01:41Z"' \
+  '.status == "pending" and .rev == $rev and .firstSeen == "2026-08-09T00:01:41Z"' \
   "${fixture}/versions/nixpkgs-unstable-candidate.json" >/dev/null
 
 # Persist the requested duration with the candidate. A later default invocation
 # must not shorten an explicitly widened fourteen-day soak.
 unset TEST_COMPARE_STATUS
-extended_epoch="$((start_epoch + 604901))"
+extended_epoch="$((start_epoch + 86501))"
 run_update "${extended_epoch}" 14 >/dev/null
 jq -e '.soakDays == 14' "${fixture}/versions/nixpkgs-unstable-candidate.json" >/dev/null
 flake_before="$(shasum -a 256 "${fixture}/flake.nix")"
 lock_before="$(shasum -a 256 "${fixture}/flake.lock")"
 log_lines_before="$(wc -l <"${TEST_NIX_LOG}")"
-run_update "$((extended_epoch + 604800))" 7 >/dev/null
+run_update "$((extended_epoch + 86400))" >/dev/null
 if [ "$(wc -l <"${TEST_NIX_LOG}")" -ne "${log_lines_before}" ]; then
   echo "a shorter later invocation bypassed the committed fourteen-day soak" >&2
   exit 1
@@ -177,7 +182,7 @@ fi
 # Promotion is transactional: a failed build restores both reviewed inputs and
 # leaves the candidate pending for a clean retry.
 export TEST_FAIL_BUILD=1
-if run_update "$((extended_epoch + 1209600))" 7 >/dev/null 2>&1; then
+if run_update "$((extended_epoch + 1209600))" >/dev/null 2>&1; then
   echo "simulated failed promotion unexpectedly succeeded" >&2
   exit 1
 fi
@@ -190,7 +195,7 @@ fi
 jq -e '.status == "pending" and .soakDays == 14' \
   "${fixture}/versions/nixpkgs-unstable-candidate.json" >/dev/null
 
-run_update "$((extended_epoch + 1209600))" 7 >/dev/null
+run_update "$((extended_epoch + 1209600))" >/dev/null
 jq -e --arg rev "${next_rev}" \
   '.status == "promoted" and .rev == $rev and .soakDays == 14' \
   "${fixture}/versions/nixpkgs-unstable-candidate.json" >/dev/null

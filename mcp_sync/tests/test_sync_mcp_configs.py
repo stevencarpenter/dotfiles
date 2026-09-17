@@ -633,21 +633,16 @@ def test_sync_codex_mcp_missing_config(temp_home, monkeypatch_home, master_confi
     assert codex_path.exists()
     result = codex_path.read_text()
     # Fresh machine: base template is seeded...
-    assert 'model = "gpt-5.5"' in result
-    assert "[tui]" in result
-    assert (
-        'status_line = ["model-with-reasoning", "current-dir", "git-branch", '
-        '"pull-request-number", "branch-changes", "permissions", '
-        '"context-remaining", "five-hour-limit", "weekly-limit", '
-        '"codex-version", "used-tokens", "total-input-tokens", '
-        '"total-output-tokens", "fast-mode", "task-progress"]' in result
-    )
-    assert "status_line_use_colors = true" in result
+    from mcp_sync.sync import _load_text_template
+
+    expected = tomllib.loads(_load_text_template("codex", temp_home))
+    parsed = tomllib.loads(result)
+    expected.pop("mcp_servers", None)
+    parsed.pop("mcp_servers", None)
+    assert parsed == expected
     # ...and the managed MCP servers are delimited by the begin marker.
     assert "# MCP Servers - BEGIN Codex" in result
     assert "[mcp_servers.filesystem]" in result
-    # The [features] block must not be seeded: it is inert on macOS.
-    assert "[features]" not in result
 
 
 def test_sync_codex_mcp_url_server(temp_home, monkeypatch_home):
@@ -719,7 +714,7 @@ def _write_codex_config(temp_home: Path, text: str) -> Path:
 
 
 def test_sync_codex_mcp_applies_template_tui_to_existing_config(
-    temp_home, monkeypatch_home, master_config
+    temp_home, monkeypatch_home, master_config, synthetic_templates
 ):
     """Template ``[tui]`` settings reach a config that predates them.
 
@@ -746,7 +741,7 @@ appearanceTheme = "dark"
     parsed = tomllib.loads(result)
 
     # Template [tui] keys land on the existing config
-    assert parsed["tui"]["status_line"][0] == "model-with-reasoning"
+    assert parsed["tui"]["status_line"] == ["fixture-first", "fixture-last"]
     assert parsed["tui"]["status_line_use_colors"] is True
     # Codex-owned content is untouched
     assert parsed["model"] == "gpt-5.4"
@@ -756,7 +751,7 @@ appearanceTheme = "dark"
 
 
 def test_sync_codex_mcp_tui_template_wins_and_preserves_unmanaged_keys(
-    temp_home, monkeypatch_home, master_config
+    temp_home, monkeypatch_home, master_config, synthetic_templates
 ):
     """Stale template-managed keys are replaced; unmanaged keys survive.
 
@@ -781,14 +776,13 @@ animations = false
     parsed = tomllib.loads(codex_path.read_text(encoding="utf-8"))
 
     # Template wins for the keys it defines
-    assert parsed["tui"]["status_line"][0] == "model-with-reasoning"
-    assert "task-progress" in parsed["tui"]["status_line"]
+    assert parsed["tui"]["status_line"] == ["fixture-first", "fixture-last"]
     # Keys the template does not define are preserved
     assert parsed["tui"]["animations"] is False
 
 
 def test_sync_codex_mcp_tui_preserves_codex_owned_subtables(
-    temp_home, monkeypatch_home, master_config
+    temp_home, monkeypatch_home, master_config, synthetic_templates
 ):
     """Codex-written ``[tui.*]`` subtables (with quoted keys) survive the rewrite.
 
@@ -817,7 +811,9 @@ def test_sync_codex_mcp_tui_preserves_codex_owned_subtables(
     assert parsed["tui"]["status_line_use_colors"] is True
 
 
-def test_sync_codex_mcp_tui_idempotent(temp_home, monkeypatch_home, master_config):
+def test_sync_codex_mcp_tui_idempotent(
+    temp_home, monkeypatch_home, master_config, synthetic_templates
+):
     """A second sync run leaves the config byte-identical.
 
     Args:
@@ -844,7 +840,7 @@ def test_sync_codex_mcp_tui_idempotent(temp_home, monkeypatch_home, master_confi
 
 
 def test_sync_codex_mcp_invalid_toml_skips_tui_enforcement(
-    temp_home, monkeypatch_home, master_config
+    temp_home, monkeypatch_home, master_config, synthetic_templates
 ):
     """A config that fails TOML parsing still gets MCP servers patched.
 

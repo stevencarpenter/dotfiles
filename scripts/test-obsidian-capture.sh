@@ -6,25 +6,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 capture="${repo_root}/home/.local/bin/obsidian-capture"
 [ -x "${capture}" ] || { echo "FAIL: ${capture} is not executable" >&2; exit 1; }
 
-personal_config="${repo_root}/home/.config/aerospace/aerospace.personal.toml"
-work_config="${repo_root}/home/.config/aerospace/aerospace.work.toml"
-rg -Fxq \
-  "alt-shift-n = 'exec-and-forget /bin/sh -c \"\$HOME/.local/bin/obsidian-capture new --vault obsidian\"'" \
-  "${personal_config}"
-rg -Fxq \
-  "alt-shift-d = 'exec-and-forget /bin/sh -c \"\$HOME/.local/bin/obsidian-capture daily --vault obsidian\"'" \
-  "${personal_config}"
-rg -Fxq \
-  "alt-shift-n = 'exec-and-forget /bin/sh -c \"\$HOME/.local/bin/obsidian-capture new\"'" \
-  "${work_config}"
-rg -Fxq \
-  "alt-shift-d = 'exec-and-forget /bin/sh -c \"\$HOME/.local/bin/obsidian-capture daily\"'" \
-  "${work_config}"
-if rg -n '^alt-shift-[nd].*(--vault|vault=|lumin)' "${work_config}"; then
-  echo "FAIL: work AeroSpace config hard-coded a vault identity" >&2
-  exit 1
-fi
-
+# Key bindings and vault selection are preferences; exercise the capture CLI.
 fixture="$(mktemp -d)"
 trap 'rm -rf "${fixture}"' EXIT
 mkdir -p "${fixture}/bin"

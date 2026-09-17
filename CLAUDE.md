@@ -93,22 +93,20 @@ token-auditor --help                                                   # or `cod
 just rebuild              # Same, via the task runner
 nix flake check --no-update-lock-file --no-build --all-systems   # Evaluate all-host checks
 just check                   # Alias for the above
-just update                  # Default pin bump: 26.05 inputs + unstable soak + brew.
-                             #   Never switches the system, and evaluates the
-                             #   bumped inputs (`nix flake check`) before it
-                             #   recommends one. Review, then `just sync`.
-                             #   Homebrew upgrades are not staged for
-                             #   review: `brew bundle install --upgrade`
-                             #   upgrades formulae and casks in place.
-just update 14               # Same, with a 14-day unstable soak window
-just update-unstable         # Record today's nixpkgs-unstable tip; after 7 elapsed
-                             #   days promote/build it and print the closure diff.
+just update                  # Preview Nix closure/input diffs, Homebrew and mise upgrades;
+                             #   ask approval, then upgrade Homebrew and run just sync.
+just update -y               # Same preview; assume update approval (sudo/op may still prompt).
+just update 14               # Same, with a 14-day unstable soak window.
+just update-unstable         # Record today's nixpkgs-unstable tip; after 24 elapsed
+                             #   hours promote/build it and print the closure diff.
 just update-unstable 14      # Wider soak window
 ./bootstrap.sh            # Fresh-machine setup (Lix, Homebrew, first switch, rustup)
 just sync                 # Full deploy: switch, then op-render secrets + git externals + agents
                           #   + token-auditor. The sequence is required.
 just sync-side-channels   # Side channels only, skipping the rebuild
 ```
+
+See [Daily use](README.md#daily-use) for the command hierarchy and update approval behavior.
 
 Raw configs under `home/` are out-of-store symlinks. Edits take effect without a rebuild. A
 `darwin-rebuild switch` is only needed for changes Nix manages: packages, macOS defaults, gating, or a
@@ -304,8 +302,8 @@ names and state spinners instead of version numbers.
 
 The cwd contract is separate from window identity. `prefix c`, `prefix |`, and `prefix -` pass
 `-c "$HOME"` so a new shell does not inherit a foreground agent's launch directory. The hygiene
-test loads the configuration into an isolated tmux server and checks the effective final bindings,
-including later overrides. Runtime debugging and cleanup procedures are in
+test uses an isolated tmux server to check pane classification and cleanup; key bindings and cwd
+choices remain preferences. Runtime debugging and cleanup procedures are in
 `docs/ai-tools/tmux-runtime-lifecycle.md`.
 
 ### Secrets

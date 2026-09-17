@@ -11,12 +11,12 @@ broken configurations.
 
 import sys
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import tomllib
 
 SYNC_PATH = "home/.config/atuin/config.sync.toml"
 LOCAL_PATH = "home/.config/atuin/config.local.toml"
-EXPECTED_SYNC_ADDRESS = "https://logbook.snugmarina.org"
 
 
 def check(sync_text: str, local_text: str) -> list[str]:
@@ -42,25 +42,32 @@ def check(sync_text: str, local_text: str) -> list[str]:
         failures.append(f"{LOCAL_PATH} does not parse: {exc}")
         local = {}
 
-    # Require a minimum size so equally empty filter lists cannot pass parity.
+    # Equally empty or malformed filter lists must not pass parity.
     sync_filter = sync.get("history_filter")
     local_filter = local.get("history_filter")
     for label, value in ((SYNC_PATH, sync_filter), (LOCAL_PATH, local_filter)):
-        if not isinstance(value, list) or len(value) < 5:
+        if (
+            not isinstance(value, list)
+            or not value
+            or any(
+                not isinstance(pattern, str) or not pattern.strip() for pattern in value
+            )
+        ):
             failures.append(
-                f"{label} has no non-trivial history_filter (need >= 5 patterns)"
+                f"{label} needs a nonempty history_filter of nonempty strings"
             )
     if isinstance(sync_filter, list) and isinstance(local_filter, list):
         if sync_filter != local_filter:
             failures.append("history_filter blocks have drifted between the variants")
 
-    # Atuin accepts unknown keys; require enabled inside the tmux table.
+    # Popup preference is optional, but an explicit setting must be boolean.
     for label, cfg in ((SYNC_PATH, sync), (LOCAL_PATH, local)):
-        tmux = cfg.get("tmux")
-        if not isinstance(tmux, dict) or tmux.get("enabled") is not True:
+        tmux = cfg.get("tmux", {})
+        if not isinstance(tmux, dict) or (
+            "enabled" in tmux and not isinstance(tmux["enabled"], bool)
+        ):
             failures.append(
-                f"{label} does not set 'enabled = true' inside [tmux]"
-                " (search UI will render inline, not as a popup)"
+                f"{label} needs a [tmux] table with boolean enabled when present"
             )
 
     # Sync stanzas: the variants must differ, explicitly. The non-syncing
@@ -77,11 +84,20 @@ def check(sync_text: str, local_text: str) -> list[str]:
             f"{LOCAL_PATH} assigns a top-level sync_address"
             " (it is the non-syncing variant)"
         )
-    if sync.get("sync_address") != EXPECTED_SYNC_ADDRESS:
-        failures.append(
-            f"{SYNC_PATH} lost its top-level self-hosted sync_address"
-            f" ({EXPECTED_SYNC_ADDRESS!r})"
+    address = sync.get("sync_address")
+    try:
+        endpoint = urlsplit(address) if isinstance(address, str) else None
+        valid_address = (
+            endpoint is not None
+            and endpoint.scheme == "https"
+            and bool(endpoint.hostname)
+            and endpoint.port != 0
+            and not any(character.isspace() for character in address)
         )
+    except ValueError:
+        valid_address = False
+    if not valid_address:
+        failures.append(f"{SYNC_PATH} needs an explicit top-level HTTPS sync_address")
 
     # Cache-invalidation insurance: zcached stamps inputs as "mtime:size" at
     # second resolution, so switching variants must change the file size or
@@ -94,127 +110,86 @@ def check(sync_text: str, local_text: str) -> list[str]:
     return failures
 
 
-def _mutations(sync_text: str, local_text: str) -> list[tuple[str, str, str, bool]]:
-    """One regression (or valid variant) per tuple for the built-in audit.
+def _mutations() -> list[tuple[str, str, str, bool]]:
+    """Exercise safety and parity contracts using independent TOML fixtures.
 
-    Each entry is (name, mutated sync text, mutated local text, should_fail);
-    the audit asserts the guard fails exactly when should_fail is true.
+    Returns:
+        Tuples of audit name, sync text, local text, and expected failure.
     """
-
-    def line(text: str, needle: str) -> str:
-        """Drop every line containing ``needle``."""
-        return "\n".join(line for line in text.split("\n") if needle not in line)
-
-    def sub(text: str, old: str, new: str) -> str:
-        return text.replace(old, new)
-
-    def shrink(text: str, n: int) -> str:
-        body = ["history_filter = ["] + [f'    "PAT{i}",' for i in range(n)] + ["]"]
-        lines = text.split("\n")
-        b = next(i for i, x in enumerate(lines) if x.startswith("history_filter"))
-        e = next(i for i, x in enumerate(lines) if x == "]")
-        return "\n".join(lines[:b] + body + lines[e + 1 :])
-
-    def pad_to(text: str, size: int) -> str:
-        return text + "#" + " " * (size - len(text.encode()) - 2) + "\n"
-
-    return [
+    filters = 'history_filter = ["SECRET"]\n'
+    sync_text = 'sync_address = "https://sync.example.test"\n' + filters
+    local_text = "auto_sync = false\n" + filters
+    cases = [
+        ("minimal configs", sync_text, local_text, False),
         (
-            "history_filter removed from both",
-            shrink(sync_text, 0),
-            shrink(local_text, 0),
-            True,
-        ),
-        ("both filters shrunk to 4", shrink(sync_text, 4), shrink(local_text, 4), True),
-        (
-            "both filters at the 5 floor (valid)",
-            shrink(sync_text, 5),
-            shrink(local_text, 5),
-            False,
-        ),
-        (
-            "pattern added to sync only",
-            sub(sync_text, '    "AKIA', '    "MUTATION_ONLY",\n    "AKIA'),
-            local_text,
-            True,
-        ),
-        (
-            "pattern weakened in local",
-            sync_text,
-            sub(local_text, '"ghp_[A-Za-z0-9]+",', '"ghp_[A-Za-z]+",'),
-            True,
-        ),
-        (
-            "pattern reordered in local",
-            sync_text,
-            sub(
-                local_text,
-                '    "DIUN_TOKEN",\n    "NTFY_PASSWORD",',
-                '    "NTFY_PASSWORD",\n    "DIUN_TOKEN",',
+            "alternate host and filters",
+            sync_text.replace("sync.example.test", "other.example.test").replace(
+                '["SECRET"]', '["PASSWORD", "TOKEN"]'
             ),
-            True,
-        ),
-        ("[tmux] header deleted", sync_text, line(local_text, "[tmux]"), True),
-        (
-            "[tmux] renamed to [daemon]",
-            sync_text,
-            sub(local_text, "[tmux]", "[daemon]"),
-            True,
-        ),
-        (
-            "[tmux] enabled as a string",
-            sync_text,
-            sub(local_text, "enabled = true", 'enabled = "true"'),
-            True,
-        ),
-        (
-            "enabled=true without spaces (valid)",
-            sync_text,
-            sub(local_text, "enabled = true", "enabled=true"),
+            local_text.replace('["SECRET"]', '["PASSWORD", "TOKEN"]'),
             False,
         ),
         (
-            "local auto_sync flipped on",
-            sync_text,
-            sub(local_text, "auto_sync = false", "auto_sync = true"),
-            True,
-        ),
-        (
-            "local auto_sync removed",
-            sync_text,
-            line(local_text, "auto_sync = false"),
-            True,
-        ),
-        (
-            "sync_address inside local's [tmux] (valid, atuin ignores it)",
-            sync_text,
-            sub(local_text, "enabled = true", 'enabled = true\nsync_address = "x"'),
-            False,
-        ),
-        (
-            "local gains top-level sync_address",
-            sync_text,
-            sub(
-                local_text,
-                "auto_sync = false",
-                'auto_sync = false\nsync_address = "https://logbook.snugmarina.org"',
-            ),
-            True,
-        ),
-        (
-            "sync address repointed",
-            sub(sync_text, EXPECTED_SYNC_ADDRESS, '"https://evil.example.com"'),
+            "tmux disabled",
+            sync_text + "[tmux]\nenabled = false\n",
             local_text,
+            False,
+        ),
+        (
+            "tmux enabled",
+            sync_text,
+            local_text + "[tmux]\nenabled = true\n",
+            False,
+        ),
+        ("malformed TOML", sync_text + "[", local_text, True),
+        (
+            "filter drift",
+            sync_text,
+            local_text.replace("SECRET", "OTHER"),
             True,
         ),
-        ("sync address removed", line(sync_text, "sync_address ="), local_text, True),
         (
-            "variants padded to identical size",
+            "local sync enabled",
             sync_text,
-            pad_to(local_text, len(sync_text.encode())),
+            local_text.replace("false", "true"),
+            True,
+        ),
+        ("local sync policy missing", sync_text, filters, True),
+        ("local sync endpoint", sync_text, sync_text + "auto_sync = false\n", True),
+        ("sync endpoint missing", filters, local_text, True),
+        (
+            "identical byte sizes",
+            sync_text,
+            local_text + "#" * (len(sync_text.encode()) - len(local_text.encode())),
             True,
         ),
     ]
+    for malformed in ("[]", '[""]', '[" "]', "[1]", '"SECRET"'):
+        cases.append(
+            (
+                f"invalid filters {malformed}",
+                sync_text.replace('["SECRET"]', malformed),
+                local_text.replace('["SECRET"]', malformed),
+                True,
+            )
+        )
+    for malformed in ('tmux = "yes"\n', '[tmux]\nenabled = "true"\n'):
+        cases.append(("invalid tmux setting", sync_text, local_text + malformed, True))
+    for address in (
+        "http://sync.example.test",
+        "https://",
+        "https://[bad",
+        "https://a:bad",
+    ):
+        cases.append(
+            (
+                f"invalid endpoint {address}",
+                sync_text.replace("https://sync.example.test", address),
+                local_text,
+                True,
+            )
+        )
+    return cases
 
 
 def main() -> int:
@@ -236,7 +211,7 @@ def main() -> int:
     # Mutation audit: every regression must trip the guard; valid inputs
     # must not. A guard that cannot fail is worse than no guard.
     bad = 0
-    for name, s, lcl, should_fail in _mutations(sync_text, local_text):
+    for name, s, lcl, should_fail in _mutations():
         caught = bool(check(s, lcl))
         if caught != should_fail:
             print(
@@ -249,7 +224,7 @@ def main() -> int:
         return 1
     print(
         "atuin config parity OK"
-        " (filter identical + non-trivial; [tmux].enabled set in both;"
+        " (filters identical and nonempty; optional tmux settings typed;"
         " sync stanzas distinct; mutation audit green)"
     )
     return 0

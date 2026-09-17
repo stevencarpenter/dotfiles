@@ -14,7 +14,20 @@ wrapper="${repo_root}/home/.local/bin/gh"
 tmp="$(mktemp -d)"
 trap 'rm -rf "${tmp}"' EXIT
 mkdir -p "${tmp}/wrap" "${tmp}/realbin" "${tmp}/repo" "${tmp}/norepo"
-cp "${wrapper}" "${tmp}/wrap/gh"
+# Account choices are configuration. Replace only the mapping in the isolated
+# copy so routing, precedence, and credential boundaries use synthetic owners.
+awk '
+  /^account_for_owner\(\)/ {
+    print "account_for_owner() {"
+    print "  case \"$1\" in fixture-owner) echo fixture-account ;; *) return 1 ;; esac"
+    print "}"
+    mapping = 1
+    next
+  }
+  mapping && /^}/ { mapping = 0; next }
+  !mapping { print }
+' "${wrapper}" >"${tmp}/wrap/gh"
+chmod +x "${tmp}/wrap/gh"
 
 # Stand-in for the real gh: prints the token it was handed, and answers
 # `auth token --user X` with a recognizable per-account value.
@@ -46,20 +59,20 @@ set_remote() { git -C "${tmp}/repo" remote remove origin 2>/dev/null || true; gi
 
 # --- routes for a mapped owner, across every remote spelling in use ----------
 for url in \
-  "git@github-dotfiles:stevencarpenter/dotfiles.git" \
-  "git@github.com:stevencarpenter/dotfiles.git" \
-  "https://github.com/stevencarpenter/dotfiles.git" \
-  "ssh://git@github.com/stevencarpenter/dotfiles" \
-  "git@github.com:stevencarpenter/dotfiles"; do
+  "git@github-dotfiles:fixture-owner/dotfiles.git" \
+  "git@github.com:fixture-owner/dotfiles.git" \
+  "https://github.com/fixture-owner/dotfiles.git" \
+  "ssh://git@github.com/fixture-owner/dotfiles" \
+  "git@github.com:fixture-owner/dotfiles"; do
   set_remote "${url}"
-  check "routes: ${url}" "tok-for-stevencarpenter" "$(token_for "${tmp}/repo" pr create)"
+  check "routes: ${url}" "tok-for-fixture-account" "$(token_for "${tmp}/repo" pr create)"
 done
 
 # --- declines to route where routing would be wrong --------------------------
-set_remote "git@github.com:Lumin-Digital/la-dotfiles.git"
+set_remote "git@github.com:unmapped-owner/la-dotfiles.git"
 check "unmapped owner falls through" "<unset>" "$(token_for "${tmp}/repo" pr create)"
 
-set_remote "git@github-dotfiles:stevencarpenter/dotfiles.git"
+set_remote "git@github-dotfiles:fixture-owner/dotfiles.git"
 
 # `gh auth switch`/`auth login` refuse to run with GH_TOKEN set, and `auth
 # status` would report the injected token instead of real account state.
@@ -75,33 +88,33 @@ check "caller GITHUB_TOKEN wins" "<unset>" \
 # gh-axi and cross-repo gh commands target a repository, so routing from $PWD's
 # origin here would authenticate the requested repository as the wrong actor.
 check "-R work target overrides personal PWD" "<unset>" \
-  "$(token_for "${tmp}/repo" pr list -R Lumin-Digital/private)"
+  "$(token_for "${tmp}/repo" pr list -R unmapped-owner/private)"
 check "--repo work target overrides personal PWD" "<unset>" \
-  "$(token_for "${tmp}/repo" pr list --repo Lumin-Digital/private)"
+  "$(token_for "${tmp}/repo" pr list --repo unmapped-owner/private)"
 check "--repo= work target overrides personal PWD" "<unset>" \
-  "$(token_for "${tmp}/repo" pr list --repo=Lumin-Digital/private)"
+  "$(token_for "${tmp}/repo" pr list --repo=unmapped-owner/private)"
 check "GH_REPO work target overrides personal PWD" "<unset>" \
-  "$(cd "${tmp}/repo" && GH_REPO=Lumin-Digital/private gh pr list 2>&1 | sed -n 's/^GH_TOKEN=//p')"
+  "$(cd "${tmp}/repo" && GH_REPO=unmapped-owner/private gh pr list 2>&1 | sed -n 's/^GH_TOKEN=//p')"
 
-set_remote "git@github.com:Lumin-Digital/la-dotfiles.git"
-check "-R personal target routes from work PWD" "tok-for-stevencarpenter" \
-  "$(token_for "${tmp}/repo" pr list -R stevencarpenter/dotfiles)"
-check "host-qualified github.com target routes" "tok-for-stevencarpenter" \
-  "$(token_for "${tmp}/repo" pr list -R github.com/stevencarpenter/dotfiles)"
+set_remote "git@github.com:unmapped-owner/la-dotfiles.git"
+check "-R personal target routes from work PWD" "tok-for-fixture-account" \
+  "$(token_for "${tmp}/repo" pr list -R fixture-owner/dotfiles)"
+check "host-qualified github.com target routes" "tok-for-fixture-account" \
+  "$(token_for "${tmp}/repo" pr list -R github.com/fixture-owner/dotfiles)"
 check "host-qualified enterprise target does not receive github.com token" "<unset>" \
-  "$(token_for "${tmp}/repo" pr list -R github.example.com/stevencarpenter/dotfiles)"
+  "$(token_for "${tmp}/repo" pr list -R github.example.com/fixture-owner/dotfiles)"
 check "command-line repo overrides GH_REPO" "<unset>" \
-  "$(cd "${tmp}/repo" && GH_REPO=stevencarpenter/dotfiles gh pr list -R Lumin-Digital/private 2>&1 | sed -n 's/^GH_TOKEN=//p')"
+  "$(cd "${tmp}/repo" && GH_REPO=fixture-owner/dotfiles gh pr list -R unmapped-owner/private 2>&1 | sed -n 's/^GH_TOKEN=//p')"
 
-set_remote "git@github-dotfiles:stevencarpenter/dotfiles.git"
+set_remote "git@github-dotfiles:fixture-owner/dotfiles.git"
 check "non-github GH_HOST never receives github.com token" "<unset>" \
   "$(cd "${tmp}/repo" && GH_HOST=github.example.com gh pr list 2>&1 | sed -n 's/^GH_TOKEN=//p')"
 
-set_remote "git@gitlab.com:stevencarpenter/dotfiles.git"
+set_remote "git@gitlab.com:fixture-owner/dotfiles.git"
 check "same owner on a non-GitHub remote does not route" "<unset>" \
   "$(token_for "${tmp}/repo" pr list)"
 
-set_remote "git@github-dotfiles:stevencarpenter/dotfiles.git"
+set_remote "git@github-dotfiles:fixture-owner/dotfiles.git"
 
 check "outside a git repo falls through" "<unset>" "$(token_for "${tmp}/norepo" pr list)"
 
@@ -158,7 +171,7 @@ chmod +x "${tmp}/realbin2/gh"
 bounce_path="${tmp}/wrap:${tmp}/shim:${tmp}/realbin2:/usr/bin:/bin"
 out="$(cd "${tmp}/repo" && PATH="${bounce_path}" "${to[@]}" gh pr create 2>&1)" && rc=0 || rc=$?
 check "shim PATH-fallback terminates (no hang)" "0" "${rc}"
-check "shim PATH-fallback still routes" "tok-for-stevencarpenter" \
+check "shim PATH-fallback still routes" "tok-for-fixture-account" \
   "$(printf '%s\n' "${out}" | sed -n 's/^GH_TOKEN=//p')"
 
 if [ "${failures}" -ne 0 ]; then

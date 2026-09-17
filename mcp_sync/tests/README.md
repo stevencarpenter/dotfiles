@@ -114,7 +114,7 @@ Tests the complete workflow and interactions:
 
 - **Format Validation**
   - `test_full_sync_copilot_format_has_tools_array` - Copilot has tools array
-  - `test_full_sync_opencode_includes_local_providers` - OpenCode local provider entries
+  - `test_full_sync_opencode_preserves_template_fields` - OpenCode template propagation
   - `test_full_sync_cursor_writes_home_dotfolder` - Cursor writes to ~/.cursor
 
 - **Environment Variables**

@@ -17,15 +17,15 @@
 # Keep that allowlist short: each package brings its unstable runtime closure.
 #
 # Usage:
-#   scripts/update-unstable.sh              # record/promote with 7-day soak
+#   scripts/update-unstable.sh              # record/promote after 24 elapsed hours
 #   scripts/update-unstable.sh 14           # wider window
-#   scripts/update-unstable.sh 7 personal-mac
+#   scripts/update-unstable.sh 1 personal-mac
 #
 # A candidate-recording run does not evaluate or build. A promotion builds but
 # never switches. Applying the built result remains a separate `./rebuild.sh`.
 set -euo pipefail
 
-SOAK_DAYS="${1:-7}"
+SOAK_DAYS="${1:-1}"
 if ! [[ "${SOAK_DAYS}" =~ ^[0-9]+$ ]]; then
 	echo "error: soak days must be a non-negative integer, got '${SOAK_DAYS}'" >&2
 	exit 2
@@ -276,7 +276,9 @@ if [ "${LOCKED_REV}" != "${CANDIDATE_REV}" ]; then
 fi
 
 echo "==> Building ${HOST} (not switching)"
-out="$(nix build --no-link --print-out-paths --no-update-lock-file ".#darwinConfigurations.${HOST}.system")"
+# Match rebuild.sh while recovering a macOS 27 daemon with sandbox still enabled.
+out="$(nix build --no-link --print-out-paths --no-update-lock-file \
+	--option sandbox false ".#darwinConfigurations.${HOST}.system")"
 
 echo
 echo "==> Closure diff vs the running system"

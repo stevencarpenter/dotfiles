@@ -3,7 +3,6 @@
 {
   config,
   lib,
-  pkgs,
   caps,
   identity,
   ...
@@ -60,11 +59,8 @@ in
         # ── sketchybar ──────────────────────────────────────────────────
         # Restart the Homebrew LaunchAgent to load config changes.
         if [ -x "$sketchybar" ] && [ -x "$brew" ]; then
-          if brew_services list | ${pkgs.ripgrep}/bin/rg -q '^sketchybar.*started'; then
-            brew_services restart sketchybar
-          else
-            brew_services start sketchybar
-          fi
+          # Restart also handles loaded-but-errored jobs and services not yet loaded.
+          brew_services restart sketchybar
         else
           echo "tiling-stack: sketchybar not installed yet: skipping" >&2
         fi

@@ -118,6 +118,8 @@ path=(
     $HOME/.opencode/bin
     $HOME/.local/bin
     $_mise_shim_path                        # mise shims (empty array if stale)
+    # Homebrew owns Atuin; older Nix generations can retain an incompatible client.
+    ${HOMEBREW_PREFIX:-/opt/homebrew}/opt/atuin/bin(N-/)
     /etc/profiles/per-user/$USER/bin(N-/)   # nix home-manager profile
     /run/current-system/sw/bin(N-/)         # nix-darwin system profile
     ${HOMEBREW_PREFIX:-/opt/homebrew}/opt/libpq/bin(N-/)
@@ -524,7 +526,7 @@ function sip_holder() {
 command -v zoxide >/dev/null 2>&1 && zcached zoxide-init "$(command -v zoxide)" zoxide init --cmd cd zsh
 
 [[ -f "$HOME/.local/bin/env" ]] && . "$HOME/.local/bin/env" || true
-# Nix owns Atuin. Sourcing ~/.atuin/bin/env would prepend an unmanaged binary.
+# Homebrew owns Atuin. Sourcing ~/.atuin/bin/env would prepend an unmanaged binary.
 # Remove a tmux-inherited override so config.toml controls popup behavior.
 unset ATUIN_TMUX_POPUP
 # -k on the config: `atuin init zsh` reads config.toml and bakes the [tmux]

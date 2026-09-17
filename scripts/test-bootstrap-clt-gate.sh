@@ -164,7 +164,7 @@ EOF
   "$fixture/bin/rustup" "$fixture/bin/op" "$fixture/bin/sudo" \
   "$fixture/bin/brew" "$fixture/bin/curl" "$fixture/bin/just"
 
-for host in personal-mac; do
+for host in fixture-host; do
   host_home="$fixture/$host-home"
   command_log="$fixture/$host-commands.log"
   mkdir -p "$host_home"
@@ -201,7 +201,7 @@ done
 # `op read` specifically, not any `op` call: bootstrap legitimately reaches
 # op-render (which probes `op whoami`, and signs in when it has a TTY). The
 # thing no host may do is READ an age identity out of 1Password.
-for host in personal-mac; do
+for host in fixture-host; do
   if rg -q '^op read' "$fixture/$host-commands.log" 2>/dev/null; then
     echo "$host bootstrap fetched an age identity; the age bridge is gone" >&2
     exit 1
@@ -221,7 +221,7 @@ missing_home="$fixture/nobrew-home"
 missing_log="$fixture/nobrew-commands.log"
 mkdir -p "$missing_home"
 set +e
-run_bootstrap "$missing_home" "$missing_log" "$fixture/absent/brew" personal-mac \
+run_bootstrap "$missing_home" "$missing_log" "$fixture/absent/brew" fixture-host \
   >"$fixture/nobrew-stdout" 2>"$fixture/nobrew-stderr"
 status=$?
 set -e

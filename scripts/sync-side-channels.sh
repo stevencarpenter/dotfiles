@@ -15,13 +15,23 @@ if [ -z "$token_auditor_version" ] || [ "$token_auditor_version" = "latest" ]; t
   exit 1
 fi
 
-# Install tools declared in ~/.config/mise/config.toml.
+# Install and upgrade tools within their declared mise version constraints.
 if command -v "$mise_bin" >/dev/null 2>&1; then
   echo "==> Installing mise-managed tools"
   "$mise_bin" install
+  # Refresh latest and version ranges without --bump; exact pins stay fixed.
+  # Keep older installs available to sessions already running from those paths.
+  echo "==> Upgrading mise-managed tools within configured version constraints"
+  "$mise_bin" upgrade --no-prune
 else
   echo "error: mise not found; cannot install declared global tools" >&2
   exit 1
+fi
+
+# Firstmate is a standalone checkout; never install its supervisor globally in Pi.
+if [ "$("$capability_bin" mcp)" = "1" ]; then
+  echo "==> Ensuring pinned Firstmate distro"
+  "${FIRSTMATE_BIN:-$repo_root/home/.local/bin/firstmate}" --setup
 fi
 
 # Render personal secrets before the agent-registry clone needs ~/.ssh/config.
