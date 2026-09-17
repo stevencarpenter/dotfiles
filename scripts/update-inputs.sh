@@ -1,64 +1,106 @@
 #!/usr/bin/env bash
-# Advance every rolling pin this repo is meant to move by default: the 26.05
-# flake inputs together, the nixpkgs-unstable soak queue, and Homebrew.
-#
-# Never switches the system. The Nix half is staged for review as a lock diff.
-# The Homebrew half is NOT: `brew bundle install --upgrade` upgrades installed
-# formulae and casks in place, and that has already happened by the time this
-# script prints its summary. Only the Nix inputs are reviewable-then-applied.
-#
-# Extra args are forwarded to scripts/update-unstable.sh (soak days, host).
-#
-# The unstable input is a rev pin. Do not `nix flake update` it here: only
-# scripts/update-unstable.sh may move that node.
+# Preview rolling package updates, then reuse sync to deploy after approval.
+# Exact pins and the unstable first-seen soak policy remain authoritative.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
-cd "${REPO_ROOT}"
+cd "$REPO_ROOT"
 
-# Validate before mutating anything. update-unstable.sh rejects a bad soak
-# window itself, but it runs after `nix flake update`, so an invalid argument
-# would otherwise abort the run with the lock already rewritten.
-soak_days="${1:-7}"
-if ! [[ "${soak_days}" =~ ^[0-9]+$ ]] || ((soak_days > 3650)); then
-  echo "update-inputs: soak days must be an integer 0-3650, got '${soak_days}'" >&2
+assume_yes=0
+positional=()
+for arg in "$@"; do
+  case "$arg" in
+    -y|--yes) assume_yes=1 ;;
+    -h|--help)
+      echo "Usage: just update [-y|--yes] [SOAK_DAYS [HOST]]"
+      echo "Preview Nix, Homebrew, and mise updates, then approve and deploy via sync."
+      exit 0 ;;
+    -*) echo "update: unknown option: $arg" >&2; exit 2 ;;
+    *) positional+=("$arg") ;;
+  esac
+done
+soak_days="${positional[0]:-1}"
+if [ "${#positional[@]}" -gt 2 ] || ! [[ "$soak_days" =~ ^[0-9]{1,4}$ ]] || ((10#$soak_days > 3650)); then
+  echo "update: expected soak days 0-3650 and an optional host" >&2
+  exit 2
+fi
+soak_days=$((10#$soak_days))
+# shellcheck source=scripts/host-detect.sh
+source "$REPO_ROOT/scripts/host-detect.sh"
+host="${positional[1]:-${DOTFILES_HOST:-$(detect_host || true)}}"
+if ! [[ "$host" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+  echo "update: missing or invalid host; use just update 1 <host>" >&2
   exit 2
 fi
 
-# Report what moved even when a later step fails. Without this a mid-run
-# network error leaves a rewritten flake.lock and says nothing about it, which
-# is precisely the state a review-before-apply flow must not produce silently.
-summarize() {
-  status=$?
-  echo
-  if [ "$status" -eq 0 ]; then
-    echo "==> Nix inputs updated, not switched. Review the diff, then apply with:"
-    echo "      just sync"
-    echo "    (Homebrew formulae and casks were already upgraded in place.)"
-  else
-    echo "==> Input update failed (exit $status). Nix inputs were not switched. Review the partial diff; do not switch."
+# Preserve pre-existing edits too. Declining or failing preparation restores
+# these exact files, not HEAD. Once applying starts, retain the reviewed inputs.
+backup="$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-update.XXXXXX")"
+inputs=(flake.nix flake.lock versions/nixpkgs-unstable-candidate.json)
+for file in "${inputs[@]}"; do
+  if [ -f "$file" ]; then
+    mkdir -p "$backup/$(dirname "$file")"
+    cp -p "$file" "$backup/$file"
   fi
-  git --no-pager diff --stat -- \
-    flake.lock flake.nix versions/nixpkgs-unstable-candidate.json
-  return "$status"
+done
+applying=0
+finish() {
+  local status=$?
+  if [ "$applying" -eq 0 ]; then
+    for file in "${inputs[@]}"; do
+      if [ -f "$backup/$file" ]; then
+        cp -p "$backup/$file" "$file"
+      else
+        rm -f -- "$file"
+      fi
+    done
+    echo "Nix input files restored; no package upgrades or system switch applied."
+  elif [ "$status" -ne 0 ]; then
+    echo "Update stopped during apply. Some steps may have completed; reviewed Nix inputs retained." >&2
+  fi
+  rm -rf -- "$backup"
+  exit "$status"
 }
-trap summarize EXIT
+trap finish EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
-echo "==> Updating nixpkgs, nix-darwin, and home-manager (26.05 line)"
+echo "==> Preparing Nix inputs (26.05 line; unstable soak: $soak_days days)"
 nix flake update nixpkgs nix-darwin home-manager
-
-# Evaluate before recommending a switch. update-unstable.sh builds its own
-# promotion, but on a soaking or record-only run it exits without building, so
-# nothing would have evaluated the bumped 26.05 inputs until `sudo
-# darwin-rebuild switch` was already underway.
-echo "==> Checking the updated inputs evaluate"
+"$REPO_ROOT/scripts/update-unstable.sh" "$soak_days" "$host"
 nix flake check --no-update-lock-file --no-build --all-systems
+out="$(nix build --no-link --print-out-paths --no-update-lock-file \
+  --option sandbox false ".#darwinConfigurations.${host}.system")"
+echo "==> Nix package changes"
+nix store diff-closures /run/current-system "$out"
+echo "==> Nix input changes from before this update"
+for file in "${inputs[@]}"; do
+  before="$backup/$file"
+  [ -f "$before" ] || before=/dev/null
+  diff -u "$before" "$file" || [ "$?" -eq 1 ]
+done
 
-echo "==> Advancing the nixpkgs-unstable soak queue"
-"${REPO_ROOT}/scripts/update-unstable.sh" "$@"
+export HOMEBREW_NO_ANALYTICS=1 HOMEBREW_NO_ENV_HINTS=1
+echo "==> Homebrew upgrades (installed, unpinned packages)"
+just brew-upgrade --dry-run
+export HOMEBREW_NO_AUTO_UPDATE=1
+echo "==> Mise upgrades (within configured version constraints)"
+mise install --dry-run
+mise upgrade --dry-run --no-prune
+echo "==> After approval: upgrade Homebrew, then run just sync $host."
+echo "Sync switches Nix, updates mise, renders secrets, and refreshes Git sources, agents, and pinned tools."
+echo "Exact pins remain fixed. Preview downloads/builds are cached. Applied upgrades cannot be automatically undone."
 
-echo "==> Upgrading Homebrew bundle"
-export HOMEBREW_NO_ANALYTICS=1
-export HOMEBREW_NO_ENV_HINTS=1
-brew update
-brew bundle install --upgrade
+if [ "$assume_yes" -eq 0 ]; then
+  reply=""
+  read -r -p "Apply these updates and sync? [y/N] " reply || true
+  case "$reply" in
+    y|Y|yes|YES) ;;
+    *) echo "Update cancelled."; exit 0 ;;
+  esac
+fi
+
+applying=1
+brew upgrade --yes
+just sync "$host"
+echo "==> Update and sync complete."

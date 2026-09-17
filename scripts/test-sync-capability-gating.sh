@@ -100,6 +100,10 @@ if ! rg -Fq 'mise install' "$fixture/work/commands.log"; then
   echo "sync did not reconcile mise-managed tools" >&2
   exit 1
 fi
+if ! rg -Fxq 'mise upgrade --no-prune' "$fixture/work/commands.log"; then
+  echo "sync did not upgrade all mise tools within their configured version constraints" >&2
+  exit 1
+fi
 if rg -Fq 'git@github.com:stevencarpenter/agents.git' "$fixture/work/commands.log"; then
   echo "work sync contacted the personal agent registry" >&2
   exit 1
