@@ -5,6 +5,35 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
+# Parse the deployed AeroSpace configuration, then execute the emitted Home
+# Manager activation against a recording Homebrew service manager.
+for identity in personal work; do
+  nix eval --impure --json --expr \
+    "builtins.fromTOML (builtins.readFile ./home/.config/aerospace/aerospace.${identity}.toml)" \
+    | jq -e '.["after-startup-command"] | all(test("sketchybar") | not)' >/dev/null
+done
+fixture="$(mktemp -d)"
+trap 'rm -rf "$fixture"' EXIT
+mkdir -p "$fixture/bin"
+cat >"$fixture/bin/brew" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+[[ -z ${SUDO_USER+x}${SUDO_UID+x}${SUDO_GID+x}${SUDO_COMMAND+x} ]]
+printf '%s\n' "$*" >>"$TEST_BREW_LOG"
+[[ "$*" == 'services restart sketchybar' ]]
+SH
+cp "$fixture/bin/brew" "$fixture/bin/sketchybar"
+chmod +x "$fixture/bin/"*
+nix eval --no-update-lock-file --no-eval-cache --raw \
+  '.#darwinConfigurations.personal-mac.config.home-manager.users.carpenter.home.activation.startTilingStack.data' \
+  | sed -e "s|/opt/homebrew/bin/|$fixture/bin/|g" \
+    -e "s|/Applications/AeroSpace.app/Contents/MacOS/AeroSpace|$fixture/absent-aerospace|g" \
+    >"$fixture/activate"
+TEST_BREW_LOG="$fixture/brew.log" SUDO_USER=root SUDO_UID=0 SUDO_GID=0 SUDO_COMMAND=test \
+  bash "$fixture/activate"
+printf 'services restart sketchybar\n' >"$fixture/expected"
+cmp "$fixture/expected" "$fixture/brew.log"
+
 # This activation string's derivation context fails when read from the eval cache.
 # Disable caching for this attribute only.
 login_activation="$(

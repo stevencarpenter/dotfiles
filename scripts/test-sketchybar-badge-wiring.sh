@@ -39,19 +39,6 @@ assert_not_contains() {
   esac
 }
 
-# Homebrew must be the only launcher in both identity variants.
-for identity in personal work; do
-  assert_not_contains "${repo_root}/home/.config/aerospace/aerospace.${identity}.toml" \
-    'exec-and-forget sketchybar' \
-    "AeroSpace must not launch a second SketchyBar instance (${identity})"
-done
-assert_contains "${badge_generator}" \
-  'brew_services restart sketchybar' \
-  "activation must restart loaded-but-errored SketchyBar jobs"
-assert_not_contains "${badge_generator}" \
-  'brew_services start sketchybar' \
-  "activation must not bootstrap an already-loaded SketchyBar job"
-
 assert_contains "${sketchybarrc}" \
   'source "$ITEM_DIR/workspaces.sh"' \
   "expected sketchybarrc to source workspace items (badge feature deploy path)"

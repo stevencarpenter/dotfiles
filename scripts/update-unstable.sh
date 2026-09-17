@@ -276,7 +276,9 @@ if [ "${LOCKED_REV}" != "${CANDIDATE_REV}" ]; then
 fi
 
 echo "==> Building ${HOST} (not switching)"
-out="$(nix build --no-link --print-out-paths --no-update-lock-file ".#darwinConfigurations.${HOST}.system")"
+# Match rebuild.sh while recovering a macOS 27 daemon with sandbox still enabled.
+out="$(nix build --no-link --print-out-paths --no-update-lock-file \
+	--option sandbox false ".#darwinConfigurations.${HOST}.system")"
 
 echo
 echo "==> Closure diff vs the running system"

@@ -58,6 +58,10 @@ case "$*" in
   mv "${tmp}" flake.lock
   ;;
 build*)
+  case " $* " in
+    *' --option sandbox false '*) ;;
+    *) echo 'promotion did not disable the incompatible Darwin sandbox' >&2; exit 1 ;;
+  esac
   if [ "${TEST_FAIL_BUILD:-0}" = 1 ]; then
     echo "simulated build failure" >&2
     exit 9
