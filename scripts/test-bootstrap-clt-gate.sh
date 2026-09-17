@@ -4,9 +4,35 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 fixture="$(mktemp -d)"
+fixture="$(cd "$fixture" && pwd -P)"
 trap 'rm -rf "$fixture"' EXIT
 
-mkdir -p "$fixture/bin" "$fixture/home"
+mkdir -p "$fixture/bin" "$fixture/home" "$fixture/repo/scripts" "$fixture/tmp"
+# Even if bootstrap bypasses the just mock, its Justfile must be inert.
+cp "$repo_root/bootstrap.sh" "$fixture/repo/bootstrap.sh"
+cp "$repo_root/scripts/host-detect.sh" "$fixture/repo/scripts/host-detect.sh"
+cat >"$fixture/repo/Justfile" <<'EOF'
+sync-side-channels:
+    @echo "bootstrap test bypassed the just mock" >&2
+    @exit 99
+EOF
+
+run_bootstrap() {
+  local test_home="$1" command_log="$2" brew_bin="$3"
+  shift 3
+  env -i \
+    HOME="$test_home" \
+    XDG_CONFIG_HOME="$test_home/.config" \
+    XDG_DATA_HOME="$test_home/.local/share" \
+    XDG_CACHE_HOME="$test_home/.cache" \
+    XDG_STATE_HOME="$test_home/.local/state" \
+    TMPDIR="$fixture/tmp" \
+    PATH="$fixture/bin:/usr/bin:/bin" \
+    TEST_COMMAND_LOG="$command_log" \
+    DOTFILES_BREW_BIN="$brew_bin" \
+    DOTFILES_JUST_BIN="$fixture/bin/just" \
+    /bin/bash "$fixture/repo/bootstrap.sh" "$@"
+}
 
 cat >"$fixture/bin/xcode-select" <<'EOF'
 #!/usr/bin/env bash
@@ -30,10 +56,8 @@ EOF
 chmod +x "$fixture/bin/xcode-select" "$fixture/bin/sudo"
 
 set +e
-TEST_COMMAND_LOG="$fixture/commands.log" \
-  HOME="$fixture/home" \
-  PATH="$fixture/bin:/usr/bin:/bin" \
-  bash "$repo_root/bootstrap.sh" >"$fixture/stdout" 2>"$fixture/stderr"
+run_bootstrap "$fixture/home" "$fixture/commands.log" "$fixture/bin/brew" \
+  >"$fixture/stdout" 2>"$fixture/stderr"
 status=$?
 set -e
 
@@ -107,6 +131,13 @@ EOF
 
 cat >"$fixture/bin/just" <<'EOF'
 #!/usr/bin/env bash
+set -euo pipefail
+for name in XDG_CONFIG_HOME XDG_DATA_HOME XDG_CACHE_HOME XDG_STATE_HOME; do
+  case "${!name}" in
+    "$HOME"/*) ;;
+    *) echo "bootstrap test leaked $name outside its home" >&2; exit 1 ;;
+  esac
+done
 printf 'just %s\n' "$*" >>"$TEST_COMMAND_LOG"
 exit 0
 EOF
@@ -138,13 +169,8 @@ for host in personal-mac; do
   command_log="$fixture/$host-commands.log"
   mkdir -p "$host_home"
   set +e
-  TEST_COMMAND_LOG="$command_log" \
-    HOME="$host_home" \
-    PATH="$fixture/bin:/usr/bin:/bin" \
-    DOTFILES_BREW_BIN="$fixture/bin/brew" \
-    DOTFILES_JUST_BIN="$fixture/bin/just" \
-    bash "$repo_root/bootstrap.sh" "$host" \
-      >"$fixture/$host-stdout" 2>"$fixture/$host-stderr"
+  run_bootstrap "$host_home" "$command_log" "$fixture/bin/brew" "$host" \
+    >"$fixture/$host-stdout" 2>"$fixture/$host-stderr"
   status=$?
   set -e
   # Dump the captured streams: set -e would otherwise abort the loop with a
@@ -156,6 +182,11 @@ for host in personal-mac; do
   fi
   if rg -Fxq homebrew-install-ran "$command_log"; then
     echo "bootstrap reinstalled Homebrew on $host despite brew being present" >&2
+    exit 1
+  fi
+  if ! rg -Fxq "just --justfile $fixture/repo/Justfile sync-side-channels" "$command_log"; then
+    echo "bootstrap did not use the isolated just mock for $host" >&2
+    cat "$fixture/$host-stdout" "$fixture/$host-stderr" >&2
     exit 1
   fi
 done
@@ -190,12 +221,8 @@ missing_home="$fixture/nobrew-home"
 missing_log="$fixture/nobrew-commands.log"
 mkdir -p "$missing_home"
 set +e
-TEST_COMMAND_LOG="$missing_log" \
-  HOME="$missing_home" \
-  PATH="$fixture/bin:/usr/bin:/bin" \
-  DOTFILES_BREW_BIN="$fixture/absent/brew" \
-  bash "$repo_root/bootstrap.sh" personal-mac \
-    >"$fixture/nobrew-stdout" 2>"$fixture/nobrew-stderr"
+run_bootstrap "$missing_home" "$missing_log" "$fixture/absent/brew" personal-mac \
+  >"$fixture/nobrew-stdout" 2>"$fixture/nobrew-stderr"
 status=$?
 set -e
 if [ "$status" -ne 0 ]; then
@@ -205,6 +232,11 @@ if [ "$status" -ne 0 ]; then
 fi
 if ! rg -Fxq homebrew-install-ran "$missing_log"; then
   echo "bootstrap did not install Homebrew when brew was absent" >&2
+  exit 1
+fi
+if ! rg -Fxq "just --justfile $fixture/repo/Justfile sync-side-channels" "$missing_log"; then
+  echo "bootstrap did not use the isolated just mock when Homebrew was absent" >&2
+  cat "$fixture/nobrew-stdout" "$fixture/nobrew-stderr" >&2
   exit 1
 fi
 
