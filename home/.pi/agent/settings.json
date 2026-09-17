@@ -9,7 +9,7 @@
     "npm:pi-background-tasks@2.5.0",
     "npm:@narumitw/pi-goal@0.54.4"
   ],
-  "lastChangelogVersion": "0.85.0",
+  "lastChangelogVersion": "0.85.1",
   "theme": "everforest-dark-hard",
   "terminal": {
     "showTerminalProgress": true
