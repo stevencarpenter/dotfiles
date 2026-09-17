@@ -23,8 +23,6 @@ let
     "lazygit"
     "zoxide"
     "ripgrep" # binary is `rg`
-    # The configured tmux popup needs Atuin >= 18.12.0; older init output omits it.
-    "atuin"
     # 26.05 (f6107e54, 2026-08-28) ships statix-0-unstable-2026-05-14 whose
     # checkPhase fails on Darwin: cargo insta snapshot collapsible_let_in
     # against the channel rustc. Unstable has 0.5.8-unstable-2026-07-17,
