@@ -3,8 +3,44 @@
 from __future__ import annotations
 
 from pathlib import Path
+from runpy import run_path
 
-from mcp_sync.sync import _build_targets, patch_specs, sync_destinations
+from mcp_sync.sync import (
+    SyncDestination,
+    _build_targets,
+    patch_specs,
+    sync_destinations,
+)
+
+
+def test_target_cli_filters(tmp_path, monkeypatch, capsys) -> None:
+    """Select the requested kind without depending on configured tools.
+
+    Args:
+        tmp_path: Isolated home for synthetic destinations.
+        monkeypatch: Replace home and destination discovery.
+        capsys: Capture CLI output.
+    """
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.setattr(
+        "mcp_sync.sync.sync_destinations",
+        lambda home: [
+            SyncDestination("first", home / "first.json", "patch"),
+            SyncDestination("second", home / "second.json", "wholesale"),
+        ],
+    )
+    script = (
+        Path(__file__).resolve().parents[2]
+        / ".claude/skills/mcp-sync-verify/scripts/print_target_paths.py"
+    )
+    main = run_path(str(script))["main"]
+    for args, expected in (
+        ([], "first.json\nsecond.json\n"),
+        (["--kind", "patch"], "first.json\n"),
+        (["--kind", "wholesale"], "second.json\n"),
+    ):
+        assert main(args) == 0
+        assert capsys.readouterr().out == expected
 
 
 def test_sync_destinations_match_run_sync_writers(tmp_path: Path) -> None:

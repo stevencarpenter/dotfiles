@@ -5,11 +5,27 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
+# Exercise activation with explicit fixture capabilities, independent of the
+# current machines' names, users, and enabled features.
+host_expr="
+let
+  f = builtins.getFlake \"git+file://${repo_root}\";
+  caps = builtins.listToAttrs (map (name: { inherit name; value = false; }) f.lib.canonicalCapKeys)
+    // { tiling = true; skills = true; };
+in (f.lib.mkHost \"contract-regressions\" {
+  system = \"aarch64-darwin\";
+  user = \"contract-test\";
+  identity = \"personal\";
+  inherit caps;
+}).config
+"
+home_expr="(${host_expr}).home-manager.users.\"contract-test\""
+
 # Parse the deployed AeroSpace configuration, then execute the emitted Home
 # Manager activation against a recording Homebrew service manager.
-for identity in personal work; do
+for aerospace_config in home/.config/aerospace/aerospace.*.toml; do
   nix eval --impure --json --expr \
-    "builtins.fromTOML (builtins.readFile ./home/.config/aerospace/aerospace.${identity}.toml)" \
+    "builtins.fromTOML (builtins.readFile ./${aerospace_config})" \
     | jq -e '.["after-startup-command"] | all(test("sketchybar") | not)' >/dev/null
 done
 fixture="$(mktemp -d)"
@@ -24,8 +40,8 @@ printf '%s\n' "$*" >>"$TEST_BREW_LOG"
 SH
 cp "$fixture/bin/brew" "$fixture/bin/sketchybar"
 chmod +x "$fixture/bin/"*
-nix eval --no-update-lock-file --no-eval-cache --raw \
-  '.#darwinConfigurations.personal-mac.config.home-manager.users.carpenter.home.activation.startTilingStack.data' \
+nix eval --no-update-lock-file --no-eval-cache --impure --raw --expr \
+  "(${home_expr}).home.activation.startTilingStack.data" \
   | sed -e "s|/opt/homebrew/bin/|$fixture/bin/|g" \
     -e "s|/Applications/AeroSpace.app/Contents/MacOS/AeroSpace|$fixture/absent-aerospace|g" \
     >"$fixture/activate"
@@ -37,8 +53,8 @@ cmp "$fixture/expected" "$fixture/brew.log"
 # This activation string's derivation context fails when read from the eval cache.
 # Disable caching for this attribute only.
 login_activation="$(
-  nix eval --no-update-lock-file --no-eval-cache --raw \
-    '.#darwinConfigurations.personal-mac.config.system.activationScripts.postActivation.text'
+  nix eval --no-update-lock-file --no-eval-cache --impure --raw --expr \
+    "(${host_expr}).system.activationScripts.postActivation.text"
 )"
 # Match executable dscl commands; matching words also accepts comments.
 # shellcheck disable=SC2016  # these are literals in the EMITTED script, not expansions here
@@ -54,7 +70,7 @@ done
 
 for pin_contract in \
   '/opt/homebrew/var/homebrew/pinned' \
-  '/usr/bin/sudo -H -u carpenter' \
+  '/usr/bin/sudo -H -u contract-test' \
   '/usr/bin/env -u SUDO_USER -u SUDO_UID -u SUDO_GID -u SUDO_COMMAND' \
   'is installed but Homebrew could not pin it' \
   'was not installed after Homebrew activation'; do
@@ -66,27 +82,28 @@ done
 
 # age.secrets must be undefined because agenix is not imported.
 # The external work wrapper is checked by test-external-overlay-contract.sh.
-for host in personal-mac; do
+machine_users="$(nix eval --json --file lib/machines.nix | jq -r 'to_entries[] | "\(.key) \(.value.user)"')"
+while read -r host user; do
   # Verify the parent attribute first so unrelated eval failures cannot pass.
   if ! nix eval --no-update-lock-file --json \
-    ".#darwinConfigurations.${host}.config.home-manager.users.carpenter.home.stateVersion" \
+    ".#darwinConfigurations.${host}.config.home-manager.users.${user}.home.stateVersion" \
     >/dev/null 2>&1; then
     echo "${host}: control eval failed: the attribute path is wrong, so the" >&2
     echo "  age.secrets assertion below would pass vacuously. Fix the path." >&2
     exit 1
   fi
   if nix eval --no-update-lock-file --json \
-    ".#darwinConfigurations.${host}.config.home-manager.users.carpenter.age.secrets" \
+    ".#darwinConfigurations.${host}.config.home-manager.users.${user}.age.secrets" \
     >/dev/null 2>&1; then
     echo "${host} still exposes age.secrets: the agenix module is imported again" >&2
     exit 1
   fi
-done
+done <<<"$machine_users"
 
 # skillsSync requires home.file symlinks created by writeBoundary.
 skills_after="$(
-  nix eval --no-update-lock-file --json \
-    '.#darwinConfigurations.personal-mac.config.home-manager.users.carpenter.home.activation.skillsSync.after'
+  nix eval --no-update-lock-file --impure --json --expr \
+    "(${home_expr}).home.activation.skillsSync.after"
 )"
 if ! jq -e 'index("writeBoundary") != null' <<<"$skills_after" >/dev/null; then
   echo "skillsSync is not ordered after writeBoundary" >&2
@@ -117,15 +134,15 @@ expected_variants="$(
   # shellcheck disable=SC2016  # ${n} is Nix interpolation, not shell expansion
   nix eval --raw --file lib/machines.nix --apply \
     'm: builtins.concatStringsSep "\n" (map (n:
-       n + " " + (if m.${n}.caps.atuin then "config.sync.toml" else "config.local.toml")
+       n + " " + m.${n}.user + " " + (if m.${n}.caps.atuin then "config.sync.toml" else "config.local.toml")
      ) (builtins.attrNames m))'
 )"
 
-while read -r host expected_variant; do
+while read -r host user expected_variant; do
   [ -n "$host" ] || continue
   resolved="$(
     nix eval --no-update-lock-file --raw \
-      ".#darwinConfigurations.${host}.config.home-manager.users.carpenter.home.file.\".config/atuin/config.toml\".source"
+      ".#darwinConfigurations.${host}.config.home-manager.users.${user}.home.file.\".config/atuin/config.toml\".source"
   )"
   # home-manager names the out-of-store symlink derivation after the source
   # basename, so the store path records which variant was selected.

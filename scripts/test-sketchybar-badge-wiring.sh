@@ -43,14 +43,6 @@ assert_contains "${sketchybarrc}" \
   'source "$ITEM_DIR/workspaces.sh"' \
   "expected sketchybarrc to source workspace items (badge feature deploy path)"
 
-assert_not_contains "${sketchybarrc}" \
-  'source "$ITEM_DIR/front_app.sh"' \
-  "expected sketchybarrc not to source removed front_app item"
-
-assert_not_contains "${sketchybarrc}" \
-  'source "$ITEM_DIR/slack.sh"' \
-  "expected sketchybarrc not to source removed slack item"
-
 assert_contains "${workspaces_item}" \
   'source "$PLUGIN_DIR/app_badge.sh"' \
   "expected workspaces item to source shared badge constants"

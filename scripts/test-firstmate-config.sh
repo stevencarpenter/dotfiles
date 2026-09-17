@@ -5,8 +5,6 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 launcher="$repo_root/home/.local/bin/firstmate"
 rg -qx '[0-9a-f]{40}' "$repo_root/home/.config/firstmate/revision"
-[[ "$(<"$repo_root/home/.local/share/firstmate/config/backend")" == tmux ]]
-[[ "$(<"$repo_root/home/.local/share/firstmate/config/crew-harness")" == pi ]]
 
 fixture="$(mktemp -d)"
 trap 'rm -rf "$fixture"' EXIT

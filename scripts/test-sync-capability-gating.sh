@@ -24,7 +24,7 @@ printf 'git %s\n' "$*" >>"$TEST_COMMAND_LOG"
 if [ "${1:-}" = "clone" ]; then
   target="${@: -1}"
   mkdir -p "$target/.git"
-  if [[ "$*" == *"stevencarpenter/agents.git"* ]]; then
+  if [[ "$target" == */agent-registry ]]; then
     touch "$target/pyproject.toml"
   fi
 fi
@@ -104,13 +104,13 @@ if ! rg -Fxq 'mise upgrade --no-prune' "$fixture/work/commands.log"; then
   echo "sync did not upgrade all mise tools within their configured version constraints" >&2
   exit 1
 fi
-if rg -Fq 'git@github.com:stevencarpenter/agents.git' "$fixture/work/commands.log"; then
+if rg -q '^git clone .* /[^ ]*/agent-registry$' "$fixture/work/commands.log"; then
   echo "work sync contacted the personal agent registry" >&2
   exit 1
 fi
 
 run_sync personal 1
-if ! rg -Fq 'git@github.com:stevencarpenter/agents.git' "$fixture/personal/commands.log"; then
+if ! rg -q '^git clone .* /[^ ]*/agent-registry$' "$fixture/personal/commands.log"; then
   echo "personal sync did not retain the agent registry clone" >&2
   exit 1
 fi
@@ -141,7 +141,7 @@ if ! rg -Fq 'op-render' "$fixture/personal/commands.log"; then
   exit 1
 fi
 render_line="$(rg -n -Fm1 'op-render' "$fixture/personal/commands.log" | cut -d: -f1)"
-clone_line="$(rg -n -Fm1 'stevencarpenter/agents.git' "$fixture/personal/commands.log" | cut -d: -f1)"
+clone_line="$(rg -n -m1 '^git clone .* /[^ ]*/agent-registry$' "$fixture/personal/commands.log" | cut -d: -f1)"
 if [ -z "$render_line" ] || [ -z "$clone_line" ] || [ "$render_line" -ge "$clone_line" ]; then
   echo "op-render must precede the SSH agent-registry clone (renders its ssh config)" >&2
   exit 1
@@ -200,7 +200,7 @@ fi
 mkdir -p "$fixture/personal-working/home/projects/agents"
 touch "$fixture/personal-working/home/projects/agents/pyproject.toml"
 run_sync personal 1 personal-working
-if rg -Fq 'git@github.com:stevencarpenter/agents.git' \
+if rg -q '^git clone .* /[^ ]*/agent-registry$' \
   "$fixture/personal-working/commands.log"; then
   echo "personal sync cloned a redundant registry beside the working copy" >&2
   exit 1

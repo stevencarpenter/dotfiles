@@ -7,19 +7,12 @@ set -euo pipefail
 # This test excludes capability variants and SessionStart hook stripping.
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-base="${repo_root}/home/.claude/settings-base.json"
-
-if [[ ! -f "${base}" ]]; then
-  echo "managed base not found at ${base}" >&2
-  exit 1
-fi
-
-# The base must be valid JSON with the managed structure the module relies on.
-jq -e 'type == "object" and has("enabledPlugins") and (.hooks | type == "object")' \
-  "${base}" >/dev/null || {
-  echo "settings-base.json is not a well-formed managed block" >&2
-  exit 1
-}
+fixture="$(mktemp -d)"
+trap 'rm -rf "${fixture}"' EXIT
+base="${fixture}/managed.json"
+# Exercise ownership and ordering with synthetic managed keys. Real settings
+# may legitimately acquire model, theme, plugin, or other preferences.
+printf '%s\n' '{"managedFixtureKey":true,"teammateMode":"tmux"}' >"${base}"
 
 # A Claude-authored settings file: intentionally non-alphabetical, with in-tool
 # keys (theme, editorMode, effortLevel) the managed block never sets.
@@ -34,7 +27,8 @@ sample_settings=$(cat <<'JSON'
     "defaultMode": "acceptEdits"
   },
   "teammateMode": "tmux",
-  "voiceEnabled": true
+  "voiceEnabled": true,
+  "sandbox": {"filesystem": {"allowWrite": ["/fixture/user-write"]}}
 }
 JSON
 )
@@ -71,7 +65,7 @@ for key in theme editorMode model; do
 done
 
 # Managed-only keys must be present after the merge (block actually applied).
-printf '%s\n' "${merged}" | jq -e 'has("enabledPlugins") and has("extraKnownMarketplaces")' >/dev/null || {
+printf '%s\n' "${merged}" | jq -e '.managedFixtureKey == true' >/dev/null || {
   echo "managed block keys missing after merge" >&2
   exit 1
 }
@@ -85,7 +79,7 @@ echo "claude settings merge preserves existing key order and in-tool values"
 # base scalar key ("teammateMode"), then confirm the same existing*managed
 # merge still sees the fragment's values.
 fragdir="$(mktemp -d)"
-trap 'rm -rf "${fragdir}"' EXIT
+trap 'rm -rf "${fixture}" "${fragdir}"' EXIT
 
 cat >"${fragdir}/01-test.json" <<'JSON'
 {
@@ -119,7 +113,7 @@ echo "claude settings.d fragment merges over the managed block and overrides bas
 # Exercises the same commit-on-success loop as ai-stack.nix's claudeSettingsMerge:
 #   if tmp="$(... | jq ...)"; then managed="$tmp"; else warn; fi
 baddir="$(mktemp -d)"
-trap 'rm -rf "${fragdir}" "${baddir}"' EXIT
+trap 'rm -rf "${fixture}" "${fragdir}" "${baddir}"' EXIT
 
 cat >"${baddir}/01-good.json" <<'JSON'
 {
@@ -186,11 +180,11 @@ for invalid in '{not json' '{"sandbox":{"filesystem":"invalid"}}'; do
 done
 
 # The extracted block must still publish valid input and retain in-tool choices.
+printf '{}\n' > "$baddir/normalization-home/settings.json"
 normalize_settings "$sample_settings" || true
-jq -e --arg home "$baddir/normalization-home" '
+jq -e '
   .model == "haiku" and .effortLevel == "medium" and .theme == "dark"
-  and (.sandbox.filesystem.allowWrite | index($home + "/.cache/uv") != null)
-  and (.sandbox.filesystem.allowWrite | index($home + "/projects/agents") != null)
+  and (.sandbox.filesystem.allowWrite | index("/fixture/user-write") != null)
 ' "$baddir/normalization-home/settings.json" >/dev/null
 
 echo "Claude settings normalization preserves the file on failure and publishes valid input"

@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# Load the real tmux config into an isolated server and assert effective cwd,
-# pane-classification, and SessionEnd cleanup behavior. Text-only checks miss
-# later overrides and cannot expose socket or process leaks.
+# Load the real tmux config into an isolated server and test pane classification
+# and SessionEnd cleanup without touching the user's sessions.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -28,39 +27,6 @@ XDG_CONFIG_HOME="${repo_root}/home/.config" \
 		tmux -S "${socket_path}" -f "${repo_root}/home/.config/tmux/tmux.conf" \
 		new-session -d -s contract -c "${repo_root}" "sleep 30"
 server_started=1
-
-# Dump the whole table once and match fields here rather than asking tmux to
-# look up a single key: `list-keys -T prefix <key>` silently returns nothing on
-# tmux 3.7, and `-` as a bare argument invites getopt ambiguity on any version.
-prefix_table="$(tmux -S "${socket_path}" list-keys -T prefix)"
-
-assert_binding() {
-	local key="$1" expected="$2" actual
-	actual="$(
-		awk -v key="${key}" \
-			'$1 == "bind-key" && $2 == "-T" && $3 == "prefix" && $4 == key {
-				$1 = $2 = $3 = $4 = ""
-				sub(/^ +/, "")
-				print
-			}' <<<"${prefix_table}"
-	)"
-	if [[ "${actual}" != *"${expected}"* ]]; then
-		echo "tmux lifecycle contract: ${key} expected '${expected}', got '${actual}'" >&2
-		# A missing binding usually means the config never finished loading,
-		# so dump what the server actually saw.
-		echo "--- tmux -V ---" >&2
-		tmux -V >&2 || true
-		echo "--- prefix table ---" >&2
-		echo "${prefix_table}" >&2
-		echo "--- server messages ---" >&2
-		tmux -S "${socket_path}" show-messages -t contract >&2 || true
-		exit 1
-	fi
-}
-
-assert_binding c "new-window -c ${HOME}"
-assert_binding '|' "split-window -h -c ${HOME}"
-assert_binding - "split-window -v -c ${HOME}"
 
 # z4h must not silently reintroduce automatic or isolated tmux startup. Keep the
 # explicit value in the shell source: deleting it activates z4h's isolated
@@ -107,25 +73,25 @@ assert_window_state "${working_window}" "working" "braille working title"
 assert_window_state "${idle_window}" "idle" "star waiting title"
 
 # Claude's own command-handler timeout is the outer teardown bound. The hook's
-# internal watchdog finishes first and remains effective when macOS has neither
-# timeout nor gtimeout.
+# internal watchdog needs more than its 14s cap + 1s input read + 1s TERM grace;
+# the configured outer timeout may change independently.
 settings_base="${repo_root}/home/.claude/settings-base.json"
 if ! jq -e '
   [.hooks.SessionEnd[]?.hooks[]?
    | select(.type == "command"
        and .command == "~/.claude/hooks/agent-reap-session-end.sh")]
-  | length == 1 and .[0].timeout == 20
+  | length == 1 and (.[0].timeout | type == "number" and . > 16)
 ' "${settings_base}" >/dev/null; then
-	echo "tmux lifecycle contract: SessionEnd agent-reap handler must have timeout 20" >&2
+	echo "tmux lifecycle contract: SessionEnd timeout must leave room for the watchdog" >&2
 	exit 1
 fi
 if ! jq -e '
   [.hooks.SubagentStop[]?.hooks[]?
    | select(.type == "command"
        and .command == "~/.claude/hooks/agent-reap-subagent-stop.sh")]
-  | length == 1 and .[0].timeout == 20
+  | length == 1 and (.[0].timeout | type == "number" and . > 16)
 ' "${settings_base}" >/dev/null; then
-	echo "tmux lifecycle contract: SubagentStop agent-reap handler must have timeout 20" >&2
+	echo "tmux lifecycle contract: SubagentStop timeout must leave room for the watchdog" >&2
 	exit 1
 fi
 
@@ -294,4 +260,4 @@ if [[ -e "${socket_path}" ]]; then
 	exit 1
 fi
 
-echo "tmux-lifecycle-contract: cwd, explicit startup, pane state, bounded hook, and socket cleanup passed"
+echo "tmux-lifecycle-contract: explicit startup, pane state, bounded hook, and socket cleanup passed"

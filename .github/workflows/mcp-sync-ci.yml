@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - "mcp_sync/**"
+      - ".claude/skills/mcp-sync-verify/scripts/print_target_paths.py"
       - "home/.config/skills/**"
       - "home/.config/mcp/**"
       - "skills/**"
@@ -13,6 +14,7 @@ on:
   pull_request:
     paths:
       - "mcp_sync/**"
+      - ".claude/skills/mcp-sync-verify/scripts/print_target_paths.py"
       - "home/.config/skills/**"
       - "home/.config/mcp/**"
       - "skills/**"

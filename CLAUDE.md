@@ -302,8 +302,8 @@ names and state spinners instead of version numbers.
 
 The cwd contract is separate from window identity. `prefix c`, `prefix |`, and `prefix -` pass
 `-c "$HOME"` so a new shell does not inherit a foreground agent's launch directory. The hygiene
-test loads the configuration into an isolated tmux server and checks the effective final bindings,
-including later overrides. Runtime debugging and cleanup procedures are in
+test uses an isolated tmux server to check pane classification and cleanup; key bindings and cwd
+choices remain preferences. Runtime debugging and cleanup procedures are in
 `docs/ai-tools/tmux-runtime-lifecycle.md`.
 
 ### Secrets
