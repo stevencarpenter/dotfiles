@@ -148,9 +148,11 @@ in
 
       # Seed cross-machine defaults for model + effort ONLY when unset, so an
       # in-tool override survives (kept out of the managed block on purpose).
+      # Guard each transform: the outer || true suppresses inherited errexit.
       merged="$(printf '%s\n' "$merged" | ${jq} '
         (if .model == null then .model = "opusplan" else . end)
-        | (if .effortLevel == null then .effortLevel = "xhigh" else . end)')"
+        | (if .effortLevel == null then .effortLevel = "xhigh" else . end)')" \
+        || { echo "Warning: Claude defaults normalization failed; keeping existing settings." >&2; exit 0; }
 
       # Allow uvx cache and registry checkout writes without removing user-added
       # sandbox paths. Normalize allowWrite to an array before appending.
@@ -160,7 +162,8 @@ in
         reduce ($p1, $p2) as $p (.;
           (.sandbox.filesystem.allowWrite // [] | if type == "array" then . else [] end) as $aw
           | if ($aw | index($p)) then .
-            else .sandbox.filesystem.allowWrite = ($aw + [$p]) end)')"
+            else .sandbox.filesystem.allowWrite = ($aw + [$p]) end)')" \
+        || { echo "Warning: Claude sandbox normalization failed; keeping existing settings." >&2; exit 0; }
       mkdir -p "$(dirname "$SETTINGS")"
       printf '%s\n' "$merged" > "$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"
     ) || true
