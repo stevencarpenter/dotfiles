@@ -10,6 +10,7 @@ persistent-workspaces = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
 
 start-at-login = true
 after-startup-command = [
+    # Homebrew services owns SketchyBar; a second instance cannot acquire its lock.
     'exec-and-forget /bin/bash -c "~/.config/borders/bordersrc"'
 ]
 after-login-command = []
