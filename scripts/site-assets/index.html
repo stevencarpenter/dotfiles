@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Repo Atlas</title>
+<meta name="description" content="A derived static file explorer for the ~/.dotfiles repository.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='14'>🗺️</text></svg>">
+</head>
+<body>
+
+<header class="topbar">
+  <button class="iconbtn" id="menu" type="button" aria-label="Toggle file tree">☰</button>
+  <div class="brand">~/.dotfiles <span>· atlas</span></div>
+  <div class="search">
+    <input id="q" type="search" placeholder="Search paths…  (press / )" autocomplete="off"
+           role="combobox" aria-expanded="false" aria-controls="results" aria-label="Search repository paths">
+    <div class="results" id="results" role="listbox"><ul id="rlist"></ul></div>
+  </div>
+  <button class="iconbtn" id="theme" type="button" aria-label="Toggle colour theme">Light</button>
+</header>
+
+<div class="wrap">
+  <nav class="tree" id="tree" aria-label="Repository tree"></nav>
+  <main class="main"><div class="inner" id="detail"></div></main>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

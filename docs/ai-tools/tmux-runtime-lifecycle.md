@@ -83,6 +83,24 @@ tab closed. That was process topology rather than tmux killing the pane.
 Do not remove the setting and assume that means "no tmux". z4h's unset default is isolated tmux,
 which creates additional tmux sockets.
 
+## Italics and `default-terminal`
+
+tmux substitutes reverse video for SGR 3 when the pane terminal's terminfo declares no italic
+capability. `screen-256color` and `screen` declare none, so every italic run renders as an inverted
+band of the foreground color on the terminal background. Agent TUIs italicize reasoning text and
+metadata, which turns most of a transcript into that band. Codex, Claude Code, opencode, and pi all
+share the cause, because the fallback happens in tmux rather than in any one tool.
+
+`default-terminal` must resolve to a terminfo entry that declares `sitm` and `ritm`; `tmux-256color`
+does, `screen-256color` does not. A `terminal-overrides` entry for the pane name does not repair it.
+`scripts/test-tmux-lifecycle-contract.sh` reads the option from an isolated server with the real
+config and fails when the terminfo loses the capability.
+
+The option is a server option, and tmux re-resolves it on the next output, so `prefix r` (or
+`tmux source-file ~/.config/tmux/tmux.conf`) is enough; `tmux kill-server` is not required. Existing
+panes keep the `$TERM` they were created with, so restart the server only when every pane must move
+to the new value. `show-options -sv default-terminal` reports what the running server uses.
+
 ## Pane, process, and socket leaks
 
 `agent-reap` targets Claude Code teammate panes identified by Claude's `--agent-id` command shape
