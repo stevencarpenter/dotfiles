@@ -29,7 +29,7 @@
     "muted": "grey1",
     "dim": "grey0",
     "text": "fg",
-    "thinkingText": "fg",
+    "thinkingText": "grey1",
     "selectedBg": "bg4",
     "scrollbarTrack": "bg4",
     "scrollbarThumb": "fg",

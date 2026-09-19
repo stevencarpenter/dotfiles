@@ -37,6 +37,16 @@ if ! rg -Fq "zstyle ':z4h:' start-tmux no" \
 	exit 1
 fi
 
+# tmux substitutes reverse video for SGR 3 when the pane terminal's terminfo
+# declares no italic capability. That fallback inverts every italic run, which
+# is most of an agent TUI's reasoning text, so the pane TERM must advertise
+# italics.
+default_terminal="$(tmux -S "${socket_path}" show-options -gv default-terminal)"
+if ! infocmp -1 -x "${default_terminal}" 2>/dev/null | rg -q '^\s*(ritm|sitm)='; then
+	echo "tmux lifecycle contract: default-terminal ${default_terminal} has no italic capability (sitm/ritm); tmux will render italics as reverse video" >&2
+	exit 1
+fi
+
 # A pane title is not sufficient evidence that Claude owns the pane. Exercise
 # the monitor against the isolated server with one negative control and both
 # recognized state-marker forms.

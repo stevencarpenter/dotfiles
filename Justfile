@@ -172,3 +172,27 @@ lefthook:
 [group('Targeted maintenance')]
 lefthook-install:
     lefthook install
+
+# ── Repo atlas (derived static site) ─────────────────────
+
+# Build the atlas into site/. Deterministic and free: no model calls.
+[group('Utilities')]
+site:
+    ./scripts/build-site.py
+
+# Serve the built atlas locally.
+[group('Utilities')]
+site-serve: site
+    @echo "atlas: http://127.0.0.1:8931"
+    python3 -m http.server 8931 -d site
+
+# Fail when a cached summary is stale or a qualifying node has none. Free.
+[group('Validation')]
+site-check:
+    ./scripts/build-site.py --check
+    ./scripts/test-build-site.sh
+
+# Print the nodes that qualify for synthesis, and why.
+[group('Utilities')]
+site-queue:
+    ./scripts/build-site.py --queue --explain
