@@ -30,8 +30,7 @@ rust-analyzer = "latest"                 # rust-analyzer (Rust)
 # recreated with `mise install` on a new machine.
 "npm:@agentclientprotocol/claude-agent-acp" = "latest"
 "npm:@agentclientprotocol/codex-acp" = "latest"
-"npm:@earendil-works/pi-coding-agent" = "latest"
-
+"npm:@earendil-works/pi-coding-agent" = { version = "latest", minimum_release_age = "0s" }
 # Neovim tooling: nvim-treesitter requires the tree-sitter CLI on $PATH to
 # compile parsers (Mason is disabled for it). All machines, since nvim deploys
 # everywhere.
@@ -40,3 +39,4 @@ tree-sitter = "latest"
 # DuckDB: needed by yazi on every machine for tabular file previews
 duckdb = "latest"
 "github:agavra/tuicr" = "latest"
+
