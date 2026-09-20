@@ -95,3 +95,10 @@ result-*
 # Local extension type-resolution (home/.pi/agent/extensions/package.json).
 # package.json + lock are tracked; installed tree is per-machine.
 home/.pi/agent/extensions/node_modules/
+
+# Repo atlas build output. `just site` regenerates it from the working tree, so
+# only the enrichment cache is tracked: it is the one artifact a rebuild cannot
+# reproduce, and its hashes are what keep model prose from going stale unseen.
+/site/*
+!/site/enrichment.json
+.lavish/

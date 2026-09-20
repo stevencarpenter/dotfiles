@@ -1,13 +1,14 @@
 {
   "defaultProjectTrust": "ask",
-  "defaultProvider": "openai-codex",
+  "defaultProvider": "openrouter",
   "packages": [
     "npm:pi-mcp-adapter@2.32.1",
     "npm:pi-web-access@0.28.0",
     "npm:pi-subagents@0.65.1",
     "npm:@dietrichgebert/ponytail@4.9.0",
     "npm:pi-background-tasks@2.5.0",
-    "npm:@narumitw/pi-goal@0.54.4"
+    "npm:@narumitw/pi-goal@0.54.4",
+    "../../programs/pi-warden"
   ],
   "lastChangelogVersion": "0.85.1",
   "theme": "everforest-dark-hard",
@@ -24,6 +25,6 @@
     "openai-codex/gpt-5.6-luna": "xhigh",
     "openai-codex/gpt-6-astra": "medium"
   },
-  "defaultModel": "openai-codex/gpt-6-astra",
+  "defaultModel": "deepseek/deepseek-v4.1-flash",
   "defaultThinkingLevel": "medium"
 }

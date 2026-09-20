@@ -95,6 +95,11 @@
           "reference": "op://Private/m5-dev-env/E2E_TEST_USER_PASSWORD",
           "item": "Private/m5-dev-env",
           "field": "E2E_TEST_USER_PASSWORD"
+        },
+        "TYPESAFE_API_KEY": {
+          "reference": "op://Private/m5-dev-env/TYPESAFE_API_KEY",
+          "item": "Private/m5-dev-env",
+          "field": "TYPESAFE_API_KEY"
         }
       }
     },
