@@ -10,7 +10,7 @@
     "npm:@narumitw/pi-goal@0.54.4",
     "../../programs/pi-warden"
   ],
-  "lastChangelogVersion": "0.85.1",
+  "lastChangelogVersion": "0.86.0",
   "theme": "everforest-dark-hard",
   "terminal": {
     "showTerminalProgress": true
