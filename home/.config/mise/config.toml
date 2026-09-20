@@ -7,14 +7,14 @@
 # additions from conf.d/dev.toml and conf.d/infra.toml. mise merges those tables.
 
 # Programming Languages & Runtimes (all machines)
-go = "1.26"
+go = "1.27"
 java = "corretto-25"
-node = "25"
-scala = "3.8"
-npm = "11"
-sbt = "1.12"
+node = "26"
+scala = "3.9"
+npm = "12"
+sbt = "2.1"
 usage = "latest"
-terraform = "1.14"
+terraform = "1.16"
 gradle = "9"
 goreleaser = "latest"
 
