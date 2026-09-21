@@ -225,7 +225,9 @@ alias s='stevectl'
 alias lzg='lazygit'
 alias tig='git log --reverse'
 alias lzd='lazydocker'
-# Config editing
+# Config editing and common directories
+alias projects='cd ~/projects/'
+alias programs='cd ~/programs/'
 alias dots='cd ~/.dotfiles/'
 alias zshrc='nvim $ZDOTDIR/.zshrc'
 alias zprofile='nvim $ZDOTDIR/.zprofile'
