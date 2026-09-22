@@ -22,4 +22,6 @@ agent-note --tool "$AGENT_TOOL" --event decision --summary "<decision>"
 agent-journal digest --quiet
 ```
 
+`--event` is advisory; the recorded type is assigned from the summary's substance.
+
 Use `--scope daily` only for daily context that should not become a project note. Use `--workstream <name>` only when the user or repo context gives a clear workstream name.

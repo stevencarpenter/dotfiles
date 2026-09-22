@@ -22,4 +22,6 @@ agent-note --tool "$AGENT_TOOL" --event todo --summary "<todo>"
 agent-journal digest --quiet
 ```
 
+`--event` is advisory; the recorded type is assigned from the summary's substance.
+
 Keep todos specific enough to complete later. Use `--workstream <name>` only when routing is clear.
