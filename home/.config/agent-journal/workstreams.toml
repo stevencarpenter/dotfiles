@@ -1,2 +1,36 @@
-# Optional explicit routing for agent-journal workstreams.
-# When no route matches, agent-journal writes to Projects/<repo>.md.
+# Explicit routing for agent-journal workstreams.
+# Only work that matches a declared workstream, or carries an explicit
+# --workstream, gets a durable project note. Everything else is listed in
+# skipped.json for classification via `agent-journal status`.
+
+[[workstream]]
+name = "pi-jev"
+repos = ["pi-jev"]
+
+[[workstream]]
+name = "pp-bot"
+repos = ["pp-bot"]
+
+[[workstream]]
+name = "hippo-gui"
+repos = ["hippo-gui"]
+
+[[workstream]]
+name = "LightRAG"
+repos = ["LightRAG"]
+
+[[workstream]]
+name = "ghostfolio"
+repos = ["ghostfolio"]
+
+[[workstream]]
+name = "python_playa"
+repos = ["python_playa"]
+
+[[workstream]]
+name = "homelab-budget-noodling"
+repos = ["homelab-budget-noodling"]
+
+[[workstream]]
+name = "obsidian"
+repos = ["obsidian"]
