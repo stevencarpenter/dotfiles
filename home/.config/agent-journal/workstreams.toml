@@ -34,3 +34,39 @@ repos = ["homelab-budget-noodling"]
 [[workstream]]
 name = "obsidian"
 repos = ["obsidian"]
+
+[[workstream]]
+name = "sluice"
+repos = ["sluice"]
+
+[[workstream]]
+name = "gringotts"
+repos = ["gringotts"]
+
+[[workstream]]
+name = "whistlepost"
+repos = ["whistlepost"]
+
+[[workstream]]
+name = "snugmarina-base"
+repos = ["snugmarina-base"]
+
+[[workstream]]
+name = "snugmarina"
+repos = ["snugmarina"]
+
+[[workstream]]
+name = "homelab"
+repos = ["homelab"]
+
+[[workstream]]
+name = "ski-area-tycoon"
+repos = ["ski-area-tycoon"]
+
+[[workstream]]
+name = "gitdiff"
+repos = ["gitdiff"]
+
+[[workstream]]
+name = "stevectl"
+repos = ["stevectl"]
