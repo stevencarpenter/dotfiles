@@ -16,7 +16,7 @@ git config --global user.email 'fixture@example.invalid'
 git config --global commit.gpgsign false
 git config --global core.hooksPath /dev/null
 git config --global "url.$fixture/origin.insteadOf" https://github.com/kunchenguid/firstmate.git
-git -C "$fixture/origin" init -q
+git -C "$fixture/origin" init -q -b main
 printf 'fixture\n' >"$fixture/origin/README.md"
 git -C "$fixture/origin" add README.md
 git -C "$fixture/origin" commit -qm 'test: seed fixture'
@@ -63,4 +63,30 @@ if "$launcher" --setup; then
   exit 1
 fi
 
-echo 'test-firstmate-config: OK (pinned, isolated, idempotent; local work preserved)'
+# update-firstmate follows upstream main, even from a checkout that drifted ahead of the pin.
+updater="$repo_root/scripts/update-firstmate.sh"
+printf '#!/usr/bin/env bash\necho 1\n' >"$fixture/bin/capability"
+chmod +x "$fixture/bin/capability"
+export HOST_CAPABILITY_BIN="$fixture/bin/capability"
+printf '%s\n' "$original" >"$HOME/.config/firstmate/revision"
+git -C "$fixture/origin" commit --allow-empty -qm 'test: drift'
+git -C "$checkout" fetch -q https://github.com/kunchenguid/firstmate.git main
+git -C "$checkout" checkout -q --detach FETCH_HEAD
+git -C "$fixture/origin" commit --allow-empty -qm 'test: latest'
+latest="$(git -C "$fixture/origin" rev-parse HEAD)"
+"$updater" | rg -q 'test: latest'
+[[ "$(<"$HOME/.config/firstmate/revision")" == "$original" ]]
+"$updater" --apply
+[[ "$(<"$HOME/.config/firstmate/revision")" == "$latest" ]]
+[[ "$(git -C "$checkout" rev-parse HEAD)" == "$latest" ]]
+"$launcher" --setup
+
+git -C "$fixture/origin" commit --allow-empty -qm 'test: newer'
+printf 'local change\n' >>"$checkout/README.md"
+if "$updater" --apply; then
+  echo 'update-firstmate moved a dirty checkout' >&2
+  exit 1
+fi
+[[ "$(<"$HOME/.config/firstmate/revision")" == "$latest" ]]
+
+echo 'test-firstmate-config: OK (pinned, isolated, idempotent; local work preserved; updates follow main)'

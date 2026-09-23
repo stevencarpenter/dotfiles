@@ -59,6 +59,14 @@ case "$*" in
 esac
 [ "${FAIL_STAGE:-}" != mise-preview ]
 SH
+cat >"$fixture/scripts/update-firstmate.sh" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'firstmate %s\n' "$*" >>"$TEST_LOG"
+stage=firstmate-preview
+[ "$1" = --apply ] && stage=firstmate-apply
+[ "${FAIL_STAGE:-}" != "$stage" ]
+SH
 chmod +x "$fixture/bin/"* "$fixture/scripts/"*.sh
 export PATH="$fixture/bin:$PATH" TEST_LOG="$fixture/commands.log"
 unset DOTFILES_HOST
@@ -116,7 +124,9 @@ nix store diff-closures /run/current-system /nix/store/reviewed-system
 just brew-upgrade --dry-run
 mise install --dry-run
 mise upgrade --dry-run --no-prune
+firstmate personal-mac
 brew upgrade --yes
+firstmate --apply personal-mac
 just sync personal-mac
 LOG
   diff -u "$fixture/expected" "$TEST_LOG"
@@ -140,7 +150,7 @@ fi
 [ ! -s "$TEST_LOG" ]
 
 # Every preparation failure restores inputs, even with -y.
-for stage in unstable check build brew-preview mise-preview; do
+for stage in unstable check build brew-preview mise-preview firstmate-preview; do
   reset_fixture
   if FAIL_STAGE="$stage" run_update -y >"$fixture/output" 2>&1; then
     echo "ignored failure: $stage" >&2; exit 1
@@ -149,7 +159,7 @@ for stage in unstable check build brew-preview mise-preview; do
 done
 
 # After applying begins, do not imply installed packages were rolled back.
-for stage in brew-apply sync; do
+for stage in brew-apply firstmate-apply sync; do
   reset_fixture
   if FAIL_STAGE="$stage" run_update -y >"$fixture/output" 2>&1; then
     echo "ignored apply failure: $stage" >&2; exit 1
