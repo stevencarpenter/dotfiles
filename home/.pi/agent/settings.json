@@ -11,7 +11,7 @@
     "../../programs/pi-warden",
     "npm:pi-jj"
   ],
-  "lastChangelogVersion": "0.87.0",
+  "lastChangelogVersion": "0.87.1",
   "theme": "everforest-dark-hard",
   "terminal": {
     "showTerminalProgress": true
