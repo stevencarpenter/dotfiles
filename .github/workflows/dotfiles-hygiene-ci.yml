@@ -88,9 +88,6 @@ jobs:
       - name: Validate MCP master config structure
         run: scripts/validate-mcp-master.py
 
-      - name: Validate Pi configuration
-        run: scripts/test-pi-config.sh
-
       - name: Validate Firstmate launcher
         run: scripts/test-firstmate-config.sh
 

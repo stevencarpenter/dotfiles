@@ -39,6 +39,7 @@ exec_scripts=(
   scripts/check-atuin-parity.py
   scripts/host-capability.sh
   scripts/sync-side-channels.sh
+  scripts/update-firstmate.sh
   scripts/update-inputs.sh
   scripts/update-unstable.sh
   scripts/test-gh-account-routing.sh

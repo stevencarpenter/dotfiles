@@ -2,8 +2,8 @@
   "schema": 1,
   "channel": "nixpkgs-unstable",
   "status": "pending",
-  "rev": "0a3468a402c449992505b6a9fc5b06580141b750",
-  "channelCommitDate": "2026-09-18T09:35:58Z",
-  "firstSeen": "2026-09-21T04:08:18Z",
+  "rev": "00455b0a3690d3f5dc61e9aef4277dc86235b73f",
+  "channelCommitDate": "2026-09-23T15:46:28Z",
+  "firstSeen": "2026-09-24T05:12:28Z",
   "soakDays": 1
 }

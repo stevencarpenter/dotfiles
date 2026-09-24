@@ -87,9 +87,10 @@ export HOMEBREW_NO_AUTO_UPDATE=1
 echo "==> Mise upgrades (within configured version constraints)"
 mise install --dry-run
 mise upgrade --dry-run --no-prune
-echo "==> After approval: upgrade Homebrew, then run just sync $host."
+"$REPO_ROOT/scripts/update-firstmate.sh" "$host"
+echo "==> After approval: upgrade Homebrew, bump the Firstmate pin, then run just sync $host."
 echo "Sync switches Nix, updates mise, renders secrets, and refreshes Git sources, agents, and pinned tools."
-echo "Exact pins remain fixed. Preview downloads/builds are cached. Applied upgrades cannot be automatically undone."
+echo "Other exact pins remain fixed. Preview downloads/builds are cached. Applied upgrades cannot be automatically undone."
 
 if [ "$assume_yes" -eq 0 ]; then
   reply=""
@@ -102,5 +103,6 @@ fi
 
 applying=1
 brew upgrade --yes
+"$REPO_ROOT/scripts/update-firstmate.sh" --apply "$host"
 just sync "$host"
 echo "==> Update and sync complete."

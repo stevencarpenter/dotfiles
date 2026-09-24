@@ -241,7 +241,7 @@ contains the capability table. Each capability is enforced at these locations:
   (dev fonts), `modules/darwin/homebrew.nix` (railway CLI + dev font casks), and
   `home/.claude/settings-base.json` variant (dev-only LSP plugins, resolved in `ai-stack.nix`).
 - **`infra`**: `modules/home/dev-tools.nix` (mise `conf.d/infra.toml`).
-- **`agent_journal`**: `modules/home/dotfiles.nix` (config + `~/.local/bin/{agent-journal,agent-note}`).
+- **`agent_journal`**: `modules/home/dotfiles.nix` links CLI wrappers on enabled hosts. `hosts/personal-mac.nix` links personal `config.toml` and `workstreams.toml`; an external work overlay owns both work config files.
 - **`agents`**: capability-aware personal registry clone, install, routing-cache refresh, and
   validation in `just sync`; the `emit-routing-context.sh` SessionStart hook is unioned in
   `ai-stack.nix`. A work-host sync never contacts the personal registry remote.

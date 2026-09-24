@@ -21,7 +21,8 @@ launching Pi; it expects the configuration links created by `just rebuild`.
 ## Managed configuration
 
 - `home/.config/firstmate/revision` pins the upstream commit.
-- `home/.config/mise/conf.d/firstmate.toml` pins the required companion tools.
+- `home/.config/mise/conf.d/firstmate.toml` declares the companion tools at
+  `latest`, because upstream raises its version floors to each new release.
   Pi, node, git, gh, jq, and tmux already have owners in this repository.
 - `home/.local/share/firstmate/config/backend` selects tmux explicitly rather
   than auto-detecting Herdr; `crew-harness` selects pi for workers.
@@ -49,11 +50,14 @@ symlink the live checkout into Firstmate's `projects/` directory.
 
 ## Pin changes
 
-The launcher refuses a changed revision or dirty code checkout rather than
-resetting it. Stop the Firstmate session and its workers before an update, review
-the upstream diff, change the tracked revision, then fetch and check out that
-exact commit in `~/.local/share/firstmate/repo`. Run `firstmate --setup` to verify
-it. Do not use `/updatefirstmate` for this dotfiles-managed installation.
+`just update` previews the upstream commits since the pin and, after approval,
+runs `scripts/update-firstmate.sh --apply` before sync. That moves the checkout to
+upstream `main` and rewrites the tracked revision, so each bump is a `git diff`.
+`just update-firstmate` previews only; `just update-firstmate --apply` bumps
+without the rest of the update. The bump refuses a dirty checkout, a checkout not
+contained in upstream `main`, or a running supervisor (stop Firstmate and its
+workers first). The launcher refuses any revision mismatch rather than resetting
+the checkout. Do not use `/updatefirstmate`; it moves the checkout without the pin.
 
 Local validation:
 

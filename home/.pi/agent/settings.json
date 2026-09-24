@@ -8,9 +8,10 @@
     "npm:@dietrichgebert/ponytail@4.9.0",
     "npm:pi-background-tasks@2.5.0",
     "npm:@narumitw/pi-goal@0.54.4",
-    "../../programs/pi-warden"
+    "../../programs/pi-warden",
+    "npm:pi-jj"
   ],
-  "lastChangelogVersion": "0.86.1",
+  "lastChangelogVersion": "0.87.1",
   "theme": "everforest-dark-hard",
   "terminal": {
     "showTerminalProgress": true

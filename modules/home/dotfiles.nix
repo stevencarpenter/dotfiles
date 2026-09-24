@@ -168,6 +168,11 @@ in
         ".pi/agent/extensions/package.json"
         ".pi/agent/extensions/package-lock.json"
 
+        # pi-web-access activity panel defaults to ctrl+shift+w, which pi-warden
+        # also binds for its trace sidebar. Keep warden's documented key and move
+        # the web-access panel; see getWebSearchConfigDir in pi-web-access.
+        ".config/pi/web-search.json"
+
         # Firstmate owns its checkout and runtime state, never the whole directory.
         ".local/bin/firstmate"
         ".config/firstmate/revision"
@@ -198,6 +203,10 @@ in
         # A 2026-07 refresh removed shell-injection (dal.py) and SQL-injection
         # (pg-extensions.py) protections restored in this copy.
         ".config/opencode/skills/use-railway" = forcedRepoLink "skills/personal/use-railway";
+        # Pi and Codex both read ~/.agents/skills, so the upstream install there
+        # would shadow this pinned snapshot. Pin it too; Claude has its own copy.
+        ".agents/skills/use-railway" = forcedRepoLink "skills/personal/use-railway";
+        ".claude/skills/use-railway" = forcedRepoLink "skills/personal/use-railway";
         ".codex/skills/playwright" = forcedRepoLink "skills/personal/playwright";
         ".codex/skills/use-railway" = forcedRepoLink "skills/personal/use-railway";
         ".cursor/skills/use-railway" = forcedRepoLink "skills/personal/use-railway";
@@ -237,7 +246,6 @@ in
 
       # ---- caps.agent_journal ----------------------------------------------
       (lib.optionalAttrs caps.agent_journal (mkLinks [
-        ".config/agent-journal" # config.toml + workstreams.toml (plain out-of-store symlinks)
         ".local/bin/agent-journal"
         ".local/bin/agent-note"
       ]))

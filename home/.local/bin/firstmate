@@ -26,7 +26,7 @@ fi
 actual_revision="$(git -C "$checkout" rev-parse HEAD)"
 checkout_status="$(git -C "$checkout" status --porcelain)"
 if [[ "$actual_revision" != "$revision" || -n "$checkout_status" ]]; then
-  echo "firstmate: $checkout differs from the reviewed pin; stop Firstmate and inspect it before updating" >&2
+  echo "firstmate: $checkout differs from the pin; stop Firstmate, then run just update-firstmate --apply" >&2
   exit 1
 fi
 
