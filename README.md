@@ -72,7 +72,7 @@ adding a machine is a one-row change and no gate site needs editing.
 | `gui` | yes | yes | GUI apps + display fonts |
 | `dev` | yes | no | language-LSP plugins + dev Brewfile/fonts block |
 | `infra` | no | yes | Kubernetes / cluster-ops tooling via mise |
-| `agent_journal` | yes | no | Obsidian agent-journal config, CLI wrappers, Claude hook |
+| `agent_journal` | yes | no | CLI wrappers; personal-mac owns its journal config, work config is supplied by its overlay |
 | `agents` | yes | no | personal agent-registry clone + fan-out installer |
 
 `identity` (`personal`/`work`) additionally selects personal-only

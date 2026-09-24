@@ -246,7 +246,6 @@ in
 
       # ---- caps.agent_journal ----------------------------------------------
       (lib.optionalAttrs caps.agent_journal (mkLinks [
-        ".config/agent-journal" # config.toml + workstreams.toml (plain out-of-store symlinks)
         ".local/bin/agent-journal"
         ".local/bin/agent-note"
       ]))
