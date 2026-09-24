@@ -7,11 +7,12 @@
 # obvious.
 function burp() {
     local failed=()
-    claude update    || failed+=('claude')
-    codex update     || failed+=('codex')
-    opencode upgrade || failed+=('opencode')
-    brew update      || failed+=('brew update')
-    brew upgrade -y  || failed+=('brew upgrade')
+    claude update     || failed+=('claude')
+    codex update      || failed+=('codex')
+    opencode upgrade  || failed+=('opencode')
+    brew update       || failed+=('brew update')
+    brew upgrade -y   || failed+=('brew upgrade')
+    npx skills update || failed+=('skills update')
 
     if (( $#failed )); then
         print -u2 "burp: failed: ${failed[*]}"
@@ -63,3 +64,4 @@ check-arch() {
     echo "All checked binaries are native ARM64."
   fi
 }
+

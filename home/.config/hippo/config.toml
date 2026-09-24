@@ -48,3 +48,10 @@ endpoint = "http://localhost:4317"
 # [storage]
 # data_dir = "~/.local/share/hippo"    # Override data directory
 # config_dir = "~/.config/hippo"       # Override config directory
+
+[retrieval]
+rerank = true
+rerank_backend = "jev"
+
+[classification]
+enabled = true
