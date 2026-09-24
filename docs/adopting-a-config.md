@@ -25,6 +25,13 @@ global `chezmoi-bak` policy was removed after cutover because silently moving an
 hides ownership mistakes. Preserve the source in the repository and clear the exact target
 yourself before rebuilding.
 
+Activation also rejects symlinked parent directories of managed files. When changing
+from a whole-directory link to individual file links, preserve the source directory,
+move the old live directory symlink aside, and create a real directory at the live
+path before rebuilding. Removing child files through the old directory link would
+remove files from the source checkout. Managed directory links remain valid when
+they are leaves of the new generation, with no separately managed files beneath them.
+
 ## Procedure
 
 1. **Declare the package (reproducibility).** The binary must be nix-owned or a fresh

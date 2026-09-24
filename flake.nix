@@ -81,10 +81,8 @@
               home-manager = {
                 useGlobalPkgs = true;
                 useUserPackages = true;
-                # Rename conflicting unmanaged files so activation can proceed.
-                # Back up valuable files separately: another collision at the same
-                # path can overwrite the previous .chezmoi-bak copy.
-                backupFileExtension = "chezmoi-bak";
+                # Unexpected collisions must stop activation. Automatic backups
+                # can move source files through stale out-of-store directory links.
                 extraSpecialArgs = args;
                 sharedModules = extraHome;
                 users.${host.user} = import ./modules/home;

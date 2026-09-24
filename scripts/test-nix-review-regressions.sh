@@ -21,6 +21,14 @@ in (f.lib.mkHost \"contract-regressions\" {
 "
 home_expr="(${host_expr}).home-manager.users.\"contract-test\""
 
+# Parent checks must precede both collision handling and any activation writes.
+nix eval --no-update-lock-file --impure --json --expr \
+  "(${home_expr}).home.activation.checkLinkParents.before" \
+  | jq -e 'index("checkLinkTargets") != null and index("writeBoundary") != null' >/dev/null
+nix eval --no-update-lock-file --impure --json --expr \
+  "(${host_expr}).home-manager.backupFileExtension" | jq -e '. == null' >/dev/null
+bash scripts/test-home-link-parents.sh
+
 # Parse the deployed AeroSpace configuration, then execute the emitted Home
 # Manager activation against a recording Homebrew service manager.
 for aerospace_config in home/.config/aerospace/aerospace.*.toml; do
@@ -30,6 +38,22 @@ for aerospace_config in home/.config/aerospace/aerospace.*.toml; do
 done
 fixture="$(mktemp -d)"
 trap 'rm -rf "$fixture"' EXIT
+
+# Execute the emitted hook as well as the standalone checker, so deleting its
+# invocation cannot leave the regression test passing.
+nix eval --no-update-lock-file --no-eval-cache --impure --raw --expr \
+  "(${home_expr}).home.activation.checkLinkParents.data" >"$fixture/check-parents"
+mkdir -p "$fixture/generation/home-files/.config/journal" "$fixture/home/.config" "$fixture/source"
+ln -s "$fixture/source" "$fixture/home/.config/journal"
+if HOME="$fixture/home" newGenPath="$fixture/generation" bash "$fixture/check-parents" >"$fixture/parent-error" 2>&1; then
+  echo 'emitted parent guard accepted a stale directory link' >&2
+  exit 1
+fi
+rg -Fq 'refuses to write through symlinked parent' "$fixture/parent-error"
+rm "$fixture/home/.config/journal"
+mkdir "$fixture/home/.config/journal"
+HOME="$fixture/home" newGenPath="$fixture/generation" bash "$fixture/check-parents"
+
 mkdir -p "$fixture/bin"
 cat >"$fixture/bin/brew" <<'SH'
 #!/usr/bin/env bash

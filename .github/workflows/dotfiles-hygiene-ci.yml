@@ -151,6 +151,9 @@ jobs:
       - name: Validate direct activation entry points
         run: scripts/test-sync-hook-runtime.sh
 
+      - name: Validate Home Manager parent symlink guard
+        run: scripts/test-home-link-parents.sh
+
       - name: Validate Claude settings hook preservation
         run: scripts/test-claude-hooks-preservation.sh
 
