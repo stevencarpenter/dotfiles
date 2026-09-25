@@ -527,7 +527,6 @@ function sip_holder() {
 # zoxide (smart cd)
 command -v zoxide >/dev/null 2>&1 && zcached zoxide-init "$(command -v zoxide)" zoxide init --cmd cd zsh
 
-[[ -f "$HOME/.local/bin/env" ]] && . "$HOME/.local/bin/env" || true
 # Homebrew owns Atuin. Sourcing ~/.atuin/bin/env would prepend an unmanaged binary.
 # Remove a tmux-inherited override so config.toml controls popup behavior.
 unset ATUIN_TMUX_POPUP
