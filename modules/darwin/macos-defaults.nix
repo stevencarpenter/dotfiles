@@ -28,10 +28,6 @@
       autohide-time-modifier = 0.6;
       orientation = "left";
       tilesize = 40;
-      # Bottom right: Quick Note (14). Top right: Lock Screen (13).
-      # Modifier keys use CustomUserPreferences below.
-      wvous-br-corner = 14;
-      wvous-tr-corner = 13;
     };
 
     # ─── 3. Finder ────────────────────────────────────────────────────────
@@ -75,11 +71,6 @@
 
     # ─── Fallbacks with no typed nix-darwin option ────────────────────────
     CustomUserPreferences = {
-      # Hot-corner modifier keys (no typed option; see dock block above).
-      "com.apple.dock" = {
-        wvous-br-modifier = 0;
-        wvous-tr-modifier = 0;
-      };
       # Finder ShowSidebar has no confirmed typed option.
       "com.apple.finder" = {
         ShowSidebar = true;
