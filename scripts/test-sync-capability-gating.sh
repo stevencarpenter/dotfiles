@@ -33,6 +33,7 @@ EOF
 cat >"$fixture/bin/uv" <<'EOF'
 #!/usr/bin/env bash
 printf 'uv %s\n' "$*" >>"$TEST_COMMAND_LOG"
+exit "${TEST_UV_STATUS:-0}"
 EOF
 
 cat >"$fixture/bin/mise" <<'EOF'
@@ -40,9 +41,17 @@ cat >"$fixture/bin/mise" <<'EOF'
 printf 'mise %s\n' "$*" >>"$TEST_COMMAND_LOG"
 EOF
 
+cat >"$fixture/bin/npx" <<'EOF'
+#!/usr/bin/env bash
+printf 'npx %s\n' "$*" >>"$TEST_COMMAND_LOG"
+exit "${TEST_SKILLS_STATUS:-0}"
+EOF
+
 cat >"$fixture/bin/firstmate" <<'EOF'
 #!/usr/bin/env bash
 printf 'firstmate %s\n' "$*" >>"$TEST_COMMAND_LOG"
+if [ "${1:-}" = --request-update ]; then exit "${TEST_REQUEST_STATUS:-0}"; fi
+exit 0
 EOF
 
 # Mock host-capability.sh because work identities live in an external wrapper
@@ -53,6 +62,7 @@ case "${1:-}" in
   --identity) printf '%s' "${MOCK_IDENTITY:?}" ;;
   agents) printf '%s' "${MOCK_AGENTS:?}" ;;
   mcp) printf '%s' "${MOCK_MCP:-1}" ;;
+  skills) printf '%s' "${MOCK_SKILLS:-1}" ;;
   *) exit 2 ;;
 esac
 EOF
@@ -71,7 +81,7 @@ exit 0
 EOF
 
 chmod +x "$fixture/bin/git" "$fixture/bin/uv" "$fixture/bin/mise" "$fixture/bin/host-capability" \
-  "$fixture/bin/op-render" "$fixture/bin/op" "$fixture/bin/firstmate"
+  "$fixture/bin/op-render" "$fixture/bin/op" "$fixture/bin/firstmate" "$fixture/bin/npx"
 
 # run_sync <identity> <agents-capability> [run-name]
 run_sync() {
@@ -89,6 +99,7 @@ run_sync() {
     GIT_BIN="$fixture/bin/git" \
     UV_BIN="$fixture/bin/uv" \
     MISE_BIN="$fixture/bin/mise" \
+    NPX_BIN="${TEST_NPX_BIN:-$fixture/bin/npx}" \
     FIRSTMATE_BIN="$fixture/bin/firstmate" \
     OP_RENDER_BIN="$fixture/bin/op-render" \
     OP_BIN="$fixture/bin/op" \
@@ -96,6 +107,10 @@ run_sync() {
 }
 
 run_sync work 0
+if ! rg -Fxq 'npx --yes skills add kunchenguid/gh-axi --skill gh-axi --global --yes --agent claude-code codex pi junie' "$fixture/work/commands.log"; then
+  echo "sync did not refresh the declared upstream skill noninteractively" >&2
+  exit 1
+fi
 if ! rg -Fq 'mise install' "$fixture/work/commands.log"; then
   echo "sync did not reconcile mise-managed tools" >&2
   exit 1
@@ -226,10 +241,47 @@ if ! rg -Fq 'firstmate --setup' "$fixture/work/commands.log"; then
   echo "sync did not ensure Firstmate for a Pi-enabled host" >&2
   exit 1
 fi
+if [[ "$(tail -n 1 "$fixture/work/commands.log")" != 'firstmate --request-update' ]]; then
+  echo 'sync did not request the native update last, after dependency installation' >&2
+  exit 1
+fi
+if TEST_UV_STATUS=1 run_sync work 0 install-failed; then
+  echo 'sync ignored a dependency installation failure' >&2; exit 1
+fi
+if rg -Fq 'firstmate --request-update' "$fixture/install-failed/commands.log"; then
+  echo 'sync requested a native update before dependencies finished' >&2; exit 1
+fi
+if TEST_REQUEST_STATUS=3 run_sync work 0 request-failed; then
+  echo 'sync hid a native update request failure' >&2; exit 1
+fi
 MOCK_MCP=0 run_sync work 0 without-pi
 if rg -Fq 'firstmate' "$fixture/without-pi/commands.log"; then
   echo "sync installed Firstmate with the Pi/MCP capability disabled" >&2
   exit 1
 fi
 
-echo "side-channel sync honors the agents and Pi/MCP capability boundaries"
+MOCK_SKILLS=0 run_sync work 0 without-skills
+if rg -q '^npx ' "$fixture/without-skills/commands.log"; then
+  echo 'sync refreshed upstream skills with the skills capability disabled' >&2; exit 1
+fi
+if TEST_SKILLS_STATUS=1 run_sync work 0 skills-failed; then
+  echo 'sync hid an upstream skill installation failure' >&2; exit 1
+fi
+if rg -Fq 'firstmate --request-update' "$fixture/skills-failed/commands.log"; then
+  echo 'sync requested a native update after skill installation failed' >&2; exit 1
+fi
+
+# The gh-axi refresh needs npx. Its absence must fail with a repo-authored
+# diagnostic instead of a bare 127 partway through provisioning.
+mkdir -p "$fixture/without-npx"
+if TEST_NPX_BIN="$fixture/bin/npx-missing" run_sync work 0 without-npx 2>"$fixture/without-npx/stderr"; then
+  echo 'sync hid a missing npx dependency' >&2; exit 1
+fi
+if ! rg -Fq 'npx not found; cannot refresh the gh-axi skill' "$fixture/without-npx/stderr"; then
+  echo 'sync did not explain the missing npx dependency' >&2; exit 1
+fi
+if rg -Fq 'firstmate --request-update' "$fixture/without-npx/commands.log"; then
+  echo 'sync requested a native update after the skill refresh failed' >&2; exit 1
+fi
+
+echo "side-channel sync honors the agents, skills, and Pi/MCP capability boundaries"

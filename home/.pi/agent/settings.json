@@ -9,7 +9,9 @@
     "npm:pi-background-tasks@2.5.0",
     "npm:@narumitw/pi-goal@0.54.4",
     "../../programs/pi-warden",
-    "npm:pi-jj"
+    "npm:pi-jj",
+    "npm:@earendil-works/pi-client",
+    "npm:@earendil-works/pi-server"
   ],
   "lastChangelogVersion": "0.87.1",
   "theme": "everforest-dark-hard",

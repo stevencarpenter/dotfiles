@@ -99,12 +99,7 @@ sync *HOST: (rebuild HOST)
 sync-side-channels:
     TOKEN_AUDITOR_VERSION="{{ TOKEN_AUDITOR_VERSION }}" scripts/sync-side-channels.sh
 
-# Firstmate only: preview the upstream bump; --apply moves the pin and checkout. Included in update.
-[group('Targeted maintenance')]
-update-firstmate *ARGS:
-    scripts/update-firstmate.sh {{ ARGS }}
-
-# Firstmate only: install the pinned distro; included in sync-side-channels when enabled.
+# Firstmate only: provision its native-update checkout; included in sync-side-channels.
 [group('Targeted maintenance')]
 firstmate-setup:
     firstmate --setup

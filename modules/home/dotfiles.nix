@@ -173,9 +173,9 @@ in
         # the web-access panel; see getWebSearchConfigDir in pi-web-access.
         ".config/pi/web-search.json"
 
-        # Firstmate owns its checkout and runtime state, never the whole directory.
+        # Application-owned updates: link only launch/config files, never a revision
+        # pin or the mutable checkout. See docs/adopting-a-config.md.
         ".local/bin/firstmate"
-        ".config/firstmate/revision"
         ".local/share/firstmate/config/backend"
         ".local/share/firstmate/config/crew-harness"
       ]))
@@ -216,7 +216,6 @@ in
         ".junie/skills/clerk-webhooks" = forcedRepoLink "skills/personal/clerk-webhooks";
         ".junie/skills/design-an-interface" = forcedRepoLink "skills/personal/design-an-interface";
         ".junie/skills/domain-model" = forcedRepoLink "skills/personal/domain-model";
-        ".junie/skills/gh-axi" = forcedRepoLink "skills/personal/gh-axi";
         ".junie/skills/github-triage" = forcedRepoLink "skills/personal/github-triage";
         ".junie/skills/request-refactor-plan" = forcedRepoLink "skills/personal/request-refactor-plan";
         ".junie/skills/ubiquitous-language" = forcedRepoLink "skills/personal/ubiquitous-language";

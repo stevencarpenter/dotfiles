@@ -70,13 +70,23 @@ for path in \
   "$home_dir/.codex/skills/use-railway" \
   "$home_dir/.cursor/skills/use-railway" \
   "$home_dir/.copilot/skills/use-railway" \
-  "$home_dir/.junie/skills/gh-axi" \
   "${ponytail_paths[@]}"; do
   resolved="$(realpath "$path" 2>/dev/null || true)"
   case "$resolved" in
     "$repo_root"/skills/personal/*) pass "$path resolves into canonical personal skills" ;;
     *) fail "$path retains a legacy or missing skill target: ${resolved:-missing}" ;;
   esac
+done
+
+shared_gh_axi="$(realpath "$home_dir/.agents/skills/gh-axi" 2>/dev/null || true)"
+for consumer in .claude .pi/agent .codex .junie; do
+  path="$home_dir/$consumer/skills/gh-axi"
+  resolved="$(realpath "$path" 2>/dev/null || true)"
+  if [ -f "$path/SKILL.md" ] && [ -n "$shared_gh_axi" ] && [ "$resolved" = "$shared_gh_axi" ]; then
+    pass "$path uses the upstream shared skill"
+  else
+    fail "$path is missing or does not use the upstream shared skill"
+  fi
 done
 
 python_bin="/etc/profiles/per-user/$USER/bin/python3"

@@ -369,25 +369,30 @@ function gmfp() {
   fi
 }
 
-# Commit all tracked changes with an AI-generated message (uses `claude` directly to avoid
-# claade's token-audit output contaminating the commit message via $()).
+# Commit all tracked changes with an AI-generated message (uses `codex` directly to avoid
+# codax's token-audit output, and reads the answer from a file rather than stdout).
 function gcam() {
-  if ! command -v claude >/dev/null 2>&1; then
-    echo "gcam: 'claude' CLI not found in PATH" >&2
+  if ! command -v codex >/dev/null 2>&1; then
+    echo "gcam: 'codex' CLI not found in PATH" >&2
     return 127
   fi
-  local msg rc
-  msg="$(claude -p "generate commit message and only return the message in plaintext with no quoting, newlines, emoji, or formatting. Strictly plaintext formatted for direct use as a conventional commit compliant git commit message. The commit should encompass all current changes in the repo, so consider all changed files and their diffs when generating the message. Keep it concise, ideally under 72 characters, but include enough detail to be informative. Do not include any metadata, explanations, or formatting: just the raw commit message text." 2>/dev/null))"
+  local msg rc out
+  out="$(mktemp "${TMPDIR:-/tmp}/gcam-message.XXXXXX")"
+  codex exec --model gpt-6-luna --sandbox read-only --output-last-message "$out" \
+    "generate commit message and only return the message in plaintext with no quoting, newlines, emoji, or formatting. Strictly plaintext formatted for direct use as a conventional commit compliant git commit message. The commit should encompass all current changes in the repo, so consider all changed files and their diffs when generating the message. Keep it concise, ideally under 72 characters, but include enough detail to be informative. Do not include any metadata, explanations, or formatting: just the raw commit message text." >/dev/null 2>&1
   rc=$?
+  msg=""
+  [[ -f "$out" ]] && msg="$(<"$out")"
+  rm -f "$out"
   if (( rc != 0 )); then
-    echo "gcam: claude exited with status $rc; aborting commit" >&2
+    echo "gcam: codex exited with status $rc; aborting commit" >&2
     return $rc
   fi
   # Trim leading/trailing whitespace
   msg="${msg#"${msg%%[![:space:]]*}"}"
   msg="${msg%"${msg##*[![:space:]]}"}"
   if [[ -z "$msg" ]]; then
-    echo "gcam: claude returned an empty message; aborting commit" >&2
+    echo "gcam: codex returned an empty message; aborting commit" >&2
     return 1
   fi
   git commit -am "$msg"

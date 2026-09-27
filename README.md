@@ -139,7 +139,10 @@ Run the outer command once rather than running each included command separately.
 `just update [ -y ] [SOAK_DAYS [HOST]]` updates stable Nix inputs and reuses the unstable
 24-hour default soak policy, builds the candidate system, and displays its package and input diffs. It also
 refreshes Homebrew metadata and previews upgrades for installed unpinned formulae/casks and
-mise tools. Approval upgrades Homebrew and invokes `just sync HOST`. Existing exact pins,
+mise tools. Approval upgrades Homebrew and invokes `just sync HOST`.
+Applications that own their updates, such as [Firstmate](docs/ai-tools/firstmate.md), are
+provisioned by sync and receive native update requests after dependency installation.
+Firstmate processes its request asynchronously and reports its own outcome. Existing exact pins,
 Homebrew pins, and the unstable soak duration are respected. This does not upgrade macOS or
 independently managed application/plugin ecosystems.
 
@@ -233,6 +236,9 @@ Global npm CLIs are declared in `home/.config/mise/config.toml`. Side-channel sy
 `mise install` and `mise upgrade --no-prune`: `latest` tracks releases, partial versions track
 their declared range, and exact versions stay pinned. Older installs remain available to running
 sessions. Inspect the inventory with `mise ls`.
+
+On skills-enabled hosts, sync refreshes `gh-axi` through its upstream `skills` installer;
+see [update ownership](docs/adopting-a-config.md#update-ownership) for source and update policy.
 
 ## Homebrew policy
 
