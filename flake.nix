@@ -14,7 +14,7 @@
     # packages.nix selects tools from this independent unstable pin.
     # Keep an exact revision so flake update cannot bypass update-unstable.sh's
     # first-seen soak period. Commit timestamps do not establish channel age.
-    nixpkgs-unstable.url = "github:NixOS/nixpkgs/00455b0a3690d3f5dc61e9aef4277dc86235b73f"; # nixpkgs-unstable @ 2026-09-23
+    nixpkgs-unstable.url = "github:NixOS/nixpkgs/79b6d20e55596f80baa35cda2a334da8a1fbf1ea"; # nixpkgs-unstable @ 2026-09-25
   };
 
   outputs =
