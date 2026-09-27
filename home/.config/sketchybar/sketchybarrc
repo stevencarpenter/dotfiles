@@ -36,7 +36,7 @@ sketchybar --bar \
   shadow=off \
   padding_left=8 \
   padding_right=8 \
-  topmost=window \
+  topmost=on \
   sticky=on \
   font_smoothing=on \
   notch_width=200
