@@ -124,6 +124,9 @@ jobs:
       - name: Validate gh account routing wrapper
         run: scripts/test-gh-account-routing.sh
 
+      - name: Validate gcampr PR creation flow
+        run: zsh -f scripts/test-gcampr.zsh
+
       - name: Validate Obsidian capture routing and retries
         run: scripts/test-obsidian-capture.sh
 
