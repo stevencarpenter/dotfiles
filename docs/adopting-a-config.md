@@ -34,10 +34,12 @@ they are leaves of the new generation, with no separately managed files beneath 
 
 ## Procedure
 
-1. **Declare the package (reproducibility).** The binary must be nix-owned or a fresh
-   machine won't have it.
+1. **Declare installation and update ownership.** A fresh machine must be able to install
+   the tool through the owning package manager or an idempotent setup command.
    - In nixpkgs, CLI/font → `modules/home/packages.nix` (`home.packages`).
    - GUI cask / not in nixpkgs / macOS-native → `modules/darwin/homebrew.nix`.
+   - Version-managed CLI → the appropriate `home/.config/mise/conf.d/` fragment.
+   - Application-owned updates → the [provisioning contract](#update-ownership) below.
    - Gate it (`caps.*` / `identity`) if it's machine-specific.
 
 2. **Move the tuned config into the repo.** Copy `~/.config/foo/config` →
@@ -71,6 +73,34 @@ bash .claude/skills/adopt-config/scripts/plan_adoption.sh ~/.config/foo/config
 It prints the repo target path, a file-vs-directory recommendation (by scanning for tool
 state), a collision check, and the exact `dotfiles.nix` line to add. It does **not** decide
 gating or package source: those are judgment calls it surfaces for you.
+
+## Update ownership
+
+Each component has one update owner. Choose it from the application's supported lifecycle, not
+its release frequency alone. A version manager can handle frequent CLI releases; an application
+coordinating persistent workers may need its own update and restart protocol. Application-owned
+installations are provisioned from `scripts/sync-side-channels.sh`, gated by the same capability
+as their configuration, and link only individual declarative settings; the application keeps
+its own versions, runtime state, and update receipts. See
+[Firstmate](ai-tools/firstmate.md#native-updates) for the reference implementation.
+
+For rapidly changing upstream skills, prefer the maintainer's supported installer and a
+shared `~/.agents/skills` installation. Keep locally authored skills and deliberately patched
+forks in `sync-skills` or Nix, with no overlapping ownership of a skill path. Refresh explicitly
+declared sources only; a bulk `skills update` could overwrite unrelated local work.
+
+`gh-axi` follows its [upstream installation instructions](https://github.com/kunchenguid/gh-axi):
+`just sync` runs `DISABLE_TELEMETRY=1 npx --yes skills add kunchenguid/gh-axi --skill gh-axi
+--global --yes --agent claude-code codex pi junie`. The installer owns the shared content,
+consumer links, and local skill lock record. This replaces the vendored `0.1.23` instructions
+with upstream's small discovery skill, which obtains current guidance from CLI help. Mise manages
+the global CLI installation; upstream's skill can also invoke unpinned `npx`, which does not
+inherit mise's release-age constraint. The skill and installer track upstream without a soak window.
+Running agents may retain previously loaded skill instructions until they reload or restart.
+
+Dependency ownership is separate: an application owns its code and lifecycle, while mise owns its
+companion CLI installations. Installing a dependency does not prove a running process uses it;
+retain old mise installations with `upgrade --no-prune`.
 
 ## Decision: file vs directory linking
 

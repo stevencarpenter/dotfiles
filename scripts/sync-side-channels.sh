@@ -6,6 +6,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 git_bin="${GIT_BIN:-git}"
 uv_bin="${UV_BIN:-uv}"
 mise_bin="${MISE_BIN:-mise}"
+npx_bin="${NPX_BIN:-npx}"
 capability_bin="${HOST_CAPABILITY_BIN:-$repo_root/scripts/host-capability.sh}"
 token_auditor_version="$(
   printf '%s' "${TOKEN_AUDITOR_VERSION:-$(tr -d '\n' <"$repo_root/versions/token-auditor")}"
@@ -28,9 +29,23 @@ else
   exit 1
 fi
 
-# Firstmate is a standalone checkout; never install its supervisor globally in Pi.
-if [ "$("$capability_bin" mcp)" = "1" ]; then
-  echo "==> Ensuring pinned Firstmate distro"
+# Upstream owns this skill's content and cross-agent links. Reconcile only the
+# declared skill, never bulk-update locally maintained or patched skills.
+if [ "$("$capability_bin" skills)" = "1" ]; then
+  if ! command -v "$npx_bin" >/dev/null 2>&1; then
+    echo "error: npx not found; cannot refresh the gh-axi skill" >&2
+    exit 1
+  fi
+  echo "==> Refreshing upstream gh-axi skill"
+  DISABLE_TELEMETRY=1 "$npx_bin" --yes skills add kunchenguid/gh-axi \
+    --skill gh-axi --global --yes --agent claude-code codex pi junie
+fi
+
+# Application-owned updates: setup provisions only; the running application owns
+# code updates and coordinated restarts. See docs/adopting-a-config.md.
+firstmate_enabled="$("$capability_bin" mcp)"
+if [ "$firstmate_enabled" = "1" ]; then
+  echo "==> Ensuring Firstmate installation (native updates)"
   "${FIRSTMATE_BIN:-$repo_root/home/.local/bin/firstmate}" --setup
 fi
 
@@ -145,4 +160,11 @@ if command -v codex >/dev/null 2>&1; then
   fi
 else
   echo "warning: codex not found; ponytail Codex plugin not ensured" >&2
+fi
+
+# Request the application-owned workflow only after dependency installation
+# succeeds. The native inbox owns delivery; a queued request is not completion.
+if [ "$firstmate_enabled" = "1" ]; then
+  echo "==> Requesting Firstmate's native update (asynchronous)"
+  "${FIRSTMATE_BIN:-$repo_root/home/.local/bin/firstmate}" --request-update
 fi

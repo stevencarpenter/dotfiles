@@ -1,38 +1,83 @@
 #!/usr/bin/env bash
-# Firstmate is a project-local Pi distro, not a global Pi extension.
+# Provision Firstmate once; its /updatefirstmate skill owns subsequent updates.
 set -euo pipefail
 
 export FM_HOME="$HOME/.local/share/firstmate"
 export FM_PI_HARNESS=pi
 checkout="$FM_HOME/repo"
-revision="$(tr -d '\n' <"$HOME/.config/firstmate/revision")"
-if [[ ! "$revision" =~ ^[0-9a-f]{40}$ ]]; then
-  echo "firstmate: expected a full commit SHA in ~/.config/firstmate/revision" >&2
-  exit 1
-fi
+url=https://github.com/kunchenguid/firstmate.git
 
 if [[ "${1:-}" == --setup ]]; then
-  if [[ ! -e "$checkout" ]]; then
+  if [[ ! -e "$checkout" && ! -L "$checkout" ]]; then
     mkdir -p "$FM_HOME"
-    git clone --no-checkout https://github.com/kunchenguid/firstmate.git "$checkout"
-    git -C "$checkout" checkout --detach "$revision"
+    git clone --branch main "$url" "$checkout"
   fi
-elif [[ ! -d "$checkout/.git" ]]; then
+fi
+if [[ ! -d "$checkout/.git" ]]; then
   echo "firstmate: run firstmate --setup before launching" >&2
   exit 1
 fi
 
-# Never reset a running or locally modified distro during sync or launch.
-actual_revision="$(git -C "$checkout" rev-parse HEAD)"
-checkout_status="$(git -C "$checkout" status --porcelain)"
-if [[ "$actual_revision" != "$revision" || -n "$checkout_status" ]]; then
-  echo "firstmate: $checkout differs from the pin; stop Firstmate, then run just update-firstmate --apply" >&2
+# Refuse to launch a different repository through the managed entry point.
+if [[ "$(git -C "$checkout" config --get remote.origin.url)" != "$url" ]]; then
+  echo "firstmate: unexpected origin in $checkout; inspect it before setup or launch" >&2
+  exit 1
+fi
+
+branch="$(git -C "$checkout" symbolic-ref --quiet --short HEAD || true)"
+if [[ "${1:-}" == --setup && -z "$branch" ]]; then
+  # Migrate the former pinned install without changing HEAD or any worktree file.
+  # Cached origin/main normally proves provenance. The retired pin updater advanced
+  # HEAD with a URL fetch that never moved that ref, so a legacy checkout can sit
+  # ahead of it; refresh the ref once before calling the state unrecognized.
+  if [[ -n "$(git -C "$checkout" status --porcelain)" ]]; then
+    echo "firstmate: cannot attach a dirty detached checkout; inspect $checkout" >&2
+    exit 1
+  fi
+  if ! git -C "$checkout" merge-base --is-ancestor HEAD refs/remotes/origin/main &&
+    ! git -C "$checkout" fetch --no-tags origin main; then
+    echo "firstmate: cannot reach origin to verify the detached checkout in $checkout;" \
+      "run git -C $checkout fetch origin main and retry" >&2
+    exit 1
+  fi
+  if ! git -C "$checkout" merge-base --is-ancestor HEAD refs/remotes/origin/main; then
+    echo "firstmate: detached HEAD in $checkout is not on origin/main; inspect it" >&2
+    exit 1
+  fi
+  if git -C "$checkout" show-ref --verify --quiet refs/heads/main &&
+    ! git -C "$checkout" merge-base --is-ancestor refs/heads/main HEAD; then
+    echo "firstmate: main has commits absent from detached HEAD; inspect $checkout" >&2
+    exit 1
+  fi
+  # -C is safe after the ancestry proof; Git also refuses main held by a worktree.
+  git -C "$checkout" switch -C main HEAD
+  git -C "$checkout" branch --set-upstream-to=origin/main main
+  branch=main
+fi
+if [[ "$branch" != main ]]; then
+  echo "firstmate: expected main in $checkout; run firstmate --setup for a legacy detached install" >&2
   exit 1
 fi
 
 if [[ "${1:-}" == --setup ]]; then
-  echo "firstmate: ready at $checkout ($revision)"
+  echo "firstmate: ready at $checkout ($(git -C "$checkout" rev-parse --short HEAD)); updates belong to /updatefirstmate"
   exit 0
+fi
+
+if [[ "${1:-}" == --request-update ]]; then
+  # Queue through the native captain inbox, including when the primary is busy
+  # or stopped. Reusing the printed request ID repairs delivery without duplicates.
+  request_id="${2:-dotfiles-update-$(date -u +%Y%m%dT%H%M%SZ)-$$}"
+  echo "firstmate: requesting native update ($request_id)"
+  status=0
+  "$checkout/bin/fm-inbox.sh" note --request-id "$request_id" -- \
+    "Run the complete updatefirstmate skill, including its persistence and secondmate restart steps. Preserve active crew work and report skipped or unconfirmed updates. Companion CLI packages are managed by dotfiles through mise; do not install competing copies. Record the update outcome with fm-inbox.sh reply against this note." || status=$?
+  if [[ "$status" == 3 ]]; then
+    echo "firstmate: request saved but wake failed; retry: firstmate --request-update $request_id" >&2
+  elif [[ "$status" == 0 ]]; then
+    echo "firstmate: update requested; completion is reported by Firstmate, not this command."
+  fi
+  exit "$status"
 fi
 
 # Keep the normal trust prompt: approving this checkout loads its bundled
