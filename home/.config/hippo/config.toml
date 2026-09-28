@@ -23,6 +23,7 @@ max_events_per_chunk = 10  # Max events per enrichment chunk
 max_queue_depth = 500      # Max pending enrichment items
 query_timeout_secs = 300   # GUI timeout for /ask and /query requests (seconds)
 
+typesafe_api_key_op_ref = "op://Private/4uzrillvqfdgkv5stwzekoqwfa/credential"
 [github]
 enabled = true
 watched_repos = [
@@ -55,3 +56,4 @@ rerank_backend = "jev"
 
 [classification]
 enabled = true
+

@@ -295,7 +295,7 @@ the full lint/test matrix.
   socket (`agent-reap`); automatic cleanup is a Claude `SessionEnd` hook, not a daemon.
 
 ```bash
-just test                                                    # lint+test mcp_sync
+just test
 uv run --project mcp_sync --group dev pytest mcp_sync/tests
 ```
 
