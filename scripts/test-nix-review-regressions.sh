@@ -138,6 +138,15 @@ if jq -e 'index("agenixDecrypt") != null' <<<"$skills_after" >/dev/null; then
   exit 1
 fi
 
+fantasy_after="$(
+  nix eval --no-update-lock-file --impure --json --expr \
+    "(${home_expr}).home.activation.fantasySportsSync.after"
+)"
+if ! jq -e 'index("skillsSync") != null' <<<"$fantasy_after" >/dev/null; then
+  echo "fantasySportsSync is not ordered after skillsSync" >&2
+  exit 1
+fi
+
 # Work identities must never sync history to the self-hosted Atuin server.
 # Check this independently of capability-derived wiring expectations.
 sync_policy_violations="$(

@@ -3,10 +3,20 @@
     "personal": {
       "type": "local",
       "path": "skills/personal"
+    },
+    "fantasy-sports": {
+      "type": "git",
+      "url": "git@github.com:stevencarpenter/fantasy-sports.git",
+      "ref": "main",
+      "refreshPeriod": "24h"
     }
   },
   "skills": {
     "refactor": { "source": "personal" },
-    "claude-cost": { "source": "personal" }
+    "claude-cost": { "source": "personal" },
+    "fantasy-football-guidelines": {
+      "source": "fantasy-sports",
+      "path": "skills/fantasy-football-guidelines"
+    }
   }
 }
