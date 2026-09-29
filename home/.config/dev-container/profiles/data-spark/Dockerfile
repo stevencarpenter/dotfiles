@@ -1,9 +1,9 @@
-FROM openjdk:17-jdk-slim
+FROM eclipse-temurin:17-jdk-jammy
 
 ARG USERNAME=dev
 ARG USER_UID=1000
 ARG USER_GID=1000
-ARG SPARK_VERSION=3.5.1
+ARG SPARK_VERSION=4.2.0
 ARG HADOOP_VERSION=3
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -15,7 +15,6 @@ RUN apt-get update \
     python3 \
     python3-pip \
     python3-venv \
-    scala \
     zsh \
     vim \
     gosu \

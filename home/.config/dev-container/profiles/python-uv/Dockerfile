@@ -1,4 +1,4 @@
-FROM python:3.12-slim-bookworm
+FROM python:3.14-slim-bookworm
 
 ARG USERNAME=dev
 ARG USER_UID=1000
@@ -22,13 +22,13 @@ RUN apt-get update \
 
 # Install uv (astral) globally with checksum verification
 # Note: Pin to a specific version and verify checksum for production use
-RUN UV_VERSION="0.5.13" && \
+RUN UV_VERSION="0.12.19" && \
   UV_TARGET="x86_64-unknown-linux-gnu" && \
   curl -LsSf "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-${UV_TARGET}.tar.gz" -o /tmp/uv.tar.gz && \
   curl -LsSf "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-${UV_TARGET}.tar.gz.sha256" -o /tmp/uv.tar.gz.sha256 && \
   cd /tmp && sha256sum -c uv.tar.gz.sha256 && \
   tar -xzf uv.tar.gz && \
-  mv uv /usr/local/bin/uv && \
+  mv "uv-${UV_TARGET}/uv" /usr/local/bin/uv && \
   chmod +x /usr/local/bin/uv && \
   rm /tmp/uv.tar.gz /tmp/uv.tar.gz.sha256
 ENV UV_SYSTEM_PYTHON=1
