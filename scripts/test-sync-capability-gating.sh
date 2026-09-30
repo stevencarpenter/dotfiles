@@ -27,6 +27,14 @@ if [ "${1:-}" = "clone" ]; then
   if [[ "$target" == */agent-registry ]]; then
     touch "$target/pyproject.toml"
   fi
+  if [[ "$target" == */fantasy-sports ]]; then
+    mkdir -p "$target/agents/fantasy-football-manager" \
+      "$target/skills/fantasy-football-guidelines"
+    printf '%s\n' '---' 'name: fantasy-football-manager' '---' \
+      >"$target/agents/fantasy-football-manager/agent.md"
+    printf '%s\n' '---' 'name: fantasy-football-guidelines' '---' \
+      >"$target/skills/fantasy-football-guidelines/SKILL.md"
+  fi
 fi
 EOF
 
@@ -107,7 +115,7 @@ run_sync() {
 }
 
 run_sync work 0
-if ! rg -Fxq 'npx --yes skills add kunchenguid/gh-axi --skill gh-axi --global --yes --agent claude-code codex pi junie' "$fixture/work/commands.log"; then
+if ! rg -Fxq 'npx --yes skills@1.7.0 add https://github.com/kunchenguid/gh-axi/tree/d221ffabfe106e2c7a5998bde30bf58528678d22/skills/gh-axi --skill gh-axi --global --yes --agent claude-code codex pi junie' "$fixture/work/commands.log"; then
   echo "sync did not refresh the declared upstream skill noninteractively" >&2
   exit 1
 fi
@@ -121,6 +129,18 @@ if ! rg -Fxq 'mise upgrade --no-prune' "$fixture/work/commands.log"; then
 fi
 if rg -q '^git clone .* /[^ ]*/agent-registry$' "$fixture/work/commands.log"; then
   echo "work sync contacted the personal agent registry" >&2
+  exit 1
+fi
+if ! rg -q 'git clone .*fantasy-sports' "$fixture/work/commands.log"; then
+  echo "work sync did not clone the private fantasy-sports repo" >&2
+  exit 1
+fi
+if [ ! -f "$fixture/work/home/.claude/agents/fantasy-football-manager.md" ]; then
+  echo "work sync did not install the fantasy-sports agent" >&2
+  exit 1
+fi
+if [ ! -f "$fixture/work/home/.cursor/skills/fantasy-football-guidelines/SKILL.md" ]; then
+  echo "work sync did not install the fantasy-sports Cursor skill" >&2
   exit 1
 fi
 
@@ -263,6 +283,9 @@ fi
 MOCK_SKILLS=0 run_sync work 0 without-skills
 if rg -q '^npx ' "$fixture/without-skills/commands.log"; then
   echo 'sync refreshed upstream skills with the skills capability disabled' >&2; exit 1
+fi
+if rg -q 'fantasy-sports' "$fixture/without-skills/commands.log"; then
+  echo 'sync installed fantasy-sports with the skills capability disabled' >&2; exit 1
 fi
 if TEST_SKILLS_STATUS=1 run_sync work 0 skills-failed; then
   echo 'sync hid an upstream skill installation failure' >&2; exit 1

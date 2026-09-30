@@ -16,6 +16,7 @@ cache="$site/enrichment.json"
 work="$(mktemp -d "${TMPDIR:-/tmp}/atlas-test.XXXXXX")"
 fail=0
 
+# shellcheck disable=SC2329
 cleanup() {
   if [ -f "$work/enrichment.json.bak" ]; then
     mv "$work/enrichment.json.bak" "$cache"
@@ -74,10 +75,11 @@ data[target] = {
 p.write_text(json.dumps(data, indent=2))
 PY
   python3 "$builder" >/dev/null
-  if grep -q "$marker" "$site/data.json"; then
-    check 1 "a summary whose source hash moved is absent from the payload"
-  else
+  # Inspect synthesis only: the payload embeds this script's marker in source.
+  if jq -e --arg target "$target" '.nodes[$target] | has("synthesis") | not' "$site/data.json" >/dev/null; then
     check 0 "a summary whose source hash moved is absent from the payload"
+  else
+    check 1 "a summary whose source hash moved is absent from the payload"
   fi
 
   if python3 "$builder" --check >/dev/null 2>&1; then
@@ -102,7 +104,7 @@ data[target] = {"text": marker, "source_hash": digest, "commit": "test"}
 p.write_text(json.dumps(data, indent=2))
 PY
   python3 "$builder" >/dev/null
-  if grep -q "$marker" "$site/data.json"; then
+  if jq -e --arg target "$target" --arg marker "$marker" '.nodes[$target].synthesis.text == $marker' "$site/data.json" >/dev/null; then
     check 0 "a summary whose source hash matches does render"
   else
     check 1 "a summary whose source hash matches does render"

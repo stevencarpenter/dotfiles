@@ -12,6 +12,7 @@ on:
       - "docs/**"
       - "agent_reap/README.md"
       - "CLAUDE.md"
+      - "Justfile"
       - "bootstrap.sh"
       - "rebuild.sh"
       - "README.md"
@@ -30,6 +31,7 @@ on:
       - "docs/**"
       - "agent_reap/README.md"
       - "CLAUDE.md"
+      - "Justfile"
       - "bootstrap.sh"
       - "rebuild.sh"
       - "README.md"
@@ -66,7 +68,7 @@ jobs:
 
       # Match homebrew.nix's Bash; SketchyBar associative arrays need Bash >= 4.
       - name: Install shell test dependencies
-        run: brew install ripgrep bash tmux
+        run: brew install ripgrep bash tmux just jq
 
       # lefthook runs the git hooks defined in lefthook.yml; gitleaks backs the
       # secret-scan job and is invoked directly below for the whole-tree scan.
@@ -105,6 +107,9 @@ jobs:
 
       - name: Validate exec bits on directly-exec'd scripts
         run: scripts/test-exec-bits.sh
+
+      - name: Validate fantasy-sports agent and skill install
+        run: scripts/test-install-fantasy-sports.sh
 
       - name: Validate tmux lifecycle contract
         run: scripts/test-tmux-lifecycle-contract.sh
@@ -165,6 +170,12 @@ jobs:
 
       - name: Validate sync capability boundary
         run: scripts/test-sync-capability-gating.sh
+
+      - name: Validate Python recipe failure propagation
+        run: scripts/test-python-check-failures.sh
+
+      - name: Validate repository atlas contracts
+        run: scripts/test-build-site.sh
 
       - name: Validate rolling-input updater
         run: scripts/test-update-inputs.sh

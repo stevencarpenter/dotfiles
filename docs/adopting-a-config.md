@@ -90,12 +90,14 @@ forks in `sync-skills` or Nix, with no overlapping ownership of a skill path. Re
 declared sources only; a bulk `skills update` could overwrite unrelated local work.
 
 `gh-axi` follows its [upstream installation instructions](https://github.com/kunchenguid/gh-axi):
-`just sync` runs `DISABLE_TELEMETRY=1 npx --yes skills add kunchenguid/gh-axi --skill gh-axi
---global --yes --agent claude-code codex pi junie`. The installer owns the shared content,
+`just sync` runs `DISABLE_TELEMETRY=1 npx --yes skills@1.7.0 add
+https://github.com/kunchenguid/gh-axi/tree/d221ffabfe106e2c7a5998bde30bf58528678d22/skills/gh-axi
+--skill gh-axi --global --yes --agent claude-code codex pi junie`. The installer owns the shared content,
 consumer links, and local skill lock record. This replaces the vendored `0.1.23` instructions
 with upstream's small discovery skill, which obtains current guidance from CLI help. Mise manages
 the global CLI installation; upstream's skill can also invoke unpinned `npx`, which does not
-inherit mise's release-age constraint. The skill and installer track upstream without a soak window.
+inherit mise's release-age constraint. The sync command pins the installer version and skill source
+commit; changing either requires a reviewed repository edit.
 Running agents may retain previously loaded skill instructions until they reload or restart.
 
 Dependency ownership is separate: an application owns its code and lifecycle, while mise owns its

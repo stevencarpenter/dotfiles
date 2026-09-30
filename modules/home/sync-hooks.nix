@@ -101,5 +101,24 @@ in
       ''
     );
 
+    # Agents + Cursor skill from the private fantasy-sports repo. skillsSync
+    # already cloned it into the mcp-sync cache when the git source is fresh;
+    # this hook prefers that cache or ~/projects/fantasy-sports, and clones
+    # only if neither is present. Never abort the switch.
+    fantasySportsSync = lib.mkIf caps.skills (
+      lib.hm.dag.entryAfter [ "skillsSync" ] ''
+        (
+          set -u
+          export PATH="${
+            lib.makeBinPath [
+              pkgs.git
+              pkgs.openssh
+            ]
+          }:$PATH"
+          "${repoRoot}/scripts/install-fantasy-sports.sh" || true
+        ) || true
+      ''
+    );
+
   };
 }
