@@ -3,7 +3,7 @@
 # with secret values. Edit this template only for structure and mappings. Edit
 # existing values in 1Password or adopt reviewed live-file changes with
 # op-adopt. The rendered target is plaintext, local-only, and mode 0600.
-# Vault mapping is authoritative in Linear SNUG-386. Never write a literal
+# Vault mapping is authoritative in Kaneo DOT-3. Never write a literal
 # 1Password ref scheme in a comment: inject scans the whole file.
 #
 # Refs live in the Private vault: 4 pre-existing canonical items + a

@@ -9,7 +9,7 @@
     "grafana": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["mcp-grafana@0.15.2", "--disable-write"],
+      "args": ["mcp-grafana@1.6.1", "--disable-write"],
       "env": {
         "GRAFANA_URL": "http://localhost:3000"
       }

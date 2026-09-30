@@ -1,11 +1,11 @@
 [tools]
 # infra-capability tool block (symlinked in only on hosts with caps.infra).
 # Infrastructure Tools (machines with infra capability)
-helm = "3"
+helm = "4"
 k9s = "latest"
-kubectl = "1.35"
+kubectl = "1.37"
 kustomize = "latest"
-teleport-ent = "16"
+teleport-ent = "18"
 
 # Databases (infra-gated; work machines only under today's machines table)
-mysql = "8"
+mysql = "26.7"

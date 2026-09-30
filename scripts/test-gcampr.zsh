@@ -6,14 +6,19 @@ repo_root=${0:A:h:h}
 source <(sed -n '/^function gcampr() {/,/^}/p' "$repo_root/home/.config/zsh/.zshrc")
 
 fixture_branch=feature
+fixture_changes=' M tracked-file'
+fixture_prs=0
 events=()
 gcamp_calls=0
+push_calls=0
 pr_calls=0
 
 function git() {
-  case "$1 $2" in
+  case "$1 ${2-}" in
     'branch --show-current') print -r -- "$fixture_branch" ;;
+    'status --porcelain') print -r -- "$fixture_changes" ;;
     'config --get') [[ "$3" == 'branch.feature.remote' ]] && print -r -- upstream ;;
+    'push ') (( ++push_calls )); events+=(push) ;;
     'fetch --quiet') [[ "$3 $4" == 'upstream main' ]] && events+=(fetch) ;;
     'merge-base FETCH_HEAD') print -r -- abc123 ;;
     *) return 1 ;;
@@ -25,29 +30,61 @@ function gh() {
 function gcamp() { (( ++gcamp_calls )); events+=(gcamp); }
 function codex() {
   events+=(codex)
+  [[ "$1 $2 $3 $4" == 'exec --model gpt-6-luna -c' ]] || return 1
+  [[ "$5" == 'model_reasoning_effort="medium"' ]] || return 1
   [[ "${(j: :)@}" == *'abc123...HEAD'* ]] || return 1
   while [[ "$1" != '--output-last-message' ]]; do shift; done
-  print -r -- $'fix: Correct example behavior\n\n- Explain the actual change.' > "$2"
+  print -r -- $'fix: Correct example behavior\n\n- Explain the actual change.\n- Cover the full branch.' > "$2"
 }
 function gh-axi() {
+  if [[ "$1 $2" == 'pr list' ]]; then
+    [[ "$3 $4 $5 $6 $7 $8" == '--state open --head feature --limit 2' ]] || return 1
+    if (( fixture_prs == 0 )); then
+      print -r -- 'count: 0'
+      print -r -- 'pull_requests: []'
+    else
+      print -r -- "count: $fixture_prs"
+      print -r -- "pull_requests[$fixture_prs]{number,title,state,author,draft,review}:"
+      print -r -- '  42,"Existing PR",open,me,no,none'
+      (( fixture_prs == 2 )) && print -r -- '  43,"Another PR",open,me,no,none'
+    fi
+    return 0
+  fi
   events+=(pr)
   (( ++pr_calls ))
-  [[ "$1 $2 $3 $4 $5 $7" == 'pr create --base main --title --body' ]] &&
-    [[ "$6" == 'fix: Correct example behavior' && "$8" == '- Explain the actual change.' ]]
+  if [[ "$2" == create ]]; then
+    [[ "$1 $2 $3 $4 $5 $7" == 'pr create --base main --title --body-file' ]] &&
+      [[ "$6" == 'fix: Correct example behavior' ]] &&
+      [[ "$(<"$8")" == $'- Explain the actual change.\n- Cover the full branch.' ]]
+  else
+    [[ "$1 $2 $3 $4 $6" == 'pr edit 42 --title --body-file' ]] &&
+      [[ "$5" == 'fix: Correct example behavior' ]] &&
+      [[ "$(<"$7")" == $'- Explain the actual change.\n- Cover the full branch.' ]]
+  fi
 }
 
 gcampr || exit 1
-[[ "$gcamp_calls $pr_calls ${(j: :)events}" == '1 1 gcamp fetch codex pr' ]] || exit 1
+[[ "$gcamp_calls $push_calls $pr_calls ${(j: :)events}" == '1 0 1 gcamp fetch codex pr' ]] || exit 1
+
+fixture_changes=''
+fixture_prs=1
+gcampr || exit 1
+[[ "$gcamp_calls $push_calls $pr_calls ${(j: :)events}" == '1 1 2 gcamp fetch codex pr push fetch codex pr' ]] || exit 1
+
+fixture_prs=2
+if gcampr 2>/dev/null; then exit 1; fi
+[[ "$pr_calls" == 2 ]] || exit 1
 
 fixture_branch=main
 if gcampr 2>/dev/null; then exit 1; fi
-[[ "$gcamp_calls $pr_calls" == '1 1' ]] || exit 1
+[[ "$gcamp_calls $push_calls $pr_calls" == '1 2 2' ]] || exit 1
 
 fixture_branch=feature
+fixture_prs=0
 function codex() {
   while [[ "$1" != '--output-last-message' ]]; do shift; done
   print -r -- 'title only' > "$2"
 }
 if gcampr 2>/dev/null; then exit 1; fi
-[[ "$pr_calls" == 1 ]] || exit 1
+[[ "$pr_calls" == 2 ]] || exit 1
 print -r -- 'gcampr checks passed'
