@@ -109,18 +109,18 @@ firstmate-setup:
 # Lint and verify formatting in both Python projects; included in py-check.
 [group('Validation')]
 lint:
-    for p in mcp_sync agent_reap; do uv run --project $p --group dev ruff check $p/src $p/tests; done
-    for p in mcp_sync agent_reap; do uv run --project $p --group dev ruff format --check $p/src $p/tests; done
+    for p in mcp_sync agent_reap; do uv run --project $p --group dev ruff check $p/src $p/tests || exit $?; done
+    for p in mcp_sync agent_reap; do uv run --project $p --group dev ruff format --check $p/src $p/tests || exit $?; done
 
 # Test both Python projects; included in py-check.
 [group('Validation')]
 test *FLAGS:
-    for p in mcp_sync agent_reap; do uv run --project $p --group dev pytest $p/tests --cov=$p --cov-report=term-missing {{ FLAGS }}; done
+    for p in mcp_sync agent_reap; do uv run --project $p --group dev pytest $p/tests --cov=$p --cov-report=term-missing {{ FLAGS }} || exit $?; done
 
 # Format both Python projects (writes files).
 [group('Validation')]
 fmt:
-    for p in mcp_sync agent_reap; do uv run --project $p --group dev ruff format $p/src $p/tests; done
+    for p in mcp_sync agent_reap; do uv run --project $p --group dev ruff format $p/src $p/tests || exit $?; done
 
 # MCP configs only; also regenerated during rebuild when enabled.
 [group('Targeted maintenance')]

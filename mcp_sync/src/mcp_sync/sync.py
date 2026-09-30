@@ -449,8 +449,7 @@ def sync_codex_mcp(master: JsonDict, home: Path | None = None) -> None:
         log_info("Skipping codex config (base template not found)")
         return
 
-    codex_config_path.parent.mkdir(parents=True, exist_ok=True)
-    codex_config_path.write_text(text, encoding="utf-8")
+    _write_text(codex_config_path, text)
     log_success(f"Synced MCP servers to: {codex_config_path}")
 
 
@@ -547,6 +546,31 @@ def _load_json_object(path: Path) -> JsonDict:
     return payload
 
 
+def _write_text(path: Path, text: str) -> None:
+    """Publish complete UTF-8 text atomically, removing failed temporary files.
+
+    Args:
+        path: Destination path; parent directories are created as needed.
+        text: Complete content to publish.
+
+    Returns:
+        None.
+
+    Raises:
+        OSError: If writing, syncing, or replacing the file fails.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(text)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(tmp, path)
+    finally:
+        Path(tmp).unlink(missing_ok=True)
+
+
 def _write_json(
     path: Path,
     payload: JsonDict,
@@ -574,15 +598,8 @@ def _write_json(
     file must match whatever its owner writes: Claude Code emits none, so
     adding one makes the last byte flip back and forth on every sync.
     """
-    path.parent.mkdir(parents=True, exist_ok=True)
     serialized = json.dumps(payload, indent=2, sort_keys=sort_keys, ensure_ascii=False)
-    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
-    try:
-        os.write(fd, (serialized + ("\n" if trailing_newline else "")).encode("utf-8"))
-        os.fsync(fd)
-    finally:
-        os.close(fd)
-    os.replace(tmp, path)
+    _write_text(path, serialized + ("\n" if trailing_newline else ""))
 
 
 def _render_patched_owned_config(

@@ -115,7 +115,7 @@ run_sync() {
 }
 
 run_sync work 0
-if ! rg -Fxq 'npx --yes skills add kunchenguid/gh-axi --skill gh-axi --global --yes --agent claude-code codex pi junie' "$fixture/work/commands.log"; then
+if ! rg -Fxq 'npx --yes skills@1.7.0 add https://github.com/kunchenguid/gh-axi/tree/d221ffabfe106e2c7a5998bde30bf58528678d22/skills/gh-axi --skill gh-axi --global --yes --agent claude-code codex pi junie' "$fixture/work/commands.log"; then
   echo "sync did not refresh the declared upstream skill noninteractively" >&2
   exit 1
 fi

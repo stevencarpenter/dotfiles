@@ -31,13 +31,15 @@ fi
 
 # Upstream owns this skill's content and cross-agent links. Reconcile only the
 # declared skill, never bulk-update locally maintained or patched skills.
+# Pin both the installer and source; update them deliberately after review.
 if [ "$("$capability_bin" skills)" = "1" ]; then
   if ! command -v "$npx_bin" >/dev/null 2>&1; then
     echo "error: npx not found; cannot refresh the gh-axi skill" >&2
     exit 1
   fi
   echo "==> Refreshing upstream gh-axi skill"
-  DISABLE_TELEMETRY=1 "$npx_bin" --yes skills add kunchenguid/gh-axi \
+  DISABLE_TELEMETRY=1 "$npx_bin" --yes skills@1.7.0 add \
+    https://github.com/kunchenguid/gh-axi/tree/d221ffabfe106e2c7a5998bde30bf58528678d22/skills/gh-axi \
     --skill gh-axi --global --yes --agent claude-code codex pi junie
 fi
 
