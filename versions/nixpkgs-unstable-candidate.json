@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "channel": "nixpkgs-unstable",
-  "status": "pending",
+  "status": "promoted",
   "rev": "419fe0f449b3fbe3bdd53d9840288db4509ec32e",
   "channelCommitDate": "2026-09-28T04:45:22Z",
   "firstSeen": "2026-09-29T01:46:55Z",
