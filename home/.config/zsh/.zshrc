@@ -403,9 +403,9 @@ function gcamp() {
   gcam && git push
 }
 
-# Commit and push, then create a PR describing the entire branch diff.
+# Commit and push, then create or update a PR describing the entire branch diff.
 function gcampr() {
-  local branch base remote merge_base out pr title body rc
+  local branch base remote merge_base out pr title body changes pr_list pr_number rc
   branch=$(git branch --show-current) || return
   if [[ -z "$branch" ]]; then
     echo "gcampr: cannot create a PR from a detached HEAD" >&2
@@ -418,28 +418,48 @@ function gcampr() {
     return 1
   fi
 
-  gcamp || return
+  changes=$(git status --porcelain --untracked-files=no) || return
+  if [[ -n "$changes" ]]; then
+    gcamp || return
+  else
+    git push || return
+  fi
   remote=$(git config --get "branch.$branch.remote") || remote=origin
   git fetch --quiet "$remote" "$base" || return
   merge_base=$(git merge-base FETCH_HEAD HEAD) || return
+  pr_list=$(gh-axi pr list --state open --head "$branch" --limit 2) || return
+  pr_number=$(sed -nE 's/^  ([0-9]+),.*/\1/p' <<< "$pr_list")
+  if [[ "$pr_number" == *$'\n'* ]]; then
+    echo "gcampr: multiple open PRs found for $branch; refusing to choose one" >&2
+    return 1
+  fi
   out=$(mktemp "${TMPDIR:-/tmp}/gcampr-message.XXXXXX") || return
-  codex exec --model gpt-6-luna --sandbox read-only --output-last-message "$out" \
+  codex exec --model gpt-6-luna -c 'model_reasoning_effort="medium"' --sandbox read-only --output-last-message "$out" \
     "Inspect git diff $merge_base...HEAD and git log $merge_base..HEAD. Return only a concise, accurate PR title on the first line, one blank line, then a concise Markdown description of the actual changes in 1-3 bullets. Describe the whole branch, not just the last commit. Do not claim tests ran unless you can verify they did." >/dev/null 2>&1
   rc=$?
   pr="$(<"$out")"
-  rm -f "$out"
   if (( rc != 0 )); then
-    echo "gcampr: codex exited with status $rc; PR not created" >&2
+    rm -f "$out"
+    echo "gcampr: codex exited with status $rc; PR not created or updated" >&2
     return $rc
   fi
   title="${pr%%$'\n'*}"
   body="${pr#*$'\n'}"
   body="${body#$'\n'}"
   if [[ "$pr" != *$'\n'* || "$title" != *[![:space:]]* || "$body" != *[![:space:]]* ]]; then
-    echo "gcampr: codex returned no title or description; PR not created" >&2
+    rm -f "$out"
+    echo "gcampr: codex returned no title or description; PR not created or updated" >&2
     return 1
   fi
-  gh-axi pr create --base "$base" --title "$title" --body "$body"
+  print -r -- "$body" > "$out"
+  if [[ -n "$pr_number" ]]; then
+    gh-axi pr edit "$pr_number" --title "$title" --body-file "$out"
+  else
+    gh-axi pr create --base "$base" --title "$title" --body-file "$out"
+  fi
+  rc=$?
+  rm -f "$out"
+  return $rc
 }
 
 # Copy a file to the clipboard and also save it to disk (for easy sharing of files in chat, etc.)
