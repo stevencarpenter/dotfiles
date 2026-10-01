@@ -80,3 +80,6 @@ sketchybar --add bracket status clock calendar battery wifi volume \
 # ─── Finalize ─────────────────────────────────────────────────────────────────
 
 sketchybar --update
+
+# Keep topmost=on for clicks on macOS 27, but yield to the native menu on hover.
+bash "$PLUGIN_DIR/menu_bar_hover.sh" &
