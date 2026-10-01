@@ -284,6 +284,16 @@ and gate the owning module on `caps.<capability>`.
 - `docs/ai-tools/`: setup guides for MCP, Copilot, and related tools, plus
   `hippo-usage-measurement.md` (hippo recall baseline, re-measure dates, and query constraints)
 
+### SketchyBar and native menu hover
+
+The user accepted the current menu interaction on macOS 27.2: top-edge hover exposes a
+clickable native menu, and leaving it promptly restores clickable SketchyBar workspace tabs.
+Preserve both interactions and the smooth return when changing the tiling stack. The rationale
+is beside the helper launch in `home/.config/sketchybar/sketchybarrc` and the window-ordering
+command in `plugins/menu_bar_hover.swift`. Read those comments before simplifying this workaround.
+`bash scripts/test-sketchybar-menu-hover-launch.sh` checks launcher lifecycle in isolation;
+its header specifies the live acceptance checks that automated tests do not cover.
+
 ### Tmux Status Bar Integration
 
 A monitor script (`home/.config/tmux/scripts/claude-pane-monitor.sh`) runs every status-interval and

@@ -5,6 +5,7 @@ import Foundation
 
 /// MenuBarAgent retains an invisible click-catching window on macOS 27.
 /// The Window Server menu window is onscreen only while the native menu is shown.
+/// NSMenu.menuBarVisible() reported false even with the menu visible in live probes.
 func nativeMenuVisible(in windows: [[String: Any]]) -> Bool {
     windows.contains { window in
         window[kCGWindowOwnerName as String] as? String == "Window Server"
@@ -52,10 +53,14 @@ func setHidden(_ hidden: Bool) {
     if hidden {
         arguments = ["--set", "/.*/", "popup.drawing=off"]
     } else {
-        // Reordering the first item in place raises existing windows without a slow reset.
+        // workspace.1 is already first. This no-op reorder raises existing windows
+        // above MenuBarAgent, preserving tab clicks without resetting topmost.
+        // This ordering side effect needs live click verification after upgrades.
+        // Measured return fell from about 730 ms with a reset to 370 ms here.
         arguments = ["--bar", "hidden=off", "--reorder", "workspace.1"]
     }
     if !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+        // Six frames give a 100 ms slide in either direction; preserve Reduce Motion.
         arguments += ["--animate", "sin", "6"]
     }
     // The configured bar is 37 points tall. Sliding it offscreen avoids instant toggles.
@@ -86,6 +91,8 @@ for number in [SIGTERM, SIGINT] {
 }
 
 let timer = DispatchSource.makeTimerSource(queue: .main)
+// No documented SketchyBar event reports native menu visibility. Polling every
+// 50 ms bounds detection delay; launch CLI commands only on visibility changes.
 timer.schedule(deadline: .now(), repeating: .milliseconds(50), leeway: .milliseconds(5))
 timer.setEventHandler {
     // A stopped SketchyBar must not leave an orphan poller or launch CLI retries.

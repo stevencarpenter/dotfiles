@@ -6,6 +6,8 @@ cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/sketchybar"
 binary="$cache_dir/sketchybar-menu-hover"
 mkdir -p "$cache_dir"
 lock_file="$cache_dir/menu-hover.lock"
+# Serialize replacement and compilation through Swift signal-handler setup.
+# exec retains this PID; the initialized helper releases the same launch lock.
 until /usr/bin/shlock -f "$lock_file" -p "$$"; do
   sleep 0.05
 done
@@ -30,5 +32,6 @@ if [[ ! -x "$binary" || "$script_dir/menu_bar_hover.swift" -nt "$binary" ]]; the
   mv "$build_file" "$binary"
 fi
 
+# Transient SketchyBar CLI processes share the daemon's name; choose the oldest.
 bar_pid="$(pgrep -o -u "$UID" -x sketchybar)"
 exec "$binary" "$(command -v sketchybar)" "$bar_pid" "$lock_file"

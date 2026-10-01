@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Run on macOS: bash scripts/test-sketchybar-menu-hover-launch.sh
+# Executes the real launcher with isolated, named substitute processes. Checks
+# overlapping reloads, lock handoff, oldest-daemon selection, and one surviving
+# helper. Process queries are scoped to this test so the desktop is untouched.
+# This does not verify native-menu visibility, animation, or actual mouse clicks.
+# Manual acceptance after runtime changes: hover at the top edge, click a native
+# menu, move down, and click workspace tabs before and after hover. Check prompt,
+# smooth return and repeat after a SketchyBar reload; preserve Reduce Motion.
+
 root="$(cd "$(dirname "$0")/.." && pwd)"
 tmp="$(mktemp -d)"
 export XDG_CACHE_HOME="$tmp/cache" TEST_PARENT="$$" TEST_DIR="$tmp"
