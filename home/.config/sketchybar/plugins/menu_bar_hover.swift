@@ -34,10 +34,10 @@ if CommandLine.arguments.dropFirst() == ["--self-test"] {
     exit(0)
 }
 
-guard CommandLine.arguments.count == 3,
+guard CommandLine.arguments.count == 4,
       let barPID = Int32(CommandLine.arguments[2]), barPID > 0
 else {
-    fputs("usage: sketchybar-menu-hover <sketchybar-path> <sketchybar-pid>\n", stderr)
+    fputs("usage: sketchybar-menu-hover <sketchybar-path> <sketchybar-pid> <launch-lock>\n", stderr)
     exit(1)
 }
 
@@ -98,4 +98,8 @@ timer.setEventHandler {
 }
 
 timer.resume()
+guard unlink(CommandLine.arguments[3]) == 0 else {
+    perror("menu-bar-hover: release launch lock")
+    exit(1)
+}
 dispatchMain()
