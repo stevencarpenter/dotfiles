@@ -80,3 +80,11 @@ sketchybar --add bracket status clock calendar battery wifi volume \
 # ─── Finalize ─────────────────────────────────────────────────────────────────
 
 sketchybar --update
+
+# Accepted macOS 27.2 behavior: top-edge hover reveals a clickable native menu;
+# leaving it restores SketchyBar promptly, with workspace tabs still clickable.
+# topmost=window broke tab clicks. Keep topmost=on and let this helper yield.
+# It slides existing windows and raises them on return; resetting topmost or
+# toggling hidden recreated/obscured windows and made return slow or abrupt.
+# Regression and manual acceptance steps: scripts/test-sketchybar-menu-hover-launch.sh.
+bash "$PLUGIN_DIR/menu_bar_hover.sh" &
