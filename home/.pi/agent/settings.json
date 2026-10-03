@@ -11,7 +11,7 @@
     "npm:@earendil-works/pi-client",
     "npm:@earendil-works/pi-server"
   ],
-  "lastChangelogVersion": "0.99.1",
+  "lastChangelogVersion": "1.0.0",
   "theme": "everforest-dark-hard",
   "terminal": {
     "showTerminalProgress": true
