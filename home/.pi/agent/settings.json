@@ -1,5 +1,7 @@
 {
   "defaultProjectTrust": "ask",
+  "shellPath": "/opt/homebrew/bin/bash",
+  "shellCommandPrefix": "export PATH=/opt/homebrew/opt/bash/bin:$PATH",
   "defaultProvider": "openai-codex",
   "packages": [
     "npm:pi-mcp-adapter@3.2.0",
@@ -11,7 +13,7 @@
     "npm:@earendil-works/pi-client",
     "npm:@earendil-works/pi-server"
   ],
-  "lastChangelogVersion": "0.99.1",
+  "lastChangelogVersion": "1.0.1",
   "theme": "everforest-dark-hard",
   "terminal": {
     "showTerminalProgress": true
