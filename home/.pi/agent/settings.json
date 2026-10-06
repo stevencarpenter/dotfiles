@@ -13,7 +13,7 @@
     "npm:@earendil-works/pi-client",
     "npm:@earendil-works/pi-server"
   ],
-  "lastChangelogVersion": "1.0.2",
+  "lastChangelogVersion": "1.0.4",
   "theme": "everforest-dark-hard",
   "terminal": {
     "showTerminalProgress": true
