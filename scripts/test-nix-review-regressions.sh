@@ -39,6 +39,50 @@ done
 fixture="$(mktemp -d)"
 trap 'rm -rf "$fixture"' EXIT
 
+# The policy is ungated, including on a host without the personal agents registry.
+# All fragment adapters must resolve to the canonical policy source.
+nix eval --no-update-lock-file --impure --json --expr \
+  "let h = ${home_expr}; in map (p: toString h.home.file.\"\${p}\".source) [
+    \".config/agents/output-policy.md\"
+    \".codex/AGENTS.d/20-output-policy.md\"
+    \".pi/agent/AGENTS.d/20-output-policy.md\"
+  ]" | jq -e 'length == 3 and (unique | length) == 1' >/dev/null
+rg -Fxq '@~/.config/agents/output-policy.md' home/.claude/CLAUDE.md
+jq -e '.outputStyle == "STE"' home/.claude/settings-base.json >/dev/null
+rg -Fxq 'keep-coding-instructions: true' home/.claude/output-styles/STE.md
+nix eval --no-update-lock-file --impure --raw --expr \
+  "toString (${home_expr}).home.file.\".claude/output-styles/STE.md\".source" \
+  | rg -q 'STE\.md$'
+
+# Execute the actual assembled-instruction hooks. Preserve external fragments,
+# include the policy exactly once, and do not duplicate it on a second activation.
+policy_home="$fixture/policy-home"
+mkdir -p "$policy_home/.codex/AGENTS.d" "$policy_home/.pi/agent/AGENTS.d"
+for fragments in "$policy_home/.codex/AGENTS.d" "$policy_home/.pi/agent/AGENTS.d"; do
+  ln -s "$repo_root/home/.config/agents/output-policy.md" "$fragments/20-output-policy.md"
+  printf '# External instructions\n' >"$fragments/90-external.md"
+done
+ln -s "$repo_root/home/.pi/agent/AGENTS.d/10-pi-runtime.md" \
+  "$policy_home/.pi/agent/AGENTS.d/10-pi-runtime.md"
+for harness in codex pi; do
+  nix eval --no-update-lock-file --no-eval-cache --impure --raw --expr \
+    "(${home_expr}).home.activation.\"${harness}AgentsAssemble\".data" \
+    | sed "s|/Users/contract-test/.dotfiles|$repo_root|g" >"$fixture/$harness-assemble"
+  HOME="$policy_home" bash "$fixture/$harness-assemble"
+  HOME="$policy_home" bash "$fixture/$harness-assemble"
+  if [ "$harness" = codex ]; then
+    output="$policy_home/.codex/AGENTS.md"
+  else
+    output="$policy_home/.pi/agent/AGENTS.md"
+  fi
+  [ "$(rg -c '^# Simplified Technical English output policy$' "$output")" = 1 ]
+  rg -Fxq '# External instructions' "$output"
+  # Compare the complete policy, not just the heading or a representative rule.
+  sed -n '/^# Simplified Technical English output policy$/,/^# External instructions$/p' "$output" \
+    | sed '$d' | sed '$d' >"$fixture/$harness-policy"
+  cmp home/.config/agents/output-policy.md "$fixture/$harness-policy"
+done
+
 # Execute the emitted hook as well as the standalone checker, so deleting its
 # invocation cannot leave the regression test passing.
 nix eval --no-update-lock-file --no-eval-cache --impure --raw --expr \
