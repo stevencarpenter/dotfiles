@@ -209,6 +209,37 @@ The former carry-verbatim age bridge for work secrets has been removed: its ciph
 file, and module are gone, and no host requires an age identity. Secrets for an externally-owned
 host are administered by that wrapper. See [`secrets/README.md`](secrets/README.md).
 
+## Shared output policy
+
+[`home/.config/agents/output-policy.md`](home/.config/agents/output-policy.md) defines the
+ASD-STE100-based communication rules for Claude Code, Codex, Pi, and OpenCode. Dotfiles owns
+this default because it deploys global harness configuration on every host. The personal
+agents repository owns specialist definitions and rubrics.
+
+The policy uses short sentences, active voice, consistent terms, and explicit evidence.
+The 80 to 90% target describes the intended style, not a measured compliance score.
+Technical terms, code, commands, identifiers, and quotations retain their exact meaning.
+An explicit user request for another language, format, or audience style takes precedence.
+
+| Harness | Load mechanism |
+|---|---|
+| Claude Code | Global `CLAUDE.md` imports the policy. The `STE` output style reinforces it and retains coding instructions. |
+| Codex | Activation appends the shared `20-output-policy.md` fragment to global `AGENTS.md`. |
+| Pi | Activation appends the same policy to global `AGENTS.md` after the Pi runtime notes. |
+| OpenCode | MCP sync renders the policy's absolute path into the global config's `instructions` list. |
+
+Run `./rebuild.sh` after adding these paths or editing the policy to refresh the assembled
+Codex and Pi instructions. Claude and OpenCode read the linked policy directly in a new
+session. Restart sessions after deployment. Project settings and explicit overrides can
+change the defaults. The adapters do not add the policy to separately constructed subagent
+prompts. Such agents receive it only if their harness loads the global instructions.
+
+This is prompt-level enforcement. The configuration checks verify that each adapter loads
+the same policy. They do not assess the model's output against the STE rules or dictionary.
+Claude's [output-style documentation](https://code.claude.com/docs/en/output-styles) states
+that styles are model instructions. The source standard is
+[ASD-STE100](https://www.asd-ste100.org/).
+
 ## Side channels (`just sync` / `just bootstrap`)
 
 Provisioning that requires network access, SSH authentication, or `sudo` runs through the

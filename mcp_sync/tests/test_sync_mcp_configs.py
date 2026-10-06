@@ -20,7 +20,7 @@ from mcp_sync import (
     transform_to_opencode_format,
 )
 from mcp_sync.codex_tui import apply_tui_settings, toml_value
-from mcp_sync.sync import run_sync, transform_to_identity_format
+from mcp_sync.sync import SyncTarget, run_sync, transform_to_identity_format
 
 
 def test_load_master_config_valid(master_config_file):
@@ -278,6 +278,21 @@ def test_empty_master_config_handling():
 
     assert "mcpServers" in result
     assert result["mcpServers"] == {}
+
+
+def test_opencode_loads_shared_output_policy(temp_home):
+    """The generated OpenCode config loads the host's shared prose policy."""
+    target = SyncTarget(
+        name="opencode",
+        destination=temp_home / ".config" / "opencode" / "opencode.json",
+        transform=transform_to_opencode_format,
+    )
+
+    result = target.build({"servers": {}}, home=temp_home, live=False)
+
+    assert result["instructions"] == [
+        str(temp_home / ".config" / "agents" / "output-policy.md")
+    ]
 
 
 def test_none_servers_handling():
