@@ -40,8 +40,8 @@ backlog so it addresses this separate operational home.
 Firstmate inherits your Pi model and authentication. Use `/model` for the main
 session and `/supervision-model` to choose a separate supervision model.
 No credentials, project registrations, worker launches, Relay integration, or
-merge-autonomy grants are created by setup. Lavish is optional and not installed;
-Firstmate can use plain-text reports.
+merge-autonomy grants are created by setup. The mise companion toolchain includes
+Lavish for rich reports; Firstmate can also use plain-text reports.
 
 To manage dotfiles, ask Firstmate to register
 `https://github.com/stevencarpenter/dotfiles` as `dotfiles`, use `direct-PR` with
