@@ -3,6 +3,7 @@
 set -u
 
 repo_root=${0:A:h:h}
+source <(sed -n '/^typeset -ga _gcam_claude_args=(/,/^)/p' "$repo_root/home/.config/zsh/.zshrc")
 source <(sed -n '/^function gcampr() {/,/^}/p' "$repo_root/home/.config/zsh/.zshrc")
 
 fixture_branch=feature
@@ -28,13 +29,10 @@ function gh() {
   [[ "$*" == 'repo view --json defaultBranchRef --jq .defaultBranchRef.name' ]] && print -r -- main
 }
 function gcamp() { (( ++gcamp_calls )); events+=(gcamp); }
-function codex() {
-  events+=(codex)
-  [[ "$1 $2 $3 $4" == 'exec --model gpt-6-luna -c' ]] || return 1
-  [[ "$5" == 'model_reasoning_effort="medium"' ]] || return 1
+function claude() {
+  events+=(claude)
   [[ "${(j: :)@}" == *'abc123...HEAD'* ]] || return 1
-  while [[ "$1" != '--output-last-message' ]]; do shift; done
-  print -r -- $'fix: Correct example behavior\n\n- Explain the actual change.\n- Cover the full branch.' > "$2"
+  print -r -- $'fix: Correct example behavior\n\n- Explain the actual change.\n- Cover the full branch.'
 }
 function gh-axi() {
   if [[ "$1 $2" == 'pr list' ]]; then
@@ -64,12 +62,12 @@ function gh-axi() {
 }
 
 gcampr || exit 1
-[[ "$gcamp_calls $push_calls $pr_calls ${(j: :)events}" == '1 0 1 gcamp fetch codex pr' ]] || exit 1
+[[ "$gcamp_calls $push_calls $pr_calls ${(j: :)events}" == '1 0 1 gcamp fetch claude pr' ]] || exit 1
 
 fixture_changes=''
 fixture_prs=1
 gcampr || exit 1
-[[ "$gcamp_calls $push_calls $pr_calls ${(j: :)events}" == '1 1 2 gcamp fetch codex pr push fetch codex pr' ]] || exit 1
+[[ "$gcamp_calls $push_calls $pr_calls ${(j: :)events}" == '1 1 2 gcamp fetch claude pr push fetch claude pr' ]] || exit 1
 
 fixture_prs=2
 if gcampr 2>/dev/null; then exit 1; fi
@@ -81,10 +79,7 @@ if gcampr 2>/dev/null; then exit 1; fi
 
 fixture_branch=feature
 fixture_prs=0
-function codex() {
-  while [[ "$1" != '--output-last-message' ]]; do shift; done
-  print -r -- 'title only' > "$2"
-}
+function claude() { print -r -- 'title only'; }
 if gcampr 2>/dev/null; then exit 1; fi
 [[ "$pr_calls" == 2 ]] || exit 1
 print -r -- 'gcampr checks passed'

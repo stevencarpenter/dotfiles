@@ -10,10 +10,9 @@ broken configurations.
 """
 
 import sys
+import tomllib
 from pathlib import Path
 from urllib.parse import urlsplit
-
-import tomllib
 
 SYNC_PATH = "home/.config/atuin/config.sync.toml"
 LOCAL_PATH = "home/.config/atuin/config.local.toml"
