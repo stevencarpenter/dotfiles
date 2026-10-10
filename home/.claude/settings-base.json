@@ -133,8 +133,5 @@
   "skipAutoPermissionPrompt": true,
   "voiceEnabled": true,
   "teammateMode": "tmux",
-  "cleanupPeriodDays": 14,
-  "sandbox": {
-    "excludedCommands": ["git commit *", "lefthook *"]
-  }
+  "cleanupPeriodDays": 14
 }
