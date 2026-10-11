@@ -101,7 +101,7 @@ sync-dfm:
     # --preview exits non-zero while an approval is missing; the flags are what we want.
     preview="$(dotfiles-manager apply --root "$root" --preview 2>&1 || true)"
     rm -f "$allow"
-    ( umask 077; printf '%s\n' "$preview" | grep -oE "\-\-allow-(adopt|disruptive) '[^']*'" > "$allow" || true )
+    ( umask 077; printf '%s\n' "$preview" | grep -oE "\-\-allow-(adopt|disruptive) '[^']*'" | awk '!seen[$0]++' > "$allow" || true )
     echo "flags written to $allow:"; cat "$allow"
     echo "Review the plan and the flags, then approve its digest with: just sync-dfm-apply <digest>"
 
