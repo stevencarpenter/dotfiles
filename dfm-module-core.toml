@@ -53,6 +53,7 @@ adapter = "fs-link/v1"
 target = ".config/zsh/lib"
 [resources.value]
 source = "home/.config/zsh/lib"
+directory = true
 
 [[resources]]
 id = "config-zsh-profile-d-worktrunk-aliases-zsh"
@@ -77,6 +78,7 @@ adapter = "fs-link/v1"
 target = ".config/nvim"
 [resources.value]
 source = "home/.config/nvim"
+directory = true
 
 [[resources]]
 id = "config-yazi"
@@ -85,6 +87,7 @@ adapter = "fs-link/v1"
 target = ".config/yazi"
 [resources.value]
 source = "home/.config/yazi"
+directory = true
 
 [[resources]]
 id = "config-tmux"
@@ -93,6 +96,7 @@ adapter = "fs-link/v1"
 target = ".config/tmux"
 [resources.value]
 source = "home/.config/tmux"
+directory = true
 
 [[resources]]
 id = "config-ghostty"
@@ -101,6 +105,7 @@ adapter = "fs-link/v1"
 target = ".config/ghostty"
 [resources.value]
 source = "home/.config/ghostty"
+directory = true
 
 [[resources]]
 id = "ideavimrc"
@@ -117,6 +122,7 @@ adapter = "fs-link/v1"
 target = ".config/git"
 [resources.value]
 source = "home/.config/git"
+directory = true
 
 [[resources]]
 id = "config-jj-config-toml"
@@ -133,6 +139,7 @@ adapter = "fs-link/v1"
 target = ".config/dev-container"
 [resources.value]
 source = "home/.config/dev-container"
+directory = true
 
 [[resources]]
 id = "config-nushell-config-nu"
@@ -253,6 +260,7 @@ adapter = "fs-link/v1"
 target = ".claude/hooks/lib"
 [resources.value]
 source = "home/.claude/hooks/lib"
+directory = true
 
 [[resources]]
 id = "claude-hooks-wt-create-sh"
@@ -301,6 +309,7 @@ adapter = "fs-link/v1"
 target = ".config/agent-reap"
 [resources.value]
 source = "home/.config/agent-reap"
+directory = true
 
 [[resources]]
 id = "config-worktrunk-config-toml"

@@ -5,57 +5,6 @@ schema = 1
 id = "dotfiles"
 core = "dfm-module-core.toml"
 
-# DFM-55 (not merged): fs-link/v1 will require `directory = true` in the value of a directory
-# source. The binary at cf9a5f4 rejects the key (E_FIELD_UNKNOWN), so it is not set yet.
-# Add it to these 47 resources when the DFM-55 manager commit is installed:
-#   core.config-zsh-lib
-#   core.config-nvim
-#   core.config-yazi
-#   core.config-tmux
-#   core.config-ghostty
-#   core.config-git
-#   core.config-dev-container
-#   core.claude-hooks-lib
-#   core.config-agent-reap
-#   personal.config-hippo
-#   skills.config-opencode-skills-use-railway
-#   skills.agents-skills-use-railway
-#   skills.claude-skills-use-railway
-#   skills.codex-skills-playwright
-#   skills.codex-skills-use-railway
-#   skills.cursor-skills-use-railway
-#   skills.copilot-skills-use-railway
-#   skills.junie-skills-clerk
-#   skills.junie-skills-clerk-testing
-#   skills.junie-skills-clerk-webhooks
-#   skills.junie-skills-design-an-interface
-#   skills.junie-skills-domain-model
-#   skills.junie-skills-github-triage
-#   skills.junie-skills-request-refactor-plan
-#   skills.junie-skills-ubiquitous-language
-#   skills.junie-skills-ponytail
-#   skills.junie-skills-ponytail-review
-#   skills.junie-skills-ponytail-audit
-#   skills.junie-skills-ponytail-debt
-#   skills.junie-skills-ponytail-gain
-#   skills.junie-skills-ponytail-help
-#   skills.copilot-skills-ponytail
-#   skills.copilot-skills-ponytail-review
-#   skills.copilot-skills-ponytail-audit
-#   skills.copilot-skills-ponytail-debt
-#   skills.copilot-skills-ponytail-gain
-#   skills.copilot-skills-ponytail-help
-#   skills.cursor-skills-ponytail
-#   skills.cursor-skills-ponytail-review
-#   skills.cursor-skills-ponytail-audit
-#   skills.cursor-skills-ponytail-debt
-#   skills.cursor-skills-ponytail-gain
-#   skills.cursor-skills-ponytail-help
-#   tiling.config-sketchybar-items
-#   tiling.config-sketchybar-plugins
-#   tiling.config-borders
-#   tiling.config-aerospace-layouts
-
 [sources]
 # The checkout holds runtime trees (plugin checkouts with a .git, venvs, node_modules, caches).
 # Only these roots, and the files beside this bundle, are sources.

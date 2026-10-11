@@ -30,6 +30,7 @@ adapter = "fs-link/v1"
 target = ".config/sketchybar/items"
 [resources.value]
 source = "home/.config/sketchybar/items"
+directory = true
 
 [[resources]]
 id = "config-sketchybar-plugins"
@@ -38,6 +39,7 @@ adapter = "fs-link/v1"
 target = ".config/sketchybar/plugins"
 [resources.value]
 source = "home/.config/sketchybar/plugins"
+directory = true
 
 [[resources]]
 id = "config-borders"
@@ -46,6 +48,7 @@ adapter = "fs-link/v1"
 target = ".config/borders"
 [resources.value]
 source = "home/.config/borders"
+directory = true
 
 [[resources]]
 id = "config-sketchybar-machine-env"
@@ -62,4 +65,5 @@ adapter = "fs-link/v1"
 target = ".config/aerospace/layouts"
 [resources.value]
 source = "home/.config/aerospace/layouts"
+directory = true
 

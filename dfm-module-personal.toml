@@ -52,6 +52,7 @@ adapter = "fs-link/v1"
 target = ".config/hippo"
 [resources.value]
 source = "home/.config/hippo"
+directory = true
 
 [[resources]]
 id = "config-zsh-profile-d-tailscale-zsh"
