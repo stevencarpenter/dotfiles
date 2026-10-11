@@ -250,7 +250,7 @@ Use this if you stop after section 3, 4 or 5 and do not approve a plan digest.
 8. CHECK. `dotfiles-manager state check`.
 
 `just sync-dfm` and `just sync-dfm-apply <digest>` run sections 6 and 7 and steps 1 to 8 of this section as one
-sequence. `just sync-dfm` writes the approval flags to `${TMPDIR:-/tmp}/dfm-allow.txt` (or `$DFM_ALLOW_FILE`).
+sequence. `just sync-dfm` writes the approval flags to `~/.local/state/dfm-cutover/allow.txt` (directory mode 0700, or `$DFM_ALLOW_DIR`). The apply recipe refuses a file that is a link or not yours.
 `just sync-dfm-apply` rejects a digest that is not 64 hex characters, and it continues after a
 `tiling-reload.sh` or `mac-defaults.sh --check` failure. Use the manual steps for the first run.
 

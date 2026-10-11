@@ -85,32 +85,42 @@ sync *HOST: _nix-guard (rebuild HOST)
     DOTFILES_HOST="{{ if HOST == "" { env_var_or_default("DOTFILES_HOST", "") } else { HOST } }}" TOKEN_AUDITOR_VERSION="{{ TOKEN_AUDITOR_VERSION }}" scripts/sync-side-channels.sh
 
 # Manager path, step 1: print the plan and its digest. Applies nothing and never calls nix.
-# Also writes the approval flags that `apply --preview` lists to $DFM_ALLOW_FILE
-# (default ${TMPDIR:-/tmp}/dfm-allow.txt), one `--allow-* '<id>'` per line. Review that file.
+# Also writes the approval flags that `apply --preview` lists to $DFM_ALLOW_DIR/allow.txt
+# (default ~/.local/state/dfm-cutover/allow.txt, a 0700 directory), one `--allow-* '<id>'` per line. Review that file.
 [group('Daily')]
 sync-dfm:
     #!/usr/bin/env bash
     set -euo pipefail
     root="{{ justfile_directory() }}"
-    allow="${DFM_ALLOW_FILE:-${TMPDIR:-/tmp}/dfm-allow.txt}"
+    dir="${DFM_ALLOW_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/dfm-cutover}"
+    mkdir -p -m 700 "$dir"
+    [[ -d $dir && ! -L $dir && -O $dir && ! -g $dir ]] || { echo "error: $dir must be a real directory you own" >&2; exit 2; }
+    chmod 700 "$dir"
+    allow="$dir/allow.txt"
     dotfiles-manager plan --root "$root"
     # --preview exits non-zero while an approval is missing; the flags are what we want.
     preview="$(dotfiles-manager apply --root "$root" --preview 2>&1 || true)"
-    printf '%s\n' "$preview" | grep -oE "\-\-allow-(adopt|disruptive) '[^']*'" > "$allow" || true
+    rm -f "$allow"
+    ( umask 077; printf '%s\n' "$preview" | grep -oE "\-\-allow-(adopt|disruptive) '[^']*'" > "$allow" || true )
     echo "flags written to $allow:"; cat "$allow"
     echo "Review the plan and the flags, then approve its digest with: just sync-dfm-apply <digest>"
 
 # Manager path, step 2: apply the approved digest, then packages, side channels, agents and checks.
-# Reads the flags from $DFM_ALLOW_FILE (see sync-dfm). Needs an interactive terminal (op signin).
+# Reads the flags from $DFM_ALLOW_DIR/allow.txt (see sync-dfm). Needs an interactive terminal (op signin).
 [group('Daily')]
 sync-dfm-apply $digest:
     #!/usr/bin/env bash
     set -euo pipefail
     root="{{ justfile_directory() }}"
     [[ $digest =~ ^[0-9a-f]{64}$ ]] || { echo "error: digest must be 64 lowercase hex characters" >&2; exit 2; }
-    allow="${DFM_ALLOW_FILE:-${TMPDIR:-/tmp}/dfm-allow.txt}"
+    dir="${DFM_ALLOW_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/dfm-cutover}"
+    mkdir -p -m 700 "$dir"
+    [[ -d $dir && ! -L $dir && -O $dir && ! -g $dir ]] || { echo "error: $dir must be a real directory you own" >&2; exit 2; }
+    chmod 700 "$dir"
+    allow="$dir/allow.txt"
     flags=()
-    if [[ -f $allow ]]; then
+    if [[ -e $allow || -L $allow ]]; then
+      [[ -f $allow && ! -L $allow && -O $allow ]] || { echo "error: $allow must be a regular file you own" >&2; exit 2; }
       while IFS= read -r line; do
         [[ -n $line ]] || continue
         if [[ $line =~ ^(--allow-adopt|--allow-disruptive)\ \'([^\']+)\'$ ]]; then
