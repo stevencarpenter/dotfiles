@@ -11,6 +11,10 @@ if [ -n "${ZSH_VERSION-}" ]; then
   #
   #   export GOPATH=$HOME/go
   #
+  # EDITOR must exist in login and non-interactive shells too (nix-darwin set it system-wide).
+  # GUI apps launched by launchd do not read this file.
+  export EDITOR=nvim
+
   # Do not change anything else in this file.
 
   : ${ZDOTDIR:=~}

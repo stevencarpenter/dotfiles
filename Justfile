@@ -14,7 +14,7 @@ default:
 
 # Apply Nix configuration only; included in sync and update. Optional HOST override.
 [group('Daily')]
-rebuild *HOST:
+rebuild *HOST: _nix-guard
     ./rebuild.sh {{ HOST }}
 
 # Verify the running personal-mac generation and all live cutover roots.
@@ -81,24 +81,65 @@ bootstrap *HOST:
 
 # Deploy current Nix pins, then side channels (including mise upgrades). Included in update.
 [group('Daily')]
-sync *HOST: (rebuild HOST)
+sync *HOST: _nix-guard (rebuild HOST)
     DOTFILES_HOST="{{ if HOST == "" { env_var_or_default("DOTFILES_HOST", "") } else { HOST } }}" TOKEN_AUDITOR_VERSION="{{ TOKEN_AUDITOR_VERSION }}" scripts/sync-side-channels.sh
 
 # Manager path, step 1: print the plan and its digest. Applies nothing and never calls nix.
+# Also writes the approval flags that `apply --preview` lists to $DFM_ALLOW_FILE
+# (default ${TMPDIR:-/tmp}/dfm-allow.txt), one `--allow-* '<id>'` per line. Review that file.
 [group('Daily')]
 sync-dfm:
-    dotfiles-manager plan --root {{ justfile_directory() }}
-    @echo "Review the plan above, then approve its digest with: just sync-dfm-apply <digest>"
+    #!/usr/bin/env bash
+    set -euo pipefail
+    root="{{ justfile_directory() }}"
+    allow="${DFM_ALLOW_FILE:-${TMPDIR:-/tmp}/dfm-allow.txt}"
+    dotfiles-manager plan --root "$root"
+    # --preview exits non-zero while an approval is missing; the flags are what we want.
+    preview="$(dotfiles-manager apply --root "$root" --preview 2>&1 || true)"
+    printf '%s\n' "$preview" | grep -oE "\-\-allow-(adopt|disruptive) '[^']*'" > "$allow" || true
+    echo "flags written to $allow:"; cat "$allow"
+    echo "Review the plan and the flags, then approve its digest with: just sync-dfm-apply <digest>"
 
-# Manager path, step 2: apply the approved digest, then the side channels. Optional DFM_ALLOW flags from the environment.
+# Manager path, step 2: apply the approved digest, then packages, side channels, agents and checks.
+# Reads the flags from $DFM_ALLOW_FILE (see sync-dfm). Needs an interactive terminal (op signin).
 [group('Daily')]
-sync-dfm-apply digest:
-    dotfiles-manager apply --root {{ justfile_directory() }} --yes-plan {{ digest }} $DFM_ALLOW
+sync-dfm-apply $digest:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    root="{{ justfile_directory() }}"
+    [[ $digest =~ ^[0-9a-f]{64}$ ]] || { echo "error: digest must be 64 lowercase hex characters" >&2; exit 2; }
+    allow="${DFM_ALLOW_FILE:-${TMPDIR:-/tmp}/dfm-allow.txt}"
+    flags=()
+    if [[ -f $allow ]]; then
+      while IFS= read -r line; do
+        [[ -n $line ]] || continue
+        if [[ $line =~ ^(--allow-adopt|--allow-disruptive)\ \'([^\']+)\'$ ]]; then
+          flags+=("${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}")
+        else
+          echo "error: unexpected line in $allow: $line" >&2; exit 2
+        fi
+      done < "$allow"
+    fi
+    dotfiles-manager apply --root "$root" --yes-plan "$digest" ${flags[@]+"${flags[@]}"}
     scripts/brew-sync.sh
     scripts/sync-side-channels.sh
-    scripts/tiling-reload.sh
-    scripts/mac-defaults.sh --check
-    dotfiles-manager doctor --root {{ justfile_directory() }}
+    scripts/launch-agents.sh load
+    scripts/login-shell.sh --check
+    scripts/tiling-reload.sh || echo "tiling-reload failed; continuing" >&2
+    scripts/mac-defaults.sh --check || echo "mac-defaults differs; read the lines above, then continue" >&2
+    dotfiles-manager state check
+    dotfiles-manager doctor --root "$root"
+
+# Refuses to run nix after the cutover. Set DFM_ALLOW_NIX=1 only for a deliberate rollback.
+[private]
+_nix-guard:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ -e "$HOME/.config/dotfiles-manager/machine.toml" && "${DFM_ALLOW_NIX:-}" != 1 ]]; then
+      echo "error: dotfiles-manager owns this machine. A nix switch recreates org.nixos.maxfiles and the Home Manager links." >&2
+      echo "Set DFM_ALLOW_NIX=1 only for a rollback (docs/m5-cutover.md section 11)." >&2
+      exit 1
+    fi
 
 # Mise upgrades, secrets, Git sources, agents, and tools only; included in sync.
 [group('Targeted maintenance')]

@@ -7,7 +7,7 @@
 set -euo pipefail
 
 want=/bin/zsh
-user=$(id -un)
+user=${SUDO_USER:-$(id -un)}
 node="/Users/$user"
 
 current=$(/usr/bin/dscl . -read "$node" UserShell 2>/dev/null || true)
@@ -31,7 +31,7 @@ case "${1:-}" in
   --set)
     if [[ $current != "$want" ]]; then
       sudo=(); [[ $EUID -eq 0 ]] || sudo=(sudo)
-      "${sudo[@]}" /usr/bin/dscl . -create "$node" UserShell "$want"
+      ${sudo[@]+"${sudo[@]}"} /usr/bin/dscl . -create "$node" UserShell "$want"
     fi
     if [[ -n $override && $override != "$want" ]]; then /bin/launchctl unsetenv SHELL; fi
     ;;

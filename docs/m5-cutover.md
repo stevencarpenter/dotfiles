@@ -22,6 +22,16 @@ section of `README.md`, and `docs/first-run.md` in the dotfiles-manager reposito
 4. CHECK. Homebrew and 1Password work: `brew --version`, `op whoami`.
 5. CHECK. Close Claude Code, Codex and pi sessions other than the one you use for this runbook.
    The manager writes `~/.claude/settings.json`, and an open session can write it at the same time.
+6. LIVE. Make a private work directory. Every temporary file in this runbook lives in it. If you open a new
+   terminal, set `w` again to the printed path:
+
+   ```sh
+   w=$(mktemp -d "${TMPDIR:-/tmp}/dfm-cutover.XXXXXX"); echo "$w"
+   ```
+
+7. Approval 1, in writing, before section 2: "Approved to begin the M5 handoff. Backup archive:
+   `<path>`. Handoff path: `<A or B>`." The agent runs no LIVE step in sections 2 to 5 without this
+   sentence. Approval 2 (the plan digest) comes in section 6.
 
 ## 2. Back up
 
@@ -32,29 +42,55 @@ section of `README.md`, and `docs/first-run.md` in the dotfiles-manager reposito
    dotfiles-manager bind --profile ~/.dotfiles/dfm/profiles/personal-mac.toml --machine-id <id>
    ```
 
-2. CHECK. List every plan target:
+2. CHECK. List every plan target. The plan can show blockers at this point (the files in section 4).
+   The target list is still complete:
 
    ```sh
-   dotfiles-manager plan --root ~/.dotfiles --json > /tmp/dfm-plan.json
-   python3 -I -c 'import json;[print(o["path"]) for o in json.load(open("/tmp/dfm-plan.json"))["plan"]["operations"] if o.get("path")]' > /tmp/dfm-targets.txt
-   wc -l /tmp/dfm-targets.txt
+   dotfiles-manager plan --root ~/.dotfiles --json > "$w/plan.json"
+   python3 -I -c 'import json,sys;[print(o["path"]) for o in json.load(open(sys.argv[1]))["plan"]["operations"] if o.get("path")]' "$w/plan.json" > "$w/targets.txt"
+   wc -l "$w/targets.txt"
    ```
 
-   The plan can show blockers at this point (the files in section 4). The target list is still complete.
-3. LIVE. Write the archive. `tar` skips absent paths and prints a notice for each:
+3. CHECK. List every Home Manager link. This lists them and removes nothing. The archive in step 5 holds
+   this list and the links themselves, and Path B removes exactly this list:
 
    ```sh
-   tar -czf ~/dfm-cutover-backup-$(date +%Y%m%d).tgz -C "$HOME" \
-     $(cat /tmp/dfm-targets.txt) \
-     .claude/settings.json .codex/AGENTS.md .pi/agent/AGENTS.md \
-     Library/LaunchAgents/com.user.maxfiles.plist Library/LaunchAgents/org.nixos.maxfiles.plist \
-     .local/state/dotfiles-manager .config/dotfiles-manager 2>&1 | tee /tmp/dfm-backup.log
+   for r in .config .claude .codex .pi .local .ssh .cursor .copilot .junie .agents; do
+     find "$HOME/$r" -type l -not -path '*/node_modules/*' 2>/dev/null
+   done > "$w/links.txt"
+   find "$HOME" -maxdepth 1 -type l >> "$w/links.txt"
+   while read -r l; do
+     case "$(readlink "$l")" in /nix/store/*-home-manager-files/*) echo "$l";; esac
+   done < "$w/links.txt" | sort > "$w/hm-links.txt"
+   sed "s#^$HOME/##" "$w/hm-links.txt" > "$w/hm-links-rel.txt"
+   wc -l "$w/hm-links.txt"
    ```
 
-   `tar` stores a symlink as a link, not as the file it points to. The archive holds the Home
-   Manager links as they are today.
-4. CHECK. `tar -tzf ~/dfm-cutover-backup-*.tgz | wc -l` is not zero. Keep a second copy outside the home directory.
-5. CHECK. Record the current nix generation for rollback: `darwin-rebuild --list-generations | tail -3`
+   On 2026-10-11 this printed 124 lines on this machine: 116 links the bundle manages, 2 `.config/op`
+   links the bundle also manages, 7 `.keep` seams that the bundle drops, and `.local/state/.keep`.
+   The last one is an empty file that Home Manager itself creates. No file in this repository declares it.
+   The bundle does not manage it. Read the list. A link that the bundle does not manage is not an
+   error, but you must know why it exists.
+4. CHECK. Record the current macOS defaults, for the rollback table: `scripts/mac-defaults.sh --check > "$w/defaults-before.txt"`.
+5. LIVE. Write the archive. `tar` skips absent paths and prints a notice for each. It stores a symlink as
+   a link, not as the file it points to, so the archive holds the Home Manager links as they are today:
+
+   ```sh
+   arch="$HOME/dfm-cutover-backup-$(date +%Y%m%d).tgz"
+   { cat "$w/targets.txt" "$w/hm-links-rel.txt"
+     printf '%s\n' .claude/settings.json .codex/AGENTS.md .pi/agent/AGENTS.md \
+       Library/LaunchAgents/com.user.maxfiles.plist Library/LaunchAgents/org.nixos.maxfiles.plist \
+       .local/state/dotfiles-manager .config/dotfiles-manager
+   } | sort -u > "$w/backup-paths.txt"
+   tar -czf "$arch" -C "$HOME" -T "$w/backup-paths.txt" \
+     -C / "${w#/}/hm-links.txt" "${w#/}/defaults-before.txt" 2>&1 | tee "$w/backup.log"
+   ```
+
+   Use one `-T` file: `bsdtar` ignores all but the last `-T` option.
+6. CHECK. The archive holds the link list and a Home Manager link:
+   `tar -tzf "$arch" | wc -l` is not zero, `tar -tzf "$arch" | rg -c 'hm-links.txt'` prints 1, and
+   `tar -tzf "$arch" | rg -c '^\.local/state/\.keep$'` prints 1. Copy the archive to a place outside the home directory.
+7. CHECK. Record the current nix generation for rollback: `darwin-rebuild --list-generations | tail -3`
    and `readlink /run/current-system`. Write both here: `<generation>`, `<store path>`.
 
 ## 3. Hand off from Home Manager
@@ -62,6 +98,10 @@ section of `README.md`, and `docs/first-run.md` in the dotfiles-manager reposito
 Pick one path. Path A is the declarative path. Path B is manual.
 
 ### Path A: final switch with `home.file` emptied
+
+Path A is for `personal-mac` only. It edits shared modules, so the branch must never merge. The
+switch also recreates `org.nixos.maxfiles`, because `modules/darwin/core.nix` (line 104) still
+declares `launchd.user.agents.maxfiles`. Run section 5 after the switch.
 
 1. LIVE. In a Worktrunk worktree of `~/.dotfiles` on a branch other than `dfm-cutover`, make this
    change. It has not been evaluated or built, because the author of this runbook ran no nix command:
@@ -72,36 +112,22 @@ Pick one path. Path A is the declarative path. Path B is manual.
 3. LIVE. Run `./rebuild.sh personal-mac`. Home Manager removes the links it created in the old
    generation. It does not remove the regular files that activation scripts wrote:
    `~/.codex/AGENTS.md`, `~/.pi/agent/AGENTS.md` and `~/.claude/settings.json`.
-4. CHECK. Run the dry run from Path B step 1. It must list 0 links.
+4. CHECK. Run step 3 of section 2 again, with `$w/links2.txt` and `$w/hm-links2.txt` as the output names. The final file must have 0 lines.
 
 ### Path B: remove the links by hand
 
-1. CHECK. Dry run. This lists every Home Manager link and removes nothing:
+1. CHECK. The list in `$w/hm-links.txt` is in the archive:
+   `tar -xzOf "$arch" "${w#/}/hm-links.txt" | cmp - "$w/hm-links.txt"` prints nothing.
+2. LIVE. Remove the links, reading the list from the archive. A directory link (for example
+   `~/.config/nvim`) is removed as a link, not recursively:
 
    ```sh
-   for r in .config .claude .codex .pi .local .ssh .cursor .copilot .junie .agents; do
-     find "$HOME/$r" -type l -not -path '*/node_modules/*' 2>/dev/null
-   done > /tmp/dfm-links.txt
-   find "$HOME" -maxdepth 1 -type l >> /tmp/dfm-links.txt
-   while read -r l; do
-     case "$(readlink "$l")" in /nix/store/*-home-manager-files/*) echo "$l";; esac
-   done < /tmp/dfm-links.txt | sort > /tmp/dfm-hm-links.txt
-   wc -l /tmp/dfm-hm-links.txt
-   ```
-
-   On 2026-10-11 this printed 124 lines on this machine: 116 links the bundle manages, 2 `.config/op`
-   links the bundle also manages, 7 `.keep` seams that the bundle drops, and `.local/state/.keep`.
-   The last one is an empty file that Home Manager itself creates. No file in this repository declares it.
-   The bundle does not manage it. Read the list. A link that the bundle does not manage is not an
-   error, but you must know why it exists.
-2. LIVE. Remove the links. A directory link (for example `~/.config/nvim`) is removed as a link, not recursively:
-
-   ```sh
-   while read -r l; do rm "$l"; done < /tmp/dfm-hm-links.txt
+   tar -xzOf "$arch" "${w#/}/hm-links.txt" | while read -r l; do rm "$l"; done
    ```
 
    `rm` without `-r` cannot delete a real directory. A failure here means a path is not a link.
-3. CHECK. Run the dry run again. It must list 0 links.
+3. CHECK. Repeat step 3 of section 2 with `$w/links2.txt` and `$w/hm-links2.txt` as the output names.
+   The final file must have 0 lines.
 
 Neither path removes `/run/current-system` or the nix daemon. Those stay until section 12.
 
@@ -111,12 +137,12 @@ Neither path removes `/run/current-system` or the nix daemon. Those stay until s
 2. LIVE. Move the assembled files aside with a dated suffix. They are regular files that the manager does not own yet:
 
    ```sh
-   d=$(date +%Y%m%d)
+   d=$(date +%Y%m%d); echo "$d" > "$w/date"
    mv ~/.codex/AGENTS.md ~/.codex/AGENTS.md.pre-dfm-$d
    mv ~/.pi/agent/AGENTS.md ~/.pi/agent/AGENTS.md.pre-dfm-$d
    ```
 
-   In the rehearsal, the new assembled files were byte-identical to these.
+   In the rehearsal, the new assembled files were byte-identical to these. Section 7 reads `d` again.
 3. CHECK. `ls -l ~/.claude/settings.json` shows `-rw-------`.
 
 ## 5. Unload the old maxfiles agents
@@ -136,6 +162,22 @@ Neither path removes `/run/current-system` or the nix daemon. Those stay until s
    file from nix-darwin: `rm -f` it.
 5. The new agent is loaded in section 9, after apply links its plist.
 
+### Abort before approval 2
+
+Use this if you stop after section 3, 4 or 5 and do not approve a plan digest.
+
+1. LIVE. Restore the files: `tar -xzf "$arch" -C "$HOME"`. For Path B this recreates every removed
+   Home Manager link, both maxfiles plists and the original settings and assembled files.
+2. LIVE. For Path A, return to the previous generation with the branch you used before the Path A edit:
+   `DFM_ALLOW_NIX=1 ./rebuild.sh personal-mac`. Home Manager then relinks the files. Run it only after
+   `$HOME/.codex/AGENTS.md.pre-dfm-*` and the other moved files are back in place (step 1).
+3. LIVE. Reload the old agents:
+   `launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.user.maxfiles.plist` and, if the
+   file exists, the same for `org.nixos.maxfiles.plist`.
+4. CHECK. `scripts/launch-agents.sh --check` lists the old agents as loaded. `readlink ~/.zshenv`
+   prints a `/nix/store` path. The manager binding stays. `just sync` and `just rebuild` refuse to run
+   while it exists, so set `DFM_ALLOW_NIX=1` for any nix command until you decide again.
+
 ## 6. Read the plan
 
 1. CHECK. Plan and preview:
@@ -151,8 +193,8 @@ Neither path removes `/run/current-system` or the nix daemon. Those stay until s
 2. CHECK. The preview prints the flags the real run needs. Expect one:
    `--allow-adopt 'core.claude-settings@.claude/settings.json'`. Any `--allow-disruptive` flag means
    the manager would delete an owned output. Stop and read it.
-3. The owner approves in writing and names the digest: "Approved for apply on the M5: plan digest
-   `<64 hex>`." The agent runs no LIVE step without this sentence.
+3. Approval 2, in writing, names the digest: "Approved for apply on the M5: plan digest `<64 hex>`."
+   The agent runs no apply without this sentence.
 
 ## 7. Apply
 
@@ -167,9 +209,10 @@ Neither path removes `/run/current-system` or the nix daemon. Those stay until s
    Run section 6 again.
 2. CHECK. Run `plan` again and apply the new digest. The state changed, so the digest changes.
    The apply must print `updated=0` and `result: ok`.
-3. CHECK. Compare the assembled files:
+3. CHECK. Compare the assembled files. Set `d` to the date from section 4 (`d=$(cat "$w/date")`):
 
    ```sh
+   d=$(cat "$w/date")
    cmp ~/.codex/AGENTS.md ~/.codex/AGENTS.md.pre-dfm-$d
    cmp ~/.pi/agent/AGENTS.md ~/.pi/agent/AGENTS.md.pre-dfm-$d
    ```
@@ -192,7 +235,12 @@ Neither path removes `/run/current-system` or the nix daemon. Those stay until s
 
 1. LIVE. `scripts/sync-side-channels.sh`. It renders secrets with op-render, updates git sources and
    agents, installs token-auditor, and runs the MCP and skills sync. It needs an interactive terminal and `op signin`.
-2. LIVE. `scripts/launch-agents.sh load`.
+2. LIVE. `scripts/launch-agents.sh load`. The plist is a symlink into the checkout. Whether launchd
+   accepts a symlinked plist is unverified, and this step shows it. If `bootstrap` fails, replace
+   the link with a copy: `rm ~/Library/LaunchAgents/org.carpenter.maxfiles.plist`, then
+   `cp ~/.dotfiles/home/Library/LaunchAgents/org.carpenter.maxfiles.plist ~/Library/LaunchAgents/`,
+   load it again, and remove the `library-launchagents-org-carpenter-maxfiles-plist` resource from
+   `dfm-module-core.toml` so the next plan does not link it.
 3. CHECK. `scripts/launch-agents.sh --check`. Expect `ok: org.carpenter.maxfiles loaded`.
 4. CHECK. `scripts/login-shell.sh --check`. Expect `ok: UserShell = /bin/zsh`.
 5. LIVE. `scripts/tiling-reload.sh`. It restarts the sketchybar service and reloads AeroSpace. The bar flickers once.
@@ -201,13 +249,21 @@ Neither path removes `/run/current-system` or the nix daemon. Those stay until s
 7. CHECK. `dotfiles-manager doctor --root ~/.dotfiles`. Expect exit 0. `D_PROBING_NOT_BUILT` is allowed.
 8. CHECK. `dotfiles-manager state check`.
 
-`just sync-dfm` and `just sync-dfm-apply <digest>` run sections 6 to 9 as one sequence. Use the manual steps for the first run.
+`just sync-dfm` and `just sync-dfm-apply <digest>` run sections 6 and 7 and steps 1 to 8 of this section as one
+sequence. `just sync-dfm` writes the approval flags to `${TMPDIR:-/tmp}/dfm-allow.txt` (or `$DFM_ALLOW_FILE`).
+`just sync-dfm-apply` rejects a digest that is not 64 hex characters, and it continues after a
+`tiling-reload.sh` or `mac-defaults.sh --check` failure. Use the manual steps for the first run.
+
+After the cutover, `just sync` and `just rebuild` refuse to run while the manager binding exists
+(`~/.config/dotfiles-manager/machine.toml`). They would recreate `org.nixos.maxfiles` and the Home Manager
+links. Set `DFM_ALLOW_NIX=1` only for a rollback.
 
 ## 10. Manual checks
 
 Run each in a new terminal window unless the step says otherwise.
 
-1. New shell: `exec zsh`. The prompt loads and `echo $EDITOR` prints `nvim`.
+1. New shell: `exec zsh`. The prompt loads and `echo $EDITOR` prints `nvim`. `zsh -c 'echo $EDITOR'` also prints `nvim`.
+   GUI apps that launchd starts do not read `~/.zshenv`, so they have no `EDITOR`. nix-darwin set it system-wide.
 2. `readlink ~/.zshenv` prints `/Users/carpenter/.dotfiles/home/.zshenv`.
 3. AeroSpace: the hotkeys work and `aerospace list-workspaces --all` runs.
 4. SketchyBar: the bar shows workspaces. Hover the top edge: the native menu appears, then the bar returns.
@@ -222,19 +278,32 @@ Run each in a new terminal window unless the step says otherwise.
 
 ## 11. Rollback
 
-Use the first level that fixes the problem.
+Use the first level that fixes the problem. Level 3 works only after level 1 has removed the manager's
+links, because Home Manager aborts when a file exists where it wants to place a link.
 
 1. Undo the links only. LIVE. Set `modules = []` in the profile, then run `plan`, `apply --preview`,
    and apply with the `--allow-disruptive` flags that the preview lists. This removes only the links
    the manager owns. The source files stay.
-2. Restore the backup. LIVE. `tar -xzf ~/dfm-cutover-backup-<date>.tgz -C "$HOME"`. This restores the
-   Home Manager links and the pre-cutover settings and assembled files.
-3. Return to the previous nix generation. LIVE. Run `sudo darwin-rebuild switch --rollback`, or run
-   `sudo /nix/var/nix/profiles/system-<N>-link/activate` with the generation recorded in section 2.
+2. Restore the backup. LIVE. `tar -xzf "$arch" -C "$HOME"`. This restores the Home Manager links and the
+   pre-cutover settings and assembled files. Links that the manager created and the archive does not hold
+   stay, so run level 1 first if you want a clean state.
+3. Return to the previous nix generation. LIVE. After level 1, run `DFM_ALLOW_NIX=1 sudo darwin-rebuild switch --rollback`,
+   or `sudo /nix/var/nix/profiles/system-<N>-link/activate` with the generation recorded in section 2.
    Home Manager then relinks the files. If you used Path A, this brings back the old modules.
 4. Reload the old agent. LIVE. `scripts/launch-agents.sh unload`, then
    `launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.user.maxfiles.plist` (restore the file from the archive first).
 5. CHECK. `readlink /run/current-system` equals the store path recorded in section 2.
+
+No level undoes the following. Each has an undo command or is accepted:
+
+| Change | Undo or decision |
+| --- | --- |
+| `brew bundle` installs (14 items on 2026-10-11) | Accepted. They do not conflict with nix. To remove one: `brew uninstall <name>`. |
+| `brew pin` on `sketchybar` and `borders` | `brew unpin sketchybar borders`. |
+| macOS defaults written by `scripts/mac-defaults.sh` | Compare with `defaults-before.txt` from the archive and run `defaults write` for each changed key. Nix-darwin writes the same values on the next switch. |
+| Side-channel outputs (op-render files, git sources, agents, token-auditor, MCP and skills sync) | Accepted. The old `just sync` regenerates them. |
+| `org.carpenter.maxfiles` loaded | `scripts/launch-agents.sh unload`. |
+| Login shell | `scripts/login-shell.sh --set` writes `/bin/zsh`. Nix set the same value, so nothing changes. |
 
 ## 12. Remove nix-darwin and Lix (after a soak week)
 

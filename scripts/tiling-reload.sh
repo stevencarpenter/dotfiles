@@ -3,6 +3,7 @@
 # Usage: tiling-reload.sh [--check]
 #   --check  Report whether the sketchybar service and AeroSpace run; exit 1 if either does not.
 #   default  brew services restart sketchybar; reload AeroSpace config, or open it when not running.
+#            Exit 1 when a step fails.
 # borders is started by AeroSpace, so it is not managed here.
 set -euo pipefail
 
@@ -26,7 +27,7 @@ elif [[ -n ${1:-} ]]; then
   echo "usage: $0 [--check]" >&2; exit 2
 fi
 
-# Failures must not block a sync, as in the nix activation.
+# A failed step makes the script exit 1. A caller that must continue (just sync-dfm-apply) uses `|| echo`.
 rc=0
 if [[ -x $sketchybar && -x $brew ]]; then
   # Strip SUDO_* so brew services uses gui/<uid>.
@@ -39,5 +40,5 @@ if [[ -x $aerospace_app ]]; then
 else
   echo "tiling-reload: AeroSpace not installed: skipping" >&2
 fi
-[[ $rc -eq 0 ]] || echo "tiling-reload: a step failed; continuing" >&2
-exit 0
+[[ $rc -eq 0 ]] || echo "tiling-reload: a step failed" >&2
+exit "$rc"
