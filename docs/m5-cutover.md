@@ -10,7 +10,7 @@ section of `README.md`, and `docs/first-run.md` in the dotfiles-manager reposito
 ## 1. Prerequisites
 
 1. CHECK. The manager is installed with `bootstrap.sh install` at a named commit of the
-   `going-to-sleep` branch. The commit is `55d2d4e97355bebecb65c01965895ebcc7de3763`.
+   `going-to-sleep` branch. The commit is `e35aa3a8380f1083bef4e41a93fdfbcbe8489165`.
    Run `dotfiles-manager --version`. The output must show the semver and that commit. It must not contain `isolated:`.
 2. CHECK. DFM-48 (hook identity, object merge, append, `settings.d`) and DFM-53 (bundle-declared source
    roots and excludes) are merged into the installed manager commit. Until DFM-53 is merged,
@@ -18,13 +18,17 @@ section of `README.md`, and `docs/first-run.md` in the dotfiles-manager reposito
    under `home/.config/tmux/plugins`). Do not start before that. Commit 55d2d4e also holds the
    `directory = true` key that this branch sets on its 47 directory links (a directory source without it
    is `E_MANIFEST_INVALID`), the `E_PLATFORM_MISMATCH` check and the canonical HOME check.
-   Rehearsal 4 (2026-10-11, a test-isolation build of 55d2d4e, an isolated HOME with the Home Manager
+   Commit e35aa3a also records every source directory in the tree digest, rechecks each link source just
+   before it publishes (`E_PLAN_STALE` if the checkout changed after the plan), refuses sibling names that
+   differ only by case, and validates `~/.config` and `~/.config/dotfiles-manager` in `bootstrap.sh`.
+   Rehearsal 5 (2026-10-11, a test-isolation build of e35aa3a, an isolated HOME with the Home Manager
    links removed, the assembled files moved aside and `settings.json` at mode 600): `plan` showed 0
    blocked and 159 operations (117 links, 39 `mkdir`, 1 take, 2 writes). The 120 non-`mkdir` paths match
-   rehearsal 3. `apply` with the one `--allow-adopt` flag gave `updated=159`, and the second apply gave
-   `current=120`. `doctor` exited 0 (`ok=136`) and `state check` exited 0. Plan digest of the first
-   plan: `26a76e6a927e48bdee384c0588b52efbad11bf9eaf11fdb960e5888b7c631866`. The digest depends on the HOME
-   path and the machine state, so the live digest differs.
+   rehearsals 3 and 4. `apply` with the one `--allow-adopt` flag gave `result: ok`, and the second apply
+   gave `current=120`. `doctor` and `state check` exited 0. Plan digest of the first plan:
+   `6ad717fc95645ebfc283d8f50e23e7ae384504ff5df03af7807de24479364ef2`. The digest depends on the HOME
+   path and the machine state, so the live digest differs. `bootstrap.sh install` was not rehearsed: only
+   the `DFM_BOOTSTRAP_TEST=1` hooks redirect HOME, and install needs a placed toolchain and a lock.
 3. CHECK. This branch (`dfm-cutover`) is checked out at `~/.dotfiles`. Run
    `git -C ~/.dotfiles rev-parse --abbrev-ref HEAD` and `git -C ~/.dotfiles status --short`.
    The branch must be `dfm-cutover` and the tree must have no tracked changes.
