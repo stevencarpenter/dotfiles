@@ -29,8 +29,9 @@ section of `README.md`, and `docs/first-run.md` in the dotfiles-manager reposito
    `[manager].toolchain_tree_sha256` in `dotfiles-manager.lock` of the commit you install. Run the script
    from a checkout of that commit.
 2. CHECK. The manager is installed with `bootstrap.sh install` at a named commit of the
-   `going-to-sleep` branch: `e35aa3a8380f1083bef4e41a93fdfbcbe8489165` or later. The lock lands in the DFM-56
-   commit, which becomes the commit to install: `<DFM-56 commit sha, fill in before the run>`.
+   `going-to-sleep` branch: `266fef4ee98a9e81192c4c700b385d47b27a3f9f` (DFM-56, PR #30) or later. That
+   commit carries `dotfiles-manager.lock` and is the commit to install. A later commit is acceptable only
+   after its own fresh-clone gate passed and it is named in approval 1.
    Run `dotfiles-manager --version`. The output must show the semver and that commit. It must not contain `isolated:`.
 3. CHECK. DFM-48 (hook identity, object merge, append, `settings.d`) and DFM-53 (bundle-declared source
    roots and excludes) are merged into the installed manager commit. Until DFM-53 is merged,
