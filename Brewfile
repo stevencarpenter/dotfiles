@@ -7,6 +7,11 @@
 
 # ---------------------------------------------------------------------------
 # Section 1: modules/darwin/homebrew.nix
+#
+# Trust decision: homebrew.nix sets `trusted = true` per entry only on crush, sketchybar
+# and borders. The nix-darwin module also renders `trusted: true` on every other entry in
+# the generated Brewfile in /nix/store (a module default, not set in the source). This
+# file keeps `trusted: true` only on the three per-entry ones. Section 2 has none.
 # ---------------------------------------------------------------------------
 
 # Taps
@@ -17,28 +22,28 @@ tap "FelixKratz/formulae"
 
 # Brews
 # Atuin migrations require a current client; avoid the soaked Nix pin lag.
-brew "atuin", trusted: true
+brew "atuin"
 # Shell binaries: kept in Homebrew because dot_config/zsh/.zshrc probes
 # the Homebrew prefix for zsh and the completion paths assume it.
-brew "zsh", trusted: true
-brew "zsh-completions", trusted: true
-brew "bash", trusted: true
-brew "bash-completion", trusted: true
+brew "zsh"
+brew "zsh-completions"
+brew "bash"
+brew "bash-completion"
 # GNU `watch` (procps) has spotty Darwin packaging in nixpkgs: kept brew.
-brew "watch", trusted: true
+brew "watch"
 # Git worktree helper; not confirmed in nixpkgs: kept brew.
-brew "worktrunk", trusted: true
+brew "worktrunk"
 # No nixpkgs equivalent; both are homebrew/core formulae.
-brew "herdr", trusted: true
-brew "mole", trusted: true
+brew "herdr"
+brew "mole"
 # Crush's FSL-1.1 license prevents Hydra caching, requiring local Nix builds.
 # Homebrew 6 requires formula-level trust and a fully qualified tap name.
 brew "charmbracelet/tap/crush", trusted: true
 # mactop requires Apple Silicon.
-brew "mactop", trusted: true
+brew "mactop"
 # brew services supervises tailscaled; nix-darwin has no services.tailscale.
 # Non-work identity only.
-brew "tailscale", trusted: true
+brew "tailscale"
 # Homebrew 6 requires explicit trust for third-party tap code. Trust is scoped to
 # these two formulae, not the whole FelixKratz tap. Fully-qualified names are
 # required for formula-level `trusted` to take effect in Brewfile evaluation.
@@ -47,37 +52,37 @@ brew "felixkratz/formulae/sketchybar", trusted: true
 brew "felixkratz/formulae/borders", trusted: true
 # Homebrew supplies newer Railway releases than the soaked unstable pin.
 # At the 2026-08-07 comparison: Nix 5.27.0, Homebrew 5.31.0.
-brew "railway", trusted: true
+brew "railway"
 # Keep Homebrew bottles until `nix build --dry-run` confirms Darwin cache
 # coverage; uncached Swift builds can take hours.
-brew "swiftlint", trusted: true
-brew "swiftformat", trusted: true
-brew "swift-format", trusted: true
-brew "xcbeautify", trusted: true
+brew "swiftlint"
+brew "swiftformat"
+brew "swift-format"
+brew "xcbeautify"
 
 # Casks
 # `op`: kept brew to pair its update/signing cadence with the
 # 1Password.app GUI cask for consistent biometric/keychain integration.
-cask "1password-cli", trusted: true
-cask "ghostty", trusted: true
-cask "raycast", trusted: true
-cask "1password", trusted: true
-cask "bbedit", trusted: true
-cask "obsidian", trusted: true
-cask "orbstack", trusted: true
-cask "codex", trusted: true
-cask "handy", trusted: true
+cask "1password-cli"
+cask "ghostty"
+cask "raycast"
+cask "1password"
+cask "bbedit"
+cask "obsidian"
+cask "orbstack"
+cask "codex"
+cask "handy"
 # Bespoke Powerlevel10k-patched Meslo build: not a standard nixpkgs font.
-cask "font-meslo-for-powerlevel10k", trusted: true
+cask "font-meslo-for-powerlevel10k"
 # aerospace is a third-party tap cask with no nixpkgs equivalent.
-cask "nikitabobko/tap/aerospace", trusted: true
+cask "nikitabobko/tap/aerospace"
 # SketchyBar icon font (requires gui and tiling).
-cask "font-sketchybar-app-font", trusted: true
+cask "font-sketchybar-app-font"
 # Homebrew supplies fonts without confirmed Nix cache coverage.
-cask "font-input", trusted: true
-cask "font-intel-one-mono", trusted: true
-cask "font-iosevka", trusted: true
-cask "font-inconsolata-go-nerd-font", trusted: true
+cask "font-input"
+cask "font-intel-one-mono"
+cask "font-iosevka"
+cask "font-inconsolata-go-nerd-font"
 
 # ---------------------------------------------------------------------------
 # from nix packages.nix
