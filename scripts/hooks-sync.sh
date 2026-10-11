@@ -33,7 +33,7 @@ run_py() {
     return 0
   fi
   PYTHONNOUSERSITE=1 PYTHONPATH="$project/src" \
-    "$uv_bin" run --frozen --project "$project" python -m "$@" ||
+    "$uv_bin" run --frozen --no-dev --no-install-project --project "$project" python -m "$@" ||
     echo "Warning: $label failed." >&2
 }
 
@@ -50,7 +50,8 @@ skills_sync() {
   [[ -f $project/pyproject.toml ]] || { echo "Warning: skill sync project not found at $project; skipping." >&2; return 0; }
   [[ -f $overlay ]] || { echo "Warning: no machine overlay at $overlay; skipping skill sync." >&2; return 0; }
   echo "==> skillsSync"
-  run_py "skill sync" mcp_sync.skills_cli --repo-root "$canonical" --machine-config "$overlay"
+  # sync-skills runs git and ssh as subprocesses; /usr/bin matches the nix hook's explicit git and ssh.
+  PATH="/usr/bin:$PATH" run_py "skill sync" mcp_sync.skills_cli --repo-root "$canonical" --machine-config "$overlay"
 }
 
 # Add the hippo SessionStart hook without replacing other hooks. A symlinked
@@ -58,7 +59,7 @@ skills_sync() {
 codex_hooks_merge() {
   local hooks="$HOME/.codex/hooks.json"
   local hippo="$HOME/.local/share/hippo-brain/shell/claude-session-hook.sh"
-  local content merged
+  local content merged tmp
   echo "==> codexHooksMerge"
   if ((check)); then
     echo "would merge the hippo SessionStart hook into $hooks"
@@ -80,7 +81,14 @@ codex_hooks_merge() {
         else .hooks.SessionStart = [{hooks: [{type: "command", command: $cmd}]}]
                + (.hooks.SessionStart // [])
         end' "$hooks")"; then
-    printf '%s\n' "$merged" >"$hooks.tmp" && mv "$hooks.tmp" "$hooks"
+    if [[ -z $merged ]]; then
+      echo "Warning: empty hippo hook merge result for $hooks; leaving it alone." >&2
+      return 0
+    fi
+    tmp="$(mktemp "$hooks.XXXXXX")" || return 0
+    chmod 600 "$tmp"
+    printf '%s\n' "$merged" >"$tmp"
+    mv "$tmp" "$hooks" || rm -f "$tmp"
   else
     echo "Warning: could not merge hippo hook into $hooks; leaving it alone." >&2
   fi
