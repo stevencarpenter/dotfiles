@@ -10,16 +10,6 @@ TOKEN_AUDITOR_VERSION := `tr -d '\n' < versions/token-auditor`
 default:
     @just --list
 
-# Open and validate a Vim Golf challenge (defaults to today; challenges live in ~/projects/vim-golf).
-[group('Utilities')]
-vim-golf *DAY:
-    scripts/vim-golf play {{ DAY }}
-
-# Show progress across the Vim Golf curriculum.
-[group('Utilities')]
-vim-golf-list:
-    scripts/vim-golf list
-
 # ── Nix (build / switch) ─────────────────────────────────
 
 # Apply Nix configuration only; included in sync and update. Optional HOST override.
