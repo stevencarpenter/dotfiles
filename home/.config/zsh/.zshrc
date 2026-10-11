@@ -369,30 +369,35 @@ function gmfp() {
   fi
 }
 
-# Commit all tracked changes with an AI-generated message (uses `codex` directly to avoid
-# codax's token-audit output, and reads the answer from a file rather than stdout).
+# Read-only git tools for the gcam family's `claude -p` calls.
+typeset -ga _gcam_claude_args=(
+  -p --model claude-haiku-5-5 --no-session-persistence --disable-slash-commands
+  --tools Bash --allowedTools 'Bash(git status:*)' 'Bash(git diff:*)' 'Bash(git log:*)'
+)
+
+# Commit all tracked changes with an AI-generated message (uses `claude` directly to avoid
+# claade's token-audit output, and captures the answer in a file).
 function gcam() {
-  if ! command -v codex >/dev/null 2>&1; then
-    echo "gcam: 'codex' CLI not found in PATH" >&2
+  if ! command -v claude >/dev/null 2>&1; then
+    echo "gcam: 'claude' CLI not found in PATH" >&2
     return 127
   fi
   local msg rc out
-  out="$(mktemp "${TMPDIR:-/tmp}/gcam-message.XXXXXX")"
-  codex exec --model gpt-6-luna --sandbox read-only --output-last-message "$out" \
-    "generate commit message and only return the message in plaintext with no quoting, newlines, emoji, or formatting. Strictly plaintext formatted for direct use as a conventional commit compliant git commit message. The commit should encompass all current changes in the repo, so consider all changed files and their diffs when generating the message. Keep it concise, ideally under 72 characters, but include enough detail to be informative. Do not include any metadata, explanations, or formatting: just the raw commit message text." >/dev/null 2>&1
+  out="$(mktemp "${TMPDIR:-/tmp}/gcam-message.XXXXXX")" || return
+  claude "${_gcam_claude_args[@]}" -- \
+    "generate commit message and only return the message in plaintext with no quoting, newlines, emoji, or formatting. Strictly plaintext formatted for direct use as a conventional commit compliant git commit message. The commit should encompass all current changes in the repo, so consider all changed files and their diffs when generating the message. Keep it concise, ideally under 72 characters, but include enough detail to be informative. Do not include any metadata, explanations, or formatting: just the raw commit message text." >"$out" 2>/dev/null
   rc=$?
-  msg=""
-  [[ -f "$out" ]] && msg="$(<"$out")"
+  msg="$(<"$out")"
   rm -f "$out"
   if (( rc != 0 )); then
-    echo "gcam: codex exited with status $rc; aborting commit" >&2
+    echo "gcam: claude exited with status $rc; aborting commit" >&2
     return $rc
   fi
   # Trim leading/trailing whitespace
   msg="${msg#"${msg%%[![:space:]]*}"}"
   msg="${msg%"${msg##*[![:space:]]}"}"
   if [[ -z "$msg" ]]; then
-    echo "gcam: codex returned an empty message; aborting commit" >&2
+    echo "gcam: claude returned an empty message; aborting commit" >&2
     return 1
   fi
   git commit -am "$msg"
@@ -434,13 +439,13 @@ function gcampr() {
     return 1
   fi
   out=$(mktemp "${TMPDIR:-/tmp}/gcampr-message.XXXXXX") || return
-  codex exec --model gpt-6-luna -c 'model_reasoning_effort="medium"' --sandbox read-only --output-last-message "$out" \
-    "Inspect git diff $merge_base...HEAD and git log $merge_base..HEAD. Return only a concise, accurate PR title on the first line, one blank line, then a concise Markdown description of the actual changes in 1-3 bullets. Describe the whole branch, not just the last commit. Do not claim tests ran unless you can verify they did." >/dev/null 2>&1
+  claude "${_gcam_claude_args[@]}" --effort medium -- \
+    "Inspect git diff $merge_base...HEAD and git log $merge_base..HEAD. Return only a concise, accurate PR title on the first line, one blank line, then a concise Markdown description of the actual changes in 1-3 bullets. Describe the whole branch, not just the last commit. Do not claim tests ran unless you can verify they did." >"$out" 2>/dev/null
   rc=$?
   pr="$(<"$out")"
   if (( rc != 0 )); then
     rm -f "$out"
-    echo "gcampr: codex exited with status $rc; PR not created or updated" >&2
+    echo "gcampr: claude exited with status $rc; PR not created or updated" >&2
     return $rc
   fi
   title="${pr%%$'\n'*}"
@@ -448,7 +453,7 @@ function gcampr() {
   body="${body#$'\n'}"
   if [[ "$pr" != *$'\n'* || "$title" != *[![:space:]]* || "$body" != *[![:space:]]* ]]; then
     rm -f "$out"
-    echo "gcampr: codex returned no title or description; PR not created or updated" >&2
+    echo "gcampr: claude returned no title or description; PR not created or updated" >&2
     return 1
   fi
   print -r -- "$body" > "$out"

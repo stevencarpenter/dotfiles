@@ -1,12 +1,5 @@
-# Gitleaks config for chezmoi dotfiles repo.
-# Extends the default ruleset; adds allowlist for age-encrypted blobs.
+# Secrets render from 1Password; no ciphertext paths are exempt from scanning.
 # https://github.com/gitleaks/gitleaks/blob/master/config/gitleaks.toml
 
 [extend]
 useDefault = true
-
-[allowlist]
-description = "Ignore age-encrypted secret files (ciphertext at rest under secrets/)"
-paths = [
-  '''^secrets/.*\.age$''',
-]

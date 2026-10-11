@@ -154,12 +154,14 @@ in
         | (if .effortLevel == null then .effortLevel = "xhigh" else . end)')" \
         || { echo "Warning: Claude defaults normalization failed; keeping existing settings." >&2; exit 0; }
 
-      # Allow uvx cache and registry checkout writes without removing user-added
-      # sandbox paths. Normalize allowWrite to an array before appending.
+      # Allow uvx cache, uvx tool environments (lefthook hooks run through uvx), and
+      # registry checkout writes without removing user-added sandbox paths.
+      # Normalize allowWrite to an array before appending.
       merged="$(printf '%s\n' "$merged" | ${jq} \
         --arg p1 "$HOME/.cache/uv" \
-        --arg p2 "$HOME/projects/agents" '
-        reduce ($p1, $p2) as $p (.;
+        --arg p2 "$HOME/projects/agents" \
+        --arg p3 "$HOME/.local/share/uv/tools" '
+        reduce ($p1, $p2, $p3) as $p (.;
           (.sandbox.filesystem.allowWrite // [] | if type == "array" then . else [] end) as $aw
           | if ($aw | index($p)) then .
             else .sandbox.filesystem.allowWrite = ($aw + [$p]) end)')" \
