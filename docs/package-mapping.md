@@ -26,7 +26,7 @@ Decisions:
 | Nix attribute | Brew formula or cask, or drop | Brew version | Notes |
 | --- | --- | --- | --- |
 | `mise` | brew `mise` | 2026.10.7 | unstable pin 2026.9.18 at nixpkgs 7dd199b0; brew 2026.10.7. Brew is newer |
-| `uv` | brew `uv` | 0.13.0 | unstable pin 0.12.22 at nixpkgs 7dd199b0; brew 0.13.0. Brew is newer |
+| `uv` | brew `uv` | 0.13.0 | unstable pin 0.12.22 at nixpkgs 7dd199b0; brew 0.13.0. Brew is newer; `scripts/hooks-sync.sh` runs mcp_sync through `uv run --frozen --project mcp_sync` |
 | `fzf` | brew `fzf` | 0.74.4 | unstable pin 0.74.4 at nixpkgs 7dd199b0; brew 0.74.4. Brew is equal |
 | `lazygit` | brew `lazygit` | 0.66.0 | unstable pin 0.66.0 at nixpkgs 7dd199b0; brew 0.66.0. Brew is equal |
 | `zoxide` | brew `zoxide` | 0.10.0 | unstable pin 0.10.0 at nixpkgs 7dd199b0; brew 0.10.0. Brew is equal |
@@ -38,7 +38,7 @@ Decisions:
 | `fd` | brew `fd` | 10.5.0 |  |
 | `grex` | brew `grex` | 1.4.6 |  |
 | `htop` | brew `htop` | 3.5.3 |  |
-| `jq` | brew `jq` | 1.8.2 |  |
+| `jq` | brew `jq` | 1.8.2 | also used by `scripts/hooks-sync.sh` (Codex hooks merge) |
 | `gnumake` | brew `make` | 4.4.1 | installs as `gmake`; `make` needs the gnubin path, otherwise Xcode make is used |
 | `tree` | brew `tree` | 2.3.2 |  |
 | `wget` | brew `wget` | 1.25.0 |  |

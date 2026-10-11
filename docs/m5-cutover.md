@@ -233,23 +233,27 @@ Use this if you stop after section 3, 4 or 5 and do not approve a plan digest.
 
 ## 9. Side channels, agents and system settings
 
-1. LIVE. `scripts/sync-side-channels.sh`. It renders secrets with op-render, updates git sources and
-   agents, installs token-auditor, and runs the MCP and skills sync. It needs an interactive terminal and `op signin`.
-2. LIVE. `scripts/launch-agents.sh load`. The plist is a symlink into the checkout. Whether launchd
+1. LIVE. `scripts/hooks-sync.sh`. It runs the MCP sync, the skills sync and the Codex hippo hook merge.
+   These were Home Manager activation hooks. Run `scripts/hooks-sync.sh --check` first: it prints the
+   commands and writes nothing. Each step warns and continues on failure.
+2. LIVE. `scripts/sync-side-channels.sh`. It renders secrets with op-render, updates git sources and
+   agents, installs token-auditor, the gh-axi skill and the fantasy-sports agents. It does not run the MCP
+   or skills sync (step 1 does). It needs an interactive terminal and `op signin`.
+3. LIVE. `scripts/launch-agents.sh load`. The plist is a symlink into the checkout. Whether launchd
    accepts a symlinked plist is unverified, and this step shows it. If `bootstrap` fails, replace
    the link with a copy: `rm ~/Library/LaunchAgents/org.carpenter.maxfiles.plist`, then
    `cp ~/.dotfiles/home/Library/LaunchAgents/org.carpenter.maxfiles.plist ~/Library/LaunchAgents/`,
    load it again, and remove the `library-launchagents-org-carpenter-maxfiles-plist` resource from
    `dfm-module-core.toml` so the next plan does not link it.
-3. CHECK. `scripts/launch-agents.sh --check`. Expect `ok: org.carpenter.maxfiles loaded`.
-4. CHECK. `scripts/login-shell.sh --check`. Expect `ok: UserShell = /bin/zsh`.
-5. LIVE. `scripts/tiling-reload.sh`. It restarts the sketchybar service and reloads AeroSpace. The bar flickers once.
-6. CHECK. `scripts/mac-defaults.sh --check`. Expect 33 lines, all `ok`. If a line is not `ok`, read it,
+4. CHECK. `scripts/launch-agents.sh --check`. Expect `ok: org.carpenter.maxfiles loaded`.
+5. CHECK. `scripts/login-shell.sh --check`. Expect `ok: UserShell = /bin/zsh`.
+6. LIVE. `scripts/tiling-reload.sh`. It restarts the sketchybar service and reloads AeroSpace. The bar flickers once.
+7. CHECK. `scripts/mac-defaults.sh --check`. Expect 33 lines, all `ok`. If a line is not `ok`, read it,
    then run `scripts/mac-defaults.sh` (LIVE, it restarts the Dock).
-7. CHECK. `dotfiles-manager doctor --root ~/.dotfiles`. Expect exit 0. `D_PROBING_NOT_BUILT` is allowed.
-8. CHECK. `dotfiles-manager state check`.
+8. CHECK. `dotfiles-manager doctor --root ~/.dotfiles`. Expect exit 0. `D_PROBING_NOT_BUILT` is allowed.
+9. CHECK. `dotfiles-manager state check`.
 
-`just sync-dfm` and `just sync-dfm-apply <digest>` run sections 6 and 7 and steps 1 to 8 of this section as one
+`just sync-dfm` and `just sync-dfm-apply <digest>` run sections 6 and 7 and steps 1 to 9 of this section as one
 sequence. `just sync-dfm` writes the approval flags to `~/.local/state/dfm-cutover/allow.txt` (directory mode 0700, or `$DFM_ALLOW_DIR`). The apply recipe refuses a file that is a link or not yours.
 `just sync-dfm-apply` rejects a digest that is not 64 hex characters, and it continues after a
 `tiling-reload.sh` or `mac-defaults.sh --check` failure. Use the manual steps for the first run.
@@ -257,6 +261,24 @@ sequence. `just sync-dfm` writes the approval flags to `~/.local/state/dfm-cutov
 After the cutover, `just sync` and `just rebuild` refuse to run while the manager binding exists
 (`~/.config/dotfiles-manager/machine.toml`). They would recreate `org.nixos.maxfiles` and the Home Manager
 links. Set `DFM_ALLOW_NIX=1` only for a rollback.
+
+### Home Manager activation hooks: coverage
+
+`scripts/hooks-sync.sh` ports the hooks that no manager resource covers. The table classifies every
+`home.activation` entry under `modules/home` (verified 2026-10-11).
+
+| Hook (source) | Coverage on this branch |
+| --- | --- |
+| `mcpSync` (`sync-hooks.nix`) | Ported: `scripts/hooks-sync.sh` |
+| `skillsSync` (`sync-hooks.nix`) | Ported: `scripts/hooks-sync.sh` |
+| `codexHooksMerge` (`dotfiles.nix`) | Ported: `scripts/hooks-sync.sh` |
+| `claudeSettingsMerge` (`ai-stack.nix`) | Manager resource: the Claude settings merge in `dfm-module-core.toml` |
+| `codexAgentsAssemble`, `piAgentsAssemble` (`dotfiles.nix`) | Manager resources: `codex-agents` and the pi assembly in `dfm-module-core.toml` |
+| `fantasySportsSync` (`sync-hooks.nix`) | Existing script: `sync-side-channels.sh` runs `install-fantasy-sports.sh` |
+| `opRenderStaleCheck` (`sync-hooks.nix`) | Existing script: `sync-side-channels.sh` runs op-render itself, which refreshes the secrets |
+| `startTilingStack` (`tiling.nix`) | Existing script: `scripts/tiling-reload.sh` (section 9) |
+| `checkLinkParents` (`raw-dotfiles.nix`) | Dropped: it guards Home Manager link writes only. The manager does not use Home Manager links |
+| `onFilesChange`, `copyApps`, `setupLaunchAgents` | Not declared under `modules/home`; they are nix-darwin and Home Manager built-ins. Dropped with nix |
 
 ## 10. Manual checks
 
@@ -301,7 +323,7 @@ No level undoes the following. Each has an undo command or is accepted:
 | `brew bundle` installs (14 items on 2026-10-11) | Accepted. They do not conflict with nix. To remove one: `brew uninstall <name>`. |
 | `brew pin` on `sketchybar` and `borders` | `brew unpin sketchybar borders`. |
 | macOS defaults written by `scripts/mac-defaults.sh` | Compare with `defaults-before.txt` from the archive and run `defaults write` for each changed key. Nix-darwin writes the same values on the next switch. |
-| Side-channel outputs (op-render files, git sources, agents, token-auditor, MCP and skills sync) | Accepted. The old `just sync` regenerates them. |
+| Side-channel and hook outputs (op-render files, git sources, agents, token-auditor, MCP and skills sync, `~/.codex/hooks.json` merge) | Accepted. The old `just sync` regenerates them. |
 | `org.carpenter.maxfiles` loaded | `scripts/launch-agents.sh unload`. |
 | Login shell | `scripts/login-shell.sh --set` writes `/bin/zsh`. Nix set the same value, so nothing changes. |
 

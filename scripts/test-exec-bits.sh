@@ -42,6 +42,8 @@ exec_scripts=(
   scripts/sync-side-channels.sh
   scripts/install-fantasy-sports.sh
   scripts/test-install-fantasy-sports.sh
+  scripts/hooks-sync.sh
+  scripts/test-hooks-sync.sh
   scripts/update-inputs.sh
   scripts/update-unstable.sh
   scripts/test-gh-account-routing.sh

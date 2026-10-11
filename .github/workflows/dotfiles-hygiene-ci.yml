@@ -111,6 +111,9 @@ jobs:
       - name: Validate fantasy-sports agent and skill install
         run: scripts/test-install-fantasy-sports.sh
 
+      - name: Validate hooks-sync --check writes nothing
+        run: scripts/test-hooks-sync.sh
+
       - name: Validate tmux lifecycle contract
         run: scripts/test-tmux-lifecycle-contract.sh
 

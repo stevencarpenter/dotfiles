@@ -131,6 +131,7 @@ sync-dfm-apply $digest:
       done < "$allow"
     fi
     dotfiles-manager apply --root "$root" --yes-plan "$digest" ${flags[@]+"${flags[@]}"}
+    scripts/hooks-sync.sh
     scripts/brew-sync.sh
     scripts/sync-side-channels.sh
     scripts/launch-agents.sh load
