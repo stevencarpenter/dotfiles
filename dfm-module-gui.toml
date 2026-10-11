@@ -1,0 +1,8 @@
+# caps.gui = true. Nix uses this gate only for Homebrew casks and fonts, which are
+# outside dotfiles-manager scope. This module holds no resources.
+
+schema = 1
+id = "gui"
+platforms = ["macos"]
+requires = []
+

@@ -1,0 +1,65 @@
+# caps.tiling. aerospace.toml uses the personal variant. machine.env is a static
+# per-identity file (nix generated it from caps.sketchybar_workspace_badges = false).
+# layouts is personal-only in nix.
+
+schema = 1
+id = "tiling"
+platforms = ["macos"]
+requires = []
+
+[[resources]]
+id = "config-aerospace-aerospace-toml"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/aerospace/aerospace.toml"
+[resources.value]
+source = "home/.config/aerospace/aerospace.personal.toml"
+
+[[resources]]
+id = "config-sketchybar-sketchybarrc"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/sketchybar/sketchybarrc"
+[resources.value]
+source = "home/.config/sketchybar/sketchybarrc"
+
+[[resources]]
+id = "config-sketchybar-items"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/sketchybar/items"
+[resources.value]
+source = "home/.config/sketchybar/items"
+
+[[resources]]
+id = "config-sketchybar-plugins"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/sketchybar/plugins"
+[resources.value]
+source = "home/.config/sketchybar/plugins"
+
+[[resources]]
+id = "config-borders"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/borders"
+[resources.value]
+source = "home/.config/borders"
+
+[[resources]]
+id = "config-sketchybar-machine-env"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/sketchybar/machine.env"
+[resources.value]
+source = "home/.config/sketchybar/machine.personal.env"
+
+[[resources]]
+id = "config-aerospace-layouts"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/aerospace/layouts"
+[resources.value]
+source = "home/.config/aerospace/layouts"
+

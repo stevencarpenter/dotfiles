@@ -1,0 +1,431 @@
+# Always on: nix mkLinks (all machines), ssh, mise base, agent-reap, duckdbrc.
+# The Claude settings merge and the two instruction assemblies are appended below.
+# TODO(DFM-51): add a link for home/Library/LaunchAgents/org.carpenter.maxfiles.plist
+# once that file exists on this branch.
+
+schema = 1
+id = "core"
+platforms = ["macos"]
+requires = []
+
+[[resources]]
+id = "zshenv"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".zshenv"
+[resources.value]
+source = "home/.zshenv"
+
+[[resources]]
+id = "config-zsh-zshenv"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/zsh/.zshenv"
+[resources.value]
+source = "home/.config/zsh/.zshenv"
+
+[[resources]]
+id = "config-zsh-zshrc"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/zsh/.zshrc"
+[resources.value]
+source = "home/.config/zsh/.zshrc"
+
+[[resources]]
+id = "config-zsh-zprofile"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/zsh/.zprofile"
+[resources.value]
+source = "home/.config/zsh/.zprofile"
+
+[[resources]]
+id = "config-zsh-p10k-zsh"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/zsh/.p10k.zsh"
+[resources.value]
+source = "home/.config/zsh/.p10k.zsh"
+
+[[resources]]
+id = "config-zsh-lib"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/zsh/lib"
+[resources.value]
+source = "home/.config/zsh/lib"
+
+[[resources]]
+id = "config-zsh-profile-d-worktrunk-aliases-zsh"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/zsh/profile.d/worktrunk-aliases.zsh"
+[resources.value]
+source = "home/.config/zsh/profile.d/worktrunk-aliases.zsh"
+
+[[resources]]
+id = "config-zsh-profile-d-common-env-zsh"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/zsh/profile.d/common-env.zsh"
+[resources.value]
+source = "home/.config/zsh/profile.d/common-env.zsh"
+
+[[resources]]
+id = "config-nvim"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/nvim"
+[resources.value]
+source = "home/.config/nvim"
+
+[[resources]]
+id = "config-yazi"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/yazi"
+[resources.value]
+source = "home/.config/yazi"
+
+[[resources]]
+id = "config-tmux"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/tmux"
+[resources.value]
+source = "home/.config/tmux"
+
+[[resources]]
+id = "config-ghostty"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/ghostty"
+[resources.value]
+source = "home/.config/ghostty"
+
+[[resources]]
+id = "ideavimrc"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".ideavimrc"
+[resources.value]
+source = "home/.ideavimrc"
+
+[[resources]]
+id = "config-git"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/git"
+[resources.value]
+source = "home/.config/git"
+
+[[resources]]
+id = "config-jj-config-toml"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/jj/config.toml"
+[resources.value]
+source = "home/.config/jj/config.toml"
+
+[[resources]]
+id = "config-dev-container"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/dev-container"
+[resources.value]
+source = "home/.config/dev-container"
+
+[[resources]]
+id = "config-nushell-config-nu"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/nushell/config.nu"
+[resources.value]
+source = "home/.config/nushell/config.nu"
+
+[[resources]]
+id = "config-github-copilot-intellij-global-copilot-instructions-md"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/github-copilot/intellij/global-copilot-instructions.md"
+[resources.value]
+source = "home/.config/github-copilot/intellij/global-copilot-instructions.md"
+
+[[resources]]
+id = "config-agents-output-policy-md"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/agents/output-policy.md"
+[resources.value]
+source = "home/.config/agents/output-policy.md"
+
+[[resources]]
+id = "local-bin-gh"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".local/bin/gh"
+[resources.value]
+source = "home/.local/bin/gh"
+
+[[resources]]
+id = "local-bin-obsidian-capture"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".local/bin/obsidian-capture"
+[resources.value]
+source = "home/.local/bin/obsidian-capture"
+
+[[resources]]
+id = "local-bin-worktrunk-commit-generator"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".local/bin/worktrunk-commit-generator"
+[resources.value]
+source = "home/.local/bin/worktrunk-commit-generator"
+
+[[resources]]
+id = "local-bin-tmux-refresh-env"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".local/bin/tmux-refresh-env"
+[resources.value]
+source = "home/.local/bin/tmux-refresh-env"
+
+[[resources]]
+id = "claude-statusline-command-sh"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".claude/statusline-command.sh"
+[resources.value]
+source = "home/.claude/statusline-command.sh"
+
+[[resources]]
+id = "claude-claude-md"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".claude/CLAUDE.md"
+[resources.value]
+source = "home/.claude/CLAUDE.md"
+
+[[resources]]
+id = "claude-output-styles-ste-md"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".claude/output-styles/STE.md"
+[resources.value]
+source = "home/.claude/output-styles/STE.md"
+
+[[resources]]
+id = "claude-hooks-agent-journal-stop-sh"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".claude/hooks/agent-journal-stop.sh"
+[resources.value]
+source = "home/.claude/hooks/agent-journal-stop.sh"
+
+[[resources]]
+id = "claude-hooks-no-em-dash-commit-sh"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".claude/hooks/no-em-dash-commit.sh"
+[resources.value]
+source = "home/.claude/hooks/no-em-dash-commit.sh"
+
+[[resources]]
+id = "claude-hooks-emit-routing-context-sh"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".claude/hooks/emit-routing-context.sh"
+[resources.value]
+source = "home/.claude/hooks/emit-routing-context.sh"
+
+[[resources]]
+id = "claude-hooks-agent-reap-subagent-stop-sh"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".claude/hooks/agent-reap-subagent-stop.sh"
+[resources.value]
+source = "home/.claude/hooks/agent-reap-subagent-stop.sh"
+
+[[resources]]
+id = "claude-hooks-lib"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".claude/hooks/lib"
+[resources.value]
+source = "home/.claude/hooks/lib"
+
+[[resources]]
+id = "claude-hooks-wt-create-sh"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".claude/hooks/wt-create.sh"
+[resources.value]
+source = "home/.claude/hooks/wt-create.sh"
+
+[[resources]]
+id = "claude-hooks-wt-remove-sh"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".claude/hooks/wt-remove.sh"
+[resources.value]
+source = "home/.claude/hooks/wt-remove.sh"
+
+[[resources]]
+id = "codex-hooks-wt-create-sh"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".codex/hooks/wt-create.sh"
+[resources.value]
+source = "home/.codex/hooks/wt-create.sh"
+
+[[resources]]
+id = "codex-hooks-wt-remove-sh"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".codex/hooks/wt-remove.sh"
+[resources.value]
+source = "home/.codex/hooks/wt-remove.sh"
+
+[[resources]]
+id = "claude-hooks-agent-reap-session-end-sh"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".claude/hooks/agent-reap-session-end.sh"
+[resources.value]
+source = "home/.claude/hooks/agent-reap-session-end.sh"
+
+[[resources]]
+id = "config-agent-reap"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/agent-reap"
+[resources.value]
+source = "home/.config/agent-reap"
+
+[[resources]]
+id = "config-worktrunk-config-toml"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/worktrunk/config.toml"
+[resources.value]
+source = "home/.config/worktrunk/config.toml"
+
+[[resources]]
+id = "ssh-config"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".ssh/config"
+[resources.value]
+source = "home/.ssh/config"
+
+[[resources]]
+id = "config-mise-config-toml"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/mise/config.toml"
+[resources.value]
+source = "home/.config/mise/config.toml"
+
+[[resources]]
+id = "duckdbrc"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".duckdbrc"
+[resources.value]
+source = "home/.duckdbrc"
+
+[[resources]]
+id = "codex-agents-d-20-output-policy-md"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".codex/AGENTS.d/20-output-policy.md"
+[resources.value]
+source = "home/.config/agents/output-policy.md"
+
+[[resources]]
+id = "pi-agent-agents-d-20-output-policy-md"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".pi/agent/AGENTS.d/20-output-policy.md"
+[resources.value]
+source = "home/.config/agents/output-policy.md"
+
+# ---- assemblies (nix codexAgentsAssemble and piAgentsAssemble) ----
+# Same body and separator as the nix activation: body, then "\n" before each
+# fragment, fragments in byte order. Fragments: the 20-output-policy.md links
+# above, plus 10-pi-runtime.md from the mcp module for pi.
+[[resources]]
+id = "codex-agents"
+kind = "assemble"
+adapter = "text-fragments/v1"
+target = ".codex/AGENTS.md"
+[resources.value]
+body = "home/.codex/AGENTS.md"
+fragments_dir = ".codex/AGENTS.d"
+pattern = "*.md"
+separator = "\n"
+
+[[resources]]
+id = "pi-agents"
+kind = "assemble"
+adapter = "text-fragments/v1"
+target = ".pi/agent/AGENTS.md"
+[resources.value]
+body = "home/.codex/AGENTS.md"
+fragments_dir = ".pi/agent/AGENTS.d"
+pattern = "*.md"
+separator = "\n"
+
+# ---- Claude settings (nix claudeSettingsMerge) ----
+# Managed: scalar and small-object top-level keys that the application does not
+# rewrite in place. Waiting for DFM-48 (object merge, append, settings.d):
+#   permissions.defaultMode, enabledPlugins (base + dev/work variant),
+#   skillOverrides, extraKnownMarketplaces, sandbox.filesystem.allowWrite append,
+#   hooks with a matcher or timeout (PreToolUse Bash no-em-dash-commit,
+#   SubagentStop agent-reap-subagent-stop, SessionEnd agent-reap-session-end),
+#   settings.d fragments.
+# Hooks are NOT declared here. The rehearsal showed that every handler is added
+# as a second entry next to the hook entries the nix merge wrote into the live
+# file ("~/..." or absolute command text differs from the adapter's quoted
+# "${HOME}/..." text), so each hook would run twice. WorktreeCreate and
+# WorktreeRemove must not run twice. Until DFM-48 can match or replace the
+# existing entries, the hook entries already in settings.json stay as foreign
+# content. The declarations to add then are: WorktreeCreate wt-create.sh,
+# WorktreeRemove wt-remove.sh, Stop agent-journal-stop.sh, SubagentStop
+# agent-journal-stop.sh (agents.session-routing and personal.session-hippo
+# contribute the two SessionStart hooks). Use argv ["${HOME}/.claude/hooks/<file>"],
+# because the adapter single-quotes a leading "~".
+[[resources]]
+id = "claude-settings"
+kind = "merge"
+adapter = "claude-settings/v1"
+target = ".claude/settings.json"
+[resources.value.managed]
+"$schema" = "https://json.schemastore.org/claude-code-settings.json"
+outputStyle = "STE"
+verbose = false
+autoDreamEnabled = true
+skipDangerousModePermissionPrompt = true
+skipAutoPermissionPrompt = true
+voiceEnabled = true
+teammateMode = "tmux"
+cleanupPeriodDays = 14
+[resources.value.managed.env]
+CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = "1"
+CLAUDE_CODE_NO_FLICKER = "1"
+ENABLE_LSP_TOOL = "1"
+CLAUDE_CODE_FORK_SUBAGENTS = "1"
+CLAUDE_CODE_WORKFLOWS = "1"
+CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS = "64"
+[resources.value.managed.statusLine]
+type = "command"
+command = "bash ~/.claude/statusline-command.sh"
+[resources.value.handlers]
+[resources.value.seed]
+model = "opusplan"
+effortLevel = "xhigh"
+[resources.policy]
+defaults = []
+extensions = ["/handlers"]

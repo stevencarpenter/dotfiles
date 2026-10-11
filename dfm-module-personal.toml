@@ -1,0 +1,62 @@
+# identity == personal, plus the 'identity != work' tailscale shell file.
+
+schema = 1
+id = "personal"
+platforms = ["macos"]
+requires = []
+
+[[resources]]
+id = "config-zsh-profile-d-personal-shell-functions-zsh"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/zsh/profile.d/personal-shell-functions.zsh"
+[resources.value]
+source = "home/.config/zsh/profile.d/personal-shell-functions.zsh"
+
+[[resources]]
+id = "config-zsh-profile-d-personal-secrets-zsh"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/zsh/profile.d/personal-secrets.zsh"
+[resources.value]
+source = "home/.config/zsh/profile.d/personal-secrets.zsh"
+
+[[resources]]
+id = "config-op-render-manifest"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/op/render-manifest"
+[resources.value]
+source = "home/.config/op/render-manifest"
+
+[[resources]]
+id = "config-op-adopt-policy-json"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/op/adopt-policy.json"
+[resources.value]
+source = "home/.config/op/adopt-policy.json"
+
+[[resources]]
+id = "local-bin-op-adopt"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".local/bin/op-adopt"
+[resources.value]
+source = "home/.local/bin/op-adopt"
+
+[[resources]]
+id = "config-hippo"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/hippo"
+[resources.value]
+source = "home/.config/hippo"
+
+[[resources]]
+id = "config-zsh-profile-d-tailscale-zsh"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/zsh/profile.d/tailscale.zsh"
+[resources.value]
+source = "home/.config/zsh/profile.d/tailscale.zsh"

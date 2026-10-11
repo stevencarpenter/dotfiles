@@ -316,6 +316,58 @@ holds: on unstable they sit one release behind upstream rather than months. They
 because moving them is a package-manager migration rather than a channel change. A follow-up should
 also revisit the `worktrunk` row: it *is* packaged in nixpkgs-unstable, at 0.66.0.
 
+## dotfiles-manager bundle
+
+`dfm-bundle.toml`, `dfm-module-*.toml` and `dfm/profiles/personal-mac.toml` declare the files that
+`modules/home/*.nix` place through Home Manager, for `dotfiles-manager` (DFM-49). Run `plan --root
+<checkout>` with the checkout at `~/.dotfiles`. Each link text is `<checkout>/home/<path>` (skills:
+`<checkout>/skills/personal/<name>`). The bundle and module manifests are at the checkout root
+because the resolver confines a module's sources to the directory of its manifest.
+
+| Nix gate | Module | Resources |
+| --- | --- | --- |
+| always (`mkLinks` for all machines, ssh, mise base, agent-reap, `.duckdbrc`, `20-output-policy.md` fragments) | `core` | 43 links, 2 `text-fragments/v1` assemblies, 1 `claude-settings/v1` merge |
+| `identity == "personal"` and `identity != "work"` | `personal` | 7 links |
+| `caps.tiling` (+ personal aerospace and layouts) | `tiling` | 7 links |
+| `caps.mcp` (master config, personal overlay, pi, firstmate, mise firstmate) | `mcp` | 18 links |
+| `caps.skills` (+ personal) | `skills` | 2 config links, 33 skill links |
+| `caps.agent_journal` | `agent-journal` | 4 links |
+| `caps.dev` | `dev` | 1 link |
+| `caps.atuin` | `atuin` | 1 link (`config.sync.toml`) |
+| `caps.agents`, `caps.gui` | `agents`, `gui` | none (see below) |
+| `caps.infra = false` | no module | not selected |
+
+`lib/machines.nix` row `personal-mac` maps to `dfm/profiles/personal-mac.toml`. Selections that
+`mkDefault` left to the identity (atuin, aerospace, worktrunk, mcp and skills overlays) use the
+personal choice. `.config/sketchybar/machine.env` is now a link to the static file
+`home/.config/sketchybar/machine.personal.env`. The seven `.keep` seams are dropped: the planner
+creates parent directories.
+
+`caps.agents` and `caps.gui` own no file in nix. `agents` gates the routing SessionStart hook, and
+`gui` gates Homebrew casks and fonts. Both modules exist so the profile mirrors the capability
+table.
+
+Waiting for DFM-48 (object merge, append, `settings.d`): `permissions`, `enabledPlugins` (base plus
+dev variant), `skillOverrides`, `extraKnownMarketplaces`, the `sandbox.filesystem.allowWrite`
+append, and every Claude hook. The adapter cannot declare a `matcher` or `timeout`. A declared hook
+would run next to the existing nix-written entry (different command text), so no hook is declared.
+The merge manages the scalar keys, `env` and `statusLine`, and seeds `model` and `effortLevel`.
+
+Not managed on purpose:
+
+- Secrets and op-render outputs: `.config/op/*` (except the two linked files), every `.personal.env`.
+- Application state: `~/.claude.json`, `~/.codex/config.toml`, `~/.codex/hooks.json` (the
+  `codexHooksMerge` hippo hook), MCP generated outputs, `~/.config/mcp/overrides`, skills synced by
+  `sync-skills`.
+- `~/.config/jj` as a directory (mutable metadata under `repos/`): only `config.toml` is linked.
+- Tools that `just sync` installs: `~/.local/bin/agent-reap`, `token-auditor`.
+- `home/Library/LaunchAgents/org.carpenter.maxfiles.plist`: TODO in `dfm-module-core.toml` (DFM-51).
+
+Handoff from Home Manager before the first apply: remove the symlinks into `/nix/store`, `chmod 600
+~/.claude/settings.json`, move `~/.codex/AGENTS.md` and `~/.pi/agent/AGENTS.md` aside, and pass
+`--allow-adopt` for the settings merge. The checkout must contain only tracked files: the loader
+refuses ignored runtime content (`.venv`, `.codegraph`, nested `.git` under `home/.config/tmux/plugins`).
+
 ## Vendored Python tools
 
 An isolated `uv` project (Python 3.14+, no runtime deps). See [CLAUDE.md](CLAUDE.md) for

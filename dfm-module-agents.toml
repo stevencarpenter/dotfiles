@@ -1,0 +1,8 @@
+# caps.agents = true. Nix uses it for the routing SessionStart hook in settings.json and
+# for the sync-side agent registry. The hook waits for DFM-48 (see core.claude-settings),
+# the registry is outside dotfiles-manager scope. This module holds no resources yet.
+
+schema = 1
+id = "agents"
+platforms = ["macos"]
+requires = []
