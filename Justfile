@@ -84,6 +84,22 @@ bootstrap *HOST:
 sync *HOST: (rebuild HOST)
     DOTFILES_HOST="{{ if HOST == "" { env_var_or_default("DOTFILES_HOST", "") } else { HOST } }}" TOKEN_AUDITOR_VERSION="{{ TOKEN_AUDITOR_VERSION }}" scripts/sync-side-channels.sh
 
+# Manager path, step 1: print the plan and its digest. Applies nothing and never calls nix.
+[group('Daily')]
+sync-dfm:
+    dotfiles-manager plan --root {{ justfile_directory() }}
+    @echo "Review the plan above, then approve its digest with: just sync-dfm-apply <digest>"
+
+# Manager path, step 2: apply the approved digest, then the side channels. Optional DFM_ALLOW flags from the environment.
+[group('Daily')]
+sync-dfm-apply digest:
+    dotfiles-manager apply --root {{ justfile_directory() }} --yes-plan {{ digest }} $DFM_ALLOW
+    scripts/brew-sync.sh
+    scripts/sync-side-channels.sh
+    scripts/tiling-reload.sh
+    scripts/mac-defaults.sh --check
+    dotfiles-manager doctor --root {{ justfile_directory() }}
+
 # Mise upgrades, secrets, Git sources, agents, and tools only; included in sync.
 [group('Targeted maintenance')]
 sync-side-channels:
