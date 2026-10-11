@@ -385,29 +385,22 @@ pattern = "*.md"
 separator = "\n"
 
 # ---- Claude settings (nix claudeSettingsMerge) ----
-# Managed: scalar and small-object top-level keys that the application does not
-# rewrite in place. Waiting for DFM-48 (object merge, append, settings.d):
-#   permissions.defaultMode, enabledPlugins (base + dev/work variant),
-#   skillOverrides, extraKnownMarketplaces, sandbox.filesystem.allowWrite append,
-#   hooks with a matcher or timeout (PreToolUse Bash no-em-dash-commit,
-#   SubagentStop agent-reap-subagent-stop, SessionEnd agent-reap-session-end),
-#   settings.d fragments.
-# Hooks are NOT declared here. The rehearsal showed that every handler is added
-# as a second entry next to the hook entries the nix merge wrote into the live
-# file ("~/..." or absolute command text differs from the adapter's quoted
-# "${HOME}/..." text), so each hook would run twice. WorktreeCreate and
-# WorktreeRemove must not run twice. Until DFM-48 can match or replace the
-# existing entries, the hook entries already in settings.json stay as foreign
-# content. The declarations to add then are: WorktreeCreate wt-create.sh,
-# WorktreeRemove wt-remove.sh, Stop agent-journal-stop.sh, SubagentStop
-# agent-journal-stop.sh (agents.session-routing and personal.session-hippo
-# contribute the two SessionStart hooks). Use argv ["${HOME}/.claude/hooks/<file>"],
-# because the adapter single-quotes a leading "~".
+# Values come from home/.claude/settings-base.json plus the ai-stack.nix variant for
+# personal-mac: dev = true (six plugins true), work = false (atlassian false).
+# sandbox.filesystem.allowWrite is appended: nix adds $HOME/.cache/uv, $HOME/projects/agents
+# and $HOME/.local/share/uv/tools, and the live file holds them as absolute paths.
+# Hooks are handlers. The two SessionStart handlers are contributed by the personal
+# (hippo) and agents (routing) modules. Edit-in-tool values stay: tables merge, plugins
+# the application enables survive, and model and effortLevel are seeds.
 [[resources]]
 id = "claude-settings"
 kind = "merge"
 adapter = "claude-settings/v1"
 target = ".claude/settings.json"
+[resources.value]
+append = ["/sandbox/filesystem/allowWrite"]
+fragments_dir = ".claude/settings.d"
+pattern = "*.json"
 [resources.value.managed]
 "$schema" = "https://json.schemastore.org/claude-code-settings.json"
 outputStyle = "STE"
@@ -425,13 +418,89 @@ ENABLE_LSP_TOOL = "1"
 CLAUDE_CODE_FORK_SUBAGENTS = "1"
 CLAUDE_CODE_WORKFLOWS = "1"
 CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS = "64"
+[resources.value.managed.permissions]
+defaultMode = "auto"
 [resources.value.managed.statusLine]
 type = "command"
 command = "bash ~/.claude/statusline-command.sh"
-[resources.value.handlers]
+[resources.value.managed.skillOverrides]
+building-browser-extensions = "off"
+claude-cost = "off"
+record-todo = "off"
+[resources.value.managed.extraKnownMarketplaces.claude-plugins-official.source]
+source = "github"
+repo = "anthropics/claude-plugins-official"
+[resources.value.managed.extraKnownMarketplaces.ponytail.source]
+source = "github"
+repo = "DietrichGebert/ponytail"
+[resources.value.managed.enabledPlugins]
+"atlassian@claude-plugins-official" = false
+"claude-code-setup@claude-plugins-official" = false
+"claude-md-management@claude-plugins-official" = true
+"code-review@claude-plugins-official" = true
+"code-simplifier@claude-plugins-official" = false
+"commit-commands@claude-plugins-official" = true
+"context7@claude-plugins-official" = true
+"explanatory-output-style@claude-plugins-official" = false
+"feature-dev@claude-plugins-official" = false
+"frontend-design@claude-plugins-official" = true
+"github@claude-plugins-official" = false
+"gopls-lsp@claude-plugins-official" = true
+"hookify@claude-plugins-official" = true
+"jdtls-lsp@claude-plugins-official" = false
+"learning-output-style@claude-plugins-official" = false
+"lua-lsp@claude-plugins-official" = true
+"playwright@claude-plugins-official" = true
+"ponytail@ponytail" = true
+"pyright-lsp@claude-plugins-official" = true
+"railway@claude-plugins-official" = true
+"ralph-loop@claude-plugins-official" = true
+"rust-analyzer-lsp@claude-plugins-official" = true
+"security-guidance@claude-plugins-official" = true
+"semgrep@claude-plugins-official" = false
+"skill-creator@claude-plugins-official" = true
+"superpowers@claude-plugins-official" = true
+"swift-lsp@claude-plugins-official" = true
+"typescript-lsp@claude-plugins-official" = true
+[resources.value.managed.sandbox.filesystem]
+allowWrite = ["/Users/carpenter/.cache/uv", "/Users/carpenter/projects/agents", "/Users/carpenter/.local/share/uv/tools"]
+
 [resources.value.seed]
 model = "opusplan"
 effortLevel = "xhigh"
+
+[resources.value.handlers.em-dash-check]
+event = "PreToolUse"
+matcher = "Bash"
+type = "command"
+argv = ["${HOME}/.claude/hooks/no-em-dash-commit.sh"]
+[resources.value.handlers.worktree-create]
+event = "WorktreeCreate"
+type = "command"
+argv = ["${HOME}/.claude/hooks/wt-create.sh"]
+[resources.value.handlers.worktree-remove]
+event = "WorktreeRemove"
+type = "command"
+argv = ["${HOME}/.claude/hooks/wt-remove.sh"]
+[resources.value.handlers.journal-stop]
+event = "Stop"
+type = "command"
+argv = ["${HOME}/.claude/hooks/agent-journal-stop.sh"]
+[resources.value.handlers.journal-subagent-stop]
+event = "SubagentStop"
+type = "command"
+argv = ["${HOME}/.claude/hooks/agent-journal-stop.sh"]
+[resources.value.handlers.reap-subagent-stop]
+event = "SubagentStop"
+type = "command"
+argv = ["${HOME}/.claude/hooks/agent-reap-subagent-stop.sh"]
+timeout = 20
+[resources.value.handlers.reap-session-end]
+event = "SessionEnd"
+type = "command"
+argv = ["${HOME}/.claude/hooks/agent-reap-session-end.sh"]
+timeout = 20
+
 [resources.policy]
 defaults = []
 extensions = ["/handlers"]

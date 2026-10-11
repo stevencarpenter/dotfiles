@@ -60,3 +60,13 @@ adapter = "fs-link/v1"
 target = ".config/zsh/profile.d/tailscale.zsh"
 [resources.value]
 source = "home/.config/zsh/profile.d/tailscale.zsh"
+
+[[contributions]]
+resource = "core.claude-settings"
+path = "/handlers"
+key = "personal.session-hippo"
+reason = "identity personal adds the hippo SessionStart hook (ai-stack.nix)."
+[contributions.value]
+event = "SessionStart"
+type = "command"
+argv = ["${HOME}/.local/share/hippo-brain/shell/claude-session-hook.sh"]

@@ -1,8 +1,17 @@
-# caps.agents = true. Nix uses it for the routing SessionStart hook in settings.json and
-# for the sync-side agent registry. The hook waits for DFM-48 (see core.claude-settings),
-# the registry is outside dotfiles-manager scope. This module holds no resources yet.
+# caps.agents = true. Contributes the routing SessionStart hook to core.claude-settings.
+# The sync-side agent registry is outside dotfiles-manager scope.
 
 schema = 1
 id = "agents"
 platforms = ["macos"]
 requires = []
+
+[[contributions]]
+resource = "core.claude-settings"
+path = "/handlers"
+key = "agents.session-routing"
+reason = "caps.agents adds the routing-context SessionStart hook (ai-stack.nix)."
+[contributions.value]
+event = "SessionStart"
+type = "command"
+argv = ["${HOME}/.claude/hooks/emit-routing-context.sh"]

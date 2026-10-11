@@ -347,11 +347,18 @@ creates parent directories.
 `gui` gates Homebrew casks and fonts. Both modules exist so the profile mirrors the capability
 table.
 
-Waiting for DFM-48 (object merge, append, `settings.d`): `permissions`, `enabledPlugins` (base plus
-dev variant), `skillOverrides`, `extraKnownMarketplaces`, the `sandbox.filesystem.allowWrite`
-append, and every Claude hook. The adapter cannot declare a `matcher` or `timeout`. A declared hook
-would run next to the existing nix-written entry (different command text), so no hook is declared.
-The merge manages the scalar keys, `env` and `statusLine`, and seeds `model` and `effortLevel`.
+The settings merge (`core.claude-settings`) carries every value of `home/.claude/settings-base.json`
+plus the `personal-mac` variant from `ai-stack.nix`: plugins, `permissions`, `skillOverrides`,
+`extraKnownMarketplaces`, `env`, flags, the three `allowWrite` paths (appended), `model` and
+`effortLevel` (seeds), and all hooks as handlers. The two `SessionStart` handlers come from the
+`personal` (hippo) and `agents` (routing) modules. `.claude/settings.d/*.json` fragments merge over the
+declared values. Tables merge into the live file, so plugins and permissions that the application
+added stay.
+
+`dfm-bundle.toml` declares `[sources]` roots `home`, `skills` and `dfm`, so the live checkout can be the
+plan root. It excludes `home/.config/tmux/plugins` (nested `.git`), `home/.pi/agent/extensions/node_modules`
+and `**/__pycache__`, `**/.venv`, `**/node_modules`. A directory link still publishes excluded content
+(`plan` prints `note: contains N excluded entries, not hashed`).
 
 Not managed on purpose:
 
@@ -365,9 +372,7 @@ Not managed on purpose:
 
 Handoff from Home Manager before the first apply: remove the symlinks into `/nix/store`, `chmod 600
 ~/.claude/settings.json`, move `~/.codex/AGENTS.md` and `~/.pi/agent/AGENTS.md` aside, and pass
-`--allow-adopt` for the settings merge. The checkout must contain only tracked files: the loader
-refuses ignored runtime content (`.venv`, `.codegraph`, nested `.git` under `home/.config/tmux/plugins`).
-
+`--allow-adopt` for the settings merge.
 ## Vendored Python tools
 
 An isolated `uv` project (Python 3.14+, no runtime deps). See [CLAUDE.md](CLAUDE.md) for
