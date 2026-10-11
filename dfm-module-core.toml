@@ -1,7 +1,5 @@
 # Always on: nix mkLinks (all machines), ssh, mise base, agent-reap, duckdbrc.
 # The Claude settings merge and the two instruction assemblies are appended below.
-# TODO(DFM-51): add a link for home/Library/LaunchAgents/org.carpenter.maxfiles.plist
-# once that file exists on this branch.
 
 schema = 1
 id = "core"
@@ -351,6 +349,14 @@ adapter = "fs-link/v1"
 target = ".pi/agent/AGENTS.d/20-output-policy.md"
 [resources.value]
 source = "home/.config/agents/output-policy.md"
+
+[[resources]]
+id = "library-launchagents-org-carpenter-maxfiles-plist"
+kind = "link"
+adapter = "fs-link/v1"
+target = "Library/LaunchAgents/org.carpenter.maxfiles.plist"
+[resources.value]
+source = "home/Library/LaunchAgents/org.carpenter.maxfiles.plist"
 
 # ---- assemblies (nix codexAgentsAssemble and piAgentsAssemble) ----
 # Same body and separator as the nix activation: body, then "\n" before each

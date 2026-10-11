@@ -326,7 +326,7 @@ because the resolver confines a module's sources to the directory of its manifes
 
 | Nix gate | Module | Resources |
 | --- | --- | --- |
-| always (`mkLinks` for all machines, ssh, mise base, agent-reap, `.duckdbrc`, `20-output-policy.md` fragments) | `core` | 43 links, 2 `text-fragments/v1` assemblies, 1 `claude-settings/v1` merge |
+| always (`mkLinks` for all machines, ssh, mise base, agent-reap, `.duckdbrc`, `20-output-policy.md` fragments) | `core` | 44 links, 2 `text-fragments/v1` assemblies, 1 `claude-settings/v1` merge |
 | `identity == "personal"` and `identity != "work"` | `personal` | 7 links |
 | `caps.tiling` (+ personal aerospace and layouts) | `tiling` | 7 links |
 | `caps.mcp` (master config, personal overlay, pi, firstmate, mise firstmate) | `mcp` | 18 links |
@@ -361,7 +361,7 @@ Not managed on purpose:
   `sync-skills`.
 - `~/.config/jj` as a directory (mutable metadata under `repos/`): only `config.toml` is linked.
 - Tools that `just sync` installs: `~/.local/bin/agent-reap`, `token-auditor`.
-- `home/Library/LaunchAgents/org.carpenter.maxfiles.plist`: TODO in `dfm-module-core.toml` (DFM-51).
+- `home/Library/LaunchAgents/org.carpenter.maxfiles.plist`: linked by `core` (DFM-51).
 
 Handoff from Home Manager before the first apply: remove the symlinks into `/nix/store`, `chmod 600
 ~/.claude/settings.json`, move `~/.codex/AGENTS.md` and `~/.pi/agent/AGENTS.md` aside, and pass
