@@ -126,7 +126,7 @@
       }
     }
   },
-  "outputStyle": "Concise",
+  "outputStyle": "STE",
   "verbose": false,
   "autoDreamEnabled": true,
   "skipDangerousModePermissionPrompt": true,

@@ -68,6 +68,9 @@ in
         # Copilot IntelliJ instructions (single file; copilot writes runtime state in the dir).
         ".config/github-copilot/intellij/global-copilot-instructions.md"
 
+        # Shared prose policy. Claude imports it; OpenCode loads it as instructions.
+        ".config/agents/output-policy.md"
+
         # Route accounts for subprocesses too; shell functions cannot intercept them.
         # ~/.local/bin precedes mise shims on PATH on every machine.
         ".local/bin/gh"
@@ -89,6 +92,7 @@ in
         # ai-stack.nix merges settings.json at activation to preserve in-tool edits.
         ".claude/statusline-command.sh"
         ".claude/CLAUDE.md"
+        ".claude/output-styles/STE.md"
         ".claude/hooks/agent-journal-stop.sh"
         ".claude/hooks/no-em-dash-commit.sh"
         ".claude/hooks/emit-routing-context.sh"
@@ -286,9 +290,11 @@ in
 
         # codexAgentsAssemble appends Markdown fragments from this directory.
         ".codex/AGENTS.d/.keep".text = "";
+        ".codex/AGENTS.d/20-output-policy.md".source = link ".config/agents/output-policy.md";
 
         # piAgentsAssemble appends 10-pi-runtime.md and external fragments.
         ".pi/agent/AGENTS.d/.keep".text = "";
+        ".pi/agent/AGENTS.d/20-output-policy.md".source = link ".config/agents/output-policy.md";
       }
     ];
 

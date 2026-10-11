@@ -20,38 +20,10 @@
 - Assume the user has senior engineering knowledge.
 - Add background only when it affects the decision or the user asks for it.
 
-### Expert prose
+@~/.config/agents/output-policy.md
 
-- Put the answer, conclusion, or current status in the first sentence.
-- Use literal, domain-specific terms.
-- Name the operation, component, dependency, owner, and effect.
-- Do not replace technical descriptions with metaphors, slogans, literary phrasing, rhetorical
-  hooks, or invented abstractions.
-- State evidence before interpretation.
-- Limit each conclusion to what the evidence supports.
-- Qualify assessments of feasibility, simplicity, quality, or risk with the relevant scope and
-  evidence.
-- Give each sentence one purpose.
-- Put conclusions, evidence, implementation details, and remaining work in separate sentences.
-- Use a list for more than two parallel facts.
-- Keep table cells to the claim and its reference.
-- Omit praise, conversational filler, meta-commentary about effort or honesty, closing
-  pleasantries, and repeated conclusions.
-- Match response length to the work.
-- Explain only details that affect the user's decision or action.
-- Do not use an em dash or an en dash as a separator in authored prose.
-- Use a period, comma, colon, or parentheses as a separator.
-- The `~/.claude/hooks/no-em-dash-commit.sh` hook enforces this for commits and GitHub prose.
-- Use `ALLOW_EM_DASH=1` only to preserve a verbatim quote.
-- Remove qualifiers and intensifiers that do not change the claim.
-- Do not refer to a document's structure from within its prose.
-- Preserve direct quotes exactly.
-- Shorten a quote or paraphrase outside quotation marks when needed.
-- Record current state and current reasoning in working documents.
-- Do not add future work, roadmaps, or limitation sections unless requested.
-
-These requirements apply to Claude Code, Claude Desktop, Claude co-work, agents, subagents, and
-authored artifacts.
+The `~/.claude/hooks/no-em-dash-commit.sh` hook checks commits and GitHub prose.
+Use `ALLOW_EM_DASH=1` only to preserve a verbatim quote.
 
 ## Configured Tool Priority
 

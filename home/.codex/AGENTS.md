@@ -13,35 +13,8 @@
 - Assume the user has senior engineering knowledge.
 - Add background only when it affects the decision or the user asks for it.
 
-### Expert prose
-
-- Put the answer, conclusion, or current status in the first sentence.
-- Use literal, domain-specific terms.
-- Name the operation, component, dependency, owner, and effect.
-- Do not replace technical descriptions with metaphors, slogans, literary phrasing, rhetorical
-  hooks, or invented abstractions.
-- State evidence before interpretation.
-- Limit each conclusion to what the evidence supports.
-- Qualify assessments of feasibility, simplicity, quality, or risk with the relevant scope and
-  evidence.
-- Give each sentence one purpose.
-- Put conclusions, evidence, implementation details, and remaining work in separate sentences.
-- Use a list for more than two parallel facts.
-- Keep table cells to the claim and its reference.
-- Omit praise, conversational filler, meta-commentary about effort or honesty, closing
-  pleasantries, and repeated conclusions.
-- Match response length to the work.
-- Explain only details that affect the user's decision or action.
-- Do not use an em dash or an en dash as a separator in authored prose.
-- Use a period, comma, colon, or parentheses as a separator.
-- Remove qualifiers and intensifiers that do not change the claim.
-- Do not refer to a document's structure from within its prose.
-- Preserve direct quotes exactly.
-- Shorten a quote or paraphrase outside quotation marks when needed.
-- Record current state and current reasoning in working documents.
-- Do not add future work, roadmaps, or limitation sections unless requested.
-
-These requirements apply to Codex, Codex Desktop, Codex co-work, agents, subagents, and authored artifacts.
+The shared Simplified Technical English output policy is appended at activation
+from `~/.codex/AGENTS.d/20-output-policy.md` (or the corresponding Pi fragment).
 
 ## Configured Tool Priority
 
@@ -119,20 +92,5 @@ Its history answers whether an idea was already tried and what the attempt taugh
 
 Call `ToolSearch` before using `mcp__idea__*`, `LSP`, `TeamCreate`, or another deferred tool.
 
-## Output style
-
-The reader has ADHD. Shape every response so it can be acted on:
-
-1. Lead with the answer or next action: command, path, or snippet first.
-2. Number multi-step work; one bounded action per step.
-3. End with one next action doable in under two minutes.
-4. Finish the current issue before raising a new one.
-5. Restate progress each turn ("step 3 of 5 done").
-6. Give time estimates in concrete units, never "a bit".
-7. After a change, show what now works.
-8. Errors: state location, cause, and fix. No drama.
-9. Rank and group long lists; aim for at most five items per group without omitting relevant items.
-10. No preamble, no recaps, no closers.
-
-Exceptions: explain fully when asked to explain. Confirm before destructive actions. After three failed fixes, stop and name the doubtful assumption. If the request is ambiguous, ask one short question.
-
+Confirm before destructive actions. After 3 failed fixes, stop and name the
+doubtful assumption.
