@@ -9,10 +9,30 @@ section of `README.md`, and `docs/first-run.md` in the dotfiles-manager reposito
 
 ## 1. Prerequisites
 
-1. CHECK. The manager is installed with `bootstrap.sh install` at a named commit of the
-   `going-to-sleep` branch. The commit is `e35aa3a8380f1083bef4e41a93fdfbcbe8489165`.
+1. LIVE. Place the pinned Rust toolchain before `bootstrap.sh install`. The install needs it under the
+   manager data directory, and refuses to build without it. The copy costs 1.6 GB. `~/.rustup` does not
+   depend on nix: rustup comes through mise, which `scripts/brew-sync.sh` installs from Homebrew.
+
+   ```sh
+   mkdir -p -m 700 ~/.local/share/dotfiles-manager/toolchains
+   cp -Rp ~/.rustup/toolchains/1.98.1-aarch64-apple-darwin ~/.local/share/dotfiles-manager/toolchains/1.98.1
+   ```
+
+   The directories must be real directories that you own.
+   CHECK. The digest is path-relative, so the copy matches the original:
+
+   ```sh
+   sh scripts/bootstrap.sh toolchain-digest --dir ~/.local/share/dotfiles-manager/toolchains/1.98.1
+   ```
+
+   It must print `afc5eb67d9c2b331a5a64f779e8243e544235c19ca7f4131a1e14eeb126c3c5e`. That value must equal
+   `[manager].toolchain_tree_sha256` in `dotfiles-manager.lock` of the commit you install. Run the script
+   from a checkout of that commit.
+2. CHECK. The manager is installed with `bootstrap.sh install` at a named commit of the
+   `going-to-sleep` branch: `e35aa3a8380f1083bef4e41a93fdfbcbe8489165` or later. The lock lands in the DFM-56
+   commit, which becomes the commit to install: `<DFM-56 commit sha, fill in before the run>`.
    Run `dotfiles-manager --version`. The output must show the semver and that commit. It must not contain `isolated:`.
-2. CHECK. DFM-48 (hook identity, object merge, append, `settings.d`) and DFM-53 (bundle-declared source
+3. CHECK. DFM-48 (hook identity, object merge, append, `settings.d`) and DFM-53 (bundle-declared source
    roots and excludes) are merged into the installed manager commit. Until DFM-53 is merged,
    `plan --root ~/.dotfiles` fails on ignored runtime files (`.codegraph`, `*/.venv`, a nested `.git`
    under `home/.config/tmux/plugins`). Do not start before that. Commit 55d2d4e also holds the
@@ -29,20 +49,20 @@ section of `README.md`, and `docs/first-run.md` in the dotfiles-manager reposito
    `6ad717fc95645ebfc283d8f50e23e7ae384504ff5df03af7807de24479364ef2`. The digest depends on the HOME
    path and the machine state, so the live digest differs. `bootstrap.sh install` was not rehearsed: only
    the `DFM_BOOTSTRAP_TEST=1` hooks redirect HOME, and install needs a placed toolchain and a lock.
-3. CHECK. This branch (`dfm-cutover`) is checked out at `~/.dotfiles`. Run
+4. CHECK. This branch (`dfm-cutover`) is checked out at `~/.dotfiles`. Run
    `git -C ~/.dotfiles rev-parse --abbrev-ref HEAD` and `git -C ~/.dotfiles status --short`.
    The branch must be `dfm-cutover` and the tree must have no tracked changes.
-4. CHECK. Homebrew and 1Password work: `brew --version`, `op whoami`.
-5. CHECK. Close Claude Code, Codex and pi sessions other than the one you use for this runbook.
+5. CHECK. Homebrew and 1Password work: `brew --version`, `op whoami`.
+6. CHECK. Close Claude Code, Codex and pi sessions other than the one you use for this runbook.
    The manager writes `~/.claude/settings.json`, and an open session can write it at the same time.
-6. LIVE. Make a private work directory. Every temporary file in this runbook lives in it. If you open a new
+7. LIVE. Make a private work directory. Every temporary file in this runbook lives in it. If you open a new
    terminal, set `w` again to the printed path:
 
    ```sh
    w=$(mktemp -d "${TMPDIR:-/tmp}/dfm-cutover.XXXXXX"); echo "$w"
    ```
 
-7. Approval 1, in writing, before section 2: "Approved to begin the M5 handoff. Backup archive:
+8. Approval 1, in writing, before section 2: "Approved to begin the M5 handoff. Backup archive:
    `<path>`. Handoff path: `<A or B>`." The agent runs no LIVE step in sections 2 to 5 without this
    sentence. Approval 2 (the plan digest) comes in section 6.
 
@@ -337,6 +357,7 @@ No level undoes the following. Each has an undo command or is accepted:
 | `brew pin` on `sketchybar` and `borders` | `brew unpin sketchybar borders`. |
 | macOS defaults written by `scripts/mac-defaults.sh` | Compare with `defaults-before.txt` from the archive and run `defaults write` for each changed key. Nix-darwin writes the same values on the next switch. |
 | Side-channel and hook outputs (op-render files, git sources, agents, token-auditor, MCP and skills sync, `~/.codex/hooks.json` merge) | Accepted. The old `just sync` regenerates them. |
+| Toolchain copy in `~/.local/share/dotfiles-manager/toolchains/1.98.1` (1.6 GB) | `bootstrap.sh uninstall` removes the PATH link, `versions/`, `current` and the build directories, but its documentation says it leaves toolchains, state and the binding. Remove the copy yourself with `rm -rf ~/.local/share/dotfiles-manager/toolchains/1.98.1`, or the whole data directory with `rm -rf ~/.local/share/dotfiles-manager` when you also drop the state. |
 | `org.carpenter.maxfiles` loaded | `scripts/launch-agents.sh unload`. |
 | Login shell | `scripts/login-shell.sh --set` writes `/bin/zsh`. Nix set the same value, so nothing changes. |
 
