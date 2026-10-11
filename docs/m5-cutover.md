@@ -89,9 +89,11 @@ Pick one path. Path A is the declarative path. Path B is manual.
    wc -l /tmp/dfm-hm-links.txt
    ```
 
-   On 2026-10-11 this printed 124 lines on this machine. The rehearsal found 123 nix-placed paths
-   (116 links the bundle manages and 7 `.keep` seams that it drops). Read the list. A link that the
-   bundle does not manage is not an error, but you must know why it exists.
+   On 2026-10-11 this printed 124 lines on this machine: 116 links the bundle manages, 2 `.config/op`
+   links the bundle also manages, 7 `.keep` seams that the bundle drops, and `.local/state/.keep`.
+   The last one is an empty file that Home Manager itself creates. No file in this repository declares it.
+   The bundle does not manage it. Read the list. A link that the bundle does not manage is not an
+   error, but you must know why it exists.
 2. LIVE. Remove the links. A directory link (for example `~/.config/nvim`) is removed as a link, not recursively:
 
    ```sh
@@ -177,11 +179,13 @@ Neither path removes `/run/current-system` or the nix daemon. Those stay until s
 
 ## 8. Install packages
 
-1. CHECK. `scripts/brew-sync.sh --check`. It reports the missing items. The expected gap is 14
-   formulae that nix provided and Homebrew does not have yet.
+1. CHECK. `scripts/brew-sync.sh --check`. It reports the missing items. On 2026-10-11 the gap was 14
+   items: 1 cask (`font-dejavu`) and 13 formulae (`mise`, `sevenzip`, `lefthook`, `trufflehog`, `checkov`,
+   `hadolint`, `ffuf`, `testssl`, `gosec`, `cargo-audit`, `cargo-deny`, `bandit`, `pip-audit`).
 2. LIVE. `scripts/brew-sync.sh`. It runs `brew bundle --no-upgrade` and pins sketchybar and borders.
 3. The `Brewfile` marks only `crush`, `sketchybar` and `borders` with `trusted: true`. The AeroSpace
-   cask trust is already granted on this machine. A fresh machine needs `trusted: true` on that entry.
+   cask trust is already granted on this machine (`~/.config/homebrew/trust.json` lists
+   `nikitabobko/tap/aerospace` under `trustedcasks`). A fresh machine needs that entry or `trusted: true` in the `Brewfile`.
 4. CHECK. `scripts/brew-sync.sh --check` exits 0.
 
 ## 9. Side channels, agents and system settings
