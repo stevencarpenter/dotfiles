@@ -29,9 +29,11 @@ section of `README.md`, and `docs/first-run.md` in the dotfiles-manager reposito
    `[manager].toolchain_tree_sha256` in `dotfiles-manager.lock` of the commit you install. Run the script
    from a checkout of that commit.
 2. CHECK. The manager is installed with `bootstrap.sh install` at a named commit of the
-   `going-to-sleep` branch: `266fef4ee98a9e81192c4c700b385d47b27a3f9f` (DFM-56, PR #30) or later. That
-   commit carries `dotfiles-manager.lock` and is the commit to install. A later commit is acceptable only
-   after its own fresh-clone gate passed and it is named in approval 1.
+   `going-to-sleep` branch: `ba745e766f28d5fedce542374c2112c9e2a123a0` (DFM-57 review fix wave, PRs #35 to
+   #41) or later. It carries `dotfiles-manager.lock` (since 266fef4, DFM-56) and is the commit to install;
+   the file fingerprint domain and the publish mechanism changed in DFM-57, so an older commit must not be
+   used. A later commit is acceptable only after its own fresh-clone gate passed and it is named in
+   approval 1.
    Run `dotfiles-manager --version`. The output must show the semver and that commit. It must not contain `isolated:`.
 3. CHECK. DFM-48 (hook identity, object merge, append, `settings.d`) and DFM-53 (bundle-declared source
    roots and excludes) are merged into the installed manager commit. Until DFM-53 is merged,
@@ -50,6 +52,18 @@ section of `README.md`, and `docs/first-run.md` in the dotfiles-manager reposito
    `6ad717fc95645ebfc283d8f50e23e7ae384504ff5df03af7807de24479364ef2`. The digest depends on the HOME
    path and the machine state, so the live digest differs. `bootstrap.sh install` was not rehearsed: only
    the `DFM_BOOTSTRAP_TEST=1` hooks redirect HOME, and install needs a placed toolchain and a lock.
+   Rehearsal 6 (2026-10-12, manager ba745e7, same setup): `bootstrap.sh install` was rehearsed this time,
+   in the isolated HOME with the toolchain clone from step 1 and the `DFM_BOOTSTRAP_TEST=1` redirect: the
+   digest matched the lock, the install exited 0, and `--version` printed the commit with no isolation
+   marker. Cargo warns `stripping debug info with rust-objcopy failed: Library not loaded:
+   @rpath/libLLVM.dylib`; the original rustup toolchain gives the same warning (rust-objcopy's rpath does
+   not reach `lib/libLLVM.dylib`), the binary is installed unstripped and works, so expect the warning live.
+   `plan` showed 0 blocked and 157 operations (117 links, 37 `mkdir`, 1 take, 2 writes); the two missing
+   `mkdir` operations are `.local/bin` and `.local/share`, which the install had created. The 120 other
+   paths equal rehearsal 5. `apply` with the one `--allow-adopt` flag gave `updated=157` and `result: ok`,
+   the second apply gave `current=120`, `doctor` (`ok=136`), `status` and `state check` exited 0, and the
+   assembled files were byte-identical. Plan digest of the first plan:
+   `c3a80dd32d37fe452453bcfa8e0b1f11a06789c1ef08746ff3e2a82f37a759ce`.
 4. CHECK. This branch (`dfm-cutover`) is checked out at `~/.dotfiles`. Run
    `git -C ~/.dotfiles rev-parse --abbrev-ref HEAD` and `git -C ~/.dotfiles status --short`.
    The branch must be `dfm-cutover` and the tree must have no tracked changes.
