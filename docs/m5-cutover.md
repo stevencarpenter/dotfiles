@@ -58,6 +58,12 @@ section of `README.md`, and `docs/first-run.md` in the dotfiles-manager reposito
    marker. Cargo warns `stripping debug info with rust-objcopy failed: Library not loaded:
    @rpath/libLLVM.dylib`; the original rustup toolchain gives the same warning (rust-objcopy's rpath does
    not reach `lib/libLLVM.dylib`), the binary is installed unstripped and works, so expect the warning live.
+   `plan` showed 0 blocked and 157 operations (117 links, 37 `mkdir`, 1 take, 2 writes); the two missing
+   `mkdir` operations are `.local/bin` and `.local/share`, which the install had created. The 120 other
+   paths equal rehearsal 5. `apply` with the one `--allow-adopt` flag gave `updated=157` and `result: ok`,
+   the second apply gave `current=120`, `doctor` (`ok=136`), `status` and `state check` exited 0, and the
+   assembled files were byte-identical. Plan digest of the first plan:
+   `c3a80dd32d37fe452453bcfa8e0b1f11a06789c1ef08746ff3e2a82f37a759ce`.
    Rehearsal 7 (2026-10-12, manager dfa6001, an empty isolated HOME with only the toolchain clone placed):
    `bootstrap.sh install --commit dfa6001...` exited 0 in 57 s (the digest matched the lock, `--version`
    printed the commit with no isolation marker, binary sha256 `7fb50a23...`); this time the strip warning
@@ -76,12 +82,23 @@ section of `README.md`, and `docs/first-run.md` in the dotfiles-manager reposito
    `updated=169`, the second `apply` gave `current=120`, `doctor` and `status` ok=136, `state check` exit 0.
    c253cb9 adds one refusal to `bootstrap.sh`: a password-database home that contains Unicode whitespace
    or a C1 control is `E_HOME_MISMATCH`, the same rule the installed command applies.
-   `plan` showed 0 blocked and 157 operations (117 links, 37 `mkdir`, 1 take, 2 writes); the two missing
-   `mkdir` operations are `.local/bin` and `.local/share`, which the install had created. The 120 other
-   paths equal rehearsal 5. `apply` with the one `--allow-adopt` flag gave `updated=157` and `result: ok`,
-   the second apply gave `current=120`, `doctor` (`ok=136`), `status` and `state check` exited 0, and the
-   assembled files were byte-identical. Plan digest of the first plan:
-   `c3a80dd32d37fe452453bcfa8e0b1f11a06789c1ef08746ff3e2a82f37a759ce`.
+   Rehearsal 9 (2026-10-12, a test-isolation build of c253cb9, this branch at eab63cb): the 119 target
+   paths that exist in the live HOME (116 Home Manager links, `settings.json` and the two assembled files)
+   were copied with `rsync -a --relative` into an isolated HOME. Sections 2 to 4 ran in the copy: an
+   archive of the 119 paths, Path B (the 116 links removed), `chmod 600` and the files moved aside.
+   `plan` showed 0 blocked and 122 operations (117 links, 2 creates, 1 update, 2 `mkdir`); the preview
+   asked for the one `--allow-adopt` flag; `apply` gave `result: ok`, the second apply `current=120`,
+   `doctor` and `status` ok=136, `state check` exit 0, and the assembled files were byte-identical. Plan
+   digest of the first plan: `c3d8f5404b000a8ad7b903cfe73fb7100257c98cc011c9967d5ff258a529c8f4`.
+   The merged `settings.json` held the hippo and routing SessionStart hooks twice. The live file spells
+   them as `/Users/carpenter/...`, and the manager counts the absolute HOME path as `${HOME}/` only when
+   HOME is that path; a second copy with the path rewritten to its own HOME had no duplicate. On the live
+   apply, check in section 10 that each SessionStart hook appears once. The `--check` scripts against this
+   machine: `mac-defaults` 33 ok, `login-shell` and `tiling-reload` ok, `launch-agents` exit 1 (the two old
+   agents, section 5), `brew-sync` exit 1 with the 14 missing items of section 8, `hooks-sync` wrote
+   nothing. Deselect test: with `tiling` removed from the profile, the preview listed 7
+   `--allow-disruptive` flags, `apply` removed exactly those 7 links and nothing else, and restoring the
+   7 paths from the archive brought back the Home Manager links; `doctor` then had 0 errors.
 4. CHECK. This branch (`dfm-cutover`) is checked out at `~/.dotfiles`. Run
    `git -C ~/.dotfiles rev-parse --abbrev-ref HEAD` and `git -C ~/.dotfiles status --short`.
    The branch must be `dfm-cutover` and the tree must have no tracked changes.
@@ -357,6 +374,15 @@ Run each in a new terminal window unless the step says otherwise.
 4. SketchyBar: the bar shows workspaces. Hover the top edge: the native menu appears, then the bar returns.
 5. Claude Code: start `claude`. `/status` shows the settings. Hooks run once: create a worktree and
    check that one directory appears. `/mcp` lists the servers.
+   Each SessionStart hook is present once. The check reads the matcher and the command with the home
+   spelling made one form, so `/Users/carpenter/x` and `"${HOME}/x"` count as the same hook. It prints nothing:
+
+   ```sh
+   jq -r '.hooks.SessionStart[] | (.matcher // "") as $m | .hooks[].command | gsub("\""; "")
+     | sub("^(\\$HOME|\\$\\{HOME\\}|/Users/carpenter)"; "~") | "\($m) \(.)"' ~/.claude/settings.json | sort | uniq -d
+   ```
+
+   Before the apply it printed nothing on this machine. In rehearsal 9 it printed the two duplicated hooks.
 6. Codex: start `codex`. It reads `~/.codex/AGENTS.md`.
 7. pi: start `pi` and check that `AGENTS.md` loads.
 8. tmux: start a session. The status bar and the Claude pane colors show.
