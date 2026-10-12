@@ -29,8 +29,8 @@ section of `README.md`, and `docs/first-run.md` in the dotfiles-manager reposito
    `[manager].toolchain_tree_sha256` in `dotfiles-manager.lock` of the commit you install. Run the script
    from a checkout of that commit.
 2. CHECK. The manager is installed with `bootstrap.sh install` at a named commit of the
-   `going-to-sleep` branch: `ba745e766f28d5fedce542374c2112c9e2a123a0` (DFM-57 review fix wave, PRs #35 to
-   #41) or later. It carries `dotfiles-manager.lock` (since 266fef4, DFM-56) and is the commit to install;
+   `going-to-sleep` branch: `dfa6001ccef1c39f3984c36a0fd13ed25b18815c` (DFM-58 Codex comment fixes, PRs #42
+   and #43, on top of the DFM-57 review fix wave) or later. It carries `dotfiles-manager.lock` (since 266fef4, DFM-56) and is the commit to install;
    the file fingerprint domain and the publish mechanism changed in DFM-57, so an older commit must not be
    used. A later commit is acceptable only after its own fresh-clone gate passed and it is named in
    approval 1.
@@ -58,6 +58,18 @@ section of `README.md`, and `docs/first-run.md` in the dotfiles-manager reposito
    marker. Cargo warns `stripping debug info with rust-objcopy failed: Library not loaded:
    @rpath/libLLVM.dylib`; the original rustup toolchain gives the same warning (rust-objcopy's rpath does
    not reach `lib/libLLVM.dylib`), the binary is installed unstripped and works, so expect the warning live.
+   Rehearsal 7 (2026-10-12, manager dfa6001, an empty isolated HOME with only the toolchain clone placed):
+   `bootstrap.sh install --commit dfa6001...` exited 0 in 57 s (the digest matched the lock, `--version`
+   printed the commit with no isolation marker, binary sha256 `7fb50a23...`); this time the strip warning
+   read `rust-objcopy failed: signal: 6 (SIGABRT)`, with the same unstripped result. `plan` showed 0
+   blocked and 169 operations (117 links, 50 `mkdir`, 2 writes); the 117 link paths are identical to
+   rehearsal 6, and the extra `mkdir` and the missing take come from the empty HOME (no existing
+   `settings.json` to adopt, no assembled files to move aside). `apply` with the `--allow-adopt` flag from
+   rehearsal 6 was refused (`E_USAGE ... names no adoption in this plan`, nothing written), and `apply`
+   without the flag gave `result: ok` with `updated=169`. `doctor` and `status` reported ok=136, `state
+   check` exited 0 (journal 338 entries). Since DFM-58 `bootstrap.sh install` refuses a checkout with a
+   non-empty `.git/info/attributes`, a `core.attributesFile` or any `filter.*` git config
+   (`E_SOURCE_UNTRUSTED`); the manager checkout used here had none.
    `plan` showed 0 blocked and 157 operations (117 links, 37 `mkdir`, 1 take, 2 writes); the two missing
    `mkdir` operations are `.local/bin` and `.local/share`, which the install had created. The 120 other
    paths equal rehearsal 5. `apply` with the one `--allow-adopt` flag gave `updated=157` and `result: ok`,
