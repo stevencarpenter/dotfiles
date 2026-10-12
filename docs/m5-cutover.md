@@ -29,8 +29,8 @@ section of `README.md`, and `docs/first-run.md` in the dotfiles-manager reposito
    `[manager].toolchain_tree_sha256` in `dotfiles-manager.lock` of the commit you install. Run the script
    from a checkout of that commit.
 2. CHECK. The manager is installed with `bootstrap.sh install` at a named commit of the
-   `going-to-sleep` branch: `dfa6001ccef1c39f3984c36a0fd13ed25b18815c` (DFM-58 Codex comment fixes, PRs #42
-   and #43, on top of the DFM-57 review fix wave) or later. It carries `dotfiles-manager.lock` (since 266fef4, DFM-56) and is the commit to install;
+   `going-to-sleep` branch: `c253cb9e1fdc02688fc33ee115e12ae3ab19c450` (DFM-58 Codex comment fixes, PRs #42
+   to #44, on top of the DFM-57 review fix wave) or later. It carries `dotfiles-manager.lock` (since 266fef4, DFM-56) and is the commit to install;
    the file fingerprint domain and the publish mechanism changed in DFM-57, so an older commit must not be
    used. A later commit is acceptable only after its own fresh-clone gate passed and it is named in
    approval 1.
@@ -70,6 +70,12 @@ section of `README.md`, and `docs/first-run.md` in the dotfiles-manager reposito
    check` exited 0 (journal 338 entries). Since DFM-58 `bootstrap.sh install` refuses a checkout with a
    non-empty `.git/info/attributes`, a `core.attributesFile` or any `filter.*` git config
    (`E_SOURCE_UNTRUSTED`); the manager checkout used here had none.
+   Rehearsal 8 (2026-10-12, manager c253cb9, same empty isolated HOME setup): `bootstrap.sh toolchain-digest`
+   printed the lock value, `install --commit c253cb9...` exited 0 (binary sha256 `12029553...`), `plan`
+   showed 0 blocked and 169 operations with the same 117 link paths, `apply` gave `result: ok` with
+   `updated=169`, the second `apply` gave `current=120`, `doctor` and `status` ok=136, `state check` exit 0.
+   c253cb9 adds one refusal to `bootstrap.sh`: a password-database home that contains Unicode whitespace
+   or a C1 control is `E_HOME_MISMATCH`, the same rule the installed command applies.
    `plan` showed 0 blocked and 157 operations (117 links, 37 `mkdir`, 1 take, 2 writes); the two missing
    `mkdir` operations are `.local/bin` and `.local/share`, which the install had created. The 120 other
    paths equal rehearsal 5. `apply` with the one `--allow-adopt` flag gave `updated=157` and `result: ok`,
