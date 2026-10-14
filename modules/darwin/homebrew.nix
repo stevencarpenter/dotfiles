@@ -63,8 +63,7 @@ in
       "watch"
       # Git worktree helper; not confirmed in nixpkgs: kept brew.
       "worktrunk"
-      # No nixpkgs equivalent; both are homebrew/core formulae.
-      "herdr"
+      # No nixpkgs equivalent.
       "mole"
       # Crush's FSL-1.1 license prevents Hydra caching, requiring local Nix builds.
       # Homebrew 6 requires formula-level trust and a fully qualified tap name.
@@ -112,8 +111,6 @@ in
     ]
     ++ lib.optionals caps.gui [
       "ghostty"
-      "raycast"
-      "1password"
       "bbedit"
       "obsidian"
       "orbstack"
@@ -200,3 +197,4 @@ in
     ''
   );
 }
+
