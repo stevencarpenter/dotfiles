@@ -34,8 +34,8 @@ section of `README.md`, and `docs/first-run.md` in the dotfiles-manager reposito
    (nanosecond time stamps, `created_unix_ns`); a build before it wrote schema 1, which this commit
    refuses as `E_SCHEMA_UNSUPPORTED` with no upgrade. No live install wrote schema 1. A rehearsal
    HOME initialized by c253cb9 or earlier must have its `~/.local/state/dotfiles-manager/` removed
-   before this commit runs there. No rehearsal has run on this commit yet: repeat the rehearsal on
-   it before approval 1 names it. It carries `dotfiles-manager.lock` (since 266fef4, DFM-56) and is the commit to install;
+   before this commit runs there. Rehearsal 10 (step 3 below) ran on this commit, so approval 1
+   may name it. It carries `dotfiles-manager.lock` (since 266fef4, DFM-56) and is the commit to install;
    the file fingerprint domain and the publish mechanism changed in DFM-57, so an older commit must not be
    used. A later commit is acceptable only after its own fresh-clone gate passed and it is named in
    approval 1.
@@ -104,6 +104,14 @@ section of `README.md`, and `docs/first-run.md` in the dotfiles-manager reposito
    nothing. Deselect test: with `tiling` removed from the profile, the preview listed 7
    `--allow-disruptive` flags, `apply` removed exactly those 7 links and nothing else, and restoring the
    7 paths from the archive brought back the Home Manager links; `doctor` then had 0 errors.
+   Rehearsal 10 (2026-10-16, manager 30d11bc on `main`, same empty isolated HOME setup as rehearsal 8):
+   `bootstrap.sh toolchain-digest` printed the lock value, `install --commit 30d11bc...` exited 0 in 42 s
+   (binary sha256 `390dc41c...`, `--version` printed the commit with no isolation marker, the same
+   `rust-objcopy` strip warning). `plan` showed 0 blocked and 169 operations (117 links, 50 `mkdir`, 2
+   writes); all 169 paths are identical to rehearsal 8. `apply` gave `result: ok` with `updated=169`, the
+   second `apply` gave `current=120`, `doctor` and `status` ok=136, `state check` exit 0 (journal 338
+   entries). The state store is schema 2 (`state.json` holds `created_unix_ns`, the receipt name carries
+   nine fraction digits). This is the rehearsal that prerequisite 2 requires for 30d11bc.
 4. CHECK. This branch (`dfm-cutover`) is checked out at `~/.dotfiles`. Run
    `git -C ~/.dotfiles rev-parse --abbrev-ref HEAD` and `git -C ~/.dotfiles status --short`.
    The branch must be `dfm-cutover` and the tree must have no tracked changes.
