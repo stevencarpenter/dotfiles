@@ -29,8 +29,13 @@ section of `README.md`, and `docs/first-run.md` in the dotfiles-manager reposito
    `[manager].toolchain_tree_sha256` in `dotfiles-manager.lock` of the commit you install. Run the script
    from a checkout of that commit.
 2. CHECK. The manager is installed with `bootstrap.sh install` at a named commit of the
-   `going-to-sleep` branch: `c253cb9e1fdc02688fc33ee115e12ae3ab19c450` (DFM-58 Codex comment fixes, PRs #42
-   to #44, on top of the DFM-57 review fix wave) or later. It carries `dotfiles-manager.lock` (since 266fef4, DFM-56) and is the commit to install;
+   `main` branch: `30d11bcdf9378fe710d5c7b37744022af161e8db` (DFM-59 audit fix wave, PR #45 squash merged
+   2026-10-16, on top of the DFM-57 and DFM-58 fixes) or later. This commit writes state schema 2
+   (nanosecond time stamps, `created_unix_ns`); a build before it wrote schema 1, which this commit
+   refuses as `E_SCHEMA_UNSUPPORTED` with no upgrade. No live install wrote schema 1. A rehearsal
+   HOME initialized by c253cb9 or earlier must have its `~/.local/state/dotfiles-manager/` removed
+   before this commit runs there. No rehearsal has run on this commit yet: repeat the rehearsal on
+   it before approval 1 names it. It carries `dotfiles-manager.lock` (since 266fef4, DFM-56) and is the commit to install;
    the file fingerprint domain and the publish mechanism changed in DFM-57, so an older commit must not be
    used. A later commit is acceptable only after its own fresh-clone gate passed and it is named in
    approval 1.
