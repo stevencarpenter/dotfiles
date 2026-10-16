@@ -4,3 +4,5 @@
 export ENABLE_TOOL_SEARCH=true
 # Replaces nix-darwin environment.variables.EDITOR.
 export EDITOR=nvim
+# Replaces the nix-darwin default PAGER export.
+export PAGER="less -R"
