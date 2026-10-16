@@ -47,7 +47,6 @@ brew "tailscale"
 # Homebrew 6 requires explicit trust for third-party tap code. Trust is scoped to
 # these two formulae, not the whole FelixKratz tap. Fully-qualified names are
 # required for formula-level `trusted` to take effect in Brewfile evaluation.
-# Both are pinned by scripts/brew-sync.sh (`brew pin sketchybar borders`).
 brew "felixkratz/formulae/sketchybar", trusted: true
 brew "felixkratz/formulae/borders", trusted: true
 # Homebrew supplies newer Railway releases than the soaked unstable pin.

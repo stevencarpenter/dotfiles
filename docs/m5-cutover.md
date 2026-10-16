@@ -321,7 +321,7 @@ Use this if you stop after section 3, 4 or 5 and do not approve a plan digest.
 1. CHECK. `scripts/brew-sync.sh --check`. It reports the missing items. On 2026-10-11 the gap was 14
    items: 1 cask (`font-dejavu`) and 13 formulae (`mise`, `sevenzip`, `lefthook`, `trufflehog`, `checkov`,
    `hadolint`, `ffuf`, `testssl`, `gosec`, `cargo-audit`, `cargo-deny`, `bandit`, `pip-audit`).
-2. LIVE. `scripts/brew-sync.sh`. It runs `brew bundle --no-upgrade` and pins sketchybar and borders.
+2. LIVE. `scripts/brew-sync.sh`. It runs `brew bundle` with stock Homebrew behavior: missing items are installed, and brew may update its metadata and upgrade installed items as it normally does.
 3. The `Brewfile` marks only `crush`, `sketchybar` and `borders` with `trusted: true`. The AeroSpace
    cask trust is already granted on this machine (`~/.config/homebrew/trust.json` lists
    `nikitabobko/tap/aerospace` under `trustedcasks`). A fresh machine needs that entry or `trusted: true` in the `Brewfile`.
@@ -426,7 +426,6 @@ No level undoes the following. Each has an undo command or is accepted:
 | Change | Undo or decision |
 | --- | --- |
 | `brew bundle` installs (14 items on 2026-10-11) | Accepted. They do not conflict with nix. To remove one: `brew uninstall <name>`. |
-| `brew pin` on `sketchybar` and `borders` | `brew unpin sketchybar borders`. |
 | macOS defaults written by `scripts/mac-defaults.sh` | Compare with `defaults-before.txt` from the archive and run `defaults write` for each changed key. Nix-darwin writes the same values on the next switch. |
 | Side-channel and hook outputs (op-render files, git sources, agents, token-auditor, MCP and skills sync, `~/.codex/hooks.json` merge) | Accepted. The old `just sync` regenerates them. |
 | Toolchain copy in `~/.local/share/dotfiles-manager/toolchains/1.98.1` (1.6 GB) | `bootstrap.sh uninstall` removes the PATH link, `versions/`, `current` and the build directories, but its documentation says it leaves toolchains, state and the binding. Remove the copy yourself with `rm -rf ~/.local/share/dotfiles-manager/toolchains/1.98.1`, or the whole data directory with `rm -rf ~/.local/share/dotfiles-manager` when you also drop the state. |
