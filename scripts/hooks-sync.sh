@@ -33,7 +33,7 @@ run_py() {
     return 0
   fi
   PYTHONNOUSERSITE=1 PYTHONPATH="$project/src" \
-    "$uv_bin" run --frozen --no-dev --no-install-project --project "$project" python -m "$@" ||
+    "$uv_bin" run --frozen --no-dev --project "$project" python -m "$@" ||
     echo "Warning: $label failed." >&2
 }
 

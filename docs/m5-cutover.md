@@ -112,6 +112,19 @@ section of `README.md`, and `docs/first-run.md` in the dotfiles-manager reposito
    second `apply` gave `current=120`, `doctor` and `status` ok=136, `state check` exit 0 (journal 338
    entries). The state store is schema 2 (`state.json` holds `created_unix_ns`, the receipt name carries
    nine fraction digits). This is the rehearsal that prerequisite 2 requires for 30d11bc.
+   Live run (2026-10-16, manager 30d11bc, binary sha256 `2157966da03269b5...`, this branch at cb9acb2,
+   Path B): backup `~/dfm-cutover-backup-20261016.tgz` (142 entries, 124 Home Manager links, sha256
+   `78bb8e38...`, copy in `/Users/Shared`). `plan` showed 120 operations (117 links, 1 take, 2 writes),
+   0 blocked, digest `4f4796a8...`. The first `apply` was refused with `E_PLAN_STALE`: between `plan` and
+   `apply` the cursor-agent process that IntelliJ runs wrote a default `.cursor/cli-config.json` where the
+   removed link had been. Moving that file to `.pre-dfm-20261016` restored the approved digest, and
+   `apply` gave `result: ok` with `updated=120`, receipt
+   `20261016T083342.709470000Z-apply-4f4796a85ffa33aa-58111.json`. The second `apply` gave `current=120`,
+   both assembled `AGENTS.md` files were byte-identical to the moved-aside files, `doctor` ok=136 warn=0,
+   `state check` ok. `launch-agents.sh load` accepted the symlinked plist. `brew-sync` installed 15 items
+   after a `brew link --overwrite mise` (a stale `_mise` completion file from May blocked the link).
+   `hooks-sync.sh` ran after the uv fix noted in section 9. Section 9 step 2 and the interactive checks of
+   section 10 were left to the owner.
 4. CHECK. This branch (`dfm-cutover`) is checked out at `~/.dotfiles`. Run
    `git -C ~/.dotfiles rev-parse --abbrev-ref HEAD` and `git -C ~/.dotfiles status --short`.
    The branch must be `dfm-cutover` and the tree must have no tracked changes.
@@ -178,11 +191,15 @@ section of `README.md`, and `docs/first-run.md` in the dotfiles-manager reposito
        Library/LaunchAgents/com.user.maxfiles.plist Library/LaunchAgents/org.nixos.maxfiles.plist \
        .local/state/dotfiles-manager .config/dotfiles-manager
    } | sort -u > "$w/backup-paths.txt"
-   tar -czf "$arch" -C "$HOME" -T "$w/backup-paths.txt" \
-     -C / "${w#/}/hm-links.txt" "${w#/}/defaults-before.txt" 2>&1 | tee "$w/backup.log"
+   (cd "$HOME" && tar -cf "$w/backup.tar" -T "$w/backup-paths.txt") 2>&1 | tee "$w/backup.log"
+   tar -rf "$w/backup.tar" -C / "${w#/}/hm-links.txt" "${w#/}/defaults-before.txt"
+   gzip -c "$w/backup.tar" > "$arch" && chmod 600 "$arch"
    ```
 
-   Use one `-T` file: `bsdtar` ignores all but the last `-T` option.
+   Use one `-T` file: `bsdtar` ignores all but the last `-T` option. Do not put `-C /` after `-T` in
+   one command: `bsdtar` applies every `-C` before it reads the list, so each listed path fails with
+   `Cannot stat` and the archive holds 2 entries. The live run on 2026-10-16 hit this; the three-step
+   form above is what worked.
 6. CHECK. The archive holds the link list and a Home Manager link:
    `tar -tzf "$arch" | wc -l` is not zero, `tar -tzf "$arch" | rg -c 'hm-links.txt'` prints 1, and
    `tar -tzf "$arch" | rg -c '^\.local/state/\.keep$'` prints 1. Copy the archive to a place outside the home directory.
@@ -302,7 +319,10 @@ Use this if you stop after section 3, 4 or 5 and do not approve a plan digest.
    ```
 
    The last line must be `result: ok`. `E_PLAN_STALE` means the machine changed after you read the plan.
-   Run section 6 again.
+   Read the `blocked:` line above it. On 2026-10-16 a running agent (the cursor-agent that IntelliJ
+   starts) wrote a default `.cursor/cli-config.json` where the removed link had been. Move such a file to
+   `<path>.pre-dfm-$d` and run `plan` again. If the digest returns to the approved value, apply it. If
+   the digest differs, run section 6 again and ask for a new approval 2.
 2. CHECK. Run `plan` again and apply the new digest. The state changed, so the digest changes.
    The apply must print `updated=0` and `result: ok`.
 3. CHECK. Compare the assembled files. Set `d` to the date from section 4 (`d=$(cat "$w/date")`):
@@ -322,6 +342,9 @@ Use this if you stop after section 3, 4 or 5 and do not approve a plan digest.
    items: 1 cask (`font-dejavu`) and 13 formulae (`mise`, `sevenzip`, `lefthook`, `trufflehog`, `checkov`,
    `hadolint`, `ffuf`, `testssl`, `gosec`, `cargo-audit`, `cargo-deny`, `bandit`, `pip-audit`).
 2. LIVE. `scripts/brew-sync.sh`. It runs `brew bundle` with stock Homebrew behavior: missing items are installed, and brew may update its metadata and upgrade installed items as it normally does.
+   On 2026-10-16 the gap was 15 items (`sketchybar` was also due an update), and `mise` installed but
+   did not link: a stale regular file `/opt/homebrew/share/zsh/site-functions/_mise` blocked the
+   completion link. Copy such a file into `$w`, then `brew link --overwrite mise`.
 3. The `Brewfile` marks only `crush`, `sketchybar` and `borders` with `trusted: true`. The AeroSpace
    cask trust is already granted on this machine (`~/.config/homebrew/trust.json` lists
    `nikitabobko/tap/aerospace` under `trustedcasks`). A fresh machine needs that entry or `trusted: true` in the `Brewfile`.
@@ -332,6 +355,10 @@ Use this if you stop after section 3, 4 or 5 and do not approve a plan digest.
 1. LIVE. `scripts/hooks-sync.sh`. It runs the MCP sync, the skills sync and the Codex hippo hook merge.
    These were Home Manager activation hooks. Run `scripts/hooks-sync.sh --check` first: it prints the
    commands and writes nothing. Each step warns and continues on failure.
+   Until section 12 runs, `~/.config/zsh/.zshrc` still puts `/etc/profiles/per-user/$USER/bin` first on
+   PATH, so `uv`, `sed` and other tools come from the old nix profile (GNU `sed` rejects `sed -i ''`).
+   The live run on 2026-10-16 found `uv run --no-install-project` rejected by every uv; the flag belongs
+   to `uv sync`, and the script no longer passes it.
 2. LIVE. `scripts/sync-side-channels.sh`. It renders secrets with op-render, updates git sources and
    agents, installs token-auditor, the gh-axi skill and the fantasy-sports agents. It does not run the MCP
    or skills sync (step 1 does). It needs an interactive terminal and `op signin`.
