@@ -147,7 +147,7 @@ for host in fixture-host; do
     echo "bootstrap reinstalled Homebrew on $host despite brew being present" >&2
     exit 1
   fi
-  if ! rg -Fxq "brew bundle --file $fixture/repo/Brewfile" "$command_log"; then
+  if ! rg -Fxq "brew bundle --file $fixture/repo/Brewfile --no-upgrade" "$command_log"; then
     echo "bootstrap did not apply the Brewfile for $host" >&2
     cat "$fixture/$host-stdout" "$fixture/$host-stderr" >&2
     exit 1
@@ -175,7 +175,7 @@ if ! rg -Fxq homebrew-install-ran "$missing_log"; then
   echo "bootstrap did not install Homebrew when brew was absent" >&2
   exit 1
 fi
-if ! rg -Fxq "brew bundle --file $fixture/repo/Brewfile" "$missing_log"; then
+if ! rg -Fxq "brew bundle --file $fixture/repo/Brewfile --no-upgrade" "$missing_log"; then
   echo "bootstrap did not apply the Brewfile when Homebrew was absent" >&2
   cat "$fixture/nobrew-stdout" "$fixture/nobrew-stderr" >&2
   exit 1

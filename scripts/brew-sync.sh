@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Apply or check the static Brewfile with stock Homebrew behavior (DFM-50).
-#   brew-sync.sh           brew bundle: install missing items, link _brew completion
+#   brew-sync.sh           brew bundle --no-upgrade: install missing items, upgrade nothing, link _brew completion
 #   brew-sync.sh --check   report missing items; install nothing; exit non-zero on a gap
 set -euo pipefail
 
@@ -24,7 +24,8 @@ if [ "$mode" = check ]; then
   exec brew bundle check --file "$brewfile" --verbose
 fi
 
-brew bundle --file "$brewfile"
+# Upgrades stay in `just update`, which previews them first; a config apply must not upgrade.
+brew bundle --file "$brewfile" --no-upgrade
 
 # Restore brew's zsh completion link when source and directory exist.
 src="$(brew --prefix)/completions/zsh/_brew"
