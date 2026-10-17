@@ -108,6 +108,9 @@ jobs:
       - name: Validate exec bits on directly-exec'd scripts
         run: scripts/test-exec-bits.sh
 
+      - name: Validate host-capability.sh reads machines.nix without nix
+        run: scripts/test-host-capability.sh
+
       - name: Validate fantasy-sports agent and skill install
         run: scripts/test-install-fantasy-sports.sh
 

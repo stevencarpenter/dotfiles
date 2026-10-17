@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Evaluate one host capability from lib/machines.nix (the gating source of truth).
+# Read one host capability (or --identity) from lib/machines.nix, the gating source of truth.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -42,21 +42,33 @@ case "$host" in
     ;;
 esac
 
-nix_bin="${NIX_BIN:-nix}"
+# Parse the static table without nix. nix is absent after the M5 cutover
+# (DFM-52), and lib/machines.nix stays the gating source of truth until DFM-42
+# retires it; this reader must move to the DFM profile at that point.
+# nixfmt keeps the table as one `key = value;` per line inside `  <host> = {`.
+machines="${repo_root}/lib/machines.nix"
+block="$(awk -v host="$host" '
+  $0 == "  " host " = {" { inblock = 1 }
+  inblock { print }
+  inblock && $0 == "  };" { exit }
+' "$machines")"
 
 if [ "$mode" = identity ]; then
-  exec "$nix_bin" eval --impure --raw --expr "
-    let
-      machines = import ${repo_root}/lib/machines.nix;
-    in
-      machines.${host}.identity
-  "
+  value="$(printf '%s\n' "$block" | awk '$1 == "identity" && $2 == "=" { gsub(/[";]/, "", $3); print $3; exit }')"
+  if [ -z "$value" ]; then
+    echo "error: no identity for host '$host' in lib/machines.nix" >&2
+    exit 2
+  fi
+  printf '%s' "$value"
+  exit 0
 fi
 
-exec "$nix_bin" eval --impure --raw --expr "
-  let
-    machines = import ${repo_root}/lib/machines.nix;
-    host = machines.${host};
-  in
-    if host.caps.${capability} then \"1\" else \"0\"
-"
+value="$(printf '%s\n' "$block" | awk -v key="$capability" '$1 == key && $2 == "=" { sub(/;$/, "", $3); print $3; exit }')"
+case "$value" in
+  true) printf '1' ;;
+  false) printf '0' ;;
+  *)
+    echo "error: capability '$capability' is not declared for host '$host' in lib/machines.nix" >&2
+    exit 2
+    ;;
+esac
