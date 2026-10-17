@@ -124,12 +124,69 @@ Exact pins and Homebrew pins are respected. This does not upgrade macOS or indep
 managed application/plugin ecosystems. `-y` skips the update confirmation, not sudo or
 1Password authentication.
 
+### Day-to-day procedures
+
 **Editing raw configs needs no apply.** Everything under `home/` is a symlink into the
 checkout, so a change to `~/.config/nvim/…` or `~/.config/zsh/.zshrc` is live the moment you
 save. An apply is only needed when you add or remove a *link*, change a module's
-*resources*, or change the Claude settings merge. Packages change through the `Brewfile` and
-`scripts/brew-sync.sh`; macOS defaults through `scripts/mac-defaults.sh`
-([`docs/m5-system-scripts.md`](docs/m5-system-scripts.md)).
+*resources*, or change the Claude settings merge.
+
+| Change | Where | Then run |
+| --- | --- | --- |
+| A file that is already linked (`home/**`) | edit it in place | nothing; it is live |
+| A package | `Brewfile`, or a mise fragment in `home/.config/mise/conf.d/` | `scripts/brew-sync.sh`, or `mise install`; both run inside `just sync-dfm-apply` |
+| A link, a module's `[[resources]]`, a profile's module list | `dfm-module-*.toml`, `dfm/profiles/<host>.toml` | `just sync-dfm`, then `just sync-dfm-apply <digest>` |
+| Claude settings | `home/.claude/settings-base.json` (merged, not linked) | `just sync-dfm`, then `just sync-dfm-apply <digest>` |
+| MCP servers | `home/.config/mcp/mcp-master.json` and `machine/*.json` | `just mcp-sync` (also inside the apply) |
+| macOS defaults | `scripts/mac-defaults.sh` | `scripts/mac-defaults.sh` ([`docs/m5-system-scripts.md`](docs/m5-system-scripts.md)) |
+
+**Update everything installed.** `just update` previews Homebrew and mise upgrades, asks,
+upgrades, then runs the side channels (`-y` skips the question). Exact pins stay. Homebrew
+alone: `just brew-upgrade`. To pick up configuration pushed from another machine:
+`git pull`, then `just sync-dfm` and `just sync-dfm-apply <digest>`; a pull that changed only
+linked files needs no apply.
+
+**Add a tool.**
+
+1. Declare the package: a `Brewfile` line for a formula, cask or font, or a line in the
+   right `home/.config/mise/conf.d/*.toml` for a version-managed CLI. Record its origin in
+   [`docs/package-mapping.md`](docs/package-mapping.md).
+2. Install it: `scripts/brew-sync.sh` or `mise install`. Both also run inside the next
+   `just sync-dfm-apply`, and neither upgrades anything else.
+3. Try it. When its configuration is worth keeping, adopt it (next procedure).
+
+**Add a configuration** (promote a config the tool wrote under `~`). Full runbook:
+[`docs/adopting-a-config.md`](docs/adopting-a-config.md); Claude Code has the `adopt-config` skill.
+
+1. `bash .claude/skills/adopt-config/scripts/plan_adoption.sh ~/.config/<tool>/<config>`
+   prints the repo path, a file-or-directory recommendation and the `[[resources]]` stanza.
+2. Copy the config under `home/` and add the stanza to the module that should own it:
+   `dfm-module-core.toml` for every machine, `dfm-module-personal.toml` for the personal
+   identity, `dfm-module-<capability>.toml` for a gated capability.
+3. Verify the copy, then move the original aside: `mv <path> <path>.pre-dfm`. A real file at
+   a managed target blocks the plan with `E_CONFLICT`; no flag overrides it.
+4. `just sync-dfm`, review the plan, `just sync-dfm-apply <digest>`.
+5. `realpath <path>` lands in `~/.dotfiles/home/…` and the tool reads it. Delete the backup.
+
+**Remove a configuration.**
+
+1. Delete its `[[resources]]` stanza from the module. To drop a whole capability on one
+   machine, remove the module from `dfm/profiles/<host>.toml` instead.
+2. `just sync-dfm`. The plan lists one `remove@<path>` per owned output and writes one
+   `--allow-disruptive '<id>'` per line to the approval file. Read that file.
+3. `just sync-dfm-apply <digest>`. The manager deletes only exact, unchanged outputs it owns
+   and reports anything modified or foreign as a conflict instead of deleting it.
+4. `git rm` the source under `home/` and commit.
+
+**Remove a tool.** Remove its configuration as above, then delete the `Brewfile` or mise line.
+`brew-sync.sh` and the side channels never uninstall, so run `brew uninstall <name>` or
+`mise uninstall <tool>` yourself, and clear the tool's own state under `~/.local/share`,
+`~/.cache` or `~/Library` by hand if you want it gone.
+
+**Turn a capability on or off for a machine.** Edit `modules = [...]` in
+`dfm/profiles/<host>.toml`, then plan and apply. Adding a module creates its links; removing
+one goes through the removal flow above. A new axis needs a module: see
+[Machines and capability gating](#machines-and-capability-gating).
 
 Long-lived programs still cache state after a raw file changes. For tmux/z4h/Claude behavior,
 follow the [tmux runtime lifecycle runbook](docs/ai-tools/tmux-runtime-lifecycle.md): it separates
