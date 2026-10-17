@@ -6,7 +6,7 @@ watcher, turn-end guard, Calm UI, and supervision branch remain project-local.
 Normal Pi sessions retain their existing packages, model, and trust policy.
 
 ```bash
-just sync                 # links config, installs tools, provisions Firstmate if absent
+just sync-side-channels   # installs tools, provisions Firstmate if absent
 firstmate                 # run inside tmux to see workers in the same session
 # Outside tmux, optionally start a dedicated session:
 tmux new-session -s firstmate firstmate
@@ -16,7 +16,7 @@ Approve Pi's project trust prompt for `~/.local/share/firstmate/repo` on first
 launch. This loads the upstream `.pi/extensions/` and `.agents/skills/`.
 Do not install Firstmate with `pi install` or copy its internal skills globally.
 `firstmate --setup` (also `just firstmate-setup`) installs the checkout without
-launching Pi; it expects the configuration links created by `just rebuild`.
+launching Pi; it expects the configuration links created by `just sync-dfm-apply`.
 New installations clone upstream `main`. Existing installations are reused without fetching
 or changing their version, including after a native self-update.
 

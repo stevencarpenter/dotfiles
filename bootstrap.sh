@@ -69,7 +69,8 @@ echo "==> Installing the Brewfile (just, mise, uv and the rest) ..."
 # ~/.rustup (docs/m5-cutover.md section 1). Nothing in the Brewfile installs rustup.
 if ! command -v rustup >/dev/null 2>&1 && [ ! -x "$HOME/.cargo/bin/rustup" ]; then
   echo "==> Installing rustup ..."
-  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y || true
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y ||
+    echo "warning: rustup install failed; install it before staging the toolchain" >&2
 fi
 
 # ── 5. dotfiles-manager ──────────────────────────────────────────────────

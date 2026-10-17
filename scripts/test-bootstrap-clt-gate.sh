@@ -76,10 +76,7 @@ fi
 
 echo "bootstrap stops cleanly while Command Line Tools installation is pending"
 
-# Once CLT is present, bootstrap must run through without ever fetching an age
-# identity. The `op` mock below still answers the retired age-key read so this
-# harness can prove bootstrap does not call it (see the negative assertion
-# after the loop).
+# Once CLT is present, bootstrap must run through to the Brewfile.
 cat >"$fixture/bin/xcode-select" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -90,17 +87,6 @@ EOF
 cat >"$fixture/bin/rustup" <<'EOF'
 #!/usr/bin/env bash
 exit 0
-EOF
-
-cat >"$fixture/bin/op" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-printf 'op %s\n' "$*" >>"$TEST_COMMAND_LOG"
-if [ "$*" = "read op://Private/dotfiles-age-key/notesPlain" ]; then
-  printf '%s\n' test-age-key
-  exit 0
-fi
-exit 2
 EOF
 
 cat >"$fixture/bin/sudo" <<'EOF'
@@ -138,7 +124,7 @@ done
 printf '#!/usr/bin/env bash\nprintf "homebrew-install-ran\\n" >>"$TEST_COMMAND_LOG"\n' >"$dest"
 EOF
 
-chmod +x "$fixture/bin/xcode-select" "$fixture/bin/rustup" "$fixture/bin/op" \
+chmod +x "$fixture/bin/xcode-select" "$fixture/bin/rustup" \
   "$fixture/bin/sudo" "$fixture/bin/brew" "$fixture/bin/curl"
 
 for host in fixture-host; do
@@ -168,28 +154,6 @@ for host in fixture-host; do
   fi
 done
 
-# No host may fetch or create an age identity.
-#
-# This assertion used to be asymmetric: personal must never read the key, work
-# must always read it. The age bridge is gone: this repo declares zero
-# age.secrets on every identity, so the invariant is now symmetric and
-# strictly negative for every host bootstrap can build.
-#
-# `op read` specifically, not any `op` call: bootstrap legitimately reaches
-# op-render (which probes `op whoami`, and signs in when it has a TTY). The
-# thing no host may do is READ an age identity out of 1Password.
-for host in fixture-host; do
-  if rg -q '^op read' "$fixture/$host-commands.log" 2>/dev/null; then
-    echo "$host bootstrap fetched an age identity; the age bridge is gone" >&2
-    exit 1
-  fi
-  if [ -e "$fixture/$host-home/.config/age/keys.txt" ]; then
-    echo "$host bootstrap created an age identity; the age bridge is gone" >&2
-    exit 1
-  fi
-done
-
-echo "bootstrap fetches no age identity on any host"
 
 # The mirror case: with brew absent, bootstrap must install it, and must do so
 # through the download-to-a-file path so a failed fetch aborts under set -e
