@@ -11,6 +11,7 @@ mkdir -p "$fixture/bin" "$fixture/home" "$fixture/repo/scripts" "$fixture/tmp"
 # Even if bootstrap bypasses the just mock, its Justfile must be inert.
 cp "$repo_root/bootstrap.sh" "$fixture/repo/bootstrap.sh"
 cp "$repo_root/scripts/host-detect.sh" "$fixture/repo/scripts/host-detect.sh"
+cp "$repo_root/scripts/nix-guard.sh" "$fixture/repo/scripts/nix-guard.sh"
 cat >"$fixture/repo/Justfile" <<'EOF'
 sync-side-channels:
     @echo "bootstrap test bypassed the just mock" >&2
