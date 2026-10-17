@@ -112,6 +112,9 @@ jobs:
       - name: Validate host-capability.sh reads the dotfiles-manager profile
         run: scripts/test-host-capability.sh
 
+      - name: Validate tiling-reload.sh skips hosts without the tiling module
+        run: scripts/test-tiling-reload-gating.sh
+
       - name: Validate non-interactive zsh PATH precedence
         run: scripts/test-zshenv-path-order.sh
 

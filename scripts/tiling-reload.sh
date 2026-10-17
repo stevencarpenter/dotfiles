@@ -7,6 +7,8 @@
 # borders is started by AeroSpace, so it is not managed here.
 set -euo pipefail
 
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+capability_bin="${HOST_CAPABILITY_BIN:-$repo_root/scripts/host-capability.sh}"
 brew=/opt/homebrew/bin/brew
 sketchybar=/opt/homebrew/bin/sketchybar
 aerospace_app=/Applications/AeroSpace.app/Contents/MacOS/AeroSpace
@@ -18,13 +20,29 @@ sketchybar_running() {
 }
 aerospace_running() { /usr/bin/pgrep -x AeroSpace >/dev/null 2>&1; }
 
+mode=reload
 if [[ ${1:-} == --check ]]; then
+  mode=check
+elif [[ -n ${1:-} ]]; then
+  echo "usage: $0 [--check]" >&2; exit 2
+fi
+
+# The host profile decides whether this host runs the tiling stack (CLAUDE.md, capability
+# gating). An unknown host is an error from host-capability.sh and stops the script.
+if ! tiling="$("$capability_bin" tiling)"; then
+  echo "tiling-reload: cannot resolve the host profile" >&2
+  exit 2
+fi
+if [[ $tiling != 1 ]]; then
+  echo "tiling-reload: tiling module not selected for this host: skipping" >&2
+  exit 0
+fi
+
+if [[ $mode == check ]]; then
   rc=0
   if sketchybar_running; then echo "ok: sketchybar service started"; else echo "not running: sketchybar service"; rc=1; fi
   if aerospace_running; then echo "ok: AeroSpace running"; else echo "not running: AeroSpace"; rc=1; fi
   exit "$rc"
-elif [[ -n ${1:-} ]]; then
-  echo "usage: $0 [--check]" >&2; exit 2
 fi
 
 # A failed step makes the script exit 1. A caller that must continue (just sync-dfm-apply) uses `|| echo`.

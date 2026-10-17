@@ -39,6 +39,8 @@ exec_scripts=(
   scripts/check-agent-tools-allowlist.py
   scripts/check-atuin-parity.py
   scripts/host-capability.sh
+  scripts/tiling-reload.sh
+  scripts/test-tiling-reload-gating.sh
   scripts/test-zshenv-path-order.sh
   scripts/sync-side-channels.sh
   scripts/install-fantasy-sports.sh
