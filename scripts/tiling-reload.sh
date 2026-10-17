@@ -33,10 +33,11 @@ if ! tiling="$("$capability_bin" tiling)"; then
   echo "tiling-reload: cannot resolve the host profile" >&2
   exit 2
 fi
-if [[ $tiling != 1 ]]; then
-  echo "tiling-reload: tiling module not selected for this host: skipping" >&2
-  exit 0
-fi
+case "$tiling" in
+  1) ;;
+  0) echo "tiling-reload: tiling module not selected for this host: skipping" >&2; exit 0 ;;
+  *) echo "tiling-reload: unexpected capability answer '$tiling'" >&2; exit 2 ;;
+esac
 
 if [[ $mode == check ]]; then
   rc=0
