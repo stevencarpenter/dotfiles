@@ -152,6 +152,10 @@ for host in fixture-host; do
     cat "$fixture/$host-stdout" "$fixture/$host-stderr" >&2
     exit 1
   fi
+  if rg -q "shellenv" "$fixture/$host-stdout"; then
+    echo "bootstrap printed the shellenv step although brew was already on PATH" >&2
+    exit 1
+  fi
 done
 
 
@@ -178,6 +182,13 @@ fi
 if ! rg -Fxq "brew bundle --file $fixture/repo/Brewfile --no-upgrade" "$missing_log"; then
   echo "bootstrap did not apply the Brewfile when Homebrew was absent" >&2
   cat "$fixture/nobrew-stdout" "$fixture/nobrew-stderr" >&2
+  exit 1
+fi
+# The parent shell has no Homebrew on PATH until DFM links .zshenv, so the
+# printed steps must start with the shellenv eval.
+if ! rg -Fq "eval \"\$($fixture/absent/brew shellenv)\"" "$fixture/nobrew-stdout"; then
+  echo "bootstrap did not print the shellenv step when brew was off PATH" >&2
+  cat "$fixture/nobrew-stdout" >&2
   exit 1
 fi
 

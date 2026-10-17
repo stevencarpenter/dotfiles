@@ -59,7 +59,12 @@ if [ ! -x "$BREW_BIN" ]; then
 else
   echo "==> Homebrew already installed: $("$BREW_BIN" --version | head -1)"
 fi
-# brew is not on PATH in a fresh login shell yet.
+# brew is not on PATH in a fresh login shell yet. The eval reaches only this
+# process; the printed steps tell the parent shell to do the same.
+case ":$PATH:" in
+  *":$(dirname "$BREW_BIN"):"*) brew_on_path=1 ;;
+  *) brew_on_path=0 ;;
+esac
 eval "$("$BREW_BIN" shellenv)" 2>/dev/null || true
 echo "==> Installing the Brewfile (just, mise, uv and the rest) ..."
 "$REPO_ROOT/scripts/brew-sync.sh"
@@ -78,6 +83,10 @@ fi
 # It is not a Homebrew package, so this script stops here and prints the steps.
 echo
 echo "==> Done. Remaining steps:"
+if [ "$brew_on_path" -eq 0 ]; then
+  echo "    0. Put Homebrew on this shell's PATH (DFM links .zshenv in step 4):"
+  echo "       eval \"\$($BREW_BIN shellenv)\""
+fi
 if command -v dotfiles-manager >/dev/null 2>&1; then
   echo "    dotfiles-manager is installed: $(command -v dotfiles-manager)"
 else
