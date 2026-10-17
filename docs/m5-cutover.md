@@ -463,7 +463,15 @@ No level undoes the following. Each has an undo command or is accepted:
 
 Do this only after at least seven days of daily use with no rollback. These steps remove the rollback
 path in section 11, step 3. The commands come from the tools installed on this machine on 2026-10-11.
-They were not run. Read each tool's `--help` before you run it.
+Read each tool's `--help` before you run it.
+
+Run on 2026-10-16 after a 5-day soak (owner decision). Steps 1 to 7 and the reboot ran as written.
+Every step 8 check passed and `doctor` reported ok=136 warn=0 error=0. Three stored paths into
+`/etc/profiles` broke after the reboot and are not covered by the checks above: the hippo
+LaunchAgents (fix: `hippo daemon install --force`, then bootstrap `com.hippo.brain`), every mise
+shim (fix: `mise reshim`), and the zsh4humans compdump caches (fix: delete
+`~/.cache/zsh4humans/v5/cache/zcompdump-*`). The hippo brain crash loop also called `op read` on
+each restart, which showed as repeated 1Password prompts. Evidence is in the DFM-52 section 12 comment.
 
 1. CHECK. Confirm the soak: `dotfiles-manager doctor --root ~/.dotfiles` exits 0 and
    `scripts/brew-sync.sh --check` exits 0. Confirm that no tool you use resolves into `/nix/store`:
