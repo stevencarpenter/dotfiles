@@ -189,8 +189,9 @@ locations:
   `scripts/tiling-reload.sh`. The WM tap, formulae and `font-sketchybar-app-font` are in the
   `Brewfile`.
 - **`atuin`**: `dfm-module-atuin.toml` links `~/.config/atuin/config.toml` to `config.sync.toml`
-  (self-hosted `sync_address`). A host without the module gets `config.local.toml`
-  (`auto_sync = false`). Both include `history_filter` and `[tmux] enabled`.
+  (self-hosted `sync_address`). A host without the module gets no managed atuin config;
+  `config.local.toml` (`auto_sync = false`) is the variant for such a host and waits for a
+  module that links it. Both include `history_filter` and `[tmux] enabled`.
   `scripts/check-atuin-parity.py` keeps the two filter lists identical.
 - **`mcp`**: `dfm-module-mcp.toml` (master config + overlay + pi + firstmate links) and the
   `mcpSync` step of `scripts/hooks-sync.sh`. (No github MCP server ships anywhere: `mcp_sync`

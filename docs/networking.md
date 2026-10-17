@@ -13,10 +13,9 @@ Network-related configuration:
 
 - `home/.config/atuin/config.sync.toml`: points at
   `https://logbook.snugmarina.org` for shell-history sync. Deployed as
-  `~/.config/atuin/config.toml` on machines where the `atuin` capability is
-  true. Machines where it is false get `config.local.toml` instead, which sets
-  `auto_sync = false` and names no server: the capability selects the
-  variant, it does not gate the file's existence.
+  `~/.config/atuin/config.toml` by the `atuin` module. `config.local.toml`
+  sets `auto_sync = false` and names no server; it is the variant for a host
+  that omits the module, and no module links it until such a host exists.
 - `home/.config/zsh/profile.d/tailscale.zsh`: `tsexit` helpers for picking
   Tailscale exit nodes (homelab or Mullvad add-on). Sourced by zsh on any
   machine where `tailscale` is installed.

@@ -23,6 +23,7 @@ tree_hash() {
 }
 
 before="$(tree_hash)"
+export DFM_IDENTITY=personal
 out="$(HOME="$home" DFM_REPO_ROOT="$repo_root" "$repo_root/scripts/hooks-sync.sh" --check 2>&1)"
 [[ $before == "$(tree_hash)" ]] || { echo "--check wrote under the fixture" >&2; exit 1; }
 [[ -L $home/.codex/hooks.json ]] || { echo "--check replaced the hooks symlink" >&2; exit 1; }

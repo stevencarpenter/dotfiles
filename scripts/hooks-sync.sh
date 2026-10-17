@@ -7,7 +7,12 @@
 set -uo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
-identity="${DFM_IDENTITY:-personal}"
+# The identity comes from the host's profile; DFM_IDENTITY is a test seam.
+if [[ -z ${DFM_IDENTITY:-} ]] && ! DFM_IDENTITY="$("$repo_root/scripts/host-capability.sh" --identity)"; then
+  echo "error: cannot resolve the host identity; set DOTFILES_HOST or DFM_IDENTITY" >&2
+  exit 2
+fi
+identity="$DFM_IDENTITY"
 uv_bin="${UV_BIN:-uv}"
 jq_bin="${JQ_BIN:-jq}"
 # Skill links must stay stable, so prefer the canonical checkout over a worktree.
