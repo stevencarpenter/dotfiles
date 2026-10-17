@@ -83,9 +83,12 @@ and select it in each profile that wants it.
 3. Links `~/.dotfiles → <repo>` (the root every managed link resolves through).
 4. Installs **Homebrew** if absent, then applies the `Brewfile` (`scripts/brew-sync.sh`),
    which brings `just`, `mise`, `uv` and the rest.
-5. Prints the remaining steps: install `dotfiles-manager` from its own repository
-   ([`docs/m5-cutover.md`](docs/m5-cutover.md) section 1), then `just sync-dfm` and
-   `just sync-dfm-apply <digest>`.
+5. Installs **rustup** if absent. The manager's installer builds from a pinned toolchain
+   staged out of `~/.rustup`.
+6. Prints the remaining steps: stage the toolchain and install `dotfiles-manager` from its
+   own repository ([`docs/m5-cutover.md`](docs/m5-cutover.md) section 1), bind the machine
+   to its profile (`dotfiles-manager bind --profile … --machine-id <id>`), then
+   `just sync-dfm` and `just sync-dfm-apply <digest>`.
 
 ```bash
 ./bootstrap.sh              # auto-detect host from LocalHostName

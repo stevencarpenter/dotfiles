@@ -87,6 +87,11 @@ set -euo pipefail
 exit 2
 EOF
 
+cat >"$fixture/bin/rustup" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+
 cat >"$fixture/bin/op" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -133,8 +138,8 @@ done
 printf '#!/usr/bin/env bash\nprintf "homebrew-install-ran\\n" >>"$TEST_COMMAND_LOG"\n' >"$dest"
 EOF
 
-chmod +x "$fixture/bin/xcode-select" "$fixture/bin/op" "$fixture/bin/sudo" \
-  "$fixture/bin/brew" "$fixture/bin/curl"
+chmod +x "$fixture/bin/xcode-select" "$fixture/bin/rustup" "$fixture/bin/op" \
+  "$fixture/bin/sudo" "$fixture/bin/brew" "$fixture/bin/curl"
 
 for host in fixture-host; do
   host_home="$fixture/$host-home"

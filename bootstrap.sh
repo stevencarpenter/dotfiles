@@ -64,7 +64,15 @@ eval "$("$BREW_BIN" shellenv)" 2>/dev/null || true
 echo "==> Installing the Brewfile (just, mise, uv and the rest) ..."
 "$REPO_ROOT/scripts/brew-sync.sh"
 
-# ── 4. dotfiles-manager ──────────────────────────────────────────────────
+# ── 4. rustup ────────────────────────────────────────────────────────────
+# The manager's installer builds from a pinned Rust toolchain staged out of
+# ~/.rustup (docs/m5-cutover.md section 1). Nothing in the Brewfile installs rustup.
+if ! command -v rustup >/dev/null 2>&1 && [ ! -x "$HOME/.cargo/bin/rustup" ]; then
+  echo "==> Installing rustup ..."
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y || true
+fi
+
+# ── 5. dotfiles-manager ──────────────────────────────────────────────────
 # The manager is installed from its own repository (docs/m5-cutover.md section 1).
 # It is not a Homebrew package, so this script stops here and prints the steps.
 echo
@@ -72,12 +80,20 @@ echo "==> Done. Remaining steps:"
 if command -v dotfiles-manager >/dev/null 2>&1; then
   echo "    dotfiles-manager is installed: $(command -v dotfiles-manager)"
 else
-  echo "    1. Install dotfiles-manager from its repository (docs/m5-cutover.md section 1)."
+  echo "    1. Stage the pinned Rust toolchain and install dotfiles-manager from its"
+  echo "       repository: docs/m5-cutover.md section 1 names the toolchain version,"
+  echo "       the staging copy and the commit to install."
 fi
-echo "    2. just sync-dfm                      # plan; writes the approval flags"
-echo "    3. just sync-dfm-apply <plan digest>  # apply, packages, side channels, agents, checks"
+if [ -e "$HOME/.config/dotfiles-manager/machine.toml" ]; then
+  echo "    This machine is bound: $HOME/.config/dotfiles-manager/machine.toml"
+else
+  echo "    2. Bind this machine to its profile (plan needs a binding):"
+  echo "       dotfiles-manager bind --profile $HOME/.dotfiles/dfm/profiles/$HOST.toml --machine-id <id>"
+fi
+echo "    3. just sync-dfm                      # plan; writes the approval flags"
+echo "    4. just sync-dfm-apply <plan digest>  # apply, packages, side channels, agents, checks"
 echo "    Side channels that need network or SSH (secrets, agent-registry, token-auditor)"
-echo "    run inside step 3, or alone with 'just sync-side-channels'."
+echo "    run inside step 4, or alone with 'just sync-side-channels'."
 echo
 echo "    Manual first-run steps (TCC-protected, cannot be scripted):"
 echo "      - Accessibility → Display → Reduce transparency"
