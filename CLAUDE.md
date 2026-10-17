@@ -196,8 +196,8 @@ locations:
 - **`mcp`**: `dfm-module-mcp.toml` (master config + overlay + pi + firstmate links) and the
   `mcpSync` step of `scripts/hooks-sync.sh`. (No github MCP server ships anywhere: `mcp_sync`
   strips a `github` server via `RETIRED_MCP_SERVER_NAMES`, and the `github@claude-plugins-official`
-  plugin, which bundles a remote GitHub MCP server, is pinned `false` in
-  `home/.claude/settings-base.json`. `gh-axi` is used for GitHub instead.)
+  plugin, which bundles a remote GitHub MCP server, is pinned `false` in the
+  `core.claude-settings` resource of `dfm-module-core.toml`. `gh-axi` is used for GitHub instead.)
 - **`skills`**: `dfm-module-skills.toml` (manifest + overlay + personal skill links) and the
   `skillsSync` step of `scripts/hooks-sync.sh`.
   **Git-source provenance is enforced in code**, not just by review: a git skill source is a

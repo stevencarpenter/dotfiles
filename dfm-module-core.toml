@@ -393,7 +393,9 @@ pattern = "*.md"
 separator = "\n"
 
 # ---- Claude settings ----
-# Values come from home/.claude/settings-base.json plus the personal-mac variant:
+# This table is the source: the adapter reads no file. home/.claude/settings-base.json is
+# the pre-cutover copy (scripts/test-tmux-lifecycle-contract.sh reads its reap timeouts).
+# Values were taken from it plus the personal-mac variant:
 # dev = true (six plugins true), work = false (atlassian false).
 # sandbox.filesystem.allowWrite is appended: $HOME/.cache/uv, $HOME/projects/agents
 # and $HOME/.local/share/uv/tools, and the live file holds them as absolute paths.

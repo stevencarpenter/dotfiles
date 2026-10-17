@@ -136,7 +136,7 @@ save. An apply is only needed when you add or remove a *link*, change a module's
 | A file that is already linked (`home/**`) | edit it in place | nothing; it is live |
 | A package | `Brewfile`; `home/.config/mise/config.toml` for every machine, or a `home/.config/mise/conf.d/<capability>.toml` fragment | `scripts/brew-sync.sh`, or `mise install`; both run inside `just sync-dfm-apply`, whose side channels also run `mise upgrade --no-prune` |
 | A link, a module's `[[resources]]`, a profile's module list | `dfm-module-*.toml`, `dfm/profiles/<host>.toml` | `just sync-dfm`, then `just sync-dfm-apply <digest>` |
-| Claude settings | `home/.claude/settings-base.json` (merged, not linked) | `just sync-dfm`, then `just sync-dfm-apply <digest>` |
+| Claude settings | the `core.claude-settings` resource in `dfm-module-core.toml` (inline `managed`, `seed` and `handlers` tables; `home/.claude/settings-base.json` is the pre-cutover copy and is not deployed) | `just sync-dfm`, then `just sync-dfm-apply <digest>` |
 | MCP servers | `home/.config/mcp/mcp-master.json` and `machine/*.json` | `just mcp-sync` (also inside the apply) |
 | macOS defaults | `scripts/mac-defaults.sh` | `scripts/mac-defaults.sh` ([`docs/m5-system-scripts.md`](docs/m5-system-scripts.md)) |
 
@@ -323,8 +323,10 @@ Each link text is `<checkout>/home/<path>` (skills: `<checkout>/skills/personal/
 `.config/sketchybar/machine.env` is a link to the static file
 `home/.config/sketchybar/machine.personal.env`. The planner creates parent directories.
 
-The settings merge (`core.claude-settings`) carries every value of `home/.claude/settings-base.json`
-plus the `personal-mac` variant: plugins, `permissions`, `skillOverrides`,
+The settings merge (`core.claude-settings` in `dfm-module-core.toml`) declares its values inline. The
+adapter reads no file, so edit the manifest, not `home/.claude/settings-base.json`, which is the
+pre-cutover copy that `scripts/test-tmux-lifecycle-contract.sh` still reads. The manifest carries every
+value of that file plus the `personal-mac` variant: plugins, `permissions`, `skillOverrides`,
 `extraKnownMarketplaces`, `env`, flags, the three `allowWrite` paths (appended), `model` and
 `effortLevel` (seeds), and all hooks as handlers. The two `SessionStart` handlers come from the
 `personal` (hippo) and `agents` (routing) modules. `.claude/settings.d/*.json` fragments merge over the
