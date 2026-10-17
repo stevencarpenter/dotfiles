@@ -112,6 +112,9 @@ jobs:
       - name: Validate host-capability.sh reads the dotfiles-manager profile
         run: scripts/test-host-capability.sh
 
+      - name: Validate non-interactive zsh PATH precedence
+        run: scripts/test-zshenv-path-order.sh
+
       - name: Validate fantasy-sports agent and skill install
         run: scripts/test-install-fantasy-sports.sh
 

@@ -16,7 +16,8 @@ if [ -n "${ZSH_VERSION-}" ]; then
   export EDITOR=nvim
   # Non-interactive shells (ssh commands, `zsh -c` from GUI apps) return below before
   # .zshrc builds PATH, so add the tool directories here.
-  [[ -o interactive ]] || path=(/opt/homebrew/bin $HOME/.local/bin $HOME/.local/share/mise/shims $path)
+  # Keep .zshrc precedence: local wrappers (gh account routing), mise shims, then Homebrew.
+  [[ -o interactive ]] || path=($HOME/.local/bin $HOME/.local/share/mise/shims /opt/homebrew/bin $path)
 
   # Do not change anything else in this file.
 
