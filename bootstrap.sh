@@ -7,6 +7,7 @@ set -euo pipefail
 # ~/.dotfiles symlink, plain `pwd` preserves that logical path and can otherwise
 # replace the link with a self-reference (`~/.dotfiles -> ~/.dotfiles`).
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+"${REPO_ROOT}/scripts/nix-guard.sh"
 
 # Map the machine's LocalHostName to a flake config name. The matcher list is
 # shared across every host-resolving script; add machines in

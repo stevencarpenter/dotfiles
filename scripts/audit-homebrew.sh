@@ -3,14 +3,15 @@
 set -euo pipefail
 
 brew_bin="${BREW_BIN:-brew}"
-brewfile="${HOMEBREW_BUNDLE_FILE:-}"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+brewfile="${HOMEBREW_BUNDLE_FILE:-$repo_root/Brewfile}"
 
 if ! command -v "$brew_bin" >/dev/null 2>&1; then
   echo "error: brew is required for the Homebrew inventory audit" >&2
   exit 1
 fi
 if [ -z "$brewfile" ] || [ ! -f "$brewfile" ]; then
-  echo "error: HOMEBREW_BUNDLE_FILE must name the active nix-darwin Brewfile" >&2
+  echo "error: no Brewfile at $brewfile; set HOMEBREW_BUNDLE_FILE to the active one" >&2
   exit 1
 fi
 

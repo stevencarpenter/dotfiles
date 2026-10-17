@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Manage the org.carpenter.maxfiles LaunchAgent (replaces nix launchd.user.agents.maxfiles).
 # Usage: launch-agents.sh load | unload | --check
-#   load     launchctl bootstrap gui/$UID (no-op when already loaded)
+#   load     launchctl bootstrap gui/$UID; bootout first when already loaded so a changed plist applies
 #   unload   launchctl bootout (no-op when not loaded)
 #   --check  launchctl print; exit 1 when not loaded. Never writes.
 # The plist is linked into ~/Library/LaunchAgents by the dotfiles-manager bundle.
@@ -25,10 +25,10 @@ case "${1:-}" in
     fi
     ;;
   load)
-    if loaded; then echo "already loaded: $label"; else
-      [[ -e $plist ]] || { echo "missing plist: $plist" >&2; exit 1; }
-      launchctl bootstrap "$domain" "$plist"
-    fi
+    [[ -e $plist ]] || { echo "missing plist: $plist" >&2; exit 1; }
+    # launchd keeps the definition it loaded first; reload so an edited plist applies.
+    if loaded; then launchctl bootout "$domain/$label"; fi
+    launchctl bootstrap "$domain" "$plist"
     ;;
   unload)
     if loaded; then launchctl bootout "$domain/$label"; else echo "not loaded: $label"; fi

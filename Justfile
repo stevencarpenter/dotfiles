@@ -49,7 +49,7 @@ nix-lint:
 
 # Preview all rolling package updates, approve, then sync. Pass -y to approve automatically.
 [group('Daily')]
-update *ARGS:
+update *ARGS: _nix-guard
     scripts/update-inputs.sh {{ ARGS }}
 
 # Nix unstable only: soak 24 hours by default, promote/build, never switch. Included in update.
@@ -70,7 +70,7 @@ brew-audit:
 
 # First-time provisioning on a fresh Mac (Lix, Homebrew, first switch).
 [group('Setup')]
-bootstrap *HOST:
+bootstrap *HOST: _nix-guard
     ./bootstrap.sh {{ HOST }}
 
 # ── Sync (full deploy) ───────────────────────────────────
@@ -131,8 +131,8 @@ sync-dfm-apply $digest:
       done < "$allow"
     fi
     dotfiles-manager apply --root "$root" --yes-plan "$digest" ${flags[@]+"${flags[@]}"}
-    scripts/hooks-sync.sh
     scripts/brew-sync.sh
+    scripts/hooks-sync.sh
     scripts/sync-side-channels.sh
     scripts/launch-agents.sh load
     scripts/login-shell.sh --check
@@ -144,13 +144,7 @@ sync-dfm-apply $digest:
 # Refuses to run nix after the cutover. Set DFM_ALLOW_NIX=1 only for a deliberate rollback.
 [private]
 _nix-guard:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    if [[ -e "$HOME/.config/dotfiles-manager/machine.toml" && "${DFM_ALLOW_NIX:-}" != 1 ]]; then
-      echo "error: dotfiles-manager owns this machine. A nix switch recreates org.nixos.maxfiles and the Home Manager links." >&2
-      echo "Set DFM_ALLOW_NIX=1 only for a rollback (docs/m5-cutover.md section 11)." >&2
-      exit 1
-    fi
+    scripts/nix-guard.sh
 
 # Mise upgrades, secrets, Git sources, agents, and tools only; included in sync.
 [group('Targeted maintenance')]

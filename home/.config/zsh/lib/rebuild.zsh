@@ -36,6 +36,7 @@ function rebuild() {
       ;;
   esac
 
+  "${HOME}/.dotfiles/scripts/nix-guard.sh" || return 1
   print -r -- "Rebuilding nix-darwin for ${host}..."
   sudo darwin-rebuild switch --flake "${HOME}/.dotfiles#${host}" "$@"
 }

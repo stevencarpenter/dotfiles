@@ -8,6 +8,7 @@ set -euo pipefail
 # Resolve the physical checkout path. Lix 2.94 rejects a symlink as a flake
 # root, even though ~/.dotfiles remains the stable path for out-of-store links.
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+"${REPO_ROOT}/scripts/nix-guard.sh"
 if [ "$(realpath "$HOME/.dotfiles" 2>/dev/null || true)" != "$REPO_ROOT" ]; then
 	echo "error: $HOME/.dotfiles does not resolve to $REPO_ROOT; run bootstrap.sh to repair it" >&2
 	exit 1
