@@ -6,7 +6,8 @@
 # ---------------------------------------------------------------------------
 # Section 1: taps, GUI casks, fonts and the formulae that need per-entry trust
 #
-# Trust decision: `trusted: true` only on crush, sketchybar and borders. Section 2 has none.
+# Trust decision: `trusted: true` only on crush, sketchybar, borders and the aerospace cask.
+# Section 2 has none.
 # ---------------------------------------------------------------------------
 
 # Taps
@@ -60,8 +61,9 @@ cask "codex"
 cask "handy"
 # Bespoke Powerlevel10k-patched Meslo build.
 cask "font-meslo-for-powerlevel10k"
-# aerospace is a third-party tap cask.
-cask "nikitabobko/tap/aerospace"
+# aerospace is a third-party tap cask. A fresh machine has no trust.json entry for
+# it, so the Brewfile declares the trust (full tap name required).
+cask "nikitabobko/tap/aerospace", trusted: true
 # SketchyBar icon font (requires gui and tiling).
 cask "font-sketchybar-app-font"
 cask "font-input"

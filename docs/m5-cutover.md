@@ -349,9 +349,10 @@ Use this if you stop after section 3, 4 or 5 and do not approve a plan digest.
    On 2026-10-16 the gap was 15 items (`sketchybar` was also due an update), and `mise` installed but
    did not link: a stale regular file `/opt/homebrew/share/zsh/site-functions/_mise` blocked the
    completion link. Copy such a file into `$w`, then `brew link --overwrite mise`.
-3. The `Brewfile` marks only `crush`, `sketchybar` and `borders` with `trusted: true`. The AeroSpace
-   cask trust is already granted on this machine (`~/.config/homebrew/trust.json` lists
-   `nikitabobko/tap/aerospace` under `trustedcasks`). A fresh machine needs that entry or `trusted: true` in the `Brewfile`.
+3. On 2026-10-16 the `Brewfile` marked only `crush`, `sketchybar` and `borders` with `trusted: true`. The
+   AeroSpace cask passed because this machine already had `nikitabobko/tap/aerospace` under
+   `trustedcasks` in `~/.config/homebrew/trust.json`. A fresh machine has no such entry, so the
+   `Brewfile` now declares `trusted: true` on the cask too.
 4. CHECK. `scripts/brew-sync.sh --check` exits 0.
 
 ## 9. Side channels, agents and system settings
