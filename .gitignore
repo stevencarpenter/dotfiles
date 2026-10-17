@@ -71,11 +71,7 @@ build/
 .codegraph/
 .agents/
 
-# Nix build artifacts
-# `result` symlinks left by `nix build` / `darwin-rebuild build`, and the
-# per-directory direnv cache (`use flake`). flake.lock stays tracked.
-result
-result-*
+# Per-directory direnv cache.
 .direnv/
 .direnv
 
@@ -88,7 +84,7 @@ result-*
 
 # Worktrunk approvals are local trust decisions keyed by repo and exact command.
 # Never share them or replace them with wildcard approvals for arbitrary clone hooks.
-# dotfiles.nix links only config.toml; the ledger and its save lock stay untracked.
+# Only config.toml is linked; the ledger and its save lock stay untracked.
 /home/.config/worktrunk/approvals.toml
 /home/.config/worktrunk/approvals.toml.lock
 

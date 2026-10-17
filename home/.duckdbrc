@@ -1,5 +1,5 @@
 -- ~/.duckdbrc: DuckDB startup configuration
--- Symlinked from ~/.dotfiles/home/.duckdbrc by modules/home/dotfiles.nix
+-- Symlinked from ~/.dotfiles/home/.duckdbrc by dotfiles-manager
 
 -- Output formatting
 .mode duckbox

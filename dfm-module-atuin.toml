@@ -1,0 +1,15 @@
+# caps.atuin = true selects the self-hosted sync variant.
+
+schema = 1
+id = "atuin"
+platforms = ["macos"]
+requires = []
+
+[[resources]]
+id = "config-atuin-config-toml"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/atuin/config.toml"
+[resources.value]
+source = "home/.config/atuin/config.sync.toml"
+

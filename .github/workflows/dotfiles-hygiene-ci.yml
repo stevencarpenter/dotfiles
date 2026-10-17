@@ -6,15 +6,16 @@ on:
       - ".github/workflows/dotfiles-hygiene-ci.yml"
       - "lefthook.yml"
       - "home/**"
-      - "modules/**"
-      - "lib/**"
       - "scripts/**"
       - "docs/**"
       - "agent_reap/README.md"
       - "CLAUDE.md"
       - "Justfile"
+      - "Brewfile"
+      - "dfm-bundle.toml"
+      - "dfm-module-*.toml"
+      - "dfm/**"
       - "bootstrap.sh"
-      - "rebuild.sh"
       - "README.md"
       - "ruff.toml"
       - ".gitleaks.toml"
@@ -25,15 +26,16 @@ on:
       - ".github/workflows/dotfiles-hygiene-ci.yml"
       - "lefthook.yml"
       - "home/**"
-      - "modules/**"
-      - "lib/**"
       - "scripts/**"
       - "docs/**"
       - "agent_reap/README.md"
       - "CLAUDE.md"
       - "Justfile"
+      - "Brewfile"
+      - "dfm-bundle.toml"
+      - "dfm-module-*.toml"
+      - "dfm/**"
       - "bootstrap.sh"
-      - "rebuild.sh"
       - "README.md"
       - "ruff.toml"
       - ".gitleaks.toml"
@@ -66,7 +68,7 @@ jobs:
         with:
           python-version: "3.14"
 
-      # Match homebrew.nix's Bash; SketchyBar associative arrays need Bash >= 4.
+      # SketchyBar associative arrays need Bash >= 4.
       - name: Install shell test dependencies
         run: brew install ripgrep bash tmux just jq
 
@@ -100,7 +102,6 @@ jobs:
             bash -n "${file}"
           done < <(find scripts -type f -name "*.sh" -print0)
           bash -n bootstrap.sh
-          bash -n rebuild.sh
 
       - name: Validate agent tools allowlist gate
         run: scripts/test-agent-tools-allowlist.sh
@@ -108,8 +109,20 @@ jobs:
       - name: Validate exec bits on directly-exec'd scripts
         run: scripts/test-exec-bits.sh
 
+      - name: Validate host-capability.sh reads the dotfiles-manager profile
+        run: scripts/test-host-capability.sh
+
+      - name: Validate tiling-reload.sh skips hosts without the tiling module
+        run: scripts/test-tiling-reload-gating.sh
+
+      - name: Validate non-interactive zsh PATH precedence
+        run: scripts/test-zshenv-path-order.sh
+
       - name: Validate fantasy-sports agent and skill install
         run: scripts/test-install-fantasy-sports.sh
+
+      - name: Validate hooks-sync --check writes nothing
+        run: scripts/test-hooks-sync.sh
 
       - name: Validate tmux lifecycle contract
         run: scripts/test-tmux-lifecycle-contract.sh
@@ -144,9 +157,6 @@ jobs:
       - name: Validate SketchyBar badge wiring
         run: scripts/test-sketchybar-badge-wiring.sh
 
-      - name: Validate Claude settings merge order
-        run: scripts/test-claude-settings-order.sh
-
       - name: Validate Claude statusline rendering
         run: scripts/test-claude-statusline-command.sh
 
@@ -158,12 +168,6 @@ jobs:
 
       - name: Validate direct activation entry points
         run: scripts/test-sync-hook-runtime.sh
-
-      - name: Validate Home Manager parent symlink guard
-        run: scripts/test-home-link-parents.sh
-
-      - name: Validate Claude settings hook preservation
-        run: scripts/test-claude-hooks-preservation.sh
 
       - name: Validate fresh-bootstrap CLT gate
         run: scripts/test-bootstrap-clt-gate.sh

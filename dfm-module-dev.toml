@@ -1,0 +1,15 @@
+# caps.dev: mise conf.d/dev.toml. The dev-only Claude plugin flags wait for DFM-48.
+
+schema = 1
+id = "dev"
+platforms = ["macos"]
+requires = []
+
+[[resources]]
+id = "config-mise-conf-d-dev-toml"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/mise/conf.d/dev.toml"
+[resources.value]
+source = "home/.config/mise/conf.d/dev.toml"
+

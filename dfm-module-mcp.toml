@@ -1,0 +1,152 @@
+# caps.mcp: master config, overlay for the personal identity, pi and firstmate files.
+# Not managed: .config/mcp/overrides (.keep seam), MCP generated outputs.
+
+schema = 1
+id = "mcp"
+platforms = ["macos"]
+requires = []
+
+[[resources]]
+id = "config-mcp-mcp-master-json"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/mcp/mcp-master.json"
+[resources.value]
+source = "home/.config/mcp/mcp-master.json"
+
+[[resources]]
+id = "copilot-settings-json"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".copilot/settings.json"
+[resources.value]
+source = "home/.copilot/settings.json"
+
+[[resources]]
+id = "cursor-cli-config-json"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".cursor/cli-config.json"
+[resources.value]
+source = "home/.cursor/cli-config.json"
+
+[[resources]]
+id = "pi-agent-settings-json"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".pi/agent/settings.json"
+[resources.value]
+source = "home/.pi/agent/settings.json"
+
+[[resources]]
+id = "pi-agent-models-json"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".pi/agent/models.json"
+[resources.value]
+source = "home/.pi/agent/models.json"
+
+[[resources]]
+id = "pi-agent-themes-everforest-dark-hard-json"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".pi/agent/themes/everforest-dark-hard.json"
+[resources.value]
+source = "home/.pi/agent/themes/everforest-dark-hard.json"
+
+[[resources]]
+id = "pi-agent-prompts-review-md"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".pi/agent/prompts/review.md"
+[resources.value]
+source = "home/.pi/agent/prompts/review.md"
+
+[[resources]]
+id = "pi-agent-prompts-blind-review-md"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".pi/agent/prompts/blind-review.md"
+[resources.value]
+source = "home/.pi/agent/prompts/blind-review.md"
+
+[[resources]]
+id = "pi-agent-agents-d-10-pi-runtime-md"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".pi/agent/AGENTS.d/10-pi-runtime.md"
+[resources.value]
+source = "home/.pi/agent/AGENTS.d/10-pi-runtime.md"
+
+[[resources]]
+id = "pi-agent-extensions-omlx-discovery-ts"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".pi/agent/extensions/omlx-discovery.ts"
+[resources.value]
+source = "home/.pi/agent/extensions/omlx-discovery.ts"
+
+[[resources]]
+id = "pi-agent-extensions-package-json"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".pi/agent/extensions/package.json"
+[resources.value]
+source = "home/.pi/agent/extensions/package.json"
+
+[[resources]]
+id = "pi-agent-extensions-package-lock-json"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".pi/agent/extensions/package-lock.json"
+[resources.value]
+source = "home/.pi/agent/extensions/package-lock.json"
+
+[[resources]]
+id = "config-pi-web-search-json"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/pi/web-search.json"
+[resources.value]
+source = "home/.config/pi/web-search.json"
+
+[[resources]]
+id = "local-bin-firstmate"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".local/bin/firstmate"
+[resources.value]
+source = "home/.local/bin/firstmate"
+
+[[resources]]
+id = "local-share-firstmate-config-backend"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".local/share/firstmate/config/backend"
+[resources.value]
+source = "home/.local/share/firstmate/config/backend"
+
+[[resources]]
+id = "local-share-firstmate-config-crew-harness"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".local/share/firstmate/config/crew-harness"
+[resources.value]
+source = "home/.local/share/firstmate/config/crew-harness"
+
+[[resources]]
+id = "config-mise-conf-d-firstmate-toml"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/mise/conf.d/firstmate.toml"
+[resources.value]
+source = "home/.config/mise/conf.d/firstmate.toml"
+
+[[resources]]
+id = "config-mcp-machine-personal-json"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/mcp/machine/personal.json"
+[resources.value]
+source = "home/.config/mcp/machine/personal.json"
+

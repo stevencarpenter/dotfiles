@@ -6,7 +6,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${repo_root}"
 
 if ! command -v lefthook >/dev/null 2>&1; then
-  echo "FAIL: lefthook is not on PATH (declared in modules/home/packages.nix)" >&2
+  echo "FAIL: lefthook is not on PATH (declared in the Brewfile)" >&2
   exit 1
 fi
 

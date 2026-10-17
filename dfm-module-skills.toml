@@ -1,0 +1,320 @@
+# caps.skills (+ identity personal for the pinned skill links).
+
+schema = 1
+id = "skills"
+platforms = ["macos"]
+requires = []
+
+[[resources]]
+id = "config-skills-skills-master-json"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/skills/skills-master.json"
+[resources.value]
+source = "home/.config/skills/skills-master.json"
+
+[[resources]]
+id = "config-skills-machine-personal-json"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/skills/machine/personal.json"
+[resources.value]
+source = "home/.config/skills/machine/personal.json"
+
+[[resources]]
+id = "config-opencode-skills-use-railway"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/opencode/skills/use-railway"
+[resources.value]
+source = "skills/personal/use-railway"
+directory = true
+
+[[resources]]
+id = "agents-skills-use-railway"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".agents/skills/use-railway"
+[resources.value]
+source = "skills/personal/use-railway"
+directory = true
+
+[[resources]]
+id = "claude-skills-use-railway"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".claude/skills/use-railway"
+[resources.value]
+source = "skills/personal/use-railway"
+directory = true
+
+[[resources]]
+id = "codex-skills-playwright"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".codex/skills/playwright"
+[resources.value]
+source = "skills/personal/playwright"
+directory = true
+
+[[resources]]
+id = "codex-skills-use-railway"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".codex/skills/use-railway"
+[resources.value]
+source = "skills/personal/use-railway"
+directory = true
+
+[[resources]]
+id = "cursor-skills-use-railway"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".cursor/skills/use-railway"
+[resources.value]
+source = "skills/personal/use-railway"
+directory = true
+
+[[resources]]
+id = "copilot-skills-use-railway"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".copilot/skills/use-railway"
+[resources.value]
+source = "skills/personal/use-railway"
+directory = true
+
+[[resources]]
+id = "junie-skills-clerk"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".junie/skills/clerk"
+[resources.value]
+source = "skills/personal/clerk"
+directory = true
+
+[[resources]]
+id = "junie-skills-clerk-testing"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".junie/skills/clerk-testing"
+[resources.value]
+source = "skills/personal/clerk-testing"
+directory = true
+
+[[resources]]
+id = "junie-skills-clerk-webhooks"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".junie/skills/clerk-webhooks"
+[resources.value]
+source = "skills/personal/clerk-webhooks"
+directory = true
+
+[[resources]]
+id = "junie-skills-design-an-interface"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".junie/skills/design-an-interface"
+[resources.value]
+source = "skills/personal/design-an-interface"
+directory = true
+
+[[resources]]
+id = "junie-skills-domain-model"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".junie/skills/domain-model"
+[resources.value]
+source = "skills/personal/domain-model"
+directory = true
+
+[[resources]]
+id = "junie-skills-github-triage"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".junie/skills/github-triage"
+[resources.value]
+source = "skills/personal/github-triage"
+directory = true
+
+[[resources]]
+id = "junie-skills-request-refactor-plan"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".junie/skills/request-refactor-plan"
+[resources.value]
+source = "skills/personal/request-refactor-plan"
+directory = true
+
+[[resources]]
+id = "junie-skills-ubiquitous-language"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".junie/skills/ubiquitous-language"
+[resources.value]
+source = "skills/personal/ubiquitous-language"
+directory = true
+
+[[resources]]
+id = "junie-skills-ponytail"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".junie/skills/ponytail"
+[resources.value]
+source = "skills/personal/ponytail"
+directory = true
+
+[[resources]]
+id = "junie-skills-ponytail-review"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".junie/skills/ponytail-review"
+[resources.value]
+source = "skills/personal/ponytail-review"
+directory = true
+
+[[resources]]
+id = "junie-skills-ponytail-audit"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".junie/skills/ponytail-audit"
+[resources.value]
+source = "skills/personal/ponytail-audit"
+directory = true
+
+[[resources]]
+id = "junie-skills-ponytail-debt"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".junie/skills/ponytail-debt"
+[resources.value]
+source = "skills/personal/ponytail-debt"
+directory = true
+
+[[resources]]
+id = "junie-skills-ponytail-gain"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".junie/skills/ponytail-gain"
+[resources.value]
+source = "skills/personal/ponytail-gain"
+directory = true
+
+[[resources]]
+id = "junie-skills-ponytail-help"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".junie/skills/ponytail-help"
+[resources.value]
+source = "skills/personal/ponytail-help"
+directory = true
+
+[[resources]]
+id = "copilot-skills-ponytail"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".copilot/skills/ponytail"
+[resources.value]
+source = "skills/personal/ponytail"
+directory = true
+
+[[resources]]
+id = "copilot-skills-ponytail-review"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".copilot/skills/ponytail-review"
+[resources.value]
+source = "skills/personal/ponytail-review"
+directory = true
+
+[[resources]]
+id = "copilot-skills-ponytail-audit"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".copilot/skills/ponytail-audit"
+[resources.value]
+source = "skills/personal/ponytail-audit"
+directory = true
+
+[[resources]]
+id = "copilot-skills-ponytail-debt"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".copilot/skills/ponytail-debt"
+[resources.value]
+source = "skills/personal/ponytail-debt"
+directory = true
+
+[[resources]]
+id = "copilot-skills-ponytail-gain"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".copilot/skills/ponytail-gain"
+[resources.value]
+source = "skills/personal/ponytail-gain"
+directory = true
+
+[[resources]]
+id = "copilot-skills-ponytail-help"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".copilot/skills/ponytail-help"
+[resources.value]
+source = "skills/personal/ponytail-help"
+directory = true
+
+[[resources]]
+id = "cursor-skills-ponytail"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".cursor/skills/ponytail"
+[resources.value]
+source = "skills/personal/ponytail"
+directory = true
+
+[[resources]]
+id = "cursor-skills-ponytail-review"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".cursor/skills/ponytail-review"
+[resources.value]
+source = "skills/personal/ponytail-review"
+directory = true
+
+[[resources]]
+id = "cursor-skills-ponytail-audit"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".cursor/skills/ponytail-audit"
+[resources.value]
+source = "skills/personal/ponytail-audit"
+directory = true
+
+[[resources]]
+id = "cursor-skills-ponytail-debt"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".cursor/skills/ponytail-debt"
+[resources.value]
+source = "skills/personal/ponytail-debt"
+directory = true
+
+[[resources]]
+id = "cursor-skills-ponytail-gain"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".cursor/skills/ponytail-gain"
+[resources.value]
+source = "skills/personal/ponytail-gain"
+directory = true
+
+[[resources]]
+id = "cursor-skills-ponytail-help"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".cursor/skills/ponytail-help"
+[resources.value]
+source = "skills/personal/ponytail-help"
+directory = true
+

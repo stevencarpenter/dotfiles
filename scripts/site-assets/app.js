@@ -228,9 +228,9 @@
     }).join("");
 
     const entries = [
-      ["flake.nix", "inputs and the mkHost fold to darwinConfigurations"],
-      ["lib/machines.nix", "the complete per-host capability table"],
-      ["modules/home/dotfiles.nix", "the out-of-store symlink map"],
+      ["dfm-bundle.toml", "the module list and source roots"],
+      ["dfm/profiles/personal-mac.toml", "which modules this host selects"],
+      ["dfm-module-core.toml", "the links every machine gets"],
       ["Justfile", "every build, sync and check recipe"],
       ["CLAUDE.md", "the architecture document agents read"],
       ["scripts/build-site.py", "the pipeline that generated this page"],
@@ -249,7 +249,7 @@
         <div class="stat"><div class="v">${s.files}</div><div class="t">tracked files in ${s.dirs} directories</div></div>
         <div class="stat"><div class="v">${s.covered}</div><div class="t">explained with no model, ${pct}% of the tree</div></div>
         <div class="stat y"><div class="v">${s.queue_files + s.queue_dirs}</div><div class="t">nodes queued for synthesis</div></div>
-        <div class="stat b"><div class="v">${s.edges}</div><div class="t">edges derived from Justfile, mkLinks and CI</div></div>
+        <div class="stat b"><div class="v">${s.edges}</div><div class="t">edges derived from Justfile, module manifests and CI</div></div>
       </div>
 
       <section class="blk"><h2>Where the knowledge comes from</h2>

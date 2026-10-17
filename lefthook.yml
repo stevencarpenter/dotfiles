@@ -1,5 +1,5 @@
 # uvx runs pinned pre-commit-hooks checks without a global install.
-# `just sync` installs Git hooks; `just lefthook` checks every file as CI does.
+# `just sync-side-channels` installs Git hooks; `just lefthook` checks every file as CI does.
 min_version: 2.0.0
 
 # Show failures and the result summary.

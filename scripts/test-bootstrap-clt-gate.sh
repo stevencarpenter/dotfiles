@@ -7,15 +7,12 @@ fixture="$(mktemp -d)"
 fixture="$(cd "$fixture" && pwd -P)"
 trap 'rm -rf "$fixture"' EXIT
 
-mkdir -p "$fixture/bin" "$fixture/home" "$fixture/repo/scripts" "$fixture/tmp"
-# Even if bootstrap bypasses the just mock, its Justfile must be inert.
+mkdir -p "$fixture/bin" "$fixture/home" "$fixture/repo/scripts" "$fixture/repo/dfm/profiles" "$fixture/tmp"
 cp "$repo_root/bootstrap.sh" "$fixture/repo/bootstrap.sh"
 cp "$repo_root/scripts/host-detect.sh" "$fixture/repo/scripts/host-detect.sh"
-cat >"$fixture/repo/Justfile" <<'EOF'
-sync-side-channels:
-    @echo "bootstrap test bypassed the just mock" >&2
-    @exit 99
-EOF
+cp "$repo_root/scripts/brew-sync.sh" "$fixture/repo/scripts/brew-sync.sh"
+cp "$repo_root/Brewfile" "$fixture/repo/Brewfile"
+cp "$repo_root/dfm/profiles/personal-mac.toml" "$fixture/repo/dfm/profiles/fixture-host.toml"
 
 run_bootstrap() {
   local test_home="$1" command_log="$2" brew_bin="$3"
@@ -30,7 +27,6 @@ run_bootstrap() {
     PATH="$fixture/bin:/usr/bin:/bin" \
     TEST_COMMAND_LOG="$command_log" \
     DOTFILES_BREW_BIN="$brew_bin" \
-    DOTFILES_JUST_BIN="$fixture/bin/just" \
     /bin/bash "$fixture/repo/bootstrap.sh" "$@"
 }
 
@@ -80,10 +76,7 @@ fi
 
 echo "bootstrap stops cleanly while Command Line Tools installation is pending"
 
-# Once CLT is present, bootstrap must run through without ever fetching an age
-# identity. The `op` mock below still answers the retired age-key read so this
-# harness can prove bootstrap does not call it (see the negative assertion
-# after the loop).
+# Once CLT is present, bootstrap must run through to the Brewfile.
 cat >"$fixture/bin/xcode-select" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -91,25 +84,9 @@ set -euo pipefail
 exit 2
 EOF
 
-cat >"$fixture/bin/nix" <<'EOF'
-#!/usr/bin/env bash
-exit 0
-EOF
-
 cat >"$fixture/bin/rustup" <<'EOF'
 #!/usr/bin/env bash
 exit 0
-EOF
-
-cat >"$fixture/bin/op" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-printf 'op %s\n' "$*" >>"$TEST_COMMAND_LOG"
-if [ "$*" = "read op://Private/dotfiles-age-key/notesPlain" ]; then
-  printf '%s\n' test-age-key
-  exit 0
-fi
-exit 2
 EOF
 
 cat >"$fixture/bin/sudo" <<'EOF'
@@ -126,19 +103,6 @@ cat >"$fixture/bin/brew" <<'EOF'
 #!/usr/bin/env bash
 printf 'brew %s\n' "$*" >>"$TEST_COMMAND_LOG"
 [ "${1:-}" = "--version" ] && printf 'Homebrew 4.0.0-test\n'
-exit 0
-EOF
-
-cat >"$fixture/bin/just" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-for name in XDG_CONFIG_HOME XDG_DATA_HOME XDG_CACHE_HOME XDG_STATE_HOME; do
-  case "${!name}" in
-    "$HOME"/*) ;;
-    *) echo "bootstrap test leaked $name outside its home" >&2; exit 1 ;;
-  esac
-done
-printf 'just %s\n' "$*" >>"$TEST_COMMAND_LOG"
 exit 0
 EOF
 
@@ -160,9 +124,8 @@ done
 printf '#!/usr/bin/env bash\nprintf "homebrew-install-ran\\n" >>"$TEST_COMMAND_LOG"\n' >"$dest"
 EOF
 
-  chmod +x "$fixture/bin/xcode-select" "$fixture/bin/nix" \
-  "$fixture/bin/rustup" "$fixture/bin/op" "$fixture/bin/sudo" \
-  "$fixture/bin/brew" "$fixture/bin/curl" "$fixture/bin/just"
+chmod +x "$fixture/bin/xcode-select" "$fixture/bin/rustup" \
+  "$fixture/bin/sudo" "$fixture/bin/brew" "$fixture/bin/curl"
 
 for host in fixture-host; do
   host_home="$fixture/$host-home"
@@ -184,39 +147,21 @@ for host in fixture-host; do
     echo "bootstrap reinstalled Homebrew on $host despite brew being present" >&2
     exit 1
   fi
-  if ! rg -Fxq "just --justfile $fixture/repo/Justfile sync-side-channels" "$command_log"; then
-    echo "bootstrap did not use the isolated just mock for $host" >&2
+  if ! rg -Fxq "brew bundle --file $fixture/repo/Brewfile --no-upgrade" "$command_log"; then
+    echo "bootstrap did not apply the Brewfile for $host" >&2
     cat "$fixture/$host-stdout" "$fixture/$host-stderr" >&2
     exit 1
   fi
-done
-
-# No host may fetch or create an age identity.
-#
-# This assertion used to be asymmetric: personal must never read the key, work
-# must always read it. The age bridge is gone: this repo declares zero
-# age.secrets on every identity, so the invariant is now symmetric and
-# strictly negative for every host bootstrap can build.
-#
-# `op read` specifically, not any `op` call: bootstrap legitimately reaches
-# op-render (which probes `op whoami`, and signs in when it has a TTY). The
-# thing no host may do is READ an age identity out of 1Password.
-for host in fixture-host; do
-  if rg -q '^op read' "$fixture/$host-commands.log" 2>/dev/null; then
-    echo "$host bootstrap fetched an age identity; the age bridge is gone" >&2
-    exit 1
-  fi
-  if [ -e "$fixture/$host-home/.config/age/keys.txt" ]; then
-    echo "$host bootstrap created an age identity; the age bridge is gone" >&2
+  if rg -q "shellenv" "$fixture/$host-stdout"; then
+    echo "bootstrap printed the shellenv step although brew was already on PATH" >&2
     exit 1
   fi
 done
 
-echo "bootstrap fetches no age identity on any host"
 
 # The mirror case: with brew absent, bootstrap must install it, and must do so
 # through the download-to-a-file path so a failed fetch aborts under set -e
-# rather than continuing on to a switch that has no brew to bundle with.
+# rather than continuing on to a bundle that has no brew.
 missing_home="$fixture/nobrew-home"
 missing_log="$fixture/nobrew-commands.log"
 mkdir -p "$missing_home"
@@ -234,9 +179,16 @@ if ! rg -Fxq homebrew-install-ran "$missing_log"; then
   echo "bootstrap did not install Homebrew when brew was absent" >&2
   exit 1
 fi
-if ! rg -Fxq "just --justfile $fixture/repo/Justfile sync-side-channels" "$missing_log"; then
-  echo "bootstrap did not use the isolated just mock when Homebrew was absent" >&2
+if ! rg -Fxq "brew bundle --file $fixture/repo/Brewfile --no-upgrade" "$missing_log"; then
+  echo "bootstrap did not apply the Brewfile when Homebrew was absent" >&2
   cat "$fixture/nobrew-stdout" "$fixture/nobrew-stderr" >&2
+  exit 1
+fi
+# The parent shell has no Homebrew on PATH until DFM links .zshenv, so the
+# printed steps must start with the shellenv eval.
+if ! rg -Fq "eval \"\$($fixture/absent/brew shellenv)\"" "$fixture/nobrew-stdout"; then
+  echo "bootstrap did not print the shellenv step when brew was off PATH" >&2
+  cat "$fixture/nobrew-stdout" >&2
   exit 1
 fi
 

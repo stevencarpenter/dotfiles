@@ -3,7 +3,7 @@
 # - Pin critical automation/security tools to explicit versions for reproducibility.
 # - Use "latest" only for lower-risk tools where faster updates are preferred.
 #
-# Shared tools for all machines. modules/home/dev-tools.nix links capability
+# Shared tools for all machines. The dev and infra modules link capability
 # additions from conf.d/dev.toml and conf.d/infra.toml. mise merges those tables.
 
 # Programming Languages & Runtimes (all machines)

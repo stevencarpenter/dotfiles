@@ -11,6 +11,14 @@ if [ -n "${ZSH_VERSION-}" ]; then
   #
   #   export GOPATH=$HOME/go
   #
+  # EDITOR must exist in login and non-interactive shells too.
+  # GUI apps launched by launchd do not read this file.
+  export EDITOR=nvim
+  # Non-interactive shells (ssh commands, `zsh -c` from GUI apps) return below before
+  # .zshrc builds PATH, so add the tool directories here.
+  # Keep .zshrc precedence: local wrappers (gh account routing), mise shims, then Homebrew.
+  [[ -o interactive ]] || path=($HOME/.local/bin $HOME/.local/share/mise/shims /opt/homebrew/bin $path)
+
   # Do not change anything else in this file.
 
   : ${ZDOTDIR:=~}

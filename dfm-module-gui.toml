@@ -1,0 +1,8 @@
+# gui capability: GUI casks and display fonts, which the Brewfile installs outside
+# dotfiles-manager scope. This module holds no resources.
+
+schema = 1
+id = "gui"
+platforms = ["macos"]
+requires = []
+

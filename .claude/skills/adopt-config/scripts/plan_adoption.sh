@@ -4,8 +4,8 @@
 # Given the path to a config the tool wrote under $HOME (a file OR a directory),
 # print: the repo target path, a file-vs-directory link recommendation (by
 # scanning for tool-written state), a collision check, and the exact
-# dotfiles.nix `mkLinks` line to add. Judgment calls it CANNOT make (which
-# machine gate, which package source) are surfaced as TODOs, not guessed.
+# dotfiles-manager `[[resources]]` stanza to add. Judgment calls it CANNOT make
+# (which module, which package source) are surfaced as TODOs, not guessed.
 #
 # Usage:  plan_adoption.sh <path-under-$HOME>
 # Output: human-readable plan on stdout. Exits non-zero only on bad input.
@@ -34,7 +34,6 @@ case "$abs" in
 esac
 
 rel="${abs#"$HOME"/}"          # e.g. .config/foo/config
-repo_target="$DOTFILES/home/$rel"
 
 echo "== Adoption plan for: $abs =="
 echo
@@ -47,7 +46,9 @@ if [ -L "$abs" ]; then
     "$DOTFILES"/*)
       echo "ALREADY ADOPTED: $abs is a symlink resolving into the repo:"
       echo "  -> $resolved"
-      echo "Nothing to do (edit that repo file directly; it's live)."
+      echo "Edit that repo file directly; it's live. If the manager does not own the link yet"
+      echo "(made by stow or by hand), the plan shows it as 'adopt' and just sync-dfm writes"
+      echo "the --allow-adopt flag for just sync-dfm-apply."
       exit 0
       ;;
     *)
@@ -101,32 +102,51 @@ fi
 echo
 
 # --- Collision check -------------------------------------------------------
+# Only the linked path collides. A parent directory that holds unlinked state
+# stays a real directory, so the mv names the link target, not the input.
+live="$HOME/$link_rel"
+repo_target="$DOTFILES/home/$link_rel"
 echo "REPO TARGET : home/$link_rel"
 if [ -e "$repo_target" ] || [ -L "$repo_target" ]; then
   echo "             (already present in repo: you may be re-adopting)"
 fi
-echo "COLLISION   : after linking, a real '$abs' would block the symlink."
-echo "             -> verify the repo copy, then preserve a non-colliding backup,"
-echo "                or use Home Manager's configured backup on switch."
+echo "COLLISION   : a real '$live' makes the plan block with E_CONFLICT; no flag overrides it."
+echo "             -> verify the repo copy, then move the original aside before planning:"
+echo "                mv '$live' '$live.pre-dfm'"
+echo "                (for a link, --allow-adopt applies only when the live path already is the exact symlink)."
 echo
 
-# --- The dotfiles.nix edit -------------------------------------------------
-echo "ADD TO modules/home/dotfiles.nix (in the correct mkLinks list):"
-echo "             \"$link_rel\""
+# --- The module manifest edit ----------------------------------------------
+# Resource ids follow the manifest convention: the target path without its
+# leading dot, lowercased, every non-alphanumeric run replaced by one hyphen.
+link_id="$(printf '%s' "${link_rel#.}" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//')"
+echo "ADD TO the right dfm-module-*.toml:"
+echo
+echo "[[resources]]"
+echo "id = \"$link_id\""
+echo "kind = \"link\""
+echo "adapter = \"fs-link/v1\""
+echo "target = \"$link_rel\""
+echo "[resources.value]"
+echo "source = \"home/$link_rel\""
+if [ -d "$abs" ] && [ "$link_rel" = "$rel" ]; then
+  echo "directory = true"
+fi
 echo
 
 # --- Judgment calls this script will NOT guess -----------------------------
 cat <<'EOF'
 DECIDE (not auto-detectable):
-  [ ] Existing package owner; if adopting it, modules/home/packages.nix (nixpkgs) OR
-      modules/darwin/homebrew.nix (cask / not-in-nixpkgs). Gate if machine-specific.
-  [ ] Which machines: base list (all) / identity == personal|work / caps.<x>.
+  [ ] Existing package owner; if adopting it, Brewfile (formula, cask, font) OR
+      home/.config/mise/ (version-managed CLI).
+  [ ] Which module: dfm-module-core.toml (all) / dfm-module-personal.toml / dfm-module-<cap>.toml.
 
 THEN:
-  1) cp the config into home/<path>   2) add the link line above
-  3) verify the copy and preserve the original as a backup
-  4) ./rebuild.sh when activation is authorized
-  5) realpath the deployed path -> must land in ~/.dotfiles
+  1) cp the config into home/<path>   2) add the stanza above
+  3) verify the copy, then move the original aside (the mv under COLLISION); keep
+     that backup until step 5 passes
+  4) just sync-dfm, then just sync-dfm-apply <digest> when an apply is authorized
+  5) realpath the deployed path -> must land in ~/.dotfiles; the tool reads it; delete the backup
 
 Full runbook: docs/adopting-a-config.md
 EOF

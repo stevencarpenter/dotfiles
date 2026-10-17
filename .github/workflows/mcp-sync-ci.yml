@@ -8,8 +8,7 @@ on:
       - "home/.config/skills/**"
       - "home/.config/mcp/**"
       - "skills/**"
-      - "lib/machines.nix"
-      - "modules/home/sync-hooks.nix"
+      - "dfm/**"
       - ".github/workflows/mcp-sync-ci.yml"
   pull_request:
     paths:
@@ -18,8 +17,7 @@ on:
       - "home/.config/skills/**"
       - "home/.config/mcp/**"
       - "skills/**"
-      - "lib/machines.nix"
-      - "modules/home/sync-hooks.nix"
+      - "dfm/**"
       - ".github/workflows/mcp-sync-ci.yml"
 
 # Least privilege, declared in-tree rather than inherited from the repo default.
