@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Port of the Home Manager sync hooks that no manager resource covers.
+# Sync steps that no dotfiles-manager resource covers.
 # Usage: hooks-sync.sh [--check]
-#   (none)   run mcpSync, skillsSync, codexHooksMerge in Home Manager order
+#   (none)   run mcpSync, skillsSync, codexHooksMerge in that order
 #   --check  print what would run; write nothing
-# Each step warns and continues on failure, like the nix activation hooks.
+# Each step warns and continues on failure.
 set -uo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
@@ -50,7 +50,7 @@ skills_sync() {
   [[ -f $project/pyproject.toml ]] || { echo "Warning: skill sync project not found at $project; skipping." >&2; return 0; }
   [[ -f $overlay ]] || { echo "Warning: no machine overlay at $overlay; skipping skill sync." >&2; return 0; }
   echo "==> skillsSync"
-  # sync-skills runs git and ssh as subprocesses; /usr/bin matches the nix hook's explicit git and ssh.
+  # sync-skills runs git and ssh as subprocesses; pin them to the system binaries.
   PATH="/usr/bin:$PATH" run_py "skill sync" mcp_sync.skills_cli --repo-root "$canonical" --machine-config "$overlay"
 }
 

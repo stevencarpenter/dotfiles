@@ -1,4 +1,4 @@
-# caps.agent_journal: CLI wrappers (dotfiles.nix) and personal config (hosts/personal-mac.nix).
+# agent_journal capability: CLI wrappers on every enabled host and the personal config files.
 
 schema = 1
 id = "agent-journal"

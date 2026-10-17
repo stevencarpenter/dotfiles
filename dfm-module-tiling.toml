@@ -1,6 +1,5 @@
-# caps.tiling. aerospace.toml uses the personal variant. machine.env is a static
-# per-identity file (nix generated it from caps.sketchybar_workspace_badges = false).
-# layouts is personal-only in nix.
+# tiling capability. aerospace.toml uses the personal variant. machine.env is a static
+# per-identity file (workspace badges off on personal). layouts is personal-only.
 
 schema = 1
 id = "tiling"

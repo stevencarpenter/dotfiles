@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Read one host capability (or --identity) from lib/machines.nix, the gating source of truth.
+# Read one host capability (or --identity) from dfm/profiles/<host>.toml, the gating source of truth.
+# A capability is on when the profile selects the module of the same name (`_` becomes `-`).
+# A capability is known when dfm-bundle.toml declares that module.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -10,9 +12,7 @@ capability="${1:-}"
 source "${repo_root}/scripts/host-detect.sh"
 
 # `--identity` prints the host's identity string instead of a 0/1 capability.
-# identity is a peer of caps in lib/machines.nix (some gates are
-# `optionalAttrs (identity == "…")`, not `mkIf caps.x`), so callers outside nix
-# need to read it from the same source of truth rather than re-detecting.
+# The identity is the selected module named personal, work or lab.
 mode=capability
 if [ "$capability" = "--identity" ]; then
   mode=identity
@@ -30,45 +30,40 @@ if [ -z "$host" ]; then
   host="$(detect_host || true)"
 fi
 
-case "$host" in
-  personal-mac) ;;
-  *)
-    if [ "$mode" = identity ]; then
-      echo "error: cannot resolve a known host for --identity" >&2
-    else
-      echo "error: cannot resolve a known host for capability '$capability'" >&2
-    fi
-    exit 2
-    ;;
-esac
-
-# Parse the static table without nix. nix is absent after the M5 cutover
-# (DFM-52), and lib/machines.nix stays the gating source of truth until DFM-42
-# retires it; this reader must move to the DFM profile at that point.
-# nixfmt keeps the table as one `key = value;` per line inside `  <host> = {`.
-machines="${repo_root}/lib/machines.nix"
-block="$(awk -v host="$host" '
-  $0 == "  " host " = {" { inblock = 1 }
-  inblock { print }
-  inblock && $0 == "  };" { exit }
-' "$machines")"
-
-if [ "$mode" = identity ]; then
-  value="$(printf '%s\n' "$block" | awk '$1 == "identity" && $2 == "=" { gsub(/[";]/, "", $3); print $3; exit }')"
-  if [ -z "$value" ]; then
-    echo "error: no identity for host '$host' in lib/machines.nix" >&2
-    exit 2
+profile="${repo_root}/dfm/profiles/${host}.toml"
+if [ -z "$host" ] || [[ ! "$host" =~ ^[a-z0-9-]+$ ]] || [ ! -f "$profile" ]; then
+  if [ "$mode" = identity ]; then
+    echo "error: cannot resolve a known host for --identity" >&2
+  else
+    echo "error: cannot resolve a known host for capability '$capability'" >&2
   fi
-  printf '%s' "$value"
-  exit 0
+  exit 2
 fi
 
-value="$(printf '%s\n' "$block" | awk -v key="$capability" '$1 == key && $2 == "=" { sub(/;$/, "", $3); print $3; exit }')"
-case "$value" in
-  true) printf '1' ;;
-  false) printf '0' ;;
-  *)
-    echo "error: capability '$capability' is not declared for host '$host' in lib/machines.nix" >&2
-    exit 2
-    ;;
-esac
+# shortcut: the profile keeps `modules = [...]` on one line, switch to a TOML parser
+# when a profile needs a multi-line list.
+selected="$(awk -F'[][]' '$1 ~ /^modules[[:space:]]*=[[:space:]]*$/ {
+  gsub(/["[:space:]]/, "", $2); gsub(/,/, " ", $2); print $2; exit }' "$profile")"
+declared="$(awk '/^\[modules\]/ { f = 1; next } /^\[/ { f = 0 } f && /^[a-z-]+[[:space:]]*=/ {
+  sub(/[[:space:]]*=.*/, ""); print }' "${repo_root}/dfm-bundle.toml")"
+
+has_word() { # has_word <word> <space-separated list>
+  case " $2 " in *" $1 "*) return 0 ;; *) return 1 ;; esac
+}
+
+if [ "$mode" = identity ]; then
+  for module in $selected; do
+    case "$module" in
+      personal | work | lab) printf '%s' "$module"; exit 0 ;;
+    esac
+  done
+  echo "error: no identity module (personal, work or lab) selected in $profile" >&2
+  exit 2
+fi
+
+module="${capability//_/-}"
+if ! has_word "$module" "$(printf '%s' "$declared" | tr '\n' ' ')"; then
+  echo "error: capability '$capability' is not a module in dfm-bundle.toml" >&2
+  exit 2
+fi
+if has_word "$module" "$selected"; then printf '1'; else printf '0'; fi

@@ -189,7 +189,7 @@ t_stale_warning_is_clean() {
   err="$( ( unset OP_CONNECT_HOST OP_CONNECT_TOKEN
             OP_MOCK_MODE=ok OP_MOCK_AUTH=none "$RENDER" 2>&1 >/dev/null ) )"
   # The warning must name a timestamp and stay one line. A BSD-only `stat -f`
-  # under GNU coreutils (home-manager activation PATH) splices a filesystem
+  # under GNU coreutils splices a filesystem
   # dump into the middle of the sentence instead.
   printf '%s\n' "$err" | rg -q 'last successful render was .+ \(>[0-9]+ days ago\)' \
     && ! printf '%s\n' "$err" | rg -q 'cannot read file system information' \

@@ -35,7 +35,7 @@ Excluding the subagent that produced the baseline:
 
 ## Instruments
 
-Both live in `~/.local/share/hippo/metrics/`, which is runtime data and is not managed by Nix.
+Both live in `~/.local/share/hippo/metrics/`, which is runtime data and is not managed by this repo.
 
 - `hippo_usage_baseline.sh` is the primary instrument. It reads hippo's own
   `agentic_sessions.tool_calls_json` and opens the database with `sqlite3 -readonly`.

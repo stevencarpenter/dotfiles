@@ -6,8 +6,6 @@ on:
       - ".github/workflows/dotfiles-hygiene-ci.yml"
       - "lefthook.yml"
       - "home/**"
-      - "modules/**"
-      - "lib/**"
       - "scripts/**"
       - "docs/**"
       - "agent_reap/README.md"
@@ -29,8 +27,6 @@ on:
       - ".github/workflows/dotfiles-hygiene-ci.yml"
       - "lefthook.yml"
       - "home/**"
-      - "modules/**"
-      - "lib/**"
       - "scripts/**"
       - "docs/**"
       - "agent_reap/README.md"
@@ -74,7 +70,7 @@ jobs:
         with:
           python-version: "3.14"
 
-      # Match homebrew.nix's Bash; SketchyBar associative arrays need Bash >= 4.
+      # SketchyBar associative arrays need Bash >= 4.
       - name: Install shell test dependencies
         run: brew install ripgrep bash tmux just jq
 
@@ -116,7 +112,7 @@ jobs:
       - name: Validate exec bits on directly-exec'd scripts
         run: scripts/test-exec-bits.sh
 
-      - name: Validate host-capability.sh reads machines.nix without nix
+      - name: Validate host-capability.sh reads the dotfiles-manager profile
         run: scripts/test-host-capability.sh
 
       - name: Validate fantasy-sports agent and skill install
@@ -158,9 +154,6 @@ jobs:
       - name: Validate SketchyBar badge wiring
         run: scripts/test-sketchybar-badge-wiring.sh
 
-      - name: Validate Claude settings merge order
-        run: scripts/test-claude-settings-order.sh
-
       - name: Validate Claude statusline rendering
         run: scripts/test-claude-statusline-command.sh
 
@@ -172,12 +165,6 @@ jobs:
 
       - name: Validate direct activation entry points
         run: scripts/test-sync-hook-runtime.sh
-
-      - name: Validate Home Manager parent symlink guard
-        run: scripts/test-home-link-parents.sh
-
-      - name: Validate Claude settings hook preservation
-        run: scripts/test-claude-hooks-preservation.sh
 
       - name: Validate fresh-bootstrap CLT gate
         run: scripts/test-bootstrap-clt-gate.sh

@@ -1,25 +1,3 @@
--- Which darwinConfigurations.<host> nixd loads its option set from.
---
--- personal-mac is the only host this flake declares; a work machine is built by
--- its own external wrapper. Honour an explicit DOTFILES_HOST so a wrapper user
--- can point nixd at their own host name, but never infer a host this flake does
--- not provide (nixd would silently get no darwin options).
-local function dotfiles_host()
-    local configured = vim.env.DOTFILES_HOST or ""
-    if configured ~= "" then
-        return configured
-    end
-    return "personal-mac"
-end
-
-local dotfiles_flake = string.format("git+file://%s/.dotfiles", vim.env.HOME)
-local dotfiles_root = vim.uv.fs_realpath(vim.env.HOME .. "/.dotfiles")
-local darwin_config = string.format(
-    "(builtins.getFlake %q).darwinConfigurations.%q",
-    dotfiles_flake,
-    dotfiles_host()
-)
-
 return {
     -- Ensure mason and mason-lspconfig load in the correct order
     {
@@ -55,34 +33,6 @@ return {
         },
         opts = {
             servers = {
-                nil_ls = false,
-                nixd = vim.fn.executable("nixd") == 1 and {
-                    on_new_config = function(new_config, root_dir)
-                        if vim.uv.fs_realpath(root_dir) ~= dotfiles_root then
-                            return
-                        end
-
-                        new_config.settings.nixd.nixpkgs = {
-                            expr = darwin_config .. ".pkgs",
-                        }
-                        new_config.settings.nixd.options = {
-                            nix_darwin = {
-                                expr = darwin_config .. ".options",
-                            },
-                            home_manager = {
-                                expr = darwin_config
-                                    .. ".options.home-manager.users.type.getSubOptions []",
-                            },
-                        }
-                    end,
-                    settings = {
-                        nixd = {
-                            formatting = {
-                                command = { "nixfmt" },
-                            },
-                        },
-                    },
-                } or false,
                 pyright = {},
                 ruff = {},
                 ts_ls = {},

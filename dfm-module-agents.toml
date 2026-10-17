@@ -10,7 +10,7 @@ requires = []
 resource = "core.claude-settings"
 path = "/handlers"
 key = "agents.session-routing"
-reason = "caps.agents adds the routing-context SessionStart hook (ai-stack.nix)."
+reason = "the agents capability adds the routing-context SessionStart hook."
 [contributions.value]
 event = "SessionStart"
 type = "command"

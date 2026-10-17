@@ -11,11 +11,11 @@ if [ -n "${ZSH_VERSION-}" ]; then
   #
   #   export GOPATH=$HOME/go
   #
-  # EDITOR must exist in login and non-interactive shells too (nix-darwin set it system-wide).
+  # EDITOR must exist in login and non-interactive shells too.
   # GUI apps launched by launchd do not read this file.
   export EDITOR=nvim
   # Non-interactive shells (ssh commands, `zsh -c` from GUI apps) return below before
-  # .zshrc builds PATH. nix-darwin set these system-wide; now add them here.
+  # .zshrc builds PATH, so add the tool directories here.
   [[ -o interactive ]] || path=(/opt/homebrew/bin $HOME/.local/bin $HOME/.local/share/mise/shims $path)
 
   # Do not change anything else in this file.

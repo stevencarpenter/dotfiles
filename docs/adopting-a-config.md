@@ -4,43 +4,35 @@ You install a tool, test-drive it for a while, and decide to keep it. This is th
 procedure for promoting its ad-hoc config (and the tool itself) into managed dotfiles so
 it reproduces on every machine.
 
-This repo uses **out-of-store symlinks**: the deployed file points to the
-repo file (`~/.config/foo` → `~/.dotfiles/home/.config/foo`). Edits need no rebuild.
-An existing file at the target path must be moved before Nix can create the symlink.
+This repo uses **checkout symlinks**: the deployed file points to the
+repo file (`~/.config/foo` → `~/.dotfiles/home/.config/foo`). Edits need no apply.
+An existing real file at the target path blocks the plan until you approve its adoption.
 
-## When a rebuild is required
+## When an apply is required
 
-- **Raw config content:** editing an *already-linked* file under `home/` needs no rebuild.
-- **Anything Nix evaluates:** packages, macOS defaults, Homebrew casks,
-  capability gating, **and adding a new file/path**, because Nix must create the symlink.
-  Needs `./rebuild.sh`.
+- **Raw config content:** editing an *already-linked* file under `home/` needs no apply.
+- **Adding a new file/path:** the manager must create the symlink. Needs `just sync-dfm`
+  and `just sync-dfm-apply <digest>`.
+- **Packages:** a `Brewfile` edit takes effect at the next `scripts/brew-sync.sh` run, which
+  `sync-dfm-apply` includes. A mise edit takes effect at the next `mise install`.
 
-**Adoption requires a rebuild** because it adds a new `home.file` entry.
-Subsequent edits to the linked file need no rebuild.
+**Adoption requires an apply** because it adds a new `[[resources]]` link.
+Subsequent edits to the linked file need no apply.
 
 ## Collision handling
 
-Home Manager intentionally aborts when a real file occupies a managed target. The migration-only
-global `chezmoi-bak` policy was removed after cutover because silently moving an unexpected file
-hides ownership mistakes. Preserve the source in the repository and clear the exact target
-yourself before rebuilding.
-
-Activation also rejects symlinked parent directories of managed files. When changing
-from a whole-directory link to individual file links, preserve the source directory,
-move the old live directory symlink aside, and create a real directory at the live
-path before rebuilding. Removing child files through the old directory link would
-remove files from the source checkout. Managed directory links remain valid when
-they are leaves of the new generation, with no separately managed files beneath them.
+The planner refuses to overwrite a real file at a managed target. `just sync-dfm` lists the
+blocked path and writes the matching `--allow-adopt '<id>'` flag to the approval file;
+`just sync-dfm-apply` passes it. Verify the repository copy before you approve: the apply
+replaces the live file with the link.
 
 ## Procedure
 
 1. **Declare installation and update ownership.** A fresh machine must be able to install
    the tool through the owning package manager or an idempotent setup command.
-   - In nixpkgs, CLI/font → `modules/home/packages.nix` (`home.packages`).
-   - GUI cask / not in nixpkgs / macOS-native → `modules/darwin/homebrew.nix`.
+   - Formula, cask or font → `Brewfile`.
    - Version-managed CLI → the appropriate `home/.config/mise/conf.d/` fragment.
    - Application-owned updates → the [provisioning contract](#update-ownership) below.
-   - Gate it (`caps.*` / `identity`) if it's machine-specific.
 
 2. **Move the tuned config into the repo.** Copy `~/.config/foo/config` →
    `~/.dotfiles/home/.config/foo/config`, preserving exactly what you tuned. The `home/`
@@ -49,17 +41,28 @@ they are leaves of the new generation, with no separately managed files beneath 
 3. **Choose file-level vs directory-level linking.**
    See [Decision: file vs directory](#decision-file-vs-directory-linking) below.
 
-4. **Register the link in `modules/home/dotfiles.nix`.** Add the relative path to the right
-   `mkLinks [ … ]` list:
-   - all machines → the base list (`# ---- all machines ----`)
-   - personal/work-only → the `lib.optionalAttrs (identity == "personal"|"work")` block
-   - capability-gated → the matching `lib.optionalAttrs caps.<x>` block
-   - needs a new capability → **[add a capability](#adding-a-capability)**.
+4. **Declare the link in a module manifest.** Add a `[[resources]]` stanza to:
+   - all machines → `dfm-module-core.toml`
+   - personal-only → `dfm-module-personal.toml`
+   - capability-gated → the matching `dfm-module-<cap>.toml`
+   - needs a new capability → **[add a module](#adding-a-module)**.
 
-5. **Clear the collision.** After verifying the repository copy, remove the exact original target:
-   `rm ~/.config/foo/config`. Skipping this correctly makes activation fail.
+   ```toml
+   [[resources]]
+   id = "config-foo-config"
+   kind = "link"
+   adapter = "fs-link/v1"
+   target = ".config/foo/config"
+   [resources.value]
+   source = "home/.config/foo/config"
+   ```
 
-6. **Rebuild.** `./rebuild.sh` (or `just rebuild`). Nix creates the out-of-store symlink.
+   A directory link adds `directory = true` under `[resources.value]`.
+
+5. **Plan.** `just sync-dfm`. The plan shows the new link, and the live file as blocked
+   with its approval flag.
+
+6. **Apply.** `just sync-dfm-apply <digest>`. The manager creates the symlink.
 
 7. **Verify.** `realpath ~/.config/foo/config` lands in `~/.dotfiles/…` and the tool still
    reads it.
@@ -71,8 +74,8 @@ bash .claude/skills/adopt-config/scripts/plan_adoption.sh ~/.config/foo/config
 ```
 
 It prints the repo target path, a file-vs-directory recommendation (by scanning for tool
-state), a collision check, and the exact `dotfiles.nix` line to add. It does **not** decide
-gating or package source: those are judgment calls it surfaces for you.
+state), a collision check, and the exact stanza to add. It does **not** decide the
+module or the package source: those are judgment calls it surfaces for you.
 
 ## Update ownership
 
@@ -86,11 +89,12 @@ its own versions, runtime state, and update receipts. See
 
 For rapidly changing upstream skills, prefer the maintainer's supported installer and a
 shared `~/.agents/skills` installation. Keep locally authored skills and deliberately patched
-forks in `sync-skills` or Nix, with no overlapping ownership of a skill path. Refresh explicitly
-declared sources only; a bulk `skills update` could overwrite unrelated local work.
+forks in `sync-skills` or the skills module, with no overlapping ownership of a skill path.
+Refresh explicitly declared sources only; a bulk `skills update` could overwrite unrelated
+local work.
 
 `gh-axi` follows its [upstream installation instructions](https://github.com/kunchenguid/gh-axi):
-`just sync` runs `DISABLE_TELEMETRY=1 npx --yes skills@1.7.0 add
+the side channels run `DISABLE_TELEMETRY=1 npx --yes skills@1.7.0 add
 https://github.com/kunchenguid/gh-axi/tree/d221ffabfe106e2c7a5998bde30bf58528678d22/skills/gh-axi
 --skill gh-axi --global --yes --agent claude-code codex pi junie`. The installer owns the shared content,
 consumer links, and local skill lock record. This replaces the vendored `0.1.23` instructions
@@ -111,12 +115,12 @@ The question: **does the tool write runtime state into the same directory as its
 - **File-level** (link `.config/foo/config`): the safe default. Use whenever the tool also
   writes caches, history, logs, sockets, lockfiles, or `.git` state alongside its config.
   You manage only the config; runtime state stays out of the repo checkout.
-- **Directory-level** (link `.config/foo`): only when the *entire* directory is config you
-  author and the tool does not write state there. Sibling config files
-  are linked automatically. If the tool writes state into a directory-linked path, it flows
-  through the symlink into the **repo working tree** and dirties git.
+- **Directory-level** (link `.config/foo`, `directory = true`): only when the *entire*
+  directory is config you author and the tool does not write state there. Sibling config
+  files are linked automatically. If the tool writes state into a directory-linked path, it
+  flows through the symlink into the **repo working tree** and dirties git.
 
-This repo's own precedents (all in `dotfiles.nix`):
+This repo's own precedents (all in `dfm-module-core.toml`):
 
 | Config | Linked as | Why |
 |---|---|---|
@@ -137,12 +141,13 @@ So all three agents share the same procedure; only Claude Code gets first-class 
 
 ## Related
 
-- `CLAUDE.md` § *Layout & module conventions*: the out-of-store-symlink model.
-- `modules/home/dotfiles.nix`: the link lists and gating blocks you edit in step 4.
+- `CLAUDE.md` § *Layout & module conventions*: the checkout-symlink model.
+- `dfm-module-core.toml`: the link stanzas you extend in step 4.
 
-<a id="adding-a-capability"></a>
-### Adding a capability
+<a id="adding-a-module"></a>
+### Adding a module
 
-If the config needs an on/off axis no existing `caps.*` covers: add the key to **every** row
-in `lib/machines.nix` (`flake.nix` asserts the row shape), then gate the owning module on
-`caps.<x>`. See `CLAUDE.md` § *Machine-Type Gating*.
+If the config needs an on/off axis no existing module covers: create
+`dfm-module-<name>.toml`, register it under `[modules]` in `dfm-bundle.toml`, and select it
+in `dfm/profiles/<host>.toml` for each host that wants it. `scripts/host-capability.sh`
+reads the same two files, so shell gates follow automatically. See `CLAUDE.md` § *Capability gating*.

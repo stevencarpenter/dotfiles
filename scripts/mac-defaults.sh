@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# macOS defaults previously applied by nix-darwin (modules/darwin/macos-defaults.nix).
+# macOS defaults for the personal MacBook.
 #
 # Usage: mac-defaults.sh [--check | --no-restart]
 #   --check       Read every key, print ok / differs / unset. Exit 1 if any differs
 #                 or is unset. Never writes.
 #   (default)     Write only the differing keys, create the screenshots directory and
-#                 the .metadata_never_index sentinels, then restart Dock (as nix-darwin does).
+#                 the .metadata_never_index sentinels, then restart Dock.
 #   --no-restart  Default mode without the Dock restart.
 #
-# nix option                                  domain                                     key                                   type    value
+# setting                                     domain                                    key                                   type    value
 # NSGlobalDomain.AppleInterfaceStyle          NSGlobalDomain                             AppleInterfaceStyle                   string  Dark
 # NSGlobalDomain.ApplePressAndHoldEnabled     NSGlobalDomain                             ApplePressAndHoldEnabled              bool    false
 # NSGlobalDomain.InitialKeyRepeat             NSGlobalDomain                             InitialKeyRepeat                      int     15
@@ -34,14 +34,12 @@
 # trackpad.TrackpadThreeFingerDrag            com.apple.AppleMultitouchTrackpad          TrackpadThreeFingerDrag               bool    false
 # trackpad.TrackpadFourFingerHorizSwipeGesture com.apple.AppleMultitouchTrackpad         TrackpadFourFingerHorizSwipeGesture   int     2
 # trackpad.TrackpadFourFingerVertSwipeGesture  com.apple.AppleMultitouchTrackpad        TrackpadFourFingerVertSwipeGesture    int     2
-# trackpad.* (same four keys; nix-darwin writes them to both domains, the second via
-#   CustomUserPreferences."com.apple.driver.AppleBluetoothMultitouch.trackpad")
+# trackpad.* (same four keys, written to both domains)
 #                                             com.apple.driver.AppleBluetoothMultitouch.trackpad   (same keys and values)
 # ActivityMonitor.ShowCategory                com.apple.ActivityMonitor                  ShowCategory                          int     100
 #
 # Files (postActivation): ~/Desktop/screenshots, and .metadata_never_index in ~/projects and ~/programs.
-# Verified against /run/current-system/activate: nix-darwin restarts only Dock; it does not
-# restart Finder or SystemUIServer.
+# Only Dock is restarted; Finder and SystemUIServer are not.
 set -euo pipefail
 
 mode=apply restart=1

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Manage the org.carpenter.maxfiles LaunchAgent (replaces nix launchd.user.agents.maxfiles).
+# Manage the org.carpenter.maxfiles LaunchAgent.
 # Usage: launch-agents.sh load | unload | --check
 #   load     launchctl bootstrap gui/$UID; bootout first when already loaded so a changed plist applies
 #   unload   launchctl bootout (no-op when not loaded)
@@ -19,7 +19,7 @@ case "${1:-}" in
       echo "ok: $label loaded in $domain"
     else
       echo "not loaded: $label in $domain"
-      # Report the agents nix-darwin or older setups loaded.
+      # Report maxfiles agents that older setups loaded.
       launchctl list | awk '$3 ~ /maxfiles/ {print "other maxfiles agent loaded: " $3}'
       exit 1
     fi

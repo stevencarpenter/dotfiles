@@ -1,28 +1,27 @@
 ---
 name: adopt-config
-description: Adopt an unmanaged tool configuration into this nix-darwin repository using out-of-store links. Use for config adoption, link granularity, or Home Manager collision questions; ordinary edits to existing links need no adoption workflow.
+description: Adopt an unmanaged tool configuration into this dotfiles-manager repository as a checkout link. Use for config adoption, link granularity, or link collision questions; ordinary edits to existing links need no adoption workflow.
 ---
 
 # Adopt a config into the dotfiles
 
 Promote a tool's config from an unmanaged real file under `~` into a repo-managed
-out-of-store symlink, so it is reproducible and live-editable. Full runbook:
+symlink, so it is reproducible and live-editable. Full runbook:
 `docs/adopting-a-config.md`.
 
 ## Why this is not a plain file copy
 
 The deployed file *is* the repo file (`~/.config/foo` → `~/.dotfiles/home/.config/foo`).
-The config the tool already wrote to `~` is therefore a **real file sitting where nix wants
-a symlink**. Adoption resolves that collision, registers the link, and rebuilds. Two facts
-shape every adoption:
+The config the tool already wrote to `~` is therefore a **real file sitting where the
+manager wants a symlink**. Adoption moves the content into the repo, declares the link in a
+module manifest, and applies. Two facts shape every adoption:
 
-- **It's a Lane 2 change.** Adding a new `home.file` entry means nix must create the
-  symlink, so adoption always ends in `./rebuild.sh`. (Editing an *already-linked* file is
-  Lane 1: live, no rebuild.)
-- **Collisions are caught, not fatal.** `home-manager.backupFileExtension = "chezmoi-bak"`
-  (`flake.nix`) can move an in-the-way real file to `<file>.chezmoi-bak` on switch.
-  Check for an existing backup collision; do not overwrite a backup or delete the
-  original before verifying its repository copy.
+- **It ends in an apply.** A new `[[resources]]` link means `dotfiles-manager` must create
+  the symlink: `just sync-dfm`, then `just sync-dfm-apply <digest>`. (Editing an
+  *already-linked* file is live, no apply.)
+- **Collisions are refused, not overwritten.** The plan lists a real file at a managed target
+  as blocked until you pass `--allow-adopt '<id>'` (the `sync-dfm` recipe writes that flag
+  for you). Verify the repository copy before approving; the apply replaces the live file.
 
 ## Run the planner first
 
@@ -31,21 +30,21 @@ bash .claude/skills/adopt-config/scripts/plan_adoption.sh ~/.config/<tool>/<conf
 ```
 
 It prints the repo target path, a **file-vs-directory** recommendation
-(by scanning for tool-written state), a collision note, and the exact `dotfiles.nix` line
-to add. Choose machine scope and package source separately.
+(by scanning for tool-written state), a collision note, and the exact `[[resources]]`
+stanza to add. Choose the module and package source separately.
 
-## Machine scope and package source
+## Module and package source
 
 | Decision | Options | How to choose |
 |---|---|---|
-| **Which machines** | base list (all) · `identity == personal\|work` · `caps.<x>` | Where should this config exist? Gate accordingly in `dotfiles.nix`. A brand-new axis → add a capability (`lib/machines.nix` every row). |
-| **Package source** | `modules/home/packages.nix` (nixpkgs) · `modules/darwin/homebrew.nix` (cask / not in nixpkgs) | Is the binary in nixpkgs? CLI/font → home.packages. GUI/macOS-native → homebrew. |
+| **Which machines** | `dfm-module-core.toml` (all) · `dfm-module-personal.toml` (identity) · `dfm-module-<cap>.toml` | Where should this config exist? A brand-new axis → add a module to `dfm-bundle.toml` and select it in `dfm/profiles/<host>.toml`. |
+| **Package source** | `Brewfile` (formula, cask, font) · `home/.config/mise/` (version-managed CLI) | Mise owns runtimes and npm CLIs; everything else is Homebrew. |
 
 ## File vs directory linking
 
 Link the **file** whenever the tool writes state (cache, history, logs, sockets, lockfiles,
 `.git`) next to its config, so runtime state stays outside the repo checkout. Link the
-**directory** only when the whole dir is config you author. Repo precedents:
+**directory** (`directory = true`) only when the whole dir is config you author. Repo precedents:
 
 | Config | Linked as | Why |
 |---|---|---|
@@ -59,20 +58,19 @@ When unsure, link the file.
 1. Check how the package is already managed. Add a declaration only when adopting
    package management is part of the request and no existing source owns it.
 2. `cp` the tuned config into `home/<rel-path>`.
-3. Add the planner's link line to the right `mkLinks [ … ]` list in `modules/home/dotfiles.nix`.
-4. Verify the copied contents. Preserve the original in a non-colliding backup, or
-   use the configured Home Manager backup behavior. Do not discard the sole copy.
-5. Run `./rebuild.sh` when activation is authorized. A request to prepare a config
-   change for review does not require switching the system.
-6. After activation, verify that the deployed path resolves into the repository and
-   the tool reads the intended configuration. Retain backups until verified.
+3. Add the planner's `[[resources]]` stanza to the right `dfm-module-*.toml`.
+4. Verify the copied contents. Keep the original until the apply has replaced it.
+5. Run `just sync-dfm`, read the plan, then `just sync-dfm-apply <digest>` when an apply is
+   authorized. A request to prepare a config change for review does not require applying.
+6. After the apply, verify that the deployed path resolves into the repository and
+   the tool reads the intended configuration.
 
 ## When NOT to use this skill
 
-- Editing a config that is **already** a repo symlink: that's Lane 1, just edit it live
+- Editing a config that is **already** a repo symlink: just edit it live
   (the planner short-circuits with "ALREADY ADOPTED").
-- Declaring only a package with no config to manage: that's a plain `packages.nix` /
-  `homebrew.nix` edit, no linking.
+- Declaring only a package with no config to manage: that's a plain `Brewfile` or mise
+  edit, no linking.
 - Secrets (`op://`, age, tokens, keys): use the `dotfiles-secret-authoring` skill instead;
   never copy a plaintext secret into `home/`.
 
@@ -85,6 +83,6 @@ This auto-triggering skill is Claude Code only (the skills mechanism targets
 ## Reference
 
 - `docs/adopting-a-config.md`: adoption runbook.
-- `modules/home/dotfiles.nix`: link lists, gating blocks, and the file-vs-dir precedents.
-- `flake.nix`: `backupFileExtension` for preserving existing files.
-- `scripts/plan_adoption.sh`: deterministic planner (target path, link mode, collision, nix line).
+- `dfm-module-core.toml`: the link stanzas every machine gets, and the file-vs-dir precedents.
+- `dfm-bundle.toml`, `dfm/profiles/`: module list and per-host selection.
+- `scripts/plan_adoption.sh`: deterministic planner (target path, link mode, collision, stanza).

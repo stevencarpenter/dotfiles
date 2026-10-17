@@ -2,9 +2,8 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-# Under nix the statusline is a raw out-of-store symlink (dotfiles.nix,
-# mkOutOfStoreSymlink), no chezmoi source-path resolution to assert. Just
-# exercise the source file directly for its rendering behavior.
+# The statusline is a plain symlink into the checkout, so exercise the source
+# file directly for its rendering behavior.
 script="${repo_root}/home/.claude/statusline-command.sh"
 workdir="$(mktemp -d "${TMPDIR:-/tmp}/claude-statusline.XXXXXX")"
 trap 'rm -rf "${workdir}"' EXIT

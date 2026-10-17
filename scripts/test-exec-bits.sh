@@ -45,7 +45,6 @@ exec_scripts=(
   scripts/hooks-sync.sh
   scripts/test-hooks-sync.sh
   scripts/update-inputs.sh
-  scripts/update-unstable.sh
   scripts/test-gh-account-routing.sh
   scripts/test-obsidian-capture.sh
   scripts/test-worktrunk-commit-generator.sh
@@ -53,16 +52,11 @@ exec_scripts=(
   scripts/test-agent-tools-allowlist.sh
   scripts/test-eval-cache.sh
   scripts/test-bootstrap-clt-gate.sh
-  scripts/test-external-overlay-contract.sh
-  scripts/test-nix-review-regressions.sh
   scripts/test-railway-psql-errors.sh
   scripts/test-sync-capability-gating.sh
   scripts/test-tmux-lifecycle-contract.sh
   scripts/test-update-inputs.sh
   scripts/test-lefthook-hooks.sh
-  scripts/test-update-unstable-soak.sh
-  scripts/test-unstable-reminder.sh
-  scripts/unstable-reminder.sh
   scripts/vim-golf
 )
 

@@ -1,4 +1,4 @@
-# Always on: nix mkLinks (all machines), ssh, mise base, agent-reap, duckdbrc.
+# Always on: the links every machine gets, ssh, mise base, agent-reap, duckdbrc.
 # The Claude settings merge and the two instruction assemblies are appended below.
 
 schema = 1
@@ -367,9 +367,8 @@ target = "Library/LaunchAgents/org.carpenter.maxfiles.plist"
 [resources.value]
 source = "home/Library/LaunchAgents/org.carpenter.maxfiles.plist"
 
-# ---- assemblies (nix codexAgentsAssemble and piAgentsAssemble) ----
-# Same body and separator as the nix activation: body, then "\n" before each
-# fragment, fragments in byte order. Fragments: the 20-output-policy.md links
+# ---- assemblies (Codex and Pi AGENTS.md) ----
+# Body, then "\n" before each fragment, fragments in byte order. Fragments: the 20-output-policy.md links
 # above, plus 10-pi-runtime.md from the mcp module for pi.
 [[resources]]
 id = "codex-agents"
@@ -393,10 +392,10 @@ fragments_dir = ".pi/agent/AGENTS.d"
 pattern = "*.md"
 separator = "\n"
 
-# ---- Claude settings (nix claudeSettingsMerge) ----
-# Values come from home/.claude/settings-base.json plus the ai-stack.nix variant for
-# personal-mac: dev = true (six plugins true), work = false (atlassian false).
-# sandbox.filesystem.allowWrite is appended: nix adds $HOME/.cache/uv, $HOME/projects/agents
+# ---- Claude settings ----
+# Values come from home/.claude/settings-base.json plus the personal-mac variant:
+# dev = true (six plugins true), work = false (atlassian false).
+# sandbox.filesystem.allowWrite is appended: $HOME/.cache/uv, $HOME/projects/agents
 # and $HOME/.local/share/uv/tools, and the live file holds them as absolute paths.
 # Hooks are handlers. The two SessionStart handlers are contributed by the personal
 # (hippo) and agents (routing) modules. Edit-in-tool values stay: tables merge, plugins

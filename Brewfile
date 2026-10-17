@@ -1,17 +1,12 @@
-# Static Brewfile for the personal MacBook after the nix removal (DFM-50).
-# Run it through scripts/brew-sync.sh. Section 1 reproduces modules/darwin/homebrew.nix
-# with every capability enabled (caps.tiling, caps.dev, caps.gui, non-work identity,
-# Apple Silicon). Section 2 maps modules/home/packages.nix. Versions in section 2
-# comments were verified with `brew info --json=v2` on 2026-10-11.
+# Static Brewfile for the personal MacBook (DFM-50). Run it through scripts/brew-sync.sh.
+# Every capability is enabled here (tiling, dev, gui, non-work identity, Apple Silicon).
+# Versions in section 2 comments were verified with `brew info --json=v2` on 2026-10-11.
 # No masApps are declared.
 
 # ---------------------------------------------------------------------------
-# Section 1: modules/darwin/homebrew.nix
+# Section 1: taps, GUI casks, fonts and the formulae that need per-entry trust
 #
-# Trust decision: homebrew.nix sets `trusted = true` per entry only on crush, sketchybar
-# and borders. The nix-darwin module also renders `trusted: true` on every other entry in
-# the generated Brewfile in /nix/store (a module default, not set in the source). This
-# file keeps `trusted: true` only on the three per-entry ones. Section 2 has none.
+# Trust decision: `trusted: true` only on crush, sketchybar and borders. Section 2 has none.
 # ---------------------------------------------------------------------------
 
 # Taps
@@ -21,39 +16,31 @@ tap "nikitabobko/tap"
 tap "FelixKratz/formulae"
 
 # Brews
-# Atuin migrations require a current client; avoid the soaked Nix pin lag.
 brew "atuin"
-# Shell binaries: kept in Homebrew because dot_config/zsh/.zshrc probes
-# the Homebrew prefix for zsh and the completion paths assume it.
+# Shell binaries: home/.config/zsh/.zshrc probes the Homebrew prefix for zsh and
+# the completion paths assume it.
 brew "zsh"
 brew "zsh-completions"
 brew "bash"
 brew "bash-completion"
-# GNU `watch` (procps) has spotty Darwin packaging in nixpkgs: kept brew.
 brew "watch"
-# Git worktree helper; not confirmed in nixpkgs: kept brew.
+# Git worktree helper.
 brew "worktrunk"
-# No nixpkgs equivalent; both are homebrew/core formulae.
 brew "herdr"
 brew "mole"
-# Crush's FSL-1.1 license prevents Hydra caching, requiring local Nix builds.
 # Homebrew 6 requires formula-level trust and a fully qualified tap name.
 brew "charmbracelet/tap/crush", trusted: true
 # mactop requires Apple Silicon.
 brew "mactop"
-# brew services supervises tailscaled; nix-darwin has no services.tailscale.
-# Non-work identity only.
+# brew services supervises tailscaled. Non-work identity only.
 brew "tailscale"
 # Homebrew 6 requires explicit trust for third-party tap code. Trust is scoped to
 # these two formulae, not the whole FelixKratz tap. Fully-qualified names are
 # required for formula-level `trusted` to take effect in Brewfile evaluation.
 brew "felixkratz/formulae/sketchybar", trusted: true
 brew "felixkratz/formulae/borders", trusted: true
-# Homebrew supplies newer Railway releases than the soaked unstable pin.
-# At the 2026-08-07 comparison: Nix 5.27.0, Homebrew 5.31.0.
 brew "railway"
-# Keep Homebrew bottles until `nix build --dry-run` confirms Darwin cache
-# coverage; uncached Swift builds can take hours.
+# Swift tooling.
 brew "swiftlint"
 brew "swiftformat"
 brew "swift-format"
@@ -71,22 +58,20 @@ cask "obsidian"
 cask "orbstack"
 cask "codex"
 cask "handy"
-# Bespoke Powerlevel10k-patched Meslo build: not a standard nixpkgs font.
+# Bespoke Powerlevel10k-patched Meslo build.
 cask "font-meslo-for-powerlevel10k"
-# aerospace is a third-party tap cask with no nixpkgs equivalent.
+# aerospace is a third-party tap cask.
 cask "nikitabobko/tap/aerospace"
 # SketchyBar icon font (requires gui and tiling).
 cask "font-sketchybar-app-font"
-# Homebrew supplies fonts without confirmed Nix cache coverage.
 cask "font-input"
 cask "font-intel-one-mono"
 cask "font-iosevka"
 cask "font-inconsolata-go-nerd-font"
 
 # ---------------------------------------------------------------------------
-# from nix packages.nix
-# Section 2: modules/home/packages.nix. 81 entries (71 formulae, 10 font casks).
-# Dropped (nix-only): nixd, nixfmt, statix. Work-only `conftest` is not installed here.
+# Section 2: CLI tools and fonts. 81 entries (71 formulae, 10 font casks).
+# Work-only `conftest` is not installed here.
 # None of the 10 font casks duplicates a section 1 cask.
 # ---------------------------------------------------------------------------
 brew "mise"  # 2026.10.7

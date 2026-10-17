@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Restart the tiling stack (replaces home.activation.startTilingStack in modules/home/tiling.nix).
+# Restart the tiling stack after an apply.
 # Usage: tiling-reload.sh [--check]
 #   --check  Report whether the sketchybar service and AeroSpace run; exit 1 if either does not.
 #   default  brew services restart sketchybar; reload AeroSpace config, or open it when not running.

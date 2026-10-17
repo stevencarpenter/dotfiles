@@ -80,7 +80,7 @@ FM_HOME="$HOME/.local/share/firstmate" "$HOME/.local/share/firstmate/repo/bin/fm
 ```
 
 Dotfiles does not advance the checkout directly, stop workers, or invoke only the mechanical
-Git portion of the native updater. The existing Nix, sudo, and 1Password approval behavior is unchanged.
+Git portion of the native updater. The existing sudo and 1Password approval behavior is unchanged.
 There is no dotfiles revision pin or `just update-firstmate` command. This follows the shared
 [update ownership contract](../adopting-a-config.md#update-ownership).
 
@@ -108,7 +108,7 @@ Dirty detached checkouts, unique detached history, a newer or divergent local `m
 named branches, unexpected origins, and an origin unreachable for that one-time check require
 inspection instead of an automatic reset.
 Local edits on an existing `main` remain untouched; Firstmate's native updater decides whether
-it can update them. The next Nix rebuild removes the obsolete revision-file link.
+it can update them. The next apply removes the obsolete revision-file link.
 
 Local validation covers first install, repeated offline setup, a native update followed by sync,
 preservation of local edits, and that a migration preserves worktree content and branch history:

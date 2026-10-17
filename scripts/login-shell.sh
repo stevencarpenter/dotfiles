@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Login shell pin (replaces the dscl block in modules/darwin/core.nix).
+# Login shell pin.
 # Usage: login-shell.sh --check | --set
 #   --check  Compare the Directory Services UserShell with /bin/zsh and report a
 #            stale launchctl SHELL override. Exit 1 on a difference. Never writes.

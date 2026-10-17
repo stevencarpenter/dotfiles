@@ -1,119 +1,95 @@
 # Dotfiles
 
-Personal macOS dotfiles built as a **nix-darwin + home-manager flake**, in the "thin wrapper"
-shape modeled on [kunchenguid/dotfiles](https://github.com/kunchenguid/dotfiles): nix owns
-*packages*, macOS defaults, capability gating, and orchestration, while the raw config files live
-under [`home/`](home/) with their real dotted names and are symlinked into place **out of the nix
-store** (through `~/.dotfiles`). Editing a raw config is live immediately: no rebuild required.
+Personal macOS dotfiles managed by **dotfiles-manager**. The manager owns the links from `~`
+into this checkout and the Claude settings merge; Homebrew owns packages (`Brewfile`); mise
+owns runtimes and npm CLIs; a few scripts own macOS defaults, the login shell and one
+LaunchAgent. The raw config files live under [`home/`](home/) with their real dotted names and
+are symlinked into place through `~/.dotfiles`. Editing a raw config is live immediately: no
+apply required.
 
-One flake drives its hosts (currently just `personal-mac`) from a single
-capability table ([`lib/machines.nix`](lib/machines.nix)), so the same checkout produces a
-different environment on each host with no hostname checks inside any module.
+One bundle drives its hosts (currently just `personal-mac`) from a per-host profile
+([`dfm/profiles/personal-mac.toml`](dfm/profiles/personal-mac.toml)) that selects modules, so the
+same checkout produces a different environment on each host with no hostname checks anywhere
+but `scripts/host-detect.sh`.
 
-Secrets render directly from 1Password references via `op-render`; this repo declares zero
-`age.secrets` on every identity. Secrets for an externally-owned host are that wrapper's custody.
+Secrets render directly from 1Password references via `op-render`; no host holds an age
+identity. Secrets for an externally-owned host are that overlay's custody.
 The repo also vendors a small Python tool (`mcp_sync/`) that
-regenerates machine-specific AI-tool config after every switch.
+regenerates machine-specific AI-tool config after every apply.
 
 ## Repo tour
 
 ```
-flake.nix                 # inputs + mkHost fold (darwinConfigurations.<host>)
-lib/machines.nix          # capability table: the single source of per-host variance
-hosts/personal-mac.nix    # host-scoped declarations (other hosts: external wrapper flakes)
-modules/
-  darwin/                 # system scope (specialArgs): core, macos-defaults, homebrew
-  home/                   # home scope (extraSpecialArgs): dotfiles, shell, packages,
-                          #   tiling, dev-tools, ai-stack, sync-hooks
-home/                     # raw dotfiles (live, symlinked out-of-store through ~/.dotfiles)
+dfm-bundle.toml           # module list and source roots
+dfm-module-*.toml         # one manifest per module: core, personal, tiling, mcp, skills,
+                          #   agent-journal, agents, dev, gui, atuin, infra
+dfm/profiles/<host>.toml  # which modules a host selects (the capability table)
+Brewfile                  # every formula, cask and font; applied by scripts/brew-sync.sh
+home/                     # raw dotfiles (live, symlinked through ~/.dotfiles)
 secrets/                  # documentation only: no ciphertext, no age secrets
 mcp_sync/                 # vendored uv tool: MCP + skills fan-out
-bootstrap.sh  rebuild.sh  # fresh-machine setup / routine switch (host auto-detect)
-Justfile                  # nix + python + sync task runner
+agent_reap/               # vendored uv tool: idle Claude teammate reaper
+bootstrap.sh              # fresh-machine setup (CLT, Homebrew, Brewfile)
+scripts/                  # system scripts, side channels, hygiene tests
+Justfile                  # plan, apply, update, python and sync recipes
 ```
 
-- **`flake.nix`**: pins `nixpkgs`/`nix-darwin`/`home-manager` to the **26.05** stable darwin line, then
-  folds `lib/machines.nix` into
-  `darwinConfigurations.<host>` via a `mkHost` helper. Every host receives the same specialArgs
-  payload (`{ inherit inputs hostName; user; caps; identity; }`) for both the darwin modules
-  (`specialArgs`) and home-manager (`extraSpecialArgs`). Adding a machine stays a one-row edit.
-- **`lib/machines.nix`**: the capability table: each machine maps to `system`, `user`, an
-  `identity` string (`personal`/`work`, replacing the old `hasPrefix` gates), and a `caps`
-  set of booleans. Modules gate on `caps.<x>` / `identity`, never on hostname.
-- **`hosts/*.nix`**: import `modules/darwin` and hold host-scoped declarations.
-  Per-host variance comes from the capability table.
-- **`modules/darwin/`**: system scope. `core.nix` (nix-daemon ownership, login
-  shell pin, `maxfiles` launchd agent, `stateVersion`), `macos-defaults.nix` (declarative
-  `system.defaults.*`), `homebrew.nix` (declarative taps/brews/casks against an independent, self-updating brew install,
-  gated per caps).
-- **`modules/home/`**: home scope. `dotfiles.nix` manages out-of-store
-  symlinks; the rest own shell, packages, tiling, dev tooling, the AI stack, and the post-switch
-  sync hooks. Each self-gates on caps/identity.
+- **`dfm-bundle.toml`**: declares the modules and the `[sources]` roots (`home`, `skills`,
+  `dfm`) the manager may link from. The bundle and module manifests sit at the checkout root
+  because the resolver confines a module's sources to the directory of its manifest.
+- **`dfm-module-*.toml`**: each module lists `[[resources]]`: `fs-link/v1` links,
+  `text-fragments/v1` assemblies (Codex and Pi `AGENTS.md`), and the `claude-settings/v1`
+  merge. Modules contribute handlers to that merge (hippo and routing SessionStart hooks).
+- **`dfm/profiles/`**: one file per host. `modules = [...]` is the capability table:
+  `scripts/host-capability.sh` reads it for the shell-side gates, and the atlas renders it.
 - **`home/`**: the actual dotfiles, mirroring `~` (e.g. `home/.config/nvim`,
   `home/.config/zsh/.zshrc`, `home/.claude/hooks/…`). Symlinked live; safe to edit in place.
 - **`secrets/`**: documentation only. No ciphertext is tracked in this repo. Templates live
   under `home/` and contain only `op://` references. See
   [`secrets/README.md`](secrets/README.md).
 - **`mcp_sync/`**: isolated `uv` project (Python 3.14+, no runtime deps) that
-  fans config out to per-tool formats after each switch. Run standalone or via the activation hooks.
+  fans config out to per-tool formats after each apply (`scripts/hooks-sync.sh`).
 
 ## Machines and capability gating
 
-Every gate keys off a capability boolean in `lib/machines.nix` (threaded in via specialArgs), so
-adding a machine is a one-row change and no gate site needs editing.
+A capability is a module. A host has it when its profile selects that module. The shell
+gates (`scripts/host-capability.sh <cap>`) and the identity (`--identity`, the selected
+module named `personal`, `work` or `lab`) come from the same file.
 
-| Capability | personal | work | Gates |
-|------------|:--:|:--:|-------|
-| `tiling` | yes | yes | AeroSpace + SketchyBar + borders (WM stack) |
-| `sketchybar_workspace_badges` | no | yes | SketchyBar dock-badge queries via `lsappinfo` |
-| `atuin` | yes | no | sync shell history to the self-hosted server (selects which config variant deploys; both machines get the config) |
-| `mcp` | yes | yes | MCP master config + per-tool sync hook |
-| `skills` | yes | yes | Claude skills manifest + sync hook |
-| `gui` | yes | yes | GUI apps + display fonts |
-| `dev` | yes | no | language-LSP plugins + dev Brewfile/fonts block |
-| `infra` | no | yes | Kubernetes / cluster-ops tooling via mise |
-| `agent_journal` | yes | no | CLI wrappers; personal-mac owns its journal config, work config is supplied by its overlay |
-| `agents` | yes | no | personal agent-registry clone + fan-out installer |
+| Module | personal | Gates |
+|--------|:--:|-------|
+| `tiling` | yes | AeroSpace + SketchyBar + borders links |
+| `atuin` | yes | `config.sync.toml` with the self-hosted `sync_address` |
+| `mcp` | yes | MCP master config, overlay, pi, firstmate links; MCP sync step |
+| `skills` | yes | skills manifest + overlay links, personal skill links, sync step |
+| `gui` | yes | no resources; marks GUI casks and display fonts as wanted |
+| `dev` | yes | mise `conf.d/dev.toml` |
+| `infra` | no | mise `conf.d/infra.toml`, Kubernetes / cluster-ops tooling |
+| `agent_journal` | yes | CLI wrappers and the personal journal config |
+| `agents` | yes | routing SessionStart hook; personal agent-registry clone in the side channels |
+| `personal` (identity) | yes | hippo hook, aerospace variant, worktrunk, op-render templates |
 
-`identity` (`personal`/`work`) additionally selects personal-only
-shell profiles + hippo, work-only shell/AWS profiles, homelab-over-Tailscale (`!= "work"`) SSH +
-`tailscale.zsh`. `work` is corporate-curated (`dev`/`atuin` off, its own dev tooling); `personal`
-is the daily driver. Both current machines are `aarch64-darwin`.
-
-**Adding a machine:** copy a row in `lib/machines.nix`, rename it, flip the caps you don't want,
-and add the name to the shared detect map in `scripts/host-detect.sh`.
-**Adding a capability:** add the key to *every* row (`flake.nix` asserts the row shape) and gate
-the owning module on `caps.<capability>`.
+**Adding a machine:** add `dfm/profiles/<name>.toml`, and add the name to the shared detect
+map in `scripts/host-detect.sh`.
+**Adding a capability:** create `dfm-module-<name>.toml`, register it in `dfm-bundle.toml`,
+and select it in each profile that wants it.
 
 ## Fresh-machine setup
 
 `bootstrap.sh` is idempotent: safe to re-run. It:
 
-1. Installs **Xcode Command Line Tools** (nix-darwin has no option for CLT; native builds need
-   them first).
-2. Installs **Lix** if `nix` isn't on PATH, via the Lix installer. (`nix.enable = true` with
-   `nix.package = pkgs.lix` in `modules/darwin/core.nix`: nix-darwin manages the daemon and
-   runs Lix as the interpreter.)
-3. Resolves the host config. No host fetches an age identity: every identity's secret surface is
-   fully 1Password-rendered and evaluates to zero `age.secrets`.
-4. Links `~/.dotfiles → <repo>` (the out-of-store root the raw symlinks resolve through).
-5. Runs the
-   **first switch** straight from the flake input (`darwin-rebuild` isn't on PATH yet):
-
-   ```bash
-   sudo nix run github:nix-darwin/nix-darwin/nix-darwin-26.05#darwin-rebuild -- \
-     switch --flake "$HOME/.dotfiles#<host>"
-   ```
-
-6. Installs **rustup** (kept imperative on purpose).
-7. Runs **`just sync`** for the network/SSH side channels (git externals, agent installation,
-   and token-auditor).
-
-Then run it:
+1. Installs **Xcode Command Line Tools**.
+2. Resolves the host profile and checks `dfm/profiles/<host>.toml` exists.
+3. Links `~/.dotfiles → <repo>` (the root every managed link resolves through).
+4. Installs **Homebrew** if absent, then applies the `Brewfile` (`scripts/brew-sync.sh`),
+   which brings `just`, `mise`, `uv` and the rest.
+5. Prints the remaining steps: install `dotfiles-manager` from its own repository
+   ([`docs/m5-cutover.md`](docs/m5-cutover.md) section 1), then `just sync-dfm` and
+   `just sync-dfm-apply <digest>`.
 
 ```bash
 ./bootstrap.sh              # auto-detect host from LocalHostName
-./bootstrap.sh personal-mac # or force a host config
+./bootstrap.sh personal-mac # or force a host profile
 # equivalently: just bootstrap
 ```
 
@@ -123,44 +99,34 @@ remap, granting AeroSpace/SketchyBar Accessibility): `bootstrap.sh` prints them 
 ## Daily use
 
 ```bash
-./rebuild.sh                # auto-detect host, sudo darwin-rebuild switch
-./rebuild.sh personal-mac   # force a host config
-just rebuild                # same, via the task runner
-just update                 # preview Nix/Homebrew/mise updates, approve, then upgrade + sync
-just update -y              # same preview and apply, without the update confirmation
-just sync                   # deploy current Nix pins + side channels (including mise upgrades)
-just sync-side-channels     # skip the Nix switch; run only side channels
+just sync-dfm                    # plan; prints the digest and writes the approval flags
+just sync-dfm-apply <digest>     # apply, then Brewfile, hooks, side channels, agents, checks
+just update                      # preview Homebrew/mise upgrades, approve, upgrade + side channels
+just update -y                   # same, without the confirmation
+just sync-side-channels          # side channels only: mise, secrets, skills, Git sources, tools
+just brew-audit                  # compare declared and installed Homebrew inventory, read-only
 ```
 
-`update` includes `sync`; `sync` includes `rebuild` and `sync-side-channels`.
-Run the outer command once rather than running each included command separately.
-`just --list` groups daily commands, targeted maintenance, validation, and utilities.
+`sync-dfm-apply` runs, in order: `dotfiles-manager apply`, `scripts/brew-sync.sh`,
+`scripts/hooks-sync.sh` (MCP sync, skills sync, Codex hooks merge),
+`scripts/sync-side-channels.sh`, `scripts/launch-agents.sh load`, the login-shell, tiling and
+macOS-defaults checks, then `dotfiles-manager state check` and `doctor`. `just --list` groups
+daily commands, targeted maintenance, validation, and utilities.
 
-`just update [ -y ] [SOAK_DAYS [HOST]]` updates stable Nix inputs and reuses the unstable
-24-hour default soak policy, builds the candidate system, and displays its package and input diffs. It also
-refreshes Homebrew metadata and previews upgrades for installed unpinned formulae/casks and
-mise tools. Approval upgrades Homebrew and invokes `just sync HOST`.
+`just update [-y]` refreshes Homebrew metadata and previews upgrades for installed unpinned
+formulae/casks and mise tools. Approval upgrades Homebrew and runs the side channels.
 Applications that own their updates, such as [Firstmate](docs/ai-tools/firstmate.md), are
-provisioned by sync and receive native update requests after dependency installation.
-Firstmate processes its request asynchronously and reports its own outcome. Existing exact pins,
-Homebrew pins, and the unstable soak duration are respected. This does not upgrade macOS or
-independently managed application/plugin ecosystems.
+provisioned by the side channels and receive native update requests after dependency installation.
+Exact pins and Homebrew pins are respected. This does not upgrade macOS or independently
+managed application/plugin ecosystems. `-y` skips the update confirmation, not sudo or
+1Password authentication.
 
-Declining, EOF, or a preparation failure restores the Nix input files to their pre-run contents,
-including uncommitted edits. Download/build caches and refreshed Homebrew metadata remain.
-Once apply begins, failures may leave partially completed upgrades; the reviewed input files are
-retained. `-y` skips the update confirmation, not sudo or 1Password authentication. Package managers
-resolve rolling releases again during application; the preview is not an immutable lock for Homebrew
-or mise. Sync also refreshes Git sources and renders secrets as described below.
-
-`rebuild.sh` verifies that `~/.dotfiles` resolves to the physical checkout, maps `LocalHostName` to
-a flake config, and `exec`s `sudo darwin-rebuild switch` against that physical path. There's also a
-`rebuild`/`ca` shell function in `home/.config/zsh/lib/rebuild.zsh` for use from any directory.
-
-**Editing raw configs needs no rebuild.** Everything under `home/` is an out-of-store symlink, so a
-change to `~/.config/nvim/…` or `~/.config/zsh/.zshrc` is live the moment you save. A rebuild is
-only needed when you change Nix-managed *packages*, *macOS defaults*, *gating*, or a
-*secret/hook declaration*.
+**Editing raw configs needs no apply.** Everything under `home/` is a symlink into the
+checkout, so a change to `~/.config/nvim/…` or `~/.config/zsh/.zshrc` is live the moment you
+save. An apply is only needed when you add or remove a *link*, change a module's
+*resources*, or change the Claude settings merge. Packages change through the `Brewfile` and
+`scripts/brew-sync.sh`; macOS defaults through `scripts/mac-defaults.sh`
+([`docs/m5-system-scripts.md`](docs/m5-system-scripts.md)).
 
 Long-lived programs still cache state after a raw file changes. For tmux/z4h/Claude behavior,
 follow the [tmux runtime lifecycle runbook](docs/ai-tools/tmux-runtime-lifecycle.md): it separates
@@ -170,35 +136,30 @@ cwd inheritance, detach topology, agent cleanup, plugin residue, and stale side-
 ## Validate without applying
 
 ```bash
-nix flake check --no-update-lock-file --no-build --all-systems   # or: just check
-git ls-files -z '*.nix' | xargs -0 nix fmt -- --check # or: just nix-fmt-check
-nix build --no-update-lock-file --no-link \
-  '.#checks.aarch64-darwin.personal-mac' \
-  '.#checks.aarch64-darwin.statix'
+dotfiles-manager plan --root ~/.dotfiles     # every operation and the plan digest; writes nothing
+dotfiles-manager doctor --root ~/.dotfiles   # live links against the manifests
+scripts/brew-sync.sh --check                 # Brewfile gaps
+scripts/mac-defaults.sh --check              # macOS defaults drift
+just lefthook                                # every pre-commit job, as CI does
 ```
 
-The flake exports every host closure through `checks.<system>.<host>`. That makes the fast check
-force `config.system.build.toplevel` for both machines instead of only traversing the non-standard
-`darwinConfigurations` output. CI also formats all Nix sources and realizes both closures on
-`macos-latest`; evaluation catches module/option errors, while realization catches file collisions
-and build-time failures.
+CI runs the hygiene suite (lefthook jobs, gitleaks, configuration tests under `scripts/`) and
+the two Python projects' lint and tests.
 
 ## Secrets
 
-Personal machines declare zero `age.secrets`. `home/.local/bin/op-render` atomically renders
-`~/.config/zsh/.personal.env` and `~/.ssh/config` from public-safe templates containing `op://`
-references. It preserves the last known-good targets on any failure.
+No host holds an age identity. `home/.local/bin/op-render` atomically renders
+`~/.config/zsh/.personal.env` and `~/.ssh/config.d/10-homelab.conf` from public-safe templates
+containing `op://` references. It preserves the last known-good targets on any failure.
 
-It runs from **`just sync`**, not from Home Manager activation. Rendering needs the network and a
-live `op` session. Sessions expire after ~30 minutes of inactivity, so `just sync` runs
-`eval "$(op signin)"` itself, immediately before rendering, and `op-render` inherits the exported
-`OP_SESSION_*` as a child process. That signin is TTY-guarded (`[ -t 0 ]`): `op signin` blocks on
-input, and this script also runs from `bootstrap.sh` and non-interactive contexts where hanging
-would block provisioning. Activation's PATH (a closed nix-store list)
-does not contain `/opt/homebrew/bin/op`. Activation runs the
-staleness check (`op-render --warn-stale-only`), which reads the `.last-render` sentinel,
-touches no network, and warns when the last successful render is older than `OP_RENDER_STALE_DAYS`
-(default 7).
+It runs from the side channels (`just sync-dfm-apply`, `just sync-side-channels`). Rendering
+needs the network and a live `op` session. Sessions expire after ~30 minutes of inactivity, so
+the side channels run `eval "$(op signin)"` themselves, immediately before rendering, and
+`op-render` inherits the exported `OP_SESSION_*` as a child process. That signin is
+TTY-guarded (`[ -t 0 ]`): `op signin` blocks on input, and this script also runs from
+non-interactive contexts where hanging would block provisioning. `op-render
+--warn-stale-only` reads the `.last-render` sentinel, touches no network, and warns when the
+last successful render is older than `OP_RENDER_STALE_DAYS` (default 7).
 
 For reviewed edits made directly to `~/.config/zsh/.personal.env`, `just op-adopt` produces a
 names-only reverse-adoption plan and `just op-adopt --apply` updates only fields already pinned in
@@ -207,7 +168,7 @@ config; Login-item fields remain manual-only to avoid the 1Password CLI's passke
 
 The former carry-verbatim age bridge for work secrets has been removed: its ciphertexts, recipient
 file, and module are gone, and no host requires an age identity. Secrets for an externally-owned
-host are administered by that wrapper. See [`secrets/README.md`](secrets/README.md).
+host are administered by that overlay. See [`secrets/README.md`](secrets/README.md).
 
 ## Shared output policy
 
@@ -224,13 +185,13 @@ An explicit user request for another language, format, or audience style takes p
 | Harness | Load mechanism |
 |---|---|
 | Claude Code | Global `CLAUDE.md` imports the policy. The `STE` output style reinforces it and retains coding instructions. |
-| Codex | Activation appends the shared `20-output-policy.md` fragment to global `AGENTS.md`. |
-| Pi | Activation appends the same policy to global `AGENTS.md` after the Pi runtime notes. |
+| Codex | The `codex-agents` assembly appends the shared `20-output-policy.md` fragment to global `AGENTS.md`. |
+| Pi | The `pi-agents` assembly appends the same policy to global `AGENTS.md` after the Pi runtime notes. |
 | OpenCode | MCP sync renders the policy's absolute path into the global config's `instructions` list. |
 
-Run `./rebuild.sh` after adding these paths or editing the policy to refresh the assembled
-Codex and Pi instructions. Claude and OpenCode read the linked policy directly in a new
-session. Restart sessions after deployment. Project settings and explicit overrides can
+Run `just sync-dfm` and apply after adding these paths or editing the policy to refresh the
+assembled Codex and Pi instructions. Claude and OpenCode read the linked policy directly in a
+new session. Restart sessions after deployment. Project settings and explicit overrides can
 change the defaults. The adapters do not add the policy to separately constructed subagent
 prompts. Such agents receive it only if their harness loads the global instructions.
 
@@ -240,115 +201,69 @@ Claude's [output-style documentation](https://code.claude.com/docs/en/output-sty
 that styles are model instructions. The source standard is
 [ASD-STE100](https://www.asd-ste100.org/).
 
-## Side channels (`just sync` / `just bootstrap`)
+## Side channels
 
-Provisioning that requires network access, SSH authentication, or `sudo` runs through the
-Justfile, outside `darwin-rebuild switch`:
+Provisioning that requires network access, SSH authentication, or `sudo` runs through
+`scripts/sync-side-channels.sh`, after the manager's apply:
 
-- **`just sync`**: runs `darwin-rebuild switch`, then every side channel.
-  Rendering personal `op://` secrets comes first (personal identity
-  only) because it produces the `~/.ssh/config` the agent-registry clone authenticates with, and it
-  needs the manifest symlink the switch just wrote. Then: clone/refresh tpm over HTTPS; install and
-  validate the personal `agent-registry` from `~/projects/agents` when that working copy exists,
-  otherwise clone/refresh `~/.local/share/agent-registry`, only when the selected host's canonical
-  `agents` capability is enabled; and install the immutable `token-auditor` release pinned in the
-  Justfile. Safe to re-run; `bootstrap.sh` passes its resolved host explicitly. A failed side
-  channel makes this explicit command fail instead of leaving a silently partial install.
-- **`just sync-side-channels`**: the side channels alone, skipping the rebuild, for when the
-  generation is already current.
-- **`just bootstrap`**: the full fresh-machine flow (`bootstrap.sh`): Lix, Homebrew, first
-  switch, rustup.
+- Rendering personal `op://` secrets comes first (personal identity only) because it produces
+  the `~/.ssh/config.d` fragment the agent-registry clone authenticates with. Then: install
+  and upgrade mise tools; refresh the upstream `gh-axi` skill; clone/refresh tpm over HTTPS;
+  install and validate the personal `agent-registry` from `~/projects/agents` when that
+  working copy exists, otherwise clone/refresh `~/.local/share/agent-registry`, only when the
+  selected host's `agents` capability is enabled; install the immutable `token-auditor`
+  release pinned in `versions/token-auditor` and `agent-reap` from this checkout; wire the
+  lefthook git hooks. Safe to re-run. A failed side channel makes the command fail instead of
+  leaving a silently partial install.
+- **`just sync-side-channels`**: the side channels alone, when the links are already current.
 
-The rule: declarative or offline+fast+idempotent work
-goes in the switch (as `home.activation` hooks); anything touching network/SSH/sudo goes in
-  `just sync` / `just bootstrap`. This keeps a switch reproducible and offline-safe.
+The rule: declarative or offline+fast+idempotent work is a manager resource or a
+`hooks-sync.sh` step; anything touching network/SSH/sudo goes in the side channels.
 
-Global npm CLIs are declared in `home/.config/mise/config.toml`. Side-channel sync runs
+Global npm CLIs are declared in `home/.config/mise/config.toml`. The side channels run
 `mise install` and `mise upgrade --no-prune`: `latest` tracks releases, partial versions track
 their declared range, and exact versions stay pinned. Older installs remain available to running
 sessions. Inspect the inventory with `mise ls`.
 
-On skills-enabled hosts, sync refreshes `gh-axi` through its upstream `skills` installer;
-see [update ownership](docs/adopting-a-config.md#update-ownership) for source and update policy.
+On skills-enabled hosts, the side channels refresh `gh-axi` through its upstream `skills`
+installer; see [update ownership](docs/adopting-a-config.md#update-ownership) for source and
+update policy.
 
 ## Homebrew policy
 
-Rebuilds are idempotent: they neither update Homebrew metadata nor upgrade installed packages.
-Activation keeps unmanaged inventory in place because nix-darwin's `"check"` mode would abort
-while the prefix contains retained unmanaged packages. Run `just update` for reviewed upgrades
-across package managers, or `just brew-upgrade` for Homebrew alone. Both upgrade installed unpinned
-packages, including retained unmanaged packages. Use `just brew-audit` to compare declared and installed inventory using read-only
-`brew list`, `brew leaves`, and `brew tap` queries. It never invokes Homebrew cleanup or uninstall.
-**Never** set activation cleanup to `"zap"`; it deletes application data.
-
-What stays in Homebrew rather than nixpkgs, and why:
-
-| Kept in brew | Reason |
-|---|---|
-| GUI casks, bespoke fonts | no nixpkgs equivalent, or too heavy to build (e.g. iosevka) |
-| `zsh`, `bash` + completions | the zshrc probes the Homebrew prefix for them |
-| `tailscale` (`identity != "work"`) | nixpkgs ships binaries only; nix-darwin has no `services.tailscale`, so `brew services` supervises `tailscaled` |
-| Swift toolchain (`caps.dev`) | in nixpkgs but not reliably cached for aarch64-darwin: a switch would compile Swift from source |
-| `railway`, `crush` | packaged in nixpkgs (or not), but ship far faster than the stable channel tracks |
-| `worktrunk`, `herdr`, `mole` | no nixpkgs equivalent |
-
-Everything else that is a plain CLI belongs in `modules/home/packages.nix`. Nix binaries take
-precedence because `home/.config/zsh/.zshrc` explicitly orders the Nix profiles ahead
-of `/opt/homebrew/bin`; `brew shellenv` prepends itself, so removing that ordering silently makes
-every duplicated `home.packages` entry inert.
-
-### Fast-moving tools and the stable pin
-
-Shipping faster than the stable channel tracks is **no longer** a reason to keep a tool in Homebrew.
-`modules/home/packages.nix` opens with a `fastMovingPackages` allowlist: any name in it is drawn
-from a second `nixpkgs-unstable` flake input, while everything else stays on the `26.05` pin.
-Selection is explicit rather than an overlay, so unstable versions never leak into other packages'
-dependency graphs and the rest of the closure keeps its cache hits. An eval-time assertion fails the
-build if a package is declared in both channels.
-
-Currently allowlisted: `mise`, `uv`, `fzf`, `lazygit`, `zoxide`, `ripgrep`. On 2026-07-26, their stable
-versions were between one minor version and ~15 releases behind upstream (`mise` lagged ~2 months). Most
-CLI tools do **not** belong here: `gh`, `yazi`, `neovim`, `delta`, `bat`, `fd`, and `btop` were all
-exactly current on stable. Add a tool only after measuring it.
-
-The `railway` and `crush` rows above predate this mechanism, and their stated reason no longer
-holds: on unstable they sit one release behind upstream rather than months. They remain brews only
-because moving them is a package-manager migration rather than a channel change. A follow-up should
-also revisit the `worktrunk` row: it *is* packaged in nixpkgs-unstable, at 0.66.0.
+`Brewfile` is the complete declared inventory: formulae, casks and fonts. `scripts/brew-sync.sh`
+installs what is missing and never uninstalls; `--check` reports gaps. Run `just update` for
+reviewed upgrades across package managers, or `just brew-upgrade` for Homebrew alone. Both upgrade
+installed unpinned packages, including retained unmanaged packages. Use `just brew-audit` to
+compare declared and installed inventory using read-only `brew list`, `brew leaves`, and
+`brew tap` queries. It never invokes Homebrew cleanup or uninstall.
+[`docs/package-mapping.md`](docs/package-mapping.md) records how each package arrived in the
+Brewfile.
 
 ## dotfiles-manager bundle
 
-`dfm-bundle.toml`, `dfm-module-*.toml` and `dfm/profiles/personal-mac.toml` declare the files that
-`modules/home/*.nix` place through Home Manager, for `dotfiles-manager` (DFM-49). Run `plan --root
-<checkout>` with the checkout at `~/.dotfiles`. Each link text is `<checkout>/home/<path>` (skills:
-`<checkout>/skills/personal/<name>`). The bundle and module manifests are at the checkout root
-because the resolver confines a module's sources to the directory of its manifest.
+`dfm-bundle.toml`, `dfm-module-*.toml` and `dfm/profiles/personal-mac.toml` declare the files
+the manager places (DFM-49). Run `plan --root <checkout>` with the checkout at `~/.dotfiles`.
+Each link text is `<checkout>/home/<path>` (skills: `<checkout>/skills/personal/<name>`).
 
-| Nix gate | Module | Resources |
-| --- | --- | --- |
-| always (`mkLinks` for all machines, ssh, mise base, agent-reap, `.duckdbrc`, `20-output-policy.md` fragments) | `core` | 44 links, 2 `text-fragments/v1` assemblies, 1 `claude-settings/v1` merge |
-| `identity == "personal"` and `identity != "work"` | `personal` | 7 links |
-| `caps.tiling` (+ personal aerospace and layouts) | `tiling` | 7 links |
-| `caps.mcp` (master config, personal overlay, pi, firstmate, mise firstmate) | `mcp` | 18 links |
-| `caps.skills` (+ personal) | `skills` | 2 config links, 33 skill links |
-| `caps.agent_journal` | `agent-journal` | 4 links |
-| `caps.dev` | `dev` | 1 link |
-| `caps.atuin` | `atuin` | 1 link (`config.sync.toml`) |
-| `caps.agents`, `caps.gui` | `agents`, `gui` | none (see below) |
-| `caps.infra = false` | no module | not selected |
+| Module | Resources |
+| --- | --- |
+| `core` (all machines: ssh, mise base, agent-reap, `.duckdbrc`, `20-output-policy.md` fragments, maxfiles plist) | 44 links, 2 `text-fragments/v1` assemblies, 1 `claude-settings/v1` merge |
+| `personal` | 7 links, hippo SessionStart handler |
+| `tiling` (+ personal aerospace and layouts) | 7 links |
+| `mcp` (master config, personal overlay, pi, firstmate, mise firstmate) | 18 links |
+| `skills` (+ personal) | 2 config links, 33 skill links |
+| `agent-journal` | 4 links |
+| `dev` | 1 link |
+| `atuin` | 1 link (`config.sync.toml`) |
+| `agents` | routing SessionStart handler |
+| `gui`, `infra` | none |
 
-`lib/machines.nix` row `personal-mac` maps to `dfm/profiles/personal-mac.toml`. Selections that
-`mkDefault` left to the identity (atuin, aerospace, worktrunk, mcp and skills overlays) use the
-personal choice. `.config/sketchybar/machine.env` is now a link to the static file
-`home/.config/sketchybar/machine.personal.env`. The seven `.keep` seams are dropped: the planner
-creates parent directories.
-
-`caps.agents` and `caps.gui` own no file in nix. `agents` gates the routing SessionStart hook, and
-`gui` gates Homebrew casks and fonts. Both modules exist so the profile mirrors the capability
-table.
+`.config/sketchybar/machine.env` is a link to the static file
+`home/.config/sketchybar/machine.personal.env`. The planner creates parent directories.
 
 The settings merge (`core.claude-settings`) carries every value of `home/.claude/settings-base.json`
-plus the `personal-mac` variant from `ai-stack.nix`: plugins, `permissions`, `skillOverrides`,
+plus the `personal-mac` variant: plugins, `permissions`, `skillOverrides`,
 `extraKnownMarketplaces`, `env`, flags, the three `allowWrite` paths (appended), `model` and
 `effortLevel` (seeds), and all hooks as handlers. The two `SessionStart` handlers come from the
 `personal` (hippo) and `agents` (routing) modules. `.claude/settings.d/*.json` fragments merge over the
@@ -367,15 +282,13 @@ Not managed on purpose:
   `codexHooksMerge` hippo hook), MCP generated outputs, `~/.config/mcp/overrides`, skills synced by
   `sync-skills`.
 - `~/.config/jj` as a directory (mutable metadata under `repos/`): only `config.toml` is linked.
-- Tools that `just sync` installs: `~/.local/bin/agent-reap`, `token-auditor`.
-- `home/Library/LaunchAgents/org.carpenter.maxfiles.plist`: linked by `core` (DFM-51).
+- Tools that the side channels install: `~/.local/bin/agent-reap`, `token-auditor`.
 
-Handoff from Home Manager before the first apply: remove the symlinks into `/nix/store`, `chmod 600
-~/.claude/settings.json`, move `~/.codex/AGENTS.md` and `~/.pi/agent/AGENTS.md` aside, and pass
-`--allow-adopt` for the settings merge.
+The cutover from the previous manager is recorded in [`docs/m5-cutover.md`](docs/m5-cutover.md).
+
 ## Vendored Python tools
 
-An isolated `uv` project (Python 3.14+, no runtime deps). See [CLAUDE.md](CLAUDE.md) for
+Isolated `uv` projects (Python 3.14+, no runtime deps). See [CLAUDE.md](CLAUDE.md) for
 the full lint/test matrix.
 
 - `mcp_sync/`: MCP + skills fan-out (the `sync-mcp-configs` / `sync-skills` entry points).
@@ -388,9 +301,9 @@ uv run --project mcp_sync --group dev pytest mcp_sync/tests
 ```
 
 `aws_config_gen` (the AWS SSO profile generator) was extracted to
-[its own repo](https://github.com/stevencarpenter/aws-config-generator); the external work wrapper
-now owns AWS profile generation, so this repo no longer ships it or the `aws_sso` capability.
+[its own repo](https://github.com/stevencarpenter/aws-config-generator); the external work overlay
+now owns AWS profile generation, so this repo no longer ships it.
 
 `token-auditor` (behind the `codax`/`claade`/`opencade` wrappers) was extracted to
 [its own repo](https://github.com/stevencarpenter/token-auditor) and installs as a standalone uv
-tool via `just sync` (immutable release in `versions/token-auditor`).
+tool from the side channels (immutable release in `versions/token-auditor`).

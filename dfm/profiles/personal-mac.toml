@@ -1,5 +1,5 @@
-# Mirrors lib/machines.nix personal-mac: identity personal; caps tiling, atuin, mcp,
-# skills, gui, dev, agent_journal, agents true; infra false (no module).
+# personal-mac: identity personal; every module except infra. scripts/host-capability.sh
+# reads this list, so keep `modules` on one line.
 schema = 1
 id = "personal-mac"
 bundle = "../../dfm-bundle.toml"

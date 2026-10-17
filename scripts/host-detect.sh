@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
-# Shared LocalHostName -> flake-config-name matcher.
+# Shared LocalHostName -> profile-name matcher.
 #
-# Sourced by every script that must resolve this machine's host row outside
-# nix (bootstrap.sh, rebuild.sh, update-unstable.sh, host-capability.sh).
-# This file is the SINGLE place to add a machine name; the nix-side source of
-# truth is lib/machines.nix. Keep both in sync when adding a row.
+# Sourced by every script that must resolve this machine's profile
+# (bootstrap.sh, host-capability.sh). This file is the SINGLE place to add a
+# machine name; the profile itself lives in dfm/profiles/<name>.toml.
 #
 # Usage:
 #   # shellcheck source=scripts/host-detect.sh

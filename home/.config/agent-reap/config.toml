@@ -1,7 +1,6 @@
 # agent-reap: idle Claude teammate reaper.
 #
-# Plain out-of-store symlink (modules/home/dotfiles.nix): edits here are live,
-# no rebuild needed.
+# Symlinked from the checkout by dotfiles-manager: edits here are live.
 #
 # Nothing in this file can cause a kill on its own. `agent-reap` is report-only
 # until you pass --kill, and interactive sessions are never killed by the reap

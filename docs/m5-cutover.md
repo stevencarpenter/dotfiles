@@ -7,6 +7,10 @@ Stop at the first unexpected output and use the rollback section.
 Related files: `docs/m5-system-scripts.md`, `docs/package-mapping.md`, the "dotfiles-manager bundle"
 section of `README.md`, and `docs/first-run.md` in the dotfiles-manager repository.
 
+Historical record. The nix sources (`flake.nix`, `lib/`, `hosts/`, `modules/`), `rebuild.sh`,
+`scripts/nix-guard.sh` and the nix CI workflow were removed from the repository after section 12 ran.
+Sections 3 and 11 name files that exist only in the git history before that removal.
+
 ## 1. Prerequisites
 
 1. LIVE. Place the pinned Rust toolchain before `bootstrap.sh install`. The install needs it under the

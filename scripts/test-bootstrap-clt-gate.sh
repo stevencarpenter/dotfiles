@@ -7,16 +7,12 @@ fixture="$(mktemp -d)"
 fixture="$(cd "$fixture" && pwd -P)"
 trap 'rm -rf "$fixture"' EXIT
 
-mkdir -p "$fixture/bin" "$fixture/home" "$fixture/repo/scripts" "$fixture/tmp"
-# Even if bootstrap bypasses the just mock, its Justfile must be inert.
+mkdir -p "$fixture/bin" "$fixture/home" "$fixture/repo/scripts" "$fixture/repo/dfm/profiles" "$fixture/tmp"
 cp "$repo_root/bootstrap.sh" "$fixture/repo/bootstrap.sh"
 cp "$repo_root/scripts/host-detect.sh" "$fixture/repo/scripts/host-detect.sh"
-cp "$repo_root/scripts/nix-guard.sh" "$fixture/repo/scripts/nix-guard.sh"
-cat >"$fixture/repo/Justfile" <<'EOF'
-sync-side-channels:
-    @echo "bootstrap test bypassed the just mock" >&2
-    @exit 99
-EOF
+cp "$repo_root/scripts/brew-sync.sh" "$fixture/repo/scripts/brew-sync.sh"
+cp "$repo_root/Brewfile" "$fixture/repo/Brewfile"
+cp "$repo_root/dfm/profiles/personal-mac.toml" "$fixture/repo/dfm/profiles/fixture-host.toml"
 
 run_bootstrap() {
   local test_home="$1" command_log="$2" brew_bin="$3"
@@ -31,7 +27,6 @@ run_bootstrap() {
     PATH="$fixture/bin:/usr/bin:/bin" \
     TEST_COMMAND_LOG="$command_log" \
     DOTFILES_BREW_BIN="$brew_bin" \
-    DOTFILES_JUST_BIN="$fixture/bin/just" \
     /bin/bash "$fixture/repo/bootstrap.sh" "$@"
 }
 
@@ -92,16 +87,6 @@ set -euo pipefail
 exit 2
 EOF
 
-cat >"$fixture/bin/nix" <<'EOF'
-#!/usr/bin/env bash
-exit 0
-EOF
-
-cat >"$fixture/bin/rustup" <<'EOF'
-#!/usr/bin/env bash
-exit 0
-EOF
-
 cat >"$fixture/bin/op" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -130,19 +115,6 @@ printf 'brew %s\n' "$*" >>"$TEST_COMMAND_LOG"
 exit 0
 EOF
 
-cat >"$fixture/bin/just" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-for name in XDG_CONFIG_HOME XDG_DATA_HOME XDG_CACHE_HOME XDG_STATE_HOME; do
-  case "${!name}" in
-    "$HOME"/*) ;;
-    *) echo "bootstrap test leaked $name outside its home" >&2; exit 1 ;;
-  esac
-done
-printf 'just %s\n' "$*" >>"$TEST_COMMAND_LOG"
-exit 0
-EOF
-
 # A curl that never leaves the machine: it writes a marker script to the -o
 # target so the brew-absent case below runs end to end offline.
 cat >"$fixture/bin/curl" <<'EOF'
@@ -161,9 +133,8 @@ done
 printf '#!/usr/bin/env bash\nprintf "homebrew-install-ran\\n" >>"$TEST_COMMAND_LOG"\n' >"$dest"
 EOF
 
-  chmod +x "$fixture/bin/xcode-select" "$fixture/bin/nix" \
-  "$fixture/bin/rustup" "$fixture/bin/op" "$fixture/bin/sudo" \
-  "$fixture/bin/brew" "$fixture/bin/curl" "$fixture/bin/just"
+chmod +x "$fixture/bin/xcode-select" "$fixture/bin/op" "$fixture/bin/sudo" \
+  "$fixture/bin/brew" "$fixture/bin/curl"
 
 for host in fixture-host; do
   host_home="$fixture/$host-home"
@@ -185,8 +156,8 @@ for host in fixture-host; do
     echo "bootstrap reinstalled Homebrew on $host despite brew being present" >&2
     exit 1
   fi
-  if ! rg -Fxq "just --justfile $fixture/repo/Justfile sync-side-channels" "$command_log"; then
-    echo "bootstrap did not use the isolated just mock for $host" >&2
+  if ! rg -Fxq "brew bundle --file $fixture/repo/Brewfile" "$command_log"; then
+    echo "bootstrap did not apply the Brewfile for $host" >&2
     cat "$fixture/$host-stdout" "$fixture/$host-stderr" >&2
     exit 1
   fi
@@ -217,7 +188,7 @@ echo "bootstrap fetches no age identity on any host"
 
 # The mirror case: with brew absent, bootstrap must install it, and must do so
 # through the download-to-a-file path so a failed fetch aborts under set -e
-# rather than continuing on to a switch that has no brew to bundle with.
+# rather than continuing on to a bundle that has no brew.
 missing_home="$fixture/nobrew-home"
 missing_log="$fixture/nobrew-commands.log"
 mkdir -p "$missing_home"
@@ -235,8 +206,8 @@ if ! rg -Fxq homebrew-install-ran "$missing_log"; then
   echo "bootstrap did not install Homebrew when brew was absent" >&2
   exit 1
 fi
-if ! rg -Fxq "just --justfile $fixture/repo/Justfile sync-side-channels" "$missing_log"; then
-  echo "bootstrap did not use the isolated just mock when Homebrew was absent" >&2
+if ! rg -Fxq "brew bundle --file $fixture/repo/Brewfile" "$missing_log"; then
+  echo "bootstrap did not apply the Brewfile when Homebrew was absent" >&2
   cat "$fixture/nobrew-stdout" "$fixture/nobrew-stderr" >&2
   exit 1
 fi

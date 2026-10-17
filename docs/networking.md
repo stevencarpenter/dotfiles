@@ -22,7 +22,7 @@ Network-related configuration:
   machine where `tailscale` is installed.
 - `home/.config/aerospace/`, `home/.config/sketchybar/`: local UI, not network.
 - Tailscale itself is installed via Homebrew (cask); its config lives in
-  user libraries managed by the GUI app, not Nix.
+  user libraries managed by the GUI app, not this repo.
 - `home/.ssh/config.d/10-homelab.conf.tpl` → `~/.ssh/config.d/10-homelab.conf`: personal-only `op-render` template, deployed mode
   0600 from 1Password references. Carries `Host i9`
   (Tailscale MagicDNS) plus keepalive / `ControlMaster` defaults, and
@@ -43,7 +43,7 @@ DNS, firewall, and VPN exit-node configuration are not managed by this repo.
   speaks WireGuard underneath, so adding raw WireGuard on top would be
   duplicative without a specific reason (devices that can't run Tailscale,
   contractual restrictions, etc.). There is intentionally no `wireguard`
-  capability in `lib/machines.nix`: add it back if and when a
+  module in `dfm-bundle.toml`: add it if and when a
   real consumer lands.
 - **Use Tailscale's Mullvad exit-node add-on** when Mullvad is needed,
   rather than a parallel raw-WG setup. The `tsexit mullvad`

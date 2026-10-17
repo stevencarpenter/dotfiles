@@ -66,7 +66,7 @@ source = "home/.config/zsh/profile.d/tailscale.zsh"
 resource = "core.claude-settings"
 path = "/handlers"
 key = "personal.session-hippo"
-reason = "identity personal adds the hippo SessionStart hook (ai-stack.nix)."
+reason = "identity personal adds the hippo SessionStart hook."
 [contributions.value]
 event = "SessionStart"
 type = "command"

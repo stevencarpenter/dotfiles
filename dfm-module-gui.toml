@@ -1,5 +1,5 @@
-# caps.gui = true. Nix uses this gate only for Homebrew casks and fonts, which are
-# outside dotfiles-manager scope. This module holds no resources.
+# gui capability: GUI casks and display fonts, which the Brewfile installs outside
+# dotfiles-manager scope. This module holds no resources.
 
 schema = 1
 id = "gui"

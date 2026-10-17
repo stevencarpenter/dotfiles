@@ -4,8 +4,8 @@
 # Given the path to a config the tool wrote under $HOME (a file OR a directory),
 # print: the repo target path, a file-vs-directory link recommendation (by
 # scanning for tool-written state), a collision check, and the exact
-# dotfiles.nix `mkLinks` line to add. Judgment calls it CANNOT make (which
-# machine gate, which package source) are surfaced as TODOs, not guessed.
+# dotfiles-manager `[[resources]]` stanza to add. Judgment calls it CANNOT make
+# (which module, which package source) are surfaced as TODOs, not guessed.
 #
 # Usage:  plan_adoption.sh <path-under-$HOME>
 # Output: human-readable plan on stdout. Exits non-zero only on bad input.
@@ -105,27 +105,40 @@ echo "REPO TARGET : home/$link_rel"
 if [ -e "$repo_target" ] || [ -L "$repo_target" ]; then
   echo "             (already present in repo: you may be re-adopting)"
 fi
-echo "COLLISION   : after linking, a real '$abs' would block the symlink."
-echo "             -> verify the repo copy, then preserve a non-colliding backup,"
-echo "                or use Home Manager's configured backup on switch."
+echo "COLLISION   : a real '$abs' shows as blocked in the plan until you approve"
+echo "             -> verify the repo copy, then pass --allow-adopt for its id"
+echo "                (just sync-dfm writes that flag; the apply replaces the live file)."
 echo
 
-# --- The dotfiles.nix edit -------------------------------------------------
-echo "ADD TO modules/home/dotfiles.nix (in the correct mkLinks list):"
-echo "             \"$link_rel\""
+# --- The module manifest edit ----------------------------------------------
+# Resource ids follow the manifest convention: the target path without its
+# leading dot, lowercased, every non-alphanumeric run replaced by one hyphen.
+link_id="$(printf '%s' "${link_rel#.}" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//')"
+echo "ADD TO the right dfm-module-*.toml:"
+echo
+echo "[[resources]]"
+echo "id = \"$link_id\""
+echo "kind = \"link\""
+echo "adapter = \"fs-link/v1\""
+echo "target = \"$link_rel\""
+echo "[resources.value]"
+echo "source = \"home/$link_rel\""
+if [ -d "$abs" ] && [ "$link_rel" = "$rel" ]; then
+  echo "directory = true"
+fi
 echo
 
 # --- Judgment calls this script will NOT guess -----------------------------
 cat <<'EOF'
 DECIDE (not auto-detectable):
-  [ ] Existing package owner; if adopting it, modules/home/packages.nix (nixpkgs) OR
-      modules/darwin/homebrew.nix (cask / not-in-nixpkgs). Gate if machine-specific.
-  [ ] Which machines: base list (all) / identity == personal|work / caps.<x>.
+  [ ] Existing package owner; if adopting it, Brewfile (formula, cask, font) OR
+      home/.config/mise/ (version-managed CLI).
+  [ ] Which module: dfm-module-core.toml (all) / dfm-module-personal.toml / dfm-module-<cap>.toml.
 
 THEN:
-  1) cp the config into home/<path>   2) add the link line above
-  3) verify the copy and preserve the original as a backup
-  4) ./rebuild.sh when activation is authorized
+  1) cp the config into home/<path>   2) add the stanza above
+  3) verify the copy; keep the original until the apply replaces it
+  4) just sync-dfm, then just sync-dfm-apply <digest> when an apply is authorized
   5) realpath the deployed path -> must land in ~/.dotfiles
 
 Full runbook: docs/adopting-a-config.md
