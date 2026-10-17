@@ -148,7 +148,7 @@ Conventions:
   carries `directory = true`.
 - **Adopting a new tool's config** (promote a test-driven config into the repo): follow
   `docs/adopting-a-config.md`. Copy it under `home/`, choose file or directory linking, add the
-  `[[resources]]` stanza, plan, approve the adoption flag, apply. Claude Code has the
+  `[[resources]]` stanza, move the original aside, plan, apply. Claude Code has the
   `adopt-config` skill for this.
 - **No templates.** Per-host variance is a static file selected by a module (e.g.
   `aerospace.personal.toml`, `sketchybar/machine.personal.env`).

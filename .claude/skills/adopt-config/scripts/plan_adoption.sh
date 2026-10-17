@@ -47,7 +47,9 @@ if [ -L "$abs" ]; then
     "$DOTFILES"/*)
       echo "ALREADY ADOPTED: $abs is a symlink resolving into the repo:"
       echo "  -> $resolved"
-      echo "Nothing to do (edit that repo file directly; it's live)."
+      echo "Edit that repo file directly; it's live. If the manager does not own the link yet"
+      echo "(made by stow or by hand), the plan shows it as 'adopt' and just sync-dfm writes"
+      echo "the --allow-adopt flag for just sync-dfm-apply."
       exit 0
       ;;
     *)
@@ -105,9 +107,10 @@ echo "REPO TARGET : home/$link_rel"
 if [ -e "$repo_target" ] || [ -L "$repo_target" ]; then
   echo "             (already present in repo: you may be re-adopting)"
 fi
-echo "COLLISION   : a real '$abs' shows as blocked in the plan until you approve"
-echo "             -> verify the repo copy, then pass --allow-adopt for its id"
-echo "                (just sync-dfm writes that flag; the apply replaces the live file)."
+echo "COLLISION   : a real '$abs' makes the plan block with E_CONFLICT; no flag overrides it."
+echo "             -> verify the repo copy, then move the original aside before planning:"
+echo "                mv '$abs' '$abs.pre-dfm'"
+echo "                (--allow-adopt applies only when the live path already is the exact symlink)."
 echo
 
 # --- The module manifest edit ----------------------------------------------
@@ -137,9 +140,10 @@ DECIDE (not auto-detectable):
 
 THEN:
   1) cp the config into home/<path>   2) add the stanza above
-  3) verify the copy; keep the original until the apply replaces it
+  3) verify the copy, then move the original aside (the mv under COLLISION); keep
+     that backup until step 5 passes
   4) just sync-dfm, then just sync-dfm-apply <digest> when an apply is authorized
-  5) realpath the deployed path -> must land in ~/.dotfiles
+  5) realpath the deployed path -> must land in ~/.dotfiles; the tool reads it; delete the backup
 
 Full runbook: docs/adopting-a-config.md
 EOF

@@ -6,7 +6,8 @@ it reproduces on every machine.
 
 This repo uses **checkout symlinks**: the deployed file points to the
 repo file (`~/.config/foo` → `~/.dotfiles/home/.config/foo`). Edits need no apply.
-An existing real file at the target path blocks the plan until you approve its adoption.
+An existing real file at the target path blocks the plan (`E_CONFLICT`); you move it aside
+before planning.
 
 ## When an apply is required
 
@@ -21,10 +22,15 @@ Subsequent edits to the linked file need no apply.
 
 ## Collision handling
 
-The planner refuses to overwrite a real file at a managed target. `just sync-dfm` lists the
-blocked path and writes the matching `--allow-adopt '<id>'` flag to the approval file;
-`just sync-dfm-apply` passes it. Verify the repository copy before you approve: the apply
-replaces the live file with the link.
+The planner refuses a real file or directory at a managed target: the plan shows the path as
+`blocked … E_CONFLICT`, `just sync-dfm` stops there, and no flag overrides it. Before you plan,
+verify the repository copy, then move the original aside
+(`mv ~/.config/foo/config ~/.config/foo/config.pre-dfm`). Keep that backup until the apply and
+the tool both check out, then delete it.
+
+`--allow-adopt '<id>'` covers one case only: the live path already is the exact symlink the
+plan would create (made by stow or by hand) and the manager does not own it yet. The plan
+shows it as `adopt`, and `just sync-dfm` writes the flag for `just sync-dfm-apply`.
 
 ## Procedure
 
@@ -59,13 +65,16 @@ replaces the live file with the link.
 
    A directory link adds `directory = true` under `[resources.value]`.
 
-5. **Plan.** `just sync-dfm`. The plan shows the new link, and the live file as blocked
-   with its approval flag.
+5. **Move the original aside.** Verify the repository copy, then
+   `mv ~/.config/foo/config ~/.config/foo/config.pre-dfm`. A real file at the target blocks
+   the plan with `E_CONFLICT`; see [Collision handling](#collision-handling).
 
-6. **Apply.** `just sync-dfm-apply <digest>`. The manager creates the symlink.
+6. **Plan.** `just sync-dfm`. The plan shows the new link as `planned`.
 
-7. **Verify.** `realpath ~/.config/foo/config` lands in `~/.dotfiles/…` and the tool still
-   reads it.
+7. **Apply.** `just sync-dfm-apply <digest>`. The manager creates the symlink.
+
+8. **Verify.** `realpath ~/.config/foo/config` lands in `~/.dotfiles/…` and the tool still
+   reads it. Then delete the `.pre-dfm` backup.
 
 A helper plans the file copy, link, and collision handling:
 

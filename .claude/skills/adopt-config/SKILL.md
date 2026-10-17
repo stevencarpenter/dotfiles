@@ -19,9 +19,10 @@ module manifest, and applies. Two facts shape every adoption:
 - **It ends in an apply.** A new `[[resources]]` link means `dotfiles-manager` must create
   the symlink: `just sync-dfm`, then `just sync-dfm-apply <digest>`. (Editing an
   *already-linked* file is live, no apply.)
-- **Collisions are refused, not overwritten.** The plan lists a real file at a managed target
-  as blocked until you pass `--allow-adopt '<id>'` (the `sync-dfm` recipe writes that flag
-  for you). Verify the repository copy before approving; the apply replaces the live file.
+- **Collisions are refused, not overwritten.** A real file at a managed target blocks the plan
+  with `E_CONFLICT`, and no flag overrides it. Verify the repository copy, then move the
+  original aside before `just sync-dfm`. `--allow-adopt '<id>'` applies only when the live
+  path already is the exact symlink (the `sync-dfm` recipe writes that flag for you).
 
 ## Run the planner first
 
@@ -59,11 +60,12 @@ When unsure, link the file.
    package management is part of the request and no existing source owns it.
 2. `cp` the tuned config into `home/<rel-path>`.
 3. Add the planner's `[[resources]]` stanza to the right `dfm-module-*.toml`.
-4. Verify the copied contents. Keep the original until the apply has replaced it.
+4. Verify the copied contents, then move the original aside
+   (`mv <path> <path>.pre-dfm`). Keep that backup until step 6 passes.
 5. Run `just sync-dfm`, read the plan, then `just sync-dfm-apply <digest>` when an apply is
    authorized. A request to prepare a config change for review does not require applying.
 6. After the apply, verify that the deployed path resolves into the repository and
-   the tool reads the intended configuration.
+   the tool reads the intended configuration. Then delete the backup.
 
 ## When NOT to use this skill
 
