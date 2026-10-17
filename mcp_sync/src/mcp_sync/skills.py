@@ -693,7 +693,7 @@ def run_skills_sync(
     )
     if not manifest_file.is_file():
         log_error(f"Skills manifest not found at {manifest_file}")
-        log_info("Run 'just sync-dfm' to deploy dotfiles first")
+        log_info("Run 'just sync-dfm', then 'just sync-dfm-apply <digest>' to deploy dotfiles first")
         return 1
 
     log_info("Syncing skills from manifest...")
