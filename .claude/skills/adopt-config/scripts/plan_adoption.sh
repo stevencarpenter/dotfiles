@@ -34,7 +34,6 @@ case "$abs" in
 esac
 
 rel="${abs#"$HOME"/}"          # e.g. .config/foo/config
-repo_target="$DOTFILES/home/$rel"
 
 echo "== Adoption plan for: $abs =="
 echo
@@ -103,13 +102,17 @@ fi
 echo
 
 # --- Collision check -------------------------------------------------------
+# Only the linked path collides. A parent directory that holds unlinked state
+# stays a real directory, so the mv names the link target, not the input.
+live="$HOME/$link_rel"
+repo_target="$DOTFILES/home/$link_rel"
 echo "REPO TARGET : home/$link_rel"
 if [ -e "$repo_target" ] || [ -L "$repo_target" ]; then
   echo "             (already present in repo: you may be re-adopting)"
 fi
-echo "COLLISION   : a real '$abs' makes the plan block with E_CONFLICT; no flag overrides it."
+echo "COLLISION   : a real '$live' makes the plan block with E_CONFLICT; no flag overrides it."
 echo "             -> verify the repo copy, then move the original aside before planning:"
-echo "                mv '$abs' '$abs.pre-dfm'"
+echo "                mv '$live' '$live.pre-dfm'"
 echo "                (for a link, --allow-adopt applies only when the live path already is the exact symlink)."
 echo
 
