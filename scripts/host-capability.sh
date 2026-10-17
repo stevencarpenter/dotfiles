@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Evaluate one host capability from lib/machines.nix (the gating source of truth).
+# Read one host capability (or --identity) from dfm/profiles/<host>.toml, the gating source of truth.
+# A capability is on when the profile selects the module of the same name (`_` becomes `-`).
+# A capability is known when dfm-bundle.toml declares that module.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -10,9 +12,7 @@ capability="${1:-}"
 source "${repo_root}/scripts/host-detect.sh"
 
 # `--identity` prints the host's identity string instead of a 0/1 capability.
-# identity is a peer of caps in lib/machines.nix (some gates are
-# `optionalAttrs (identity == "…")`, not `mkIf caps.x`), so callers outside nix
-# need to read it from the same source of truth rather than re-detecting.
+# The identity is the selected module named personal, work or lab.
 mode=capability
 if [ "$capability" = "--identity" ]; then
   mode=identity
@@ -30,33 +30,40 @@ if [ -z "$host" ]; then
   host="$(detect_host || true)"
 fi
 
-case "$host" in
-  personal-mac) ;;
-  *)
-    if [ "$mode" = identity ]; then
-      echo "error: cannot resolve a known host for --identity" >&2
-    else
-      echo "error: cannot resolve a known host for capability '$capability'" >&2
-    fi
-    exit 2
-    ;;
-esac
-
-nix_bin="${NIX_BIN:-nix}"
-
-if [ "$mode" = identity ]; then
-  exec "$nix_bin" eval --impure --raw --expr "
-    let
-      machines = import ${repo_root}/lib/machines.nix;
-    in
-      machines.${host}.identity
-  "
+profile="${repo_root}/dfm/profiles/${host}.toml"
+if [ -z "$host" ] || [[ ! "$host" =~ ^[a-z0-9-]+$ ]] || [ ! -f "$profile" ]; then
+  if [ "$mode" = identity ]; then
+    echo "error: cannot resolve a known host for --identity" >&2
+  else
+    echo "error: cannot resolve a known host for capability '$capability'" >&2
+  fi
+  exit 2
 fi
 
-exec "$nix_bin" eval --impure --raw --expr "
-  let
-    machines = import ${repo_root}/lib/machines.nix;
-    host = machines.${host};
-  in
-    if host.caps.${capability} then \"1\" else \"0\"
-"
+# shortcut: the profile keeps `modules = [...]` on one line, switch to a TOML parser
+# when a profile needs a multi-line list.
+selected="$(awk -F'[][]' '$1 ~ /^modules[[:space:]]*=[[:space:]]*$/ {
+  gsub(/["[:space:]]/, "", $2); gsub(/,/, " ", $2); print $2; exit }' "$profile")"
+declared="$(awk '/^\[modules\]/ { f = 1; next } /^\[/ { f = 0 } f && /^[a-z-]+[[:space:]]*=/ {
+  sub(/[[:space:]]*=.*/, ""); print }' "${repo_root}/dfm-bundle.toml")"
+
+has_word() { # has_word <word> <space-separated list>
+  case " $2 " in *" $1 "*) return 0 ;; *) return 1 ;; esac
+}
+
+if [ "$mode" = identity ]; then
+  for module in $selected; do
+    case "$module" in
+      personal | work | lab) printf '%s' "$module"; exit 0 ;;
+    esac
+  done
+  echo "error: no identity module (personal, work or lab) selected in $profile" >&2
+  exit 2
+fi
+
+module="${capability//_/-}"
+if ! has_word "$module" "$(printf '%s' "$declared" | tr '\n' ' ')"; then
+  echo "error: capability '$capability' is not a module in dfm-bundle.toml" >&2
+  exit 2
+fi
+if has_word "$module" "$selected"; then printf '1'; else printf '0'; fi

@@ -210,7 +210,7 @@ def load_merged_master(
     master_config_path = master_path or home / ".config" / "mcp" / "mcp-master.json"
     if not master_config_path.is_file():
         log_error(f"Master config not found at {master_config_path}")
-        log_info("Run 'just rebuild' (darwin-rebuild switch) to deploy dotfiles first")
+        log_info("Run 'just sync-dfm', then 'just sync-dfm-apply <digest>' to deploy dotfiles first")
         return None
 
     master = load_master_config(master_config_path)

@@ -65,7 +65,7 @@ tmux source-file ~/.config/tmux/tmux.conf
 tmux list-keys -T prefix | rg 'new-window|split-window'
 ```
 
-No Nix rebuild is needed for the raw file. Reload it explicitly in an already-running tmux server.
+No apply is needed for the raw file. Reload it explicitly in an already-running tmux server.
 `scripts/test-tmux-lifecycle-contract.sh` loads the config into an isolated server in CI to
 test pane classification and cleanup. Key bindings and working-directory choices remain preferences.
 
@@ -153,8 +153,8 @@ process cleanup has unacceptable false-positive risk.
 | New shell starts in a deleted worktree | A pane or foreground process retained a deleted cwd | Inspect `pane_current_path` and process cwd; the zsh startup guard falls back to `$HOME`, while prefix-created windows and panes force `$HOME`. |
 | Source changed but installed `agent-reap` did not | A uv tool wheel was reused for an unchanged local version | Run `just sync-side-channels`; the installer requires `uv tool install --force --reinstall`. Compare the installed package with `agent_reap/src/agent_reap` when in doubt. |
 | Source template looks correct but an AI tool behaves differently | Generated `~/.claude/settings.json` or MCP target is stale | Inspect the emitted file and rerun the owning sync path. Never infer emitted state from the source template alone. |
-| Raw dotfile edit appears ignored | The target is live, but the consumer caches state | Resolve the symlink with `realpath`, then reload/restart the consumer. Do not rebuild Nix merely to reload tmux or zsh. |
-| Nix module or package change appears absent | The current system generation predates the edit | Inspect `/run/current-system` and run `just rebuild` or `just sync` as appropriate. A raw-config reload cannot apply Nix-owned state. |
+| Raw dotfile edit appears ignored | The target is live, but the consumer caches state | Resolve the symlink with `realpath`, then reload/restart the consumer. Do not run an apply merely to reload tmux or zsh. |
+| A new link or package appears absent | The last apply or Brewfile run predates the edit | Run `just sync-dfm`, then `just sync-dfm-apply <digest>`. A raw-config reload cannot create links or install packages. |
 | `tmux kill-server` succeeds but panes survive | The panes belong to another socket | Run `agent-reap sockets`; address the exact socket or pane id. Never assume `$TMUX` enumerates every server. |
 
 ## Operating rules

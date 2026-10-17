@@ -37,7 +37,7 @@ mkdir -p "${log%/*}" 2>/dev/null || true
 # machine has not rebuilt since the link was declared. Both are indistinguishable
 # from "no qualifying event" unless they leave evidence, so log before exiting.
 if [[ ! -d "${HOOK_LIB}" ]]; then
-  printf '%s missing hook lib: %s (run `just rebuild`)\n' \
+  printf '%s missing hook lib: %s (run `just sync-dfm`)\n' \
     "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "${HOOK_LIB}" >>"$log" 2>/dev/null || true
   exit 0
 fi

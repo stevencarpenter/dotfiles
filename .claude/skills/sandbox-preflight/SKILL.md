@@ -12,8 +12,8 @@ machine are evidence to investigate, not a blanket instruction to disable protec
 1. Read the actual error and identify the denied path, network destination, or
    permission. Distinguish sandbox denial from authentication, certificate, missing
    executable, and ordinary filesystem errors.
-2. Check the effective settings. `modules/home/ai-stack.nix` seeds Claude's cache and
-   working-directory permissions, but local settings and other harnesses may differ.
+2. Check the effective settings. The `claude-settings` merge in `dfm-module-core.toml` seeds
+   Claude's cache and working-directory permissions, but local settings and other harnesses may differ.
 3. Use an already permitted location such as the task's temporary directory when
    that preserves behavior. Otherwise use the harness's supported approval mechanism
    for the specific required access. If escalation is unavailable, report the exact

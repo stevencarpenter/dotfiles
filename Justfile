@@ -10,52 +10,17 @@ TOKEN_AUDITOR_VERSION := `tr -d '\n' < versions/token-auditor`
 default:
     @just --list
 
-# ── Nix (build / switch) ─────────────────────────────────
-
-# Apply Nix configuration only; included in sync and update. Optional HOST override.
-[group('Daily')]
-rebuild *HOST:
-    ./rebuild.sh {{ HOST }}
-
-# Verify the running personal-mac generation and all live cutover roots.
-[group('Validation')]
-verify-live:
-    scripts/verify-live-deployment.sh
+# ── Setup and maintenance ────────────────────────────────
 
 # Show a names-only plan for adopting reviewed personal env changes into 1Password.
 [group('Targeted maintenance')]
 op-adopt *FLAGS:
     home/.local/bin/op-adopt {{ FLAGS }}
 
-# Evaluate every declared system closure without realizing it.
-[group('Validation')]
-check:
-    nix flake check --no-update-lock-file --no-build --all-systems
-
-# Format all tracked Nix sources with the flake's canonical formatter.
-[group('Validation')]
-nix-fmt:
-    git ls-files -z '*.nix' | xargs -0 nix fmt --
-
-# Verify that all tracked Nix sources already match the canonical formatter.
-[group('Validation')]
-nix-fmt-check:
-    git ls-files -z '*.nix' | xargs -0 nix fmt -- --check
-
-# Run the repository-wide Nix anti-pattern linter.
-[group('Validation')]
-nix-lint:
-    statix check .
-
-# Preview all rolling package updates, approve, then sync. Pass -y to approve automatically.
+# Preview Homebrew and mise upgrades, approve, then run the side channels. Pass -y to approve automatically.
 [group('Daily')]
 update *ARGS:
     scripts/update-inputs.sh {{ ARGS }}
-
-# Nix unstable only: soak 24 hours by default, promote/build, never switch. Included in update.
-[group('Targeted maintenance')]
-update-unstable *DAYS:
-    scripts/update-unstable.sh {{ DAYS }}
 
 # Homebrew only: refresh metadata and upgrade installed unpinned packages; accepts --dry-run.
 [group('Targeted maintenance')]
@@ -68,21 +33,69 @@ brew-upgrade *ARGS:
 brew-audit:
     scripts/audit-homebrew.sh
 
-# First-time provisioning on a fresh Mac (Lix, Homebrew, first switch).
+# First-time provisioning on a fresh Mac (Command Line Tools, Homebrew, Brewfile).
 [group('Setup')]
 bootstrap *HOST:
     ./bootstrap.sh {{ HOST }}
 
 # ── Sync (full deploy) ───────────────────────────────────
 
-# Switch creates symlinks; op-render supplies SSH secrets before Git side channels.
-# Forward HOST to both phases so identity gates agree. An explicit argument wins
-# over DOTFILES_HOST. Render in this terminal for interactive 1Password approval.
-
-# Deploy current Nix pins, then side channels (including mise upgrades). Included in update.
+# Step 1: print the plan and its digest. Applies nothing.
+# Also writes the approval flags that `apply --preview` lists to $DFM_ALLOW_DIR/allow.txt
+# (default ~/.local/state/dfm-cutover/allow.txt, a 0700 directory), one `--allow-* '<id>'` per line. Review that file.
 [group('Daily')]
-sync *HOST: (rebuild HOST)
-    DOTFILES_HOST="{{ if HOST == "" { env_var_or_default("DOTFILES_HOST", "") } else { HOST } }}" TOKEN_AUDITOR_VERSION="{{ TOKEN_AUDITOR_VERSION }}" scripts/sync-side-channels.sh
+sync-dfm:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    root="{{ justfile_directory() }}"
+    dir="${DFM_ALLOW_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/dfm-cutover}"
+    mkdir -p -m 700 "$dir"
+    [[ -d $dir && ! -L $dir && -O $dir && ! -g $dir ]] || { echo "error: $dir must be a real directory you own" >&2; exit 2; }
+    chmod 700 "$dir"
+    allow="$dir/allow.txt"
+    dotfiles-manager plan --root "$root"
+    # --preview exits non-zero while an approval is missing; the flags are what we want.
+    preview="$(dotfiles-manager apply --root "$root" --preview 2>&1 || true)"
+    rm -f "$allow"
+    ( umask 077; printf '%s\n' "$preview" | grep -oE "\-\-allow-(adopt|disruptive) '[^']*'" | awk '!seen[$0]++' > "$allow" || true )
+    echo "flags written to $allow:"; cat "$allow"
+    echo "Review the plan and the flags, then approve its digest with: just sync-dfm-apply <digest>"
+
+# Step 2: apply the approved digest, then packages, side channels, agents and checks.
+# Reads the flags from $DFM_ALLOW_DIR/allow.txt (see sync-dfm). Needs an interactive terminal (op signin).
+[group('Daily')]
+sync-dfm-apply $digest:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    root="{{ justfile_directory() }}"
+    [[ $digest =~ ^[0-9a-f]{64}$ ]] || { echo "error: digest must be 64 lowercase hex characters" >&2; exit 2; }
+    dir="${DFM_ALLOW_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/dfm-cutover}"
+    mkdir -p -m 700 "$dir"
+    [[ -d $dir && ! -L $dir && -O $dir && ! -g $dir ]] || { echo "error: $dir must be a real directory you own" >&2; exit 2; }
+    chmod 700 "$dir"
+    allow="$dir/allow.txt"
+    flags=()
+    if [[ -e $allow || -L $allow ]]; then
+      [[ -f $allow && ! -L $allow && -O $allow ]] || { echo "error: $allow must be a regular file you own" >&2; exit 2; }
+      while IFS= read -r line; do
+        [[ -n $line ]] || continue
+        if [[ $line =~ ^(--allow-adopt|--allow-disruptive)\ \'([^\']+)\'$ ]]; then
+          flags+=("${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}")
+        else
+          echo "error: unexpected line in $allow: $line" >&2; exit 2
+        fi
+      done < "$allow"
+    fi
+    dotfiles-manager apply --root "$root" --yes-plan "$digest" ${flags[@]+"${flags[@]}"}
+    scripts/brew-sync.sh
+    scripts/hooks-sync.sh
+    scripts/sync-side-channels.sh
+    scripts/launch-agents.sh load
+    scripts/login-shell.sh --check
+    scripts/tiling-reload.sh || echo "tiling-reload failed; continuing" >&2
+    scripts/mac-defaults.sh --check || echo "mac-defaults differs; read the lines above, then continue" >&2
+    dotfiles-manager state check
+    dotfiles-manager doctor --root "$root"
 
 # Mise upgrades, secrets, Git sources, agents, and tools only; included in sync.
 [group('Targeted maintenance')]
@@ -112,7 +125,7 @@ test *FLAGS:
 fmt:
     for p in mcp_sync agent_reap; do uv run --project $p --group dev ruff format $p/src $p/tests || exit $?; done
 
-# MCP configs only; also regenerated during rebuild when enabled.
+# MCP configs only; hooks-sync.sh also regenerates them during sync-dfm-apply.
 [group('Targeted maintenance')]
 mcp-sync:
     #!/usr/bin/env bash
@@ -147,7 +160,7 @@ reap-kill:
 
 # ── All Python projects ──────────────────────────────────
 
-# Run all Python checks (lint + test). Nix flake checks live under `just check`.
+# Run all Python checks (lint + test).
 [group('Validation')]
 py-check: lint test
 

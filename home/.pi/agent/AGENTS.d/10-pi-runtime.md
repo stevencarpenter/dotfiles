@@ -32,7 +32,7 @@ Do not report the shared instructions as wrong; they are shared on purpose.
   shell. Run multi-step work sequentially in this session; use tmux
   directly when a command needs to outlive the turn.
 - Config edits under `~/.dotfiles/home/.pi/` take effect after `/reload`
-  (prompts, skills, extensions) or after a Nix switch (symlinked files).
+  (prompts, skills, extensions) or immediately for symlinked files.
   Sessions and trust decisions under `~/.pi/` are pi-owned state: never
   commit them. `settings.json` is the exception: it is repo-managed AND
   written by `pi install`, so a package install shows up as a tracked diff.

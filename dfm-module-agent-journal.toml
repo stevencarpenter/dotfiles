@@ -1,0 +1,39 @@
+# agent_journal capability: CLI wrappers on every enabled host and the personal config files.
+
+schema = 1
+id = "agent-journal"
+platforms = ["macos"]
+requires = []
+
+[[resources]]
+id = "local-bin-agent-journal"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".local/bin/agent-journal"
+[resources.value]
+source = "home/.local/bin/agent-journal"
+
+[[resources]]
+id = "local-bin-agent-note"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".local/bin/agent-note"
+[resources.value]
+source = "home/.local/bin/agent-note"
+
+[[resources]]
+id = "config-agent-journal-config-toml"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/agent-journal/config.toml"
+[resources.value]
+source = "home/.config/agent-journal/config.toml"
+
+[[resources]]
+id = "config-agent-journal-workstreams-toml"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/agent-journal/workstreams.toml"
+[resources.value]
+source = "home/.config/agent-journal/workstreams.toml"
+

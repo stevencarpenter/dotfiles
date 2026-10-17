@@ -62,8 +62,8 @@ if [ "${1:-}" = --request-update ]; then exit "${TEST_REQUEST_STATUS:-0}"; fi
 exit 0
 EOF
 
-# Mock host-capability.sh because work identities live in an external wrapper
-# and have no row in lib/machines.nix.
+# Mock host-capability.sh because work identities live in an external overlay
+# and have no profile under dfm/profiles.
 cat >"$fixture/bin/host-capability" <<'EOF'
 #!/usr/bin/env bash
 case "${1:-}" in

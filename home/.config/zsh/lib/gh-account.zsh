@@ -3,7 +3,7 @@
 # ~/.local/bin/gh handles account routing for both interactive and subprocess calls.
 
 # gh-axi runs with a GitHub write credential. The pin covers only this function; mise installs
-# the CLI at `latest` and the skill is refreshed from upstream by `just sync`.
+# the CLI at `latest` and the skill is refreshed from upstream by `just sync-side-channels`.
 # See docs/adopting-a-config.md#update-ownership for that update policy.
 : ${GH_AXI_PIN:=0.1.35}
 

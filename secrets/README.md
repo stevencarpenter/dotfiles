@@ -1,9 +1,8 @@
 # Secret management
 
 This directory holds documentation only. **No ciphertext is tracked in this repository**, and no
-host declares `age.secrets` or an age identity: the agenix module is not imported at all. Every
-secret this repo owns renders from 1Password. Secrets for an externally-owned host are that
-wrapper's custody, administered by its own flake.
+host holds an age identity. Every secret this repo owns renders from 1Password. Secrets for an
+externally-owned host are that overlay's custody, administered by its own repository.
 
 ## 1Password templates
 
@@ -17,11 +16,8 @@ home/.ssh/config.d/10-homelab.conf.tpl -> ~/.ssh/config.d/10-homelab.conf
 
 `home/.config/op/render-manifest` is the authoritative template-to-target map.
 `home/.config/op/adopt-policy.json` separately pins every allowed reference, variable, item,
-field, and reverse-adoption permission. Home Manager links both only for
-`identity == "personal"`; `just sync` invokes the renderer (via
-`scripts/sync-side-channels.sh`, which signs in first when it has a TTY). The personal-only
-`opRenderStaleCheck` activation entry only warns when the last render has gone stale: it never
-renders, because activation can neither reach `op` nor authenticate.
+field, and reverse-adoption permission. The `personal` module links both; `just sync-dfm-apply`
+invokes the renderer (via `scripts/sync-side-channels.sh`, which signs in first when it has a TTY).
 
 The renderer:
 
@@ -33,12 +29,11 @@ The renderer:
 - touches `~/.config/op/.last-render` only after every manifest entry succeeds.
 
 On auth, injection, or empty-output failure it preserves the last known-good file. A skip is not
-proof of freshness, so `scripts/verify-live-deployment.sh` also checks template/live variable-name
-parity, the SSH include seam, and the render sentinel.
+proof of freshness: check the `.last-render` sentinel when a value looks stale.
 
 On each personal Mac, open and unlock 1Password, then enable **Settings > Developer > Integrate
-with 1Password CLI**. Without app integration (or explicit Connect credentials), activation safely
-keeps the last-good files but cannot refresh them.
+with 1Password CLI**. Without app integration (or explicit Connect credentials), the renderer
+safely keeps the last-good files but cannot refresh them.
 
 ### Add or rotate a personal secret
 
@@ -47,11 +42,10 @@ keeps the last-good files but cannot refresh them.
    `home/.config/op/adopt-policy.json`.
 3. Add only that exact reference to the appropriate `*.tpl` file under `home/`.
 4. Add a manifest entry only when introducing a new template/target pair.
-5. Run `just sync` (or `home/.local/bin/op-render` directly) from an interactive terminal with an
-   authenticated `op` session. It cannot run from a `darwin-rebuild` activation hook: 1Password
-   authorizes CLI access by calling-process ancestry, so only a terminal you have approved can
-   render. Activation runs `op-render --warn-stale-only`, which warns but never renders.
-6. Run the documented secret-policy, renderer, and live-deployment checks.
+5. Run `just sync-side-channels` (or `home/.local/bin/op-render` directly) from an interactive
+   terminal with an authenticated `op` session. 1Password authorizes CLI access by
+   calling-process ancestry, so only a terminal you have approved can render.
+6. Run the documented secret-policy and renderer checks.
 
 Never commit the rendered target, copy a literal value into a template, or use agenix for a new
 personal secret.
@@ -99,20 +93,13 @@ non-secret.
 ## No age secrets, ever
 
 The former carry-verbatim age bridge for work secrets is **gone**. Removed in full: the 26
-ciphertexts under `secrets/work/`, the `secrets/secrets.nix` recipient file,
-`modules/home/secrets.nix`, the agenix flake input and module imports, and `bootstrap.sh`'s
-age-identity fetch.
+ciphertexts under `secrets/work/`, the recipient file, the decrypting module, and `bootstrap.sh`'s
+age-identity fetch. `scripts/test-bootstrap-clt-gate.sh` asserts that bootstrap never reads an
+age identity.
 
-Do not add it back. Two tests enforce this:
-
-- `scripts/test-nix-review-regressions.sh`: asserts `age.secrets` does not evaluate on any host.
-- `scripts/test-external-overlay-contract.sh`: asserts a wrapper-built external work host
-  declares zero `age.secrets` and no `age.identityPaths`.
-
-If a secret cannot use 1Password, the requirements are: org-scoped recipients,
+Do not add it back. If a secret cannot use 1Password, the requirements are: org-scoped recipients,
 teammate-decryptable, and **no reuse of a personal age recipient or any single person's key**.
 Deleting a ciphertext from git does not remove it from history: rotate any credential that was
 ever committed.
 
-Never `builtins.readFile` a decrypted value. Ciphertext may enter the public Nix store; plaintext
-must not.
+Never commit a decrypted value or render one into a tracked file.

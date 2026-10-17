@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Network and SSH provisioning outside darwin-rebuild activation.
+# Network and SSH provisioning that runs after the dotfiles-manager apply.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -52,8 +52,7 @@ if [ "$firstmate_enabled" = "1" ]; then
 fi
 
 # Render personal secrets before the agent-registry clone needs ~/.ssh/config.
-# Rendering requires network and interactive 1Password authorization, unavailable
-# during sudo activation. Activation only runs op-render --warn-stale-only.
+# Rendering requires network and interactive 1Password authorization.
 identity="$("$capability_bin" --identity)"
 if [ "$identity" = "personal" ]; then
   render_bin="${OP_RENDER_BIN:-$repo_root/home/.local/bin/op-render}"
@@ -132,7 +131,7 @@ if command -v lefthook >/dev/null 2>&1; then
   (cd "$repo_root" && lefthook install) ||
     echo "warning: lefthook install failed; git hooks not wired" >&2
 else
-  echo "warning: lefthook not found; git hooks not installed (run 'just sync' after a rebuild)" >&2
+  echo "warning: lefthook not found; git hooks not installed (run 'just sync-side-channels' after installing it)" >&2
 fi
 
 # token-auditor: standalone uv tool from its own public repo. --force makes

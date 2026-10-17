@@ -132,30 +132,20 @@ then check 0 "no untracked file reaches the payload"
 else check 1 "no untracked file reaches the payload"
 fi
 
-# ── 4. gates resolve against the real capability table ───────────────────────
+# ── 4. the capability table comes from the dotfiles-manager profiles ─────────
 if python3 - "$site/data.json" <<'PY'
 import json, sys
 data = json.load(open(sys.argv[1]))
-hosts = set(data["machines"])
-if not hosts:
-    print("capability table did not parse", file=sys.stderr)
+host = data["machines"].get("personal-mac")
+if not host:
+    print("capability table did not parse personal-mac", file=sys.stderr)
     sys.exit(1)
-seen = 0
-for node in data["nodes"].values():
-    for gate in (node.get("structure") or {}).get("gates", []):
-        seen += 1
-        if gate["unknown"]:
-            print("gate names an undeclared capability:", gate["expr"], file=sys.stderr)
-            sys.exit(1)
-        if set(gate["hosts"]) - hosts:
-            print("gate resolved to an unknown host:", gate, file=sys.stderr)
-            sys.exit(1)
-if seen == 0:
-    print("no nix gates were extracted at all", file=sys.stderr)
+if host["identity"] != "personal" or not host["caps"].get("mcp") or host["caps"].get("infra"):
+    print("capability table does not match dfm/profiles/personal-mac.toml:", host, file=sys.stderr)
     sys.exit(1)
 PY
-then check 0 "every extracted nix gate resolves to a declared host"
-else check 1 "every extracted nix gate resolves to a declared host"
+then check 0 "capability table reflects the dotfiles-manager profile"
+else check 1 "capability table reflects the dotfiles-manager profile"
 fi
 
 echo

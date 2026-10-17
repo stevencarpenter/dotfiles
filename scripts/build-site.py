@@ -409,88 +409,35 @@ def extract_shell(node: Node) -> None:
     }
 
 
-# ── extract: nix ─────────────────────────────────────────────────────────────
+# ── extract: dotfiles-manager profiles ───────────────────────────────────────
 
-CAP_GATE = re.compile(r"\bmkIf\s+caps\.([A-Za-z_][A-Za-z0-9_]*)")
-CAP_REF = re.compile(r"\bcaps\.([A-Za-z_][A-Za-z0-9_]*)")
-ID_GATE = re.compile(r'identity\s*(==|!=)\s*"([a-z]+)"')
+IDENTITIES = {"personal", "work", "lab"}
 
 
 def parse_machines() -> dict[str, dict[str, Any]]:
-    """Parse lib/machines.nix into the capability table.
+    """Parse dfm/profiles/*.toml and dfm-bundle.toml into the capability table.
+
+    A capability is a bundle module; it is on for a host when the host's
+    profile selects that module. The identity is the selected module named
+    personal, work or lab.
 
     Returns:
         Host name to a dict with "identity" and a "caps" mapping of booleans.
-        An empty dict when the file is missing or unparseable.
+        An empty dict when the bundle or the profiles are missing.
     """
-    path = REPO / "lib" / "machines.nix"
-    if not path.exists():
+    bundle = REPO / "dfm-bundle.toml"
+    if not bundle.exists():
         return {}
-    text = path.read_text()
+    section = re.search(r"^\[modules\]\n(.*?)(?:^\[|\Z)", bundle.read_text(), re.M | re.S)
+    declared = re.findall(r"^([a-z-]+)\s*=", section.group(1), re.M) if section else []
     hosts: dict[str, dict[str, Any]] = {}
-    for host_match in re.finditer(r"^\s{2}([a-z0-9-]+)\s*=\s*\{", text, re.M):
-        name = host_match.group(1)
-        chunk = text[host_match.end() :]
-        end = chunk.find("\n  };")
-        body = chunk if end < 0 else chunk[:end]
-        ident = re.search(r'identity\s*=\s*"([a-z]+)"', body)
-        caps: dict[str, bool] = {}
-        caps_block = re.search(r"caps\s*=\s*\{(.*?)\n\s{4}\};", body, re.S)
-        if caps_block:
-            for key, val in re.findall(
-                r"([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(true|false)\s*;", caps_block.group(1)
-            ):
-                caps[key] = val == "true"
-        hosts[name] = {"identity": ident.group(1) if ident else "", "caps": caps}
+    for path in sorted((REPO / "dfm" / "profiles").glob("*.toml")):
+        match = re.search(r"^modules\s*=\s*\[(.*?)\]", path.read_text(), re.M | re.S)
+        selected = set(re.findall(r'"([a-z-]+)"', match.group(1))) if match else set()
+        ident = next((m for m in selected if m in IDENTITIES), "")
+        caps = {m: m in selected for m in declared if m not in IDENTITIES}
+        hosts[path.stem] = {"identity": ident, "caps": caps}
     return hosts
-
-
-def extract_nix(node: Node, machines: dict[str, dict[str, Any]]) -> None:
-    """Fill T0 and T1 for a Nix module, resolving each gate to a host list."""
-    node.lang = "nix"
-    text = node.source
-    node.prose, node.prose_line = header_comment(text)
-
-    gates: list[dict[str, Any]] = []
-    seen: set[str] = set()
-
-    for match in list(CAP_GATE.finditer(text)) + list(CAP_REF.finditer(text)):
-        cap = match.group(1)
-        if cap in seen:
-            continue
-        seen.add(cap)
-        known = any(cap in m["caps"] for m in machines.values())
-        hosts = [h for h, m in machines.items() if m["caps"].get(cap)]
-        gates.append(
-            {
-                "expr": f"caps.{cap}",
-                "hosts": hosts,
-                "line": text[: match.start()].count("\n") + 1,
-                "unknown": not known,
-            }
-        )
-
-    for match in ID_GATE.finditer(text):
-        op, value = match.group(1), match.group(2)
-        expr = f'identity {op} "{value}"'
-        if expr in seen:
-            continue
-        seen.add(expr)
-        hosts = [
-            h
-            for h, m in machines.items()
-            if (m["identity"] == value if op == "==" else m["identity"] != value)
-        ]
-        gates.append(
-            {
-                "expr": expr,
-                "hosts": hosts,
-                "line": text[: match.start()].count("\n") + 1,
-                "unknown": False,
-            }
-        )
-
-    node.structure = {"gates": gates}
 
 
 # ── extract: markdown and the rest ───────────────────────────────────────────
@@ -540,7 +487,7 @@ def extract_json(node: Node) -> None:
     node.structure = {"keys": sorted(data)[:40] if isinstance(data, dict) else []}
 
 
-def run_extractors(nodes: dict[str, Node], machines: dict[str, dict[str, Any]]) -> None:
+def run_extractors(nodes: dict[str, Node]) -> None:
     """Dispatch every file node to the extractor that claims it."""
     for node in nodes.values():
         if node.kind != "file" or node.lang == "binary" or not node.source:
@@ -555,8 +502,6 @@ def run_extractors(nodes: dict[str, Node], machines: dict[str, dict[str, Any]]) 
             or "sh" in shebang[:40]
         ):
             extract_shell(node)
-        elif suffix == ".nix":
-            extract_nix(node, machines)
         elif suffix in {".md", ".markdown"}:
             extract_markdown(node)
         elif suffix == ".json":
@@ -683,7 +628,7 @@ SCRIPT_REF = re.compile(
 
 
 def build_graph(nodes: dict[str, Node]) -> int:
-    """Derive edges from the Justfile, mkLinks, CI workflows and imports.
+    """Derive edges from the Justfile, module manifests, CI workflows and imports.
 
     Args:
         nodes: The node table, mutated in place.
@@ -691,18 +636,17 @@ def build_graph(nodes: dict[str, Node]) -> int:
     Returns:
         Total number of edges recorded.
     """
-    for caller in ["Justfile", "bootstrap.sh", "rebuild.sh"]:
+    for caller in ["Justfile", "bootstrap.sh"]:
         node = nodes.get(caller)
         if node and node.source:
             for m in SCRIPT_REF.finditer(node.source):
                 add_edge(nodes, caller, m.group(1), "invokes")
 
-    dot = nodes.get("modules/home/dotfiles.nix")
-    if dot and dot.source:
-        for m in re.finditer(r'^\s*"([^"\n]+)"\s*(?:#.*)?$', dot.source, re.M):
-            target = f"home/{m.group(1)}"
-            if target in nodes:
-                add_edge(nodes, "modules/home/dotfiles.nix", target, "links")
+    for path, node in nodes.items():
+        if path.startswith("dfm-module-") and path.endswith(".toml") and node.source:
+            for m in re.finditer(r'^source\s*=\s*"([^"\n]+)"', node.source, re.M):
+                if m.group(1) in nodes:
+                    add_edge(nodes, path, m.group(1), "links")
 
     for path, node in nodes.items():
         if path.startswith(".github/workflows/") and node.source:
@@ -902,7 +846,7 @@ def main() -> int:
 
     machines = parse_machines()
     nodes = build_inventory()
-    run_extractors(nodes, machines)
+    run_extractors(nodes)
     bind_docs(nodes)
     build_graph(nodes)
 

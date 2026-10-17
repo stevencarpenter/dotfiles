@@ -58,8 +58,6 @@ z4h install xs5871/p10k-jj-status || return
 # Add completion directories before z4h runs compinit. Probe Homebrew prefixes
 # directly because brew shellenv has not run yet. (N-/) excludes missing dirs.
 fpath+=(
-    /etc/profiles/per-user/$USER/share/zsh/site-functions(N-/)  # nix home-manager profile
-    /run/current-system/sw/share/zsh/site-functions(N-/)        # nix-darwin system profile
     /opt/homebrew/share/zsh/site-functions(N-/)                 # brew (Apple Silicon)
     /usr/local/share/zsh/site-functions(N-/)                    # brew (Intel)
 )
@@ -95,9 +93,8 @@ if [[ $OSTYPE == darwin* ]]; then
 fi
 
 # === 2. PATH Configuration ===
-# Keep local wrappers ahead of mise shims, then Nix profiles, then Homebrew.
-# This preserves local builds, mise runtime pins, and Nix package versions after
-# brew shellenv prepends its directories.
+# Keep local wrappers ahead of mise shims, then Homebrew. This preserves local
+# builds and mise runtime pins after brew shellenv prepends its directories.
 #
 # Exclude mise shims when none resolve. Dangling shims enter zsh's command hash
 # but fail =cmd expansion during z4h completion setup, aborting initialization.
@@ -118,10 +115,6 @@ path=(
     $HOME/.opencode/bin
     $HOME/.local/bin
     $_mise_shim_path                        # mise shims (empty array if stale)
-    # Homebrew owns Atuin; older Nix generations can retain an incompatible client.
-    ${HOMEBREW_PREFIX:-/opt/homebrew}/opt/atuin/bin(N-/)
-    /etc/profiles/per-user/$USER/bin(N-/)   # nix home-manager profile
-    /run/current-system/sw/bin(N-/)         # nix-darwin system profile
     ${HOMEBREW_PREFIX:-/opt/homebrew}/opt/libpq/bin(N-/)
     "/Applications/IntelliJ IDEA.app/Contents/MacOS"
     $HOME/.lmstudio/bin
@@ -555,12 +548,6 @@ function opencade() {
   _audit_token_usage opencade opencode 1
   return $rc
 }
-
-# nix-darwin rebuild helper (replaces the retired chezmoi-apply `ca()` wrapper).
-# Defines `rebuild` (darwin-rebuild switch for this host) + a transitional `ca` shim.
-rebuild_helper="${XDG_CONFIG_HOME:-$HOME/.config}/zsh/lib/rebuild.zsh"
-[[ -f "${rebuild_helper}" ]] && source "${rebuild_helper}"
-unset rebuild_helper
 
 # GitHub CLI account routing. `gh` has one active account per host and no per-repo
 # selection, so on a machine logged into both work and personal accounts it picks the

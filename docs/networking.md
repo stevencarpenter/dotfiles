@@ -13,16 +13,15 @@ Network-related configuration:
 
 - `home/.config/atuin/config.sync.toml`: points at
   `https://logbook.snugmarina.org` for shell-history sync. Deployed as
-  `~/.config/atuin/config.toml` on machines where the `atuin` capability is
-  true. Machines where it is false get `config.local.toml` instead, which sets
-  `auto_sync = false` and names no server: the capability selects the
-  variant, it does not gate the file's existence.
+  `~/.config/atuin/config.toml` by the `atuin` module. `config.local.toml`
+  sets `auto_sync = false` and names no server; it is the variant for a host
+  that omits the module, and no module links it until such a host exists.
 - `home/.config/zsh/profile.d/tailscale.zsh`: `tsexit` helpers for picking
   Tailscale exit nodes (homelab or Mullvad add-on). Sourced by zsh on any
   machine where `tailscale` is installed.
 - `home/.config/aerospace/`, `home/.config/sketchybar/`: local UI, not network.
 - Tailscale itself is installed via Homebrew (cask); its config lives in
-  user libraries managed by the GUI app, not Nix.
+  user libraries managed by the GUI app, not this repo.
 - `home/.ssh/config.d/10-homelab.conf.tpl` → `~/.ssh/config.d/10-homelab.conf`: personal-only `op-render` template, deployed mode
   0600 from 1Password references. Carries `Host i9`
   (Tailscale MagicDNS) plus keepalive / `ControlMaster` defaults, and
@@ -43,7 +42,7 @@ DNS, firewall, and VPN exit-node configuration are not managed by this repo.
   speaks WireGuard underneath, so adding raw WireGuard on top would be
   duplicative without a specific reason (devices that can't run Tailscale,
   contractual restrictions, etc.). There is intentionally no `wireguard`
-  capability in `lib/machines.nix`: add it back if and when a
+  module in `dfm-bundle.toml`: add it if and when a
   real consumer lands.
 - **Use Tailscale's Mullvad exit-node add-on** when Mullvad is needed,
   rather than a parallel raw-WG setup. The `tsexit mullvad`

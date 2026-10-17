@@ -15,11 +15,9 @@
 # neither is available, it skips with exit 0 (leaves existing files untouched)
 # rather than failing its caller. bash 3.2 safe (macOS default shell).
 #
-# WHERE THIS RUNS: from `just sync` (via scripts/sync-side-channels.sh), never
-# from a home.activation hook: the activation PATH is a closed nix-store list
-# with no /opt/homebrew/bin/op, and rendering needs an interactive session that
-# a `sudo darwin-rebuild` context cannot obtain. Activation may only invoke
-# `--warn-stale-only`, which reads the sentinel and returns without calling op.
+# WHERE THIS RUNS: from scripts/sync-side-channels.sh (`just sync-side-channels`),
+# which has the interactive session that rendering needs. `--warn-stale-only`
+# reads the sentinel and returns without calling op.
 #
 # Env overrides: OP_BIN (default `op`), OP_RENDER_MANIFEST
 # (default ~/.config/op/render-manifest).

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Bootstrap a fresh Mac into the nix-darwin + home-manager dotfiles flake.
-# Idempotent: safe to re-run. First run only; routine rebuilds use rebuild.sh.
+# Bootstrap a fresh Mac for this dotfiles-manager checkout.
+# Idempotent: safe to re-run. First run only; routine applies use `just sync-dfm`.
 set -euo pipefail
 
 # Resolve the physical checkout path. When bootstrap is invoked through the
@@ -8,15 +8,14 @@ set -euo pipefail
 # replace the link with a self-reference (`~/.dotfiles -> ~/.dotfiles`).
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 
-# Map the machine's LocalHostName to a flake config name. The matcher list is
+# Map the machine's LocalHostName to a profile name. The matcher list is
 # shared across every host-resolving script; add machines in
 # scripts/host-detect.sh only.
 # shellcheck source=scripts/host-detect.sh
 source "${REPO_ROOT}/scripts/host-detect.sh"
 
 # ── 0. Xcode Command Line Tools ──────────────────────────────────────────
-# nix-darwin has no option for CLT; they must exist before nix can build
-# anything native. Idempotent: no-op if already installed/accepted.
+# Homebrew and native builds need them first. Idempotent: no-op if already installed/accepted.
 if ! xcode-select -p >/dev/null 2>&1; then
   echo "==> Installing Xcode Command Line Tools ..."
   xcode-select --install || true
@@ -25,33 +24,19 @@ if ! xcode-select -p >/dev/null 2>&1; then
 fi
 sudo xcodebuild -license accept 2>/dev/null || true
 
-# ── 1. Lix ───────────────────────────────────────────────────────────────
-# nix.enable = true + nix.package = pkgs.lix in modules/darwin/core.nix:
-# nix-darwin manages the daemon, Lix is the interpreter. The nix-darwin
-# prerequisites recommend the Lix installer because it ships an uninstaller
-# (`/nix/nix-installer uninstall`); the upstream installer does not.
-if ! command -v nix >/dev/null 2>&1; then
-  echo "==> Installing Lix ..."
-  curl -sSf -L https://install.lix.systems/lix | sh -s -- install
-  # Load nix into THIS shell so the first switch below can run.
-  if [ -e /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh ]; then
-    # shellcheck disable=SC1091
-    . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
-  fi
-else
-  echo "==> Nix already installed: $(command -v nix)"
-fi
-
-# ── 2. Resolve host config (arg > LocalHostName map > prompt) ─────────────
+# ── 1. Resolve host profile (arg > LocalHostName map > prompt) ───────────
 HOST="${1:-$(detect_host || true)}"
 if [ -z "${HOST:-}" ]; then
   echo "Could not auto-detect host from LocalHostName."
-  read -r -p "Enter host config (personal-mac): " HOST
+  read -r -p "Enter host profile (personal-mac): " HOST
 fi
-echo "==> Using host config: $HOST"
+if [ ! -f "$REPO_ROOT/dfm/profiles/$HOST.toml" ]; then
+  echo "error: no profile at dfm/profiles/$HOST.toml" >&2
+  exit 1
+fi
+echo "==> Using host profile: $HOST"
 
-
-# ── 4. ~/.dotfiles symlink (out-of-store root for raw dotfiles) ───────────
+# ── 2. ~/.dotfiles symlink (the root every managed link resolves through) ─
 if [ "$REPO_ROOT" = "$HOME/.dotfiles" ]; then
   # The repository itself is already checked out at the canonical location.
   :
@@ -60,11 +45,11 @@ elif [ "$(readlink "$HOME/.dotfiles" 2>/dev/null || true)" != "$REPO_ROOT" ]; th
   ln -sfn "$REPO_ROOT" "$HOME/.dotfiles"
 fi
 
-# Install Homebrew before nix-darwin runs brew bundle during activation.
-# DOTFILES_BREW_BIN is for test isolation; runtime modules require /opt/homebrew.
+# ── 3. Homebrew and the Brewfile ─────────────────────────────────────────
+# DOTFILES_BREW_BIN is for test isolation; runtime scripts require /opt/homebrew.
 BREW_BIN="${DOTFILES_BREW_BIN:-/opt/homebrew/bin/brew}"
 if [ ! -x "$BREW_BIN" ]; then
-  echo "==> Installing Homebrew (independent of nix) ..."
+  echo "==> Installing Homebrew ..."
   # Download separately so set -e catches curl failures.
   # An explicit XXXXXX template works with both BSD and GNU mktemp.
   brew_install_sh="$(mktemp "${TMPDIR:-/tmp}/homebrew-install.XXXXXX")"
@@ -74,48 +59,51 @@ if [ ! -x "$BREW_BIN" ]; then
 else
   echo "==> Homebrew already installed: $("$BREW_BIN" --version | head -1)"
 fi
+# brew is not on PATH in a fresh login shell yet. The eval reaches only this
+# process; the printed steps tell the parent shell to do the same.
+case ":$PATH:" in
+  *":$(dirname "$BREW_BIN"):"*) brew_on_path=1 ;;
+  *) brew_on_path=0 ;;
+esac
+eval "$("$BREW_BIN" shellenv)" 2>/dev/null || true
+echo "==> Installing the Brewfile (just, mise, uv and the rest) ..."
+"$REPO_ROOT/scripts/brew-sync.sh"
 
-# ── 5. First switch ──────────────────────────────────────────────────────
-# darwin-rebuild is not on PATH yet, so run it straight from the flake input.
-# The nix-darwin BRANCH ref is deliberate for this one-shot context: a fresh
-# machine has no trustworthy local lock yet, and the branch tracks the same
-# release line flake.nix pins (nix-darwin-26.05). Everything after the first
-# switch resolves through this repo's own lockfile instead.
-echo "==> Building initial configuration #$HOST ..."
-# --extra-experimental-features so this first switch does not depend on the
-# Lix installer's default nix.conf having flakes enabled; nix-darwin pins them
-# in nix.settings from here on.
-sudo nix run \
-  --extra-experimental-features "nix-command flakes" \
-  github:nix-darwin/nix-darwin/nix-darwin-26.05#darwin-rebuild -- \
-  switch --flake "$REPO_ROOT#${HOST}" \
-  --option sandbox false
-
-# rustup manages switchable development toolchains independently of Nix.
-if ! command -v rustup >/dev/null 2>&1; then
+# ── 4. rustup ────────────────────────────────────────────────────────────
+# The manager's installer builds from a pinned Rust toolchain staged out of
+# ~/.rustup (docs/m5-cutover.md section 1). Nothing in the Brewfile installs rustup.
+if ! command -v rustup >/dev/null 2>&1 && [ ! -x "$HOME/.cargo/bin/rustup" ]; then
   echo "==> Installing rustup ..."
-  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y || true
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y ||
+    echo "warning: rustup install failed; install it before staging the toolchain" >&2
 fi
 
-# Load the new profiles so this shell can resolve just, git, and uv for sync.
-PATH="/etc/profiles/per-user/$(id -un)/bin:/run/current-system/sw/bin:$PATH"
-export PATH
-JUST_BIN="${DOTFILES_JUST_BIN:-just}"
-
-# The host is already switched. Run side channels directly and forward HOST;
-# another auto-detected rebuild could select a different host or fail detection.
-echo "==> Running side channels for git externals + token-auditor ..."
-if command -v "$JUST_BIN" >/dev/null 2>&1; then
-  DOTFILES_HOST="$HOST" "$JUST_BIN" --justfile "$REPO_ROOT/Justfile" sync-side-channels \
-    || echo "    (side channels had warnings; re-run later once online/authed)"
-else
-  echo "    'just' not on PATH yet; run 'just sync' once the switch completes."
-fi
-
+# ── 5. dotfiles-manager ──────────────────────────────────────────────────
+# The manager is installed from its own repository (docs/m5-cutover.md section 1).
+# It is not a Homebrew package, so this script stops here and prints the steps.
 echo
-echo "==> Done. Subsequent rebuilds: ./rebuild.sh (or the 'rebuild' shell fn)."
-echo "    Provisioning that needs network/SSH (agent-registry, token-auditor,"
-echo "    tpm) runs via 'just sync' (switch + side channels)."
+echo "==> Done. Remaining steps:"
+if [ "$brew_on_path" -eq 0 ]; then
+  echo "    0. Put Homebrew on this shell's PATH (DFM links .zshenv in step 4):"
+  echo "       eval \"\$($BREW_BIN shellenv)\""
+fi
+if command -v dotfiles-manager >/dev/null 2>&1; then
+  echo "    dotfiles-manager is installed: $(command -v dotfiles-manager)"
+else
+  echo "    1. Stage the pinned Rust toolchain and install dotfiles-manager from its"
+  echo "       repository: docs/m5-cutover.md section 1 names the toolchain version,"
+  echo "       the staging copy and the commit to install."
+fi
+if [ -e "$HOME/.config/dotfiles-manager/machine.toml" ]; then
+  echo "    This machine is bound: $HOME/.config/dotfiles-manager/machine.toml"
+else
+  echo "    2. Bind this machine to its profile (plan needs a binding):"
+  echo "       dotfiles-manager bind --profile $HOME/.dotfiles/dfm/profiles/$HOST.toml --machine-id <id>"
+fi
+echo "    3. just sync-dfm                      # plan; writes the approval flags"
+echo "    4. just sync-dfm-apply <plan digest>  # apply, packages, side channels, agents, checks"
+echo "    Side channels that need network or SSH (secrets, agent-registry, token-auditor)"
+echo "    run inside step 4, or alone with 'just sync-side-channels'."
 echo
 echo "    Manual first-run steps (TCC-protected, cannot be scripted):"
 echo "      - Accessibility → Display → Reduce transparency"

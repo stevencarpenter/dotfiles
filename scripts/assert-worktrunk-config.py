@@ -6,7 +6,7 @@
 """Validate Worktrunk configuration types without freezing user preferences.
 
 Parsed independently of the installed Worktrunk version. These assertions catch
-a Nix store path accidentally committed as file contents.
+an absolute install path accidentally committed as file contents.
 
 Usage:
     assert-worktrunk-config.py <config.toml>
