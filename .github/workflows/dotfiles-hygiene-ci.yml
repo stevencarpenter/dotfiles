@@ -16,7 +16,6 @@ on:
       - "dfm-module-*.toml"
       - "dfm/**"
       - "bootstrap.sh"
-      - "rebuild.sh"
       - "README.md"
       - "ruff.toml"
       - ".gitleaks.toml"
@@ -37,7 +36,6 @@ on:
       - "dfm-module-*.toml"
       - "dfm/**"
       - "bootstrap.sh"
-      - "rebuild.sh"
       - "README.md"
       - "ruff.toml"
       - ".gitleaks.toml"
@@ -104,7 +102,6 @@ jobs:
             bash -n "${file}"
           done < <(find scripts -type f -name "*.sh" -print0)
           bash -n bootstrap.sh
-          bash -n rebuild.sh
 
       - name: Validate agent tools allowlist gate
         run: scripts/test-agent-tools-allowlist.sh
