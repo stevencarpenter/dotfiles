@@ -21,8 +21,9 @@ module manifest, and applies. Two facts shape every adoption:
   *already-linked* file is live, no apply.)
 - **Collisions are refused, not overwritten.** A real file at a managed target blocks the plan
   with `E_CONFLICT`, and no flag overrides it. Verify the repository copy, then move the
-  original aside before `just sync-dfm`. `--allow-adopt '<id>'` applies only when the live
-  path already is the exact symlink (the `sync-dfm` recipe writes that flag for you).
+  original aside before `just sync-dfm`. For a link, `--allow-adopt '<id>'` applies only when
+  the live path already is the exact symlink; the other use is the first merge into an existing
+  `~/.claude/settings.json`. The `sync-dfm` recipe writes the flag in both cases.
 
 ## Run the planner first
 

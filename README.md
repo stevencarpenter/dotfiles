@@ -134,7 +134,7 @@ save. An apply is only needed when you add or remove a *link*, change a module's
 | Change | Where | Then run |
 | --- | --- | --- |
 | A file that is already linked (`home/**`) | edit it in place | nothing; it is live |
-| A package | `Brewfile`, or a mise fragment in `home/.config/mise/conf.d/` | `scripts/brew-sync.sh`, or `mise install`; both run inside `just sync-dfm-apply` |
+| A package | `Brewfile`; `home/.config/mise/config.toml` for every machine, or a `home/.config/mise/conf.d/<capability>.toml` fragment | `scripts/brew-sync.sh`, or `mise install`; both run inside `just sync-dfm-apply`, whose side channels also run `mise upgrade --no-prune` |
 | A link, a module's `[[resources]]`, a profile's module list | `dfm-module-*.toml`, `dfm/profiles/<host>.toml` | `just sync-dfm`, then `just sync-dfm-apply <digest>` |
 | Claude settings | `home/.claude/settings-base.json` (merged, not linked) | `just sync-dfm`, then `just sync-dfm-apply <digest>` |
 | MCP servers | `home/.config/mcp/mcp-master.json` and `machine/*.json` | `just mcp-sync` (also inside the apply) |
@@ -148,11 +148,12 @@ linked files needs no apply.
 
 **Add a tool.**
 
-1. Declare the package: a `Brewfile` line for a formula, cask or font, or a line in the
-   right `home/.config/mise/conf.d/*.toml` for a version-managed CLI. Record its origin in
-   [`docs/package-mapping.md`](docs/package-mapping.md).
-2. Install it: `scripts/brew-sync.sh` or `mise install`. Both also run inside the next
-   `just sync-dfm-apply`, and neither upgrades anything else.
+1. Declare the package: a `Brewfile` line for a formula, cask or font, or a mise line in
+   `home/.config/mise/config.toml` (every machine) or `home/.config/mise/conf.d/<capability>.toml`
+   (gated). Record its origin in [`docs/package-mapping.md`](docs/package-mapping.md).
+2. Install it: `scripts/brew-sync.sh` or `mise install`. Neither upgrades anything else. Both
+   also run inside the next `just sync-dfm-apply`, whose side channels then run
+   `mise upgrade --no-prune` as well.
 3. Try it. When its configuration is worth keeping, adopt it (next procedure).
 
 **Add a configuration** (promote a config the tool wrote under `~`). Full runbook:
@@ -172,7 +173,7 @@ linked files needs no apply.
 
 1. Delete its `[[resources]]` stanza from the module. To drop a whole capability on one
    machine, remove the module from `dfm/profiles/<host>.toml` instead.
-2. `just sync-dfm`. The plan lists one `remove@<path>` per owned output and writes one
+2. `just sync-dfm`. The plan lists one `remove@<resource>@<path>` per owned output and writes one
    `--allow-disruptive '<id>'` per line to the approval file. Read that file.
 3. `just sync-dfm-apply <digest>`. The manager deletes only exact, unchanged outputs it owns
    and reports anything modified or foreign as a conflict instead of deleting it.

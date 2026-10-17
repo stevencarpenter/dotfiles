@@ -28,9 +28,11 @@ verify the repository copy, then move the original aside
 (`mv ~/.config/foo/config ~/.config/foo/config.pre-dfm`). Keep that backup until the apply and
 the tool both check out, then delete it.
 
-`--allow-adopt '<id>'` covers one case only: the live path already is the exact symlink the
-plan would create (made by stow or by hand) and the manager does not own it yet. The plan
-shows it as `adopt`, and `just sync-dfm` writes the flag for `just sync-dfm-apply`.
+`--allow-adopt '<id>'` covers two cases, and `just sync-dfm` writes the flag for both. For a
+link resource: the live path already is the exact symlink the plan would create (made by stow
+or by hand) and the manager does not own it yet; the plan shows it as `adopt`. For the
+`claude-settings/v1` merge: the first write into an existing `~/.claude/settings.json` that
+the manager does not own yet (`takeover`). Neither case covers a real file at a link target.
 
 ## Procedure
 

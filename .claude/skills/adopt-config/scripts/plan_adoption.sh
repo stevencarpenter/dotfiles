@@ -110,7 +110,7 @@ fi
 echo "COLLISION   : a real '$abs' makes the plan block with E_CONFLICT; no flag overrides it."
 echo "             -> verify the repo copy, then move the original aside before planning:"
 echo "                mv '$abs' '$abs.pre-dfm'"
-echo "                (--allow-adopt applies only when the live path already is the exact symlink)."
+echo "                (for a link, --allow-adopt applies only when the live path already is the exact symlink)."
 echo
 
 # --- The module manifest edit ----------------------------------------------
