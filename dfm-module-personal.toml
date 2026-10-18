@@ -62,6 +62,16 @@ target = ".config/zsh/profile.d/tailscale.zsh"
 [resources.value]
 source = "home/.config/zsh/profile.d/tailscale.zsh"
 
+[[resources]]
+id = "config-zsh-personal-env"
+kind = "secret"
+adapter = "op-template/v1"
+target = ".config/zsh/.personal.env"
+[resources.value]
+template = "home/.config/zsh/.personal.env.tpl"
+account = "my.1password.com"
+mode = 0o600
+
 [[contributions]]
 resource = "core.claude-settings"
 path = "/handlers"
