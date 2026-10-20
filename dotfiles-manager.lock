@@ -1,0 +1,8 @@
+# Sources that `dotfiles-manager sync` fetches and fast-forwards (DOT-28). The root entry tracks
+# main and carries no commit. Grant the origin once on each machine:
+#   dotfiles-manager sync --root ~/.dotfiles --trust-origin ssh://git@github.com/stevencarpenter/dotfiles
+[[sources]]
+id = "dotfiles"
+kind = "git"
+origin = "ssh://git@github.com/stevencarpenter/dotfiles"
+ref = "refs/heads/main"

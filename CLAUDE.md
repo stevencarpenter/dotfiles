@@ -96,7 +96,12 @@ just sync-side-channels       # side channels only: mise, op-render, skills, Git
 scripts/brew-sync.sh --check  # Brewfile gaps, installs nothing
 scripts/mac-defaults.sh --check
 dotfiles-manager doctor --root ~/.dotfiles
+dotfiles-manager sync --root ~/.dotfiles --preview   # needs the one-time origin grant below
 ```
+
+`dotfiles-manager.lock` at the checkout root declares the Git source `sync` fetches (root entry,
+`ssh://git@github.com/stevencarpenter/dotfiles`, `refs/heads/main`). Grant that origin once per
+machine: `dotfiles-manager sync --root ~/.dotfiles --trust-origin ssh://git@github.com/stevencarpenter/dotfiles`.
 
 See [Daily use](README.md#daily-use) for the command hierarchy.
 
