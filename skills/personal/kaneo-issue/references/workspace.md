@@ -64,8 +64,10 @@ task's row rather than retiring a name everywhere.
 
 Names in circulation:
 
-**Dispatch**: `ready-for-agent` · `needs-human` · `agent:haiku` ·
-`agent:sonnet` · `agent-autonomous` · `agent-parallel` · `orchestrator`
+**Dispatch**: `ready-for-agent` · `needs-human` · `agent-autonomous` ·
+`agent-parallel` · `orchestrator`. The effort-tier labels `agent:haiku` and
+`agent:sonnet` were retired on 2026-10-20; rows that still carry them are
+stale, not a vocabulary.
 
 **Structure**: `epic`
 
