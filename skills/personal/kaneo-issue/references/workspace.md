@@ -34,6 +34,7 @@ IDs (`HOME-1`).
 | homelab | `HOME` | `g6995f1fcqyabq54t18lmjsz` | i9 services (Compose + Caddy, tailnet-only) |
 | Hippo | `HIPO` | `i4o4byau9mfpdef7wjz7mwii` | Local knowledge base |
 | Ski Area Tycoon | `SKI` | `rs9nm9hgw6glgsbn6awyzkl5` | ski-area-tycoon repo, created 2026-08-14, fresh project (no migrated history) |
+| Agent Journal | `AJ` | `mam7h158zn8mo4onr69gc6f4` | agent-journal repo, created 2026-10-20, Kaneo-native; DOT-30 moved here as its first task |
 
 There are no teams: projects are flat and are the only routing dimension.
 

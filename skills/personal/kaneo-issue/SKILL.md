@@ -46,6 +46,7 @@ remote of the working directory; ask only if the remote is absent or ambiguous.
 | `stevectl` | Stevectl | `SCTL` |
 | `gitdiff` | gitdiff | `GITD` |
 | `ski-area-tycoon` | Ski Area Tycoon | `SKI` |
+| `agent-journal` | Agent Journal | `AJ` |
 
 A repo with no row isn't onboarded: ask rather than guessing a project.
 
