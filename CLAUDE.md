@@ -87,7 +87,7 @@ token-auditor --help                                                   # or `cod
 ### Plan, apply, update
 
 ```bash
-just sync-dfm                 # dotfiles-manager plan; prints the digest, writes the approval flags
+just sync-dfm                 # dfm plan; prints the digest, writes the approval flags
 just sync-dfm-apply <digest>  # apply, then Brewfile, hooks-sync, side channels, agents, checks
 just update                   # preview Homebrew and mise upgrades; approve; upgrade + side channels
 just update -y                # same, assume approval (sudo/op may still prompt)
@@ -95,13 +95,13 @@ just sync-side-channels       # side channels only: mise, op-render, skills, Git
 ./bootstrap.sh                # fresh-machine setup (CLT, Homebrew, Brewfile), then prints the steps
 scripts/brew-sync.sh --check  # Brewfile gaps, installs nothing
 scripts/mac-defaults.sh --check
-dotfiles-manager doctor --root ~/.dotfiles
-dotfiles-manager sync --root ~/.dotfiles --preview   # needs the one-time origin grant below
+dfm doctor --root ~/.dotfiles
+dfm sync --root ~/.dotfiles --preview   # needs the one-time origin grant below
 ```
 
 `dotfiles-manager.lock` at the checkout root declares the Git source `sync` fetches (root entry,
 `ssh://git@github.com/stevencarpenter/dotfiles`, `refs/heads/main`). Grant that origin once per
-machine: `dotfiles-manager sync --root ~/.dotfiles --trust-origin ssh://git@github.com/stevencarpenter/dotfiles`.
+machine: `dfm sync --root ~/.dotfiles --trust-origin ssh://git@github.com/stevencarpenter/dotfiles`.
 
 See [Daily use](README.md#daily-use) for the command hierarchy.
 

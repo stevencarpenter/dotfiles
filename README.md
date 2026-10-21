@@ -85,9 +85,9 @@ and select it in each profile that wants it.
    which brings `just`, `mise`, `uv` and the rest.
 5. Installs **rustup** if absent. The manager's installer builds from a pinned toolchain
    staged out of `~/.rustup`.
-6. Prints the remaining steps: stage the toolchain and install `dotfiles-manager` from its
+6. Prints the remaining steps: stage the toolchain and install the manager (`dfm`) from its
    own repository ([`docs/m5-cutover.md`](docs/m5-cutover.md) section 1), bind the machine
-   to its profile (`dotfiles-manager bind --profile … --machine-id <id>`), then
+   to its profile (`dfm bind --profile … --machine-id <id>`), then
    `just sync-dfm` and `just sync-dfm-apply <digest>`.
 
 ```bash
@@ -113,13 +113,13 @@ just brew-audit                  # compare declared and installed Homebrew inven
 `dotfiles-manager.lock` at the checkout root declares the Git source that `dotfiles-manager
 sync` fetches: one root entry for `ssh://git@github.com/stevencarpenter/dotfiles` tracking
 `main`. Each machine grants that origin once, before the first sync:
-`dotfiles-manager sync --root ~/.dotfiles --trust-origin ssh://git@github.com/stevencarpenter/dotfiles`.
-After the grant, `dotfiles-manager sync --root ~/.dotfiles --preview` prints the sync digest.
+`dfm sync --root ~/.dotfiles --trust-origin ssh://git@github.com/stevencarpenter/dotfiles`.
+After the grant, `dfm sync --root ~/.dotfiles --preview` prints the sync digest.
 
-`sync-dfm-apply` runs, in order: `dotfiles-manager apply`, `scripts/brew-sync.sh`,
+`sync-dfm-apply` runs, in order: `dfm apply`, `scripts/brew-sync.sh`,
 `scripts/hooks-sync.sh` (MCP sync, skills sync, Codex hooks merge),
 `scripts/sync-side-channels.sh`, `scripts/launch-agents.sh load`, the login-shell, tiling and
-macOS-defaults checks, then `dotfiles-manager state check` and `doctor`. `just --list` groups
+macOS-defaults checks, then `dfm state check` and `doctor`. `just --list` groups
 daily commands, targeted maintenance, validation, and utilities.
 
 `just update [-y]` refreshes Homebrew metadata and previews upgrades for installed unpinned
@@ -203,8 +203,8 @@ cwd inheritance, detach topology, agent cleanup, plugin residue, and stale side-
 ## Validate without applying
 
 ```bash
-dotfiles-manager plan --root ~/.dotfiles     # every operation and the plan digest; writes nothing
-dotfiles-manager doctor --root ~/.dotfiles   # live links against the manifests
+dfm plan --root ~/.dotfiles     # every operation and the plan digest; writes nothing
+dfm doctor --root ~/.dotfiles   # live links against the manifests
 scripts/brew-sync.sh --check                 # Brewfile gaps
 scripts/mac-defaults.sh --check              # macOS defaults drift
 just lefthook                                # every pre-commit job, as CI does

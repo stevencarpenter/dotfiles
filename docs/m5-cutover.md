@@ -1,5 +1,9 @@
 # M5 cutover runbook (DFM-52)
 
+Note (2026-10-21): the manager command is now `dfm` (DFM-67, DOT-31). Read each
+`dotfiles-manager` command below as `dfm`. The data, state and config directories keep the
+`dotfiles-manager` name. The rest of this runbook is the historical record.
+
 This runbook moves the personal MacBook from nix-darwin and Home Manager to dotfiles-manager.
 Each step has a mode. `LIVE` writes to the machine. `CHECK` only reads. Run the steps in order.
 Stop at the first unexpected output and use the rollback section.
