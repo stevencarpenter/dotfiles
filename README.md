@@ -110,8 +110,8 @@ just sync-side-channels          # side channels only: mise, secrets, skills, Gi
 just brew-audit                  # compare declared and installed Homebrew inventory, read-only
 ```
 
-`dotfiles-manager.lock` at the checkout root declares the Git source that `dotfiles-manager
-sync` fetches: one root entry for `ssh://git@github.com/stevencarpenter/dotfiles` tracking
+`dotfiles-manager.lock` at the checkout root declares the Git source that `dfm sync`
+fetches: one root entry for `ssh://git@github.com/stevencarpenter/dotfiles` tracking
 `main`. Each machine grants that origin once, before the first sync:
 `dfm sync --root ~/.dotfiles --trust-origin ssh://git@github.com/stevencarpenter/dotfiles`.
 After the grant, `dfm sync --root ~/.dotfiles --preview` prints the sync digest.
