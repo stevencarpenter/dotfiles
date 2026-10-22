@@ -228,7 +228,8 @@
     }).join("");
 
     const entries = [
-      ["dfm-bundle.toml", "the module list and source roots"],
+      ["dfm-bundle.toml", "the module list"],
+      ["dfm-personal.toml", "the source roots this host plans from"],
       ["dfm/profiles/personal-mac.toml", "which modules this host selects"],
       ["dfm-module-core.toml", "the links every machine gets"],
       ["Justfile", "every build, sync and check recipe"],

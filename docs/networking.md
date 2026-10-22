@@ -20,7 +20,7 @@ Network-related configuration:
   Tailscale exit nodes (homelab or Mullvad add-on). Sourced by zsh on any
   machine where `tailscale` is installed.
 - `home/.config/aerospace/`, `home/.config/sketchybar/`: local UI, not network.
-- Tailscale itself is installed via Homebrew (cask); its config lives in
+- Tailscale itself is installed via Homebrew (the `tailscale` formula in `Brewfile.personal`); its config lives in
   user libraries managed by the GUI app, not this repo.
 - `home/.ssh/config.d/10-homelab.conf.tpl` → `~/.ssh/config.d/10-homelab.conf`: personal-only `op-render` template, deployed mode
   0600 from 1Password references. Carries `Host i9`
