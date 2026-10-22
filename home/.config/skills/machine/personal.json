@@ -1,5 +1,17 @@
 {
+  "sources": {
+    "fantasy-sports": {
+      "type": "git",
+      "url": "git@github.com:stevencarpenter/fantasy-sports.git",
+      "ref": "main",
+      "refreshPeriod": "24h"
+    }
+  },
   "skills": {
+    "fantasy-football-guidelines": {
+      "source": "fantasy-sports",
+      "path": "skills/fantasy-football-guidelines"
+    },
     "building-browser-extensions": { "source": "personal" },
     "screenshot-bug-hunt": { "source": "personal" },
     "using-hippo-brain": { "source": "personal" },

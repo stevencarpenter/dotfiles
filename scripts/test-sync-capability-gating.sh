@@ -131,20 +131,24 @@ if rg -q '^git clone .* /[^ ]*/agent-registry$' "$fixture/work/commands.log"; th
   echo "work sync contacted the personal agent registry" >&2
   exit 1
 fi
-if ! rg -q 'git clone .*fantasy-sports' "$fixture/work/commands.log"; then
-  echo "work sync did not clone the private fantasy-sports repo" >&2
-  exit 1
-fi
-if [ ! -f "$fixture/work/home/.claude/agents/fantasy-football-manager.md" ]; then
-  echo "work sync did not install the fantasy-sports agent" >&2
-  exit 1
-fi
-if [ ! -f "$fixture/work/home/.cursor/skills/fantasy-football-guidelines/SKILL.md" ]; then
-  echo "work sync did not install the fantasy-sports Cursor skill" >&2
+if rg -q 'fantasy-sports' "$fixture/work/commands.log"; then
+  echo "work sync touched the private fantasy-sports repo" >&2
   exit 1
 fi
 
 run_sync personal 1
+if ! rg -q 'git clone .*fantasy-sports' "$fixture/personal/commands.log"; then
+  echo "personal sync did not clone the private fantasy-sports repo" >&2
+  exit 1
+fi
+if [ ! -f "$fixture/personal/home/.claude/agents/fantasy-football-manager.md" ]; then
+  echo "personal sync did not install the fantasy-sports agent" >&2
+  exit 1
+fi
+if [ ! -f "$fixture/personal/home/.cursor/skills/fantasy-football-guidelines/SKILL.md" ]; then
+  echo "personal sync did not install the fantasy-sports Cursor skill" >&2
+  exit 1
+fi
 if ! rg -q '^git clone .* /[^ ]*/agent-registry$' "$fixture/personal/commands.log"; then
   echo "personal sync did not retain the agent registry clone" >&2
   exit 1

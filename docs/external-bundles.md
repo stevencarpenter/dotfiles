@@ -106,3 +106,7 @@ values as written; only hook commands keep a `${HOME}` reference live.
 `scripts/host-capability.sh` reads the profile that `dfm binding` names, so the sync scripts in
 the nested checkout gate on the private profile. A capability query must name a module declared
 in `dfm-bundle.toml`.
+
+`scripts/sync-side-channels.sh` runs `op-render` and installs the private fantasy-sports repo
+only for the `personal` identity; the fantasy-sports skill source lives in the personal skills
+overlay, not in `skills-master.json`.
