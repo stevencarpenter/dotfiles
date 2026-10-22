@@ -1,0 +1,19 @@
+# Root bundle for profiles that use this checkout as --root: dfm-bundle.toml plus the
+# source roots. The resolver requires a [modules] table, even an empty one.
+schema = 1
+id = "dotfiles-personal"
+extends = "dfm-bundle.toml"
+
+[sources]
+# The checkout holds runtime trees (plugin checkouts with a .git, venvs, node_modules, caches).
+# Only these roots, and the files beside this bundle, are sources.
+roots = ["home", "skills", "dfm"]
+exclude = [
+  "home/.config/tmux/plugins",
+  "home/.pi/agent/extensions/node_modules",
+  "**/__pycache__",
+  "**/.venv",
+  "**/node_modules",
+]
+
+[modules]

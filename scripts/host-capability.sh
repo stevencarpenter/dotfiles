@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# Read one host capability (or --identity) from dfm/profiles/<host>.toml, the gating source of truth.
+# Read one host capability (or --identity) from the host's dfm profile, the gating source of truth.
+# The profile is dfm/profiles/<host>.toml when a host is named (argument or DOTFILES_HOST),
+# else the profile `dfm binding` names (it may live in an external bundle's checkout),
+# else dfm/profiles/<detected host>.toml for a machine that is not bound yet.
 # A capability is on when the profile selects the module of the same name (`_` becomes `-`).
 # A capability is known when dfm-bundle.toml declares that module.
 set -euo pipefail
@@ -26,22 +29,45 @@ if [ "$mode" = capability ] && [[ ! "$capability" =~ ^[a-z][a-z0-9_]*$ ]]; then
   exit 2
 fi
 
+bound_profile() { # the profile path `dfm binding` prints; nothing when dfm is absent or unbound
+  local dfm_bin="${DFM_BIN:-dfm}"
+  command -v "$dfm_bin" >/dev/null 2>&1 || return 0
+  { "$dfm_bin" binding 2>/dev/null || true; } |
+    sed -n 's/^bound profile=\(.*\) machine_id=.*$/\1/p' | tail -1
+}
+
+profile=""
 if [ -z "$host" ]; then
-  host="$(detect_host || true)"
+  profile="$(bound_profile)"
+  if [ -n "$profile" ] && [ ! -f "$profile" ]; then
+    echo "error: the bound profile $profile does not exist" >&2
+    exit 2
+  fi
 fi
 
-profile="${repo_root}/dfm/profiles/${host}.toml"
-if [ -z "$host" ] || [[ ! "$host" =~ ^[a-z0-9-]+$ ]] || [ ! -f "$profile" ]; then
-  if [ "$mode" = identity ]; then
-    echo "error: cannot resolve a known host for --identity" >&2
-  else
-    echo "error: cannot resolve a known host for capability '$capability'" >&2
+if [ -z "$profile" ]; then
+  if [ -z "$host" ]; then
+    host="$(detect_host || true)"
   fi
-  exit 2
+  profile="${repo_root}/dfm/profiles/${host}.toml"
+  if [ -z "$host" ] || [[ ! "$host" =~ ^[a-z0-9-]+$ ]] || [ ! -f "$profile" ]; then
+    if [ "$mode" = identity ]; then
+      echo "error: cannot resolve a known host for --identity" >&2
+    else
+      echo "error: cannot resolve a known host for capability '$capability'" >&2
+    fi
+    exit 2
+  fi
 fi
 
 # shortcut: the profile keeps `modules = [...]` on one line, switch to a TOML parser
-# when a profile needs a multi-line list.
+# when a profile needs a multi-line list. Until then a multi-line or missing list is an
+# error: reading it as empty would turn every gate off without a failure.
+if ! awk -F'[][]' '$1 ~ /^modules[[:space:]]*=[[:space:]]*$/ { found = 1; one_line = NF >= 3; exit }
+  END { exit !(found && one_line) }' "$profile"; then
+  echo "error: $profile needs a one-line modules = [...] list" >&2
+  exit 2
+fi
 selected="$(awk -F'[][]' '$1 ~ /^modules[[:space:]]*=[[:space:]]*$/ {
   gsub(/["[:space:]]/, "", $2); gsub(/,/, " ", $2); print $2; exit }' "$profile")"
 declared="$(awk '/^\[modules\]/ { f = 1; next } /^\[/ { f = 0 } f && /^[a-z-]+[[:space:]]*=/ {
