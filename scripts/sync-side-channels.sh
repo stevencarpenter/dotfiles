@@ -115,13 +115,13 @@ else
   echo "==> Skipping personal agent-registry (agents capability disabled)"
 fi
 
-# Private fantasy-sports agents + Cursor skill. Gated on skills, not agents:
-# work hosts keep the public registry off and still get this personal repo.
-# Clone needs GitHub SSH, so this runs after op-render on personal machines.
-if [ "$("$capability_bin" skills)" = "1" ]; then
+# Private fantasy-sports agents + Cursor skill: personal identity only, because a work
+# host cannot read the private repo and must not hold it. Clone needs GitHub SSH, so
+# this runs after op-render.
+if [ "$identity" = "personal" ] && [ "$("$capability_bin" skills)" = "1" ]; then
   "$repo_root/scripts/install-fantasy-sports.sh"
 else
-  echo "==> Skipping fantasy-sports (skills capability disabled)"
+  echo "==> Skipping fantasy-sports (identity: $identity, or skills capability disabled)"
 fi
 
 # Install hooks during sync because this writes the checkout's .git directory.

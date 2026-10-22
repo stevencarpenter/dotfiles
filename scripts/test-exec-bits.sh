@@ -55,6 +55,7 @@ exec_scripts=(
   scripts/test-agent-tools-allowlist.sh
   scripts/test-eval-cache.sh
   scripts/test-bootstrap-clt-gate.sh
+  scripts/test-brew-identity.sh
   scripts/test-railway-psql-errors.sh
   scripts/test-sync-capability-gating.sh
   scripts/test-tmux-lifecycle-contract.sh

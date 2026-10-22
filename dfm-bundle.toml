@@ -1,21 +1,11 @@
 # dotfiles-manager bundle for ~/.dotfiles. The bundle and module manifests sit at the
 # checkout root because the resolver confines each module's sources to the directory
 # of its manifest, and the sources live in home/ and skills/. The profile is in dfm/.
+# An external bundle extends this file, and only the bundle a profile names may declare
+# [sources], so the source roots of this checkout live in dfm-personal.toml.
 schema = 1
 id = "dotfiles"
 core = "dfm-module-core.toml"
-
-[sources]
-# The checkout holds runtime trees (plugin checkouts with a .git, venvs, node_modules, caches).
-# Only these roots, and the files beside this bundle, are sources.
-roots = ["home", "skills", "dfm"]
-exclude = [
-  "home/.config/tmux/plugins",
-  "home/.pi/agent/extensions/node_modules",
-  "**/__pycache__",
-  "**/.venv",
-  "**/node_modules",
-]
 
 [modules]
 personal = "dfm-module-personal.toml"

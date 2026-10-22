@@ -67,7 +67,7 @@ case ":$PATH:" in
 esac
 eval "$("$BREW_BIN" shellenv)" 2>/dev/null || true
 echo "==> Installing the Brewfile (just, mise, uv and the rest) ..."
-"$REPO_ROOT/scripts/brew-sync.sh"
+DOTFILES_HOST="$HOST" "$REPO_ROOT/scripts/brew-sync.sh"
 
 # ── 4. rustup ────────────────────────────────────────────────────────────
 # The manager's installer builds from a pinned Rust toolchain staged out of

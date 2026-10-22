@@ -12,7 +12,9 @@ on:
       - "CLAUDE.md"
       - "Justfile"
       - "Brewfile"
+      - "Brewfile.*"
       - "dfm-bundle.toml"
+      - "dfm-personal.toml"
       - "dfm-module-*.toml"
       - "dfm/**"
       - "bootstrap.sh"
@@ -32,7 +34,9 @@ on:
       - "CLAUDE.md"
       - "Justfile"
       - "Brewfile"
+      - "Brewfile.*"
       - "dfm-bundle.toml"
+      - "dfm-personal.toml"
       - "dfm-module-*.toml"
       - "dfm/**"
       - "bootstrap.sh"
@@ -186,6 +190,9 @@ jobs:
 
       - name: Validate Homebrew audit is read-only
         run: scripts/test-homebrew-audit-read-only.sh
+
+      - name: Validate identity Brewfile selection
+        run: scripts/test-brew-identity.sh
 
       - name: Validate Railway psql failure propagation
         run: scripts/test-railway-psql-errors.sh

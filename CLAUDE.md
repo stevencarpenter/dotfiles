@@ -13,7 +13,9 @@ the login shell and one LaunchAgent. Raw configuration files retain their dotted
 `home/` and are symlinked through `~/.dotfiles`. Edits to raw configuration files take effect
 without an apply.
 
-`dfm/profiles/personal-mac.toml` selects the modules for the only host. Modules select behavior
+`dfm/profiles/personal-mac.toml` selects the modules for the only host in this repository; an
+external bundle extends `dfm-bundle.toml` for another identity (`docs/external-bundles.md`).
+Modules select behavior
 by capability and identity, not hostname. `op-render` renders secrets from 1Password. No host
 holds an age identity. Externally managed hosts keep their secrets in their own overlays.
 
@@ -190,20 +192,23 @@ without failing the apply. Run it manually with `just mcp-sync`.
 The profile's module list defines all per-host variance. Each module is enforced at these
 locations:
 
-- **`tiling`**: `dfm-module-tiling.toml` (aerospace/sketchybar/borders links) and
+- **`tiling`**: `dfm-module-tiling.toml` (shared sketchybar/borders links; the identity module
+  links `aerospace.toml`, `machine.env` and `layouts`) and
   `scripts/tiling-reload.sh`. The WM tap, formulae and `font-sketchybar-app-font` are in the
   `Brewfile`.
 - **`atuin`**: `dfm-module-atuin.toml` links `~/.config/atuin/config.toml` to `config.sync.toml`
   (self-hosted `sync_address`). A host without the module gets no managed atuin config;
-  `config.local.toml` (`auto_sync = false`) is the variant for such a host and waits for a
-  module that links it. Both include `history_filter` and `[tmux] enabled`.
+  `config.local.toml` (`auto_sync = false`) is the variant for such a host; an external bundle's
+  identity module links it. Both include `history_filter` and `[tmux] enabled`.
   `scripts/check-atuin-parity.py` keeps the two filter lists identical.
-- **`mcp`**: `dfm-module-mcp.toml` (master config + overlay + pi + firstmate links) and the
+- **`mcp`**: `dfm-module-mcp.toml` (master config + pi + firstmate links; the identity module
+  links the `machine/<identity>.json` overlay) and the
   `mcpSync` step of `scripts/hooks-sync.sh`. (No github MCP server ships anywhere: `mcp_sync`
   strips a `github` server via `RETIRED_MCP_SERVER_NAMES`, and the `github@claude-plugins-official`
   plugin, which bundles a remote GitHub MCP server, is pinned `false` in the
   `core.claude-settings` resource of `dfm-module-core.toml`. `gh-axi` is used for GitHub instead.)
-- **`skills`**: `dfm-module-skills.toml` (manifest + overlay + personal skill links) and the
+- **`skills`**: `dfm-module-skills.toml` (manifest; the identity module links the overlay and the
+  pinned skill links) and the
   `skillsSync` step of `scripts/hooks-sync.sh`.
   **Git-source provenance is enforced in code**, not just by review: a git skill source is a
   tracking clone (`fetch` + `reset --hard FETCH_HEAD`) whose contents an agent then executes, so
@@ -216,21 +221,23 @@ locations:
 - **`gui`**: no resources. GUI casks and display fonts live in the `Brewfile`.
 - **`dev`**: `dfm-module-dev.toml` (mise `conf.d/dev.toml`). The dev-only LSP plugins are the
   personal-mac variant of the Claude settings merge in `dfm-module-core.toml`.
-- **`infra`**: `dfm-module-infra.toml` (no resources today; mise `conf.d/infra.toml` when a host
-  selects it).
-- **`agent_journal`**: `dfm-module-agent-journal.toml` links the CLI wrappers and the personal
-  `config.toml` and `workstreams.toml`; an external work overlay owns both work config files.
+- **`infra`**: `dfm-module-infra.toml` (mise `conf.d/infra.toml`).
+- **`agent_journal`**: `dfm-module-agent-journal.toml` links the CLI wrappers; the identity
+  module links `config.toml` and `workstreams.toml`.
 - **`agents`**: contributes the `emit-routing-context.sh` SessionStart handler to the Claude
   settings merge. The personal registry clone, install and validation run in
-  `scripts/sync-side-channels.sh`, gated by `scripts/host-capability.sh agents`. A work-host
-  sync never contacts the personal registry remote.
+  `scripts/sync-side-channels.sh`, gated by `scripts/host-capability.sh agents`. The registry
+  (`stevencarpenter/agents`) is public, and a work host that selects `agents` installs it too.
 - **`personal`** (identity): `dfm-module-personal.toml` links the personal shell profiles,
-  hippo, homelab-over-Tailscale SSH fragment template, worktrunk config, and contributes the
-  hippo SessionStart handler.
+  hippo, homelab-over-Tailscale SSH fragment template, and contributes the
+  hippo SessionStart handler. It also links the identity files of shared capabilities: the
+  Claude `settings.d` `allowWrite` fragment, jj, the MCP and skills overlays, the pinned skills,
+  the aerospace and sketchybar variants and the journal config. `Brewfile.personal` holds jj and
+  tailscale.
 - token-auditor is **not capability-gated**: the side channels install it unconditionally.
 
-`scripts/host-capability.sh <cap>` prints 1 or 0 from the profile and `--identity` prints the
-identity module. The shell-side gates in `scripts/sync-side-channels.sh` read it; the hygiene
+`scripts/host-capability.sh <cap>` prints 1 or 0 from the profile (the one `dfm binding` names,
+or `dfm/profiles/<host>.toml` before bind) and `--identity` prints the identity module. The shell-side gates in `scripts/sync-side-channels.sh` read it; the hygiene
 test `scripts/test-host-capability.sh` pins the personal-mac answers.
 
 > No `wireguard` module is defined. The home network uses Tailscale, which uses WireGuard;
@@ -239,8 +246,9 @@ test `scripts/test-host-capability.sh` pins the personal-mac answers.
 
 ### Key Directories
 
-- `dfm-bundle.toml`, `dfm-module-*.toml`, `dfm/profiles/`: the manager's declarations
-- `Brewfile`: declared Homebrew inventory, applied by `scripts/brew-sync.sh`
+- `dfm-bundle.toml`, `dfm-personal.toml`, `dfm-module-*.toml`, `dfm/profiles/`: the manager's
+  declarations; `docs/external-bundles.md` is the contract for an external bundle
+- `Brewfile`, `Brewfile.<identity>`: declared Homebrew inventory, applied by `scripts/brew-sync.sh`
 - `home/`: raw dotfiles with their real names, symlinked through `~/.dotfiles`
 - `home/.config/mcp/`: master MCP config and per-machine overlays; `sync.py` implements overrides
 - `home/.config/nvim/`: Neovim config (LazyVim)

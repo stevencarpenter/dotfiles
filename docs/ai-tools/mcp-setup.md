@@ -3,8 +3,8 @@
 ## Overview
 
 This dotfiles repo fans a layered MCP config out to every AI development tool automatically. The
-fan-out is handled by the `mcp_sync/` Python tool, which runs after every `chezmoi apply` (on
-machines with the `mcp` capability).
+fan-out is handled by the `mcp_sync/` Python tool, which `scripts/hooks-sync.sh` runs after every
+`just sync-dfm-apply`. It skips a host that has no machine overlay.
 
 ## How It Works
 
@@ -12,22 +12,23 @@ Configs are merged in this order (later layers win), then transformed into each 
 
 1. **Base templates**: `mcp_sync/src/mcp_sync/templates/<tool>.base.{json,toml}`: static per-tool
    scaffolding (only `codex` and `opencode` have one today).
-2. **Master config**: `dot_config/mcp/mcp-master.json`: servers shared across *all* machine types.
+2. **Master config**: `home/.config/mcp/mcp-master.json`: servers shared across *all* machine types.
    Currently **empty**: nothing is deployed everywhere (see below).
-3. **Machine overlays**: `dot_config/mcp/machine/{work.json,personal.json.tmpl,lab.json.tmpl}`:
-   servers added per machine type, selected by chezmoi's `.machine` variable.
+3. **Machine overlay**: `~/.config/mcp/machine/<identity>.json`: servers added for the host's
+   identity (`scripts/host-capability.sh --identity`). The `personal` module links
+   `home/.config/mcp/machine/personal.json`; an external bundle's identity module links its own
+   (`docs/external-bundles.md`).
 4. **Per-tool overrides**: each target reads `~/.config/mcp/overrides/<key>.json` at sync time to
    add/override servers for one tool. Wired in `sync.py`; no override files are managed in-repo yet
    (the deployed `~/.config/mcp/overrides/` dir exists but is empty).
 
-The hook is `.chezmoiscripts/run_after_sync-mcp.sh.tmpl`; on machines without the `mcp` capability
-its body is a no-op.
+The step is mcpSync in `scripts/hooks-sync.sh`; it reports a failure without failing the apply.
 
 ## Current MCP Servers
 
 The master config is intentionally empty: no server is deployed to every machine. GitHub is no
 longer an MCP server in this sync; any Claude Code GitHub plugin setup is managed separately in
-`dot_claude/modify_settings.json.tmpl`. The retired `github` and `xcode` MCP server names are
+the `core.claude-settings` resource of `dfm-module-core.toml`. The retired `github` and `xcode` MCP server names are
 scrubbed from generated targets and old in-place configs during sync. Railway was removed. All
 remaining servers live in machine overlays:
 
@@ -40,7 +41,7 @@ remaining servers live in machine overlays:
 
 ## Sync Targets
 
-After `chezmoi apply`, the merged config is written to:
+After the sync, the merged config is written to:
 
 | Tool | Destination |
 |------|-------------|
@@ -59,15 +60,11 @@ After `chezmoi apply`, the merged config is written to:
 
 Add it to the layer that matches its scope:
 
-- **All machines** → `dot_config/mcp/mcp-master.json` (`servers` object).
-- **One machine type** → the matching overlay in `dot_config/mcp/machine/`
-  (`work.json`, `personal.json.tmpl`, or `lab.json.tmpl`).
+- **All machines** → `home/.config/mcp/mcp-master.json` (`servers` object).
+- **One identity** → `home/.config/mcp/machine/personal.json`, or the external bundle's overlay.
 - **One tool only** → `~/.config/mcp/overrides/<tool-key>.json` (e.g. `claude.json`, `cursor.json`).
 
-```bash
-chezmoi edit ~/.config/mcp/machine/personal.json   # or work.json / lab.json / mcp-master.json
-chezmoi apply                                        # sync runs automatically
-```
+The files are links into the checkout, so an edit takes effect at the next `just mcp-sync`.
 
 A server entry uses the standard MCP shape (`type`, `command`, `args`, `env`, …). The repo also
 honours two sync-gate fields that are stripped before output: `enabled: true|false` (the canonical
@@ -88,15 +85,15 @@ uv run --project ~/.dotfiles/mcp_sync sync-mcp-configs
 - **GitHub** (the plugin, not an MCP server here): authenticates via the Claude Code plugin /
   `gh` keychain token, not via this sync.
 
-Any secret-bearing env vars referenced by a server (`${VAR}`) are stored encrypted in
-`dot_config/zsh/encrypted_dot_env.age` and sourced at shell startup.
+Any secret-bearing env vars referenced by a server (`${VAR}`) come from the 1Password-rendered
+`~/.config/zsh/.personal.env` (or the external bundle's own secret) and are sourced at shell startup.
 
 ## Troubleshooting
 
 **Sync not running after apply?**
 - Verify `uv` is installed: `which uv`
-- Confirm the machine has the `mcp` capability in `.chezmoidata/machines.toml` (the hook is a no-op otherwise)
-- Check the sync hook: `.chezmoiscripts/run_after_sync-mcp.sh.tmpl`
+- Confirm the overlay exists: `ls ~/.config/mcp/machine/` lists `<identity>.json`
+- Check the sync step: mcpSync in `scripts/hooks-sync.sh`
 
 **Server not appearing in a tool?**
 - Check for a per-tool override that excludes it: `ls ~/.config/mcp/overrides/`

@@ -20,11 +20,13 @@ regenerates machine-specific AI-tool config after every apply.
 ## Repo tour
 
 ```
-dfm-bundle.toml           # module list and source roots
+dfm-bundle.toml           # module list; an external bundle extends it
+dfm-personal.toml         # the bundle personal-mac names: dfm-bundle.toml plus source roots
 dfm-module-*.toml         # one manifest per module: core, personal, tiling, mcp, skills,
                           #   agent-journal, agents, dev, gui, atuin, infra
 dfm/profiles/<host>.toml  # which modules a host selects (the capability table)
-Brewfile                  # every formula, cask and font; applied by scripts/brew-sync.sh
+Brewfile                  # shared formulae, casks and fonts; applied by scripts/brew-sync.sh
+Brewfile.personal         # entries for the personal identity only (jj, tailscale)
 home/                     # raw dotfiles (live, symlinked through ~/.dotfiles)
 secrets/                  # documentation only: no ciphertext, no age secrets
 mcp_sync/                 # vendored uv tool: MCP + skills fan-out
@@ -34,8 +36,9 @@ scripts/                  # system scripts, side channels, hygiene tests
 Justfile                  # plan, apply, update, python and sync recipes
 ```
 
-- **`dfm-bundle.toml`**: declares the modules and the `[sources]` roots (`home`, `skills`,
-  `dfm`) the manager may link from. The bundle and module manifests sit at the checkout root
+- **`dfm-bundle.toml`**: declares the modules. **`dfm-personal.toml`** extends it and declares
+  the `[sources]` roots (`home`, `skills`, `dfm`) the manager may link from; an external bundle
+  extends `dfm-bundle.toml` instead ([`docs/external-bundles.md`](docs/external-bundles.md)). The bundle and module manifests sit at the checkout root
   because the resolver confines a module's sources to the directory of its manifest.
 - **`dfm-module-*.toml`**: each module lists `[[resources]]`: `fs-link/v1` links,
   `text-fragments/v1` assemblies (Codex and Pi `AGENTS.md`), and the `claude-settings/v1`
@@ -54,20 +57,21 @@ Justfile                  # plan, apply, update, python and sync recipes
 
 A capability is a module. A host has it when its profile selects that module. The shell
 gates (`scripts/host-capability.sh <cap>`) and the identity (`--identity`, the selected
-module named `personal`, `work` or `lab`) come from the same file.
+module named `personal`, `work` or `lab`) come from the same file: the profile `dfm binding`
+names, or `dfm/profiles/<host>.toml` before the machine is bound.
 
 | Module | personal | Gates |
 |--------|:--:|-------|
 | `tiling` | yes | AeroSpace + SketchyBar + borders links |
 | `atuin` | yes | `config.sync.toml` with the self-hosted `sync_address` |
-| `mcp` | yes | MCP master config, overlay, pi, firstmate links; MCP sync step |
-| `skills` | yes | skills manifest + overlay links, personal skill links, sync step |
+| `mcp` | yes | MCP master config, pi, firstmate links; MCP sync step |
+| `skills` | yes | skills manifest link, sync step |
 | `gui` | yes | no resources; marks GUI casks and display fonts as wanted |
 | `dev` | yes | mise `conf.d/dev.toml` |
 | `infra` | no | mise `conf.d/infra.toml`, Kubernetes / cluster-ops tooling |
-| `agent_journal` | yes | CLI wrappers and the personal journal config |
+| `agent_journal` | yes | CLI wrappers |
 | `agents` | yes | routing SessionStart hook; personal agent-registry clone in the side channels |
-| `personal` (identity) | yes | hippo hook, aerospace variant, worktrunk, op-render templates |
+| `personal` (identity) | yes | hippo hook, op-render templates, and the identity files of shared capabilities: Claude `allowWrite` fragment, jj, MCP and skills overlays, pinned skills, aerospace and sketchybar variants, journal config |
 
 **Adding a machine:** add `dfm/profiles/<name>.toml`, and add the name to the shared detect
 map in `scripts/host-detect.sh`.
@@ -298,8 +302,8 @@ update policy.
 
 ## Homebrew policy
 
-`Brewfile` is the complete declared inventory: formulae, casks and fonts. `scripts/brew-sync.sh`
-installs what is missing and never uninstalls; `--check` reports gaps. Run `just update` for
+`Brewfile` plus `Brewfile.<identity>` is the complete declared inventory: formulae, casks and
+fonts. `scripts/brew-sync.sh` applies the identity file after the shared one, installs what is missing and never uninstalls; `--check` reports gaps. Run `just update` for
 reviewed upgrades across package managers, or `just brew-upgrade` for Homebrew alone. Both upgrade
 installed unpinned packages, including retained unmanaged packages. Use `just brew-audit` to
 compare declared and installed inventory using read-only `brew list`, `brew leaves`, and
@@ -309,22 +313,23 @@ Brewfile.
 
 ## dotfiles-manager bundle
 
-`dfm-bundle.toml`, `dfm-module-*.toml` and `dfm/profiles/personal-mac.toml` declare the files
+`dfm-bundle.toml`, `dfm-personal.toml`, `dfm-module-*.toml` and `dfm/profiles/personal-mac.toml` declare the files
 the manager places (DFM-49). Run `plan --root <checkout>` with the checkout at `~/.dotfiles`.
 Each link text is `<checkout>/home/<path>` (skills: `<checkout>/skills/personal/<name>`).
 
 | Module | Resources |
 | --- | --- |
-| `core` (all machines: ssh, mise base, agent-reap, `.duckdbrc`, `20-output-policy.md` fragments, maxfiles plist) | 44 links, 2 `text-fragments/v1` assemblies, 1 `claude-settings/v1` merge |
-| `personal` | 7 links, hippo SessionStart handler |
-| `tiling` (+ personal aerospace and layouts) | 7 links |
-| `mcp` (master config, personal overlay, pi, firstmate, mise firstmate) | 18 links |
-| `skills` (+ personal) | 2 config links, 33 skill links |
-| `agent-journal` | 4 links |
+| `core` (all machines: ssh, mise base, agent-reap, `.duckdbrc`, `20-output-policy.md` fragments, maxfiles plist) | 43 links, 2 `text-fragments/v1` assemblies, 1 `claude-settings/v1` merge |
+| `personal` (+ identity files of shared capabilities) | 46 links (30 skill links), 1 `op-template/v1` secret, hippo SessionStart handler |
+| `tiling` | 4 links |
+| `mcp` (master config, pi, firstmate, mise firstmate) | 17 links |
+| `skills` | 1 config link |
+| `agent-journal` | 2 links |
 | `dev` | 1 link |
 | `atuin` | 1 link (`config.sync.toml`) |
 | `agents` | routing SessionStart handler |
-| `gui`, `infra` | none |
+| `infra` | 1 link (mise `conf.d/infra.toml`) |
+| `gui` | none |
 
 `.config/sketchybar/machine.env` is a link to the static file
 `home/.config/sketchybar/machine.personal.env`. The planner creates parent directories.
@@ -339,7 +344,7 @@ value of that file plus the `personal-mac` variant: plugins, `permissions`, `ski
 declared values. Tables merge into the live file, so plugins and permissions that the application
 added stay.
 
-`dfm-bundle.toml` declares `[sources]` roots `home`, `skills` and `dfm`, so the live checkout can be the
+`dfm-personal.toml` declares `[sources]` roots `home`, `skills` and `dfm`, so the live checkout can be the
 plan root. It excludes `home/.config/tmux/plugins` (nested `.git`), `home/.pi/agent/extensions/node_modules`
 and `**/__pycache__`, `**/.venv`, `**/node_modules`. A directory link still publishes excluded content
 (`plan` prints `note: contains N excluded entries, not hashed`).
