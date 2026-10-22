@@ -46,6 +46,7 @@ remote of the working directory; ask only if the remote is absent or ambiguous.
 | `stevectl` | Stevectl | `SCTL` |
 | `gitdiff` | gitdiff | `GITD` |
 | `ski-area-tycoon` | Ski Area Tycoon | `SKI` |
+| `agent-journal` | Agent Journal | `AJ` |
 
 A repo with no row isn't onboarded: ask rather than guessing a project.
 
@@ -146,11 +147,9 @@ What makes the template work:
   who wasn't in this conversation. "Handle the error properly" fails; "a
   transient S3 body error retries, other generic errors stay fatal" passes. The
   last box is the repo's gate command, so a green run is part of done.
-- **`Suggested agent` sizes the work**, and must agree with the `agent:*` label:
-  `agent:haiku` for mechanical single-file tasks with no design decisions,
-  `agent:sonnet` for design-bearing or multi-file tasks. These are effort-tier
-  labels, not model assignments: never name a model; the orchestrator chooses
-  the runner.
+- **`Suggested agent` names the agent types**, never a model or an effort
+  tier. The orchestrator chooses the runner. The `agent:haiku` and
+  `agent:sonnet` labels were retired on 2026-10-20; do not attach them.
 - **`Dependencies` is a mirror, never the source of truth.** The authoritative
   form is the relation. Create the relation first; add the prose line only when
   the *why* isn't obvious from the linked title. A task whose prose claims a
@@ -171,7 +170,7 @@ is no central list to curate, `list_workspace_labels` returns every attachment
 rather than a vocabulary, and `delete_label` removes one task's row rather than
 retiring a name.
 
-That shape rewards a small label set. Nine names earn their keep, and all of
+That shape rewards a small label set. Seven names earn their keep, and all of
 them exist because an orchestrator or a human actually filters on them:
 
 | Label | Meaning |
@@ -180,14 +179,14 @@ them exist because an orchestrator or a human actually filters on them:
 | `orchestrator` | Meta task; never dispatch to a worker |
 | `ready-for-agent` | Fully specified; an agent can finish it unattended |
 | `needs-human` | Done-when needs a device, console, or credential access |
-| `agent:haiku` | Mechanical, single-file, no design decisions |
-| `agent:sonnet` | Design-bearing or multi-file |
 | `agent-autonomous` | Safe to run unsupervised |
 | `agent-parallel` | Safe to run concurrently with siblings |
 | `M1`–`M5` | Snugmarina roadmap milestones: the only stand-in for the milestone entity Kaneo lacks |
 
-Apply `agent:*` **plus** `ready-for-agent` only when an agent can finish
-the task from its description alone with no decisions left open.
+Apply `ready-for-agent` only when an agent can finish the task from its
+description alone with no decisions left open. The effort-tier labels
+`agent:haiku` and `agent:sonnet` were retired on 2026-10-20 (owner
+instruction): never attach them; detach any you find on a task you edit.
 
 **Don't reach for a label when a field exists.** Priority is the worked
 example: set the native `priority` field (`no-priority` | `low` | `medium` |
