@@ -78,7 +78,7 @@ if ! command -v rustup >/dev/null 2>&1 && [ ! -x "$HOME/.cargo/bin/rustup" ]; th
     echo "warning: rustup install failed; install it before staging the toolchain" >&2
 fi
 
-# ── 5. dotfiles-manager ──────────────────────────────────────────────────
+# ── 5. dfm (the manager) ─────────────────────────────────────────────────
 # The manager is installed from its own repository (docs/m5-cutover.md section 1).
 # It is not a Homebrew package, so this script stops here and prints the steps.
 echo
@@ -87,10 +87,10 @@ if [ "$brew_on_path" -eq 0 ]; then
   echo "    0. Put Homebrew on this shell's PATH (DFM links .zshenv in step 4):"
   echo "       eval \"\$($BREW_BIN shellenv)\""
 fi
-if command -v dotfiles-manager >/dev/null 2>&1; then
-  echo "    dotfiles-manager is installed: $(command -v dotfiles-manager)"
+if command -v dfm >/dev/null 2>&1; then
+  echo "    dfm is installed: $(command -v dfm)"
 else
-  echo "    1. Stage the pinned Rust toolchain and install dotfiles-manager from its"
+  echo "    1. Stage the pinned Rust toolchain and install dfm from its"
   echo "       repository: docs/m5-cutover.md section 1 names the toolchain version,"
   echo "       the staging copy and the commit to install."
 fi
@@ -98,7 +98,7 @@ if [ -e "$HOME/.config/dotfiles-manager/machine.toml" ]; then
   echo "    This machine is bound: $HOME/.config/dotfiles-manager/machine.toml"
 else
   echo "    2. Bind this machine to its profile (plan needs a binding):"
-  echo "       dotfiles-manager bind --profile $HOME/.dotfiles/dfm/profiles/$HOST.toml --machine-id <id>"
+  echo "       dfm bind --profile $HOME/.dotfiles/dfm/profiles/$HOST.toml --machine-id <id>"
 fi
 echo "    3. just sync-dfm                      # plan; writes the approval flags"
 echo "    4. just sync-dfm-apply <plan digest>  # apply, packages, side channels, agents, checks"

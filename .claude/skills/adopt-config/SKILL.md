@@ -16,7 +16,7 @@ The config the tool already wrote to `~` is therefore a **real file sitting wher
 manager wants a symlink**. Adoption moves the content into the repo, declares the link in a
 module manifest, and applies. Two facts shape every adoption:
 
-- **It ends in an apply.** A new `[[resources]]` link means `dotfiles-manager` must create
+- **It ends in an apply.** A new `[[resources]]` link means `dfm` must create
   the symlink: `just sync-dfm`, then `just sync-dfm-apply <digest>`. (Editing an
   *already-linked* file is live, no apply.)
 - **Collisions are refused, not overwritten.** A real file at a managed target blocks the plan

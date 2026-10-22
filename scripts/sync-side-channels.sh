@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Network and SSH provisioning that runs after the dotfiles-manager apply.
+# Network and SSH provisioning that runs after the dfm apply.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

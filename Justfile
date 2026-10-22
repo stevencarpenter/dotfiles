@@ -53,9 +53,9 @@ sync-dfm:
     [[ -d $dir && ! -L $dir && -O $dir && ! -g $dir ]] || { echo "error: $dir must be a real directory you own" >&2; exit 2; }
     chmod 700 "$dir"
     allow="$dir/allow.txt"
-    dotfiles-manager plan --root "$root"
+    dfm plan --root "$root"
     # --preview exits non-zero while an approval is missing; the flags are what we want.
-    preview="$(dotfiles-manager apply --root "$root" --preview 2>&1 || true)"
+    preview="$(dfm apply --root "$root" --preview 2>&1 || true)"
     rm -f "$allow"
     ( umask 077; printf '%s\n' "$preview" | grep -oE "\-\-allow-(adopt|disruptive) '[^']*'" | awk '!seen[$0]++' > "$allow" || true )
     echo "flags written to $allow:"; cat "$allow"
@@ -86,7 +86,7 @@ sync-dfm-apply $digest:
         fi
       done < "$allow"
     fi
-    dotfiles-manager apply --root "$root" --yes-plan "$digest" ${flags[@]+"${flags[@]}"}
+    dfm apply --root "$root" --yes-plan "$digest" ${flags[@]+"${flags[@]}"}
     scripts/brew-sync.sh
     scripts/hooks-sync.sh
     scripts/sync-side-channels.sh
@@ -94,8 +94,8 @@ sync-dfm-apply $digest:
     scripts/login-shell.sh --check
     scripts/tiling-reload.sh || echo "tiling-reload failed; continuing" >&2
     scripts/mac-defaults.sh --check || echo "mac-defaults differs; read the lines above, then continue" >&2
-    dotfiles-manager state check
-    dotfiles-manager doctor --root "$root"
+    dfm state check
+    dfm doctor --root "$root"
 
 # Mise upgrades, secrets, Git sources, agents, and tools only; included in sync.
 [group('Targeted maintenance')]

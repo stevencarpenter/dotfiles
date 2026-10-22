@@ -4,7 +4,7 @@
 #   load     launchctl bootstrap gui/$UID; bootout first when already loaded so a changed plist applies
 #   unload   launchctl bootout (no-op when not loaded)
 #   --check  launchctl print; exit 1 when not loaded. Never writes.
-# The plist is linked into ~/Library/LaunchAgents by the dotfiles-manager bundle.
+# The plist is linked into ~/Library/LaunchAgents by the dfm bundle.
 set -euo pipefail
 
 label=org.carpenter.maxfiles

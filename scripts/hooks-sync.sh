@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Sync steps that no dotfiles-manager resource covers.
+# Sync steps that no dfm resource covers.
 # Usage: hooks-sync.sh [--check]
 #   (none)   run mcpSync, skillsSync, codexHooksMerge in that order
 #   --check  print what would run; write nothing
