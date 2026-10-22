@@ -125,14 +125,6 @@ source = "home/.config/git"
 directory = true
 
 [[resources]]
-id = "config-jj-config-toml"
-kind = "link"
-adapter = "fs-link/v1"
-target = ".config/jj/config.toml"
-[resources.value]
-source = "home/.config/jj/config.toml"
-
-[[resources]]
 id = "config-dev-container"
 kind = "link"
 adapter = "fs-link/v1"
@@ -397,8 +389,8 @@ separator = "\n"
 # the pre-cutover copy (scripts/test-tmux-lifecycle-contract.sh reads its reap timeouts).
 # Values were taken from it plus the personal-mac variant:
 # dev = true (six plugins true), work = false (atlassian false).
-# sandbox.filesystem.allowWrite is appended: $HOME/.cache/uv, $HOME/projects/agents
-# and $HOME/.local/share/uv/tools, and the live file holds them as absolute paths.
+# sandbox.filesystem.allowWrite is empty here (append needs the array under managed). Each
+# identity module links a .claude/settings.d fragment that appends its own absolute paths.
 # Hooks are handlers. The two SessionStart handlers are contributed by the personal
 # (hippo) and agents (routing) modules. Edit-in-tool values stay: tables merge, plugins
 # the application enables survive, and model and effortLevel are seeds.
@@ -473,7 +465,7 @@ repo = "DietrichGebert/ponytail"
 "swift-lsp@claude-plugins-official" = true
 "typescript-lsp@claude-plugins-official" = true
 [resources.value.managed.sandbox.filesystem]
-allowWrite = ["/Users/carpenter/.cache/uv", "/Users/carpenter/projects/agents", "/Users/carpenter/.local/share/uv/tools"]
+allowWrite = []
 
 [resources.value.seed]
 model = "opusplan"

@@ -1,0 +1,11 @@
+{
+  "sandbox": {
+    "filesystem": {
+      "allowWrite": [
+        "/Users/carpenter/.cache/uv",
+        "/Users/carpenter/projects/agents",
+        "/Users/carpenter/.local/share/uv/tools"
+      ]
+    }
+  }
+}

@@ -1,8 +1,14 @@
 # infra capability: Kubernetes and cluster-ops tooling through mise (conf.d/infra.toml).
-# No host selects it today. The module exists so `scripts/host-capability.sh infra`
-# resolves to 0 on a host that leaves it out instead of an unknown-capability error.
 
 schema = 1
 id = "infra"
 platforms = ["macos"]
 requires = []
+
+[[resources]]
+id = "config-mise-conf-d-infra-toml"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/mise/conf.d/infra.toml"
+[resources.value]
+source = "home/.config/mise/conf.d/infra.toml"

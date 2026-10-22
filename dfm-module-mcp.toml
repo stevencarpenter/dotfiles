@@ -1,4 +1,5 @@
-# caps.mcp: master config, overlay for the personal identity, pi and firstmate files.
+# caps.mcp: master config, pi and firstmate files. The machine/<identity>.json overlay differs
+# per identity, so the identity module links it.
 # Not managed: .config/mcp/overrides (.keep seam), MCP generated outputs.
 
 schema = 1
@@ -141,12 +142,3 @@ adapter = "fs-link/v1"
 target = ".config/mise/conf.d/firstmate.toml"
 [resources.value]
 source = "home/.config/mise/conf.d/firstmate.toml"
-
-[[resources]]
-id = "config-mcp-machine-personal-json"
-kind = "link"
-adapter = "fs-link/v1"
-target = ".config/mcp/machine/personal.json"
-[resources.value]
-source = "home/.config/mcp/machine/personal.json"
-
