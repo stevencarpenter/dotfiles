@@ -320,7 +320,7 @@ Each link text is `<checkout>/home/<path>` (skills: `<checkout>/skills/personal/
 | Module | Resources |
 | --- | --- |
 | `core` (all machines: ssh, mise base, agent-reap, `.duckdbrc`, `20-output-policy.md` fragments, maxfiles plist) | 43 links, 2 `text-fragments/v1` assemblies, 1 `claude-settings/v1` merge |
-| `personal` (+ identity files of shared capabilities) | 49 links (33 skill links), 1 `op-template/v1` secret, hippo SessionStart handler |
+| `personal` (+ identity files of shared capabilities) | 46 links (30 skill links), 1 `op-template/v1` secret, hippo SessionStart handler |
 | `tiling` | 4 links |
 | `mcp` (master config, pi, firstmate, mise firstmate) | 17 links |
 | `skills` | 1 config link |
