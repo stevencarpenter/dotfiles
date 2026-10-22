@@ -226,8 +226,8 @@ locations:
   module links `config.toml` and `workstreams.toml`.
 - **`agents`**: contributes the `emit-routing-context.sh` SessionStart handler to the Claude
   settings merge. The personal registry clone, install and validation run in
-  `scripts/sync-side-channels.sh`, gated by `scripts/host-capability.sh agents`. A work-host
-  sync never contacts the personal registry remote.
+  `scripts/sync-side-channels.sh`, gated by `scripts/host-capability.sh agents`. The registry
+  (`stevencarpenter/agents`) is public, and a work host that selects `agents` installs it too.
 - **`personal`** (identity): `dfm-module-personal.toml` links the personal shell profiles,
   hippo, homelab-over-Tailscale SSH fragment template, and contributes the
   hippo SessionStart handler. It also links the identity files of shared capabilities: the
