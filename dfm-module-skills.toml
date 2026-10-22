@@ -85,33 +85,6 @@ source = "skills/personal/use-railway"
 directory = true
 
 [[resources]]
-id = "junie-skills-clerk"
-kind = "link"
-adapter = "fs-link/v1"
-target = ".junie/skills/clerk"
-[resources.value]
-source = "skills/personal/clerk"
-directory = true
-
-[[resources]]
-id = "junie-skills-clerk-testing"
-kind = "link"
-adapter = "fs-link/v1"
-target = ".junie/skills/clerk-testing"
-[resources.value]
-source = "skills/personal/clerk-testing"
-directory = true
-
-[[resources]]
-id = "junie-skills-clerk-webhooks"
-kind = "link"
-adapter = "fs-link/v1"
-target = ".junie/skills/clerk-webhooks"
-[resources.value]
-source = "skills/personal/clerk-webhooks"
-directory = true
-
-[[resources]]
 id = "junie-skills-design-an-interface"
 kind = "link"
 adapter = "fs-link/v1"
