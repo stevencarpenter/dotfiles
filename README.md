@@ -203,8 +203,8 @@ cwd inheritance, detach topology, agent cleanup, plugin residue, and stale side-
 ## Validate without applying
 
 ```bash
-dfm plan --root ~/.dotfiles     # every operation and the plan digest; writes nothing
-dfm doctor --root ~/.dotfiles   # live links against the manifests
+dfm plan --root ~/.dotfiles                  # every operation and the plan digest; writes nothing
+dfm doctor --root ~/.dotfiles                # live links against the manifests
 scripts/brew-sync.sh --check                 # Brewfile gaps
 scripts/mac-defaults.sh --check              # macOS defaults drift
 just lefthook                                # every pre-commit job, as CI does
