@@ -1,0 +1,6 @@
+# Entries for the personal identity only. scripts/brew-sync.sh applies this file after the
+# shared Brewfile when scripts/host-capability.sh --identity prints personal.
+
+# brew services supervises tailscaled.
+brew "tailscale"
+brew "jj"  # 0.46.0

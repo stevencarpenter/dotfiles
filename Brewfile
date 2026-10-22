@@ -1,5 +1,5 @@
-# Static Brewfile for the personal MacBook (DFM-50). Run it through scripts/brew-sync.sh.
-# Every capability is enabled here (tiling, dev, gui, non-work identity, Apple Silicon).
+# Shared static Brewfile (DFM-50). Run it through scripts/brew-sync.sh, which also applies
+# Brewfile.<identity>. Every capability is enabled here (tiling, dev, gui, Apple Silicon).
 # Versions in section 2 comments were verified with `brew info --json=v2` on 2026-10-11.
 # No masApps are declared.
 
@@ -33,8 +33,6 @@ brew "mole"
 brew "charmbracelet/tap/crush", trusted: true
 # mactop requires Apple Silicon.
 brew "mactop"
-# brew services supervises tailscaled. Non-work identity only.
-brew "tailscale"
 # Homebrew 6 requires explicit trust for third-party tap code. Trust is scoped to
 # these two formulae, not the whole FelixKratz tap. Fully-qualified names are
 # required for formula-level `trusted` to take effect in Brewfile evaluation.
@@ -72,7 +70,7 @@ cask "font-iosevka"
 cask "font-inconsolata-go-nerd-font"
 
 # ---------------------------------------------------------------------------
-# Section 2: CLI tools and fonts. 81 entries (71 formulae, 10 font casks).
+# Section 2: CLI tools and fonts. 80 entries (70 formulae, 10 font casks).
 # Work-only `conftest` is not installed here.
 # None of the 10 font casks duplicates a section 1 cask.
 # ---------------------------------------------------------------------------
@@ -117,7 +115,6 @@ brew "git-filter-repo"  # 2.47.0
 brew "git-secrets"  # 1.3.0
 brew "git-delta"  # 0.20.1
 brew "gh"  # 2.102.0
-brew "jj"  # 0.46.0
 brew "lazydocker"  # 0.25.2
 brew "gnu-sed"  # 4.10
 brew "shellcheck"  # 0.11.0
