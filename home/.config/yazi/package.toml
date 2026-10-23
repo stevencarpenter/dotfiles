@@ -5,8 +5,8 @@ hash = "8a7c58225816a163a6e8730c0adafbc8"
 
 [[plugin.deps]]
 use = "stevencarpenter/duckdb"
-rev = "6400cbd"
-hash = "f13f090804d20cc32461bf7e07980b25"
+rev = "ec18714"
+hash = "458aa66434335ce5f3f159bc4a41fd6c"
 
 [[flavor.deps]]
 use = "gosxrgxx/flexoki-dark"
