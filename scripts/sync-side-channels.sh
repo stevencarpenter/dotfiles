@@ -24,6 +24,11 @@ if command -v "$mise_bin" >/dev/null 2>&1; then
   # Keep older installs available to sessions already running from those paths.
   echo "==> Upgrading mise-managed tools within configured version constraints"
   "$mise_bin" upgrade --no-prune
+  # yazi's duckdb previews only LOAD these (auto_install_extensions = false), and DuckDB
+  # keeps extensions per version, so a DuckDB upgrade needs them installed again.
+  echo "==> Installing DuckDB extensions for yazi previews"
+  DUCKDB_AGENT_MODE=0 "$mise_bin" exec -- duckdb -init /dev/null -c "INSTALL spatial; INSTALL avro;" >/dev/null ||
+    echo "warning: DuckDB extension install failed; xlsx and avro previews fall back to plain text" >&2
 else
   echo "error: mise not found; cannot install declared global tools" >&2
   exit 1

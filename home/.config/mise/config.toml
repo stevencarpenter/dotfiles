@@ -35,7 +35,10 @@ rust-analyzer = "latest"                 # rust-analyzer (Rust)
 tree-sitter = "latest"
 
 # DuckDB: needed by yazi on every machine for tabular file previews
-duckdb = "latest"
+# github backend: aqua-registry has no asset rule for 2.x (2.0 renamed the CLI
+# asset to duckdb-cli-<os>-<arch>.tar.gz). Major pinned: duckdb.yazi v1.0.0 is
+# tested on 1.5 and 2.0 only.
+"github:duckdb/duckdb" = "2"
 "github:agavra/tuicr" = "latest"
 
 [settings]
