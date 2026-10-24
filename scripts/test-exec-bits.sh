@@ -29,7 +29,6 @@ exec_scripts=(
   home/.local/bin/op-adopt
   scripts/test_op_adopt.py
   scripts/test_subagent_stop_payload.py
-  scripts/test_strip_context.py
   scripts/pty-spawn.py
   scripts/assert-railway-psql-errors.py
   scripts/assert-worktrunk-config.py

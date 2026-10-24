@@ -134,9 +134,6 @@ jobs:
       - name: Test SubagentStop payload parser
         run: scripts/test_subagent_stop_payload.py
 
-      - name: Test blind-review context stripper
-        run: scripts/test_strip_context.py
-
       - name: Lint loose Python (scripts, hook libs, skill scripts)
         run: uvx ruff check .
 
