@@ -228,6 +228,8 @@ locations:
   settings merge. The personal registry clone, install and validation run in
   `scripts/sync-side-channels.sh`, gated by `scripts/host-capability.sh agents`. The registry
   (`stevencarpenter/agents`) is public, and a work host that selects `agents` installs it too.
+  The registry's `blind-review` skill is not part of that install: the personal skills overlay
+  deploys it from the `agents` git source (`main`), so a change reaches hosts after it merges.
 - **`personal`** (identity): `dfm-module-personal.toml` links the personal shell profiles,
   hippo, homelab-over-Tailscale SSH fragment template, and contributes the
   hippo SessionStart handler. It also links the identity files of shared capabilities: the
