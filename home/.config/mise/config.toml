@@ -42,5 +42,3 @@ tree-sitter = "latest"
 "github:agavra/tuicr" = "latest"
 
 [settings]
-# mise defaults to a 24h soak on new releases; 12h keeps a supply-chain delay.
-minimum_release_age = "12h"

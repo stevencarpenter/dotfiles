@@ -127,6 +127,10 @@ if ! rg -Fxq 'mise upgrade --no-prune' "$fixture/work/commands.log"; then
   echo "sync did not upgrade all mise tools within their configured version constraints" >&2
   exit 1
 fi
+if ! rg -Fxq 'mise exec -- duckdb -init /dev/null -c INSTALL spatial; INSTALL avro;' "$fixture/work/commands.log"; then
+  echo "sync did not install the DuckDB extensions yazi previews load" >&2
+  exit 1
+fi
 if rg -q '^git clone .* /[^ ]*/agent-registry$' "$fixture/work/commands.log"; then
   echo "work sync contacted the personal agent registry" >&2
   exit 1
