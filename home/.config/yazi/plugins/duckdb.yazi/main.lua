@@ -1,6 +1,10 @@
---- @since 25.4.8
+--- @since 25.5.28
 -- DuckDB Plugin for Yazi
+-- Requires DuckDB CLI >= 1.5.0 (1.5.x or 2.x) and Yazi >= 25.5.28 (Yazi >= 25.5.31 recommended).
 local M = {}
+
+-- Preview skip is stored as row offset + OFFSET_BASE, so a scroll above row 0 can toggle the mode.
+local OFFSET_BASE = 50
 
 local update_state = ya.sync(function(state, action, category, key, value)
     -- Ensure the subtable for the category exists.
@@ -10,10 +14,6 @@ local update_state = ya.sync(function(state, action, category, key, value)
         state[category][key] = value
     elseif action == "get" then
         return state[category][key]
-    elseif action == "check" then
-        return state[category][key] ~= nil
-    elseif action == "clear" then
-        state[category] = {}
     else
         ya.err("Unknown action: " .. tostring(action))
     end
@@ -36,38 +36,89 @@ local function remove_from_list(category, cache_str)
 end
 
 local function is_on_list(category, cache_str)
-    return update_state("check", category, cache_str)
+    return update_state("get", category, cache_str) ~= nil
 end
 
-local function clear_list(category)
-    update_state("clear", category)
-end
-
-local function add_queries_to_table(target_table, queries)
+-- flag defaults to "-c" (run and exit); the interactive opener passes "-cmd" (run, then read stdin).
+local function add_queries_to_table(target_table, queries, flag)
+    flag = flag or "-c"
     if type(queries) == "table" then
         for _, item in ipairs(queries) do
-            table.insert(target_table, "-c")
+            table.insert(target_table, flag)
             table.insert(target_table, item)
         end
     else
-        table.insert(target_table, "-c")
+        table.insert(target_table, flag)
         table.insert(target_table, queries)
     end
 end
 
 local function command_with_args(program, args)
-    local cmd = Command(program)
+    -- DuckDB >= 2.0 switches to Markdown output and writes a notice to stderr when it
+    -- detects a coding agent (AI_AGENT, CLAUDECODE, ...). Older versions ignore this.
+    local cmd = Command(program):env("DUCKDB_AGENT_MODE", "0")
     for _, arg_value in ipairs(args) do
         cmd = cmd:arg(arg_value)
     end
     return cmd
 end
 
+local function add_duckdb_security_queries(args)
+    -- Do not set enable_external_access=false: it blocks LocalFileSystem reads and
+    -- breaks preview of local data files. Remote filesystems are disabled instead.
+    -- Names must match FileSystem::GetName() exactly; DuckDB accepts unknown names silently.
+    -- S3FileSystem also serves gs:// and r2://.
+    -- scripts/smoke-test.sh reads this statement with sed, so it must stay on one line.
+    -- luacheck: push no max line length
+    add_queries_to_table(args, {
+        "SET disabled_filesystems = 'HTTPFileSystem,S3FileSystem,HuggingFaceFileSystem,AzureBlobStorageFileSystem,AzureDfsStorageFileSystem';",
+    })
+    -- luacheck: pop
+    -- Autoinstall downloads an extension over its own HTTP client, so disabled_filesystems
+    -- does not stop it. A view in a previewed .duckdb file can trigger it.
+    if not get_opts("auto_install_extensions") then
+        add_queries_to_table(args, { "SET autoinstall_known_extensions = false;" })
+    end
+end
+
+local function duckdb_null_init_path()
+    if ya.target_os() == "windows" then
+        return "NUL"
+    end
+    return "/dev/null"
+end
+
+local function append_duckdb_preview_args(args)
+    table.insert(args, "-init")
+    table.insert(args, duckdb_null_init_path())
+end
+
+local function add_extension_queries(args, file_type, flag)
+    local extension = ({ excel = "spatial", avro = "avro" })[file_type]
+    if not extension then
+        return
+    end
+    if get_opts("auto_install_extensions") then
+        add_queries_to_table(args, "install " .. extension, flag)
+    end
+    add_queries_to_table(args, "load " .. extension, flag)
+end
+
+local function log_query_output(label, output)
+    if output then
+        ya.dbg(label .. " stdout: " .. tostring(output.stdout))
+        ya.dbg(label .. " stderr: " .. tostring(output.stderr))
+    else
+        ya.dbg(label .. " run_query returned nil")
+    end
+end
+
 local function generate_data_source_string(target, file_type)
     -- Escape single quotes in the path for SQL string literal
     local url_string = "'" .. tostring(target):gsub("'", "''") .. "'"
     if file_type == "excel" then
-        return string.format("st_read(%s)", url_string)
+        -- st_read adds GDAL's OGC_FID row id; read_xlsx is not used because it fails on mixed-type columns.
+        return string.format("(SELECT COLUMNS(lambda c: c <> 'OGC_FID') FROM st_read(%s))", url_string)
     elseif file_type == "avro" then
         return string.format("read_avro(%s)", url_string)
     elseif file_type == "text" then
@@ -104,10 +155,15 @@ local function check_file_type(path)
         end
     end
     ya.err("File is not a supported file type")
+    return nil
 end
 
 local get_hovered_url_string = ya.sync(function()
     return tostring(cx.active.current.hovered.url)
+end)
+
+local get_preview_skip = ya.sync(function()
+    return cx.active.preview.skip
 end)
 
 local function toggle_preview_mode(target_url)
@@ -126,32 +182,30 @@ local function toggle_preview_mode(target_url)
     end
 
     if only_if then
-        ya.emit("peek", { 50, only_if = only_if })
+        ya.emit("peek", { OFFSET_BASE, only_if = only_if })
     else
-        ya.emit("peek", { 50 })
+        ya.emit("peek", { OFFSET_BASE })
     end
 end
 
-local duckdb_opener = ya.sync(function(_, arg)
+-- Runs from the async entry: Command and ui.hide are not available in a ya.sync block.
+local function duckdb_opener(arg)
     local hovered_url = Url(get_hovered_url_string())
     local file_type = check_file_type(hovered_url)
+    if not file_type then
+        return
+    end
 
     local args = {}
 
-    if file_type == "excel" then
-        add_queries_to_table(args, { "install spatial", "load spatial" })
-        ya.dbg("duckdb_opener: loading spatial extension for excel")
-    elseif file_type == "avro" then
-        add_queries_to_table(args, { "install avro", "load avro" })
-        ya.dbg("duckdb_opener: loading avro extension")
-    end
+    add_extension_queries(args, file_type, "-cmd")
 
     if file_type ~= "duckdb" then
         -- Use quoted identifier for table name (double quotes inside SQL)
         local table_name = '"' .. tostring(hovered_url.stem):gsub('"', '""') .. '"'
         local data_source_string = generate_data_source_string(hovered_url, file_type)
         local query = string.format("CREATE TABLE %s AS FROM %s;", table_name, data_source_string)
-        add_queries_to_table(args, query)
+        add_queries_to_table(args, query, "-cmd")
         ya.dbg("duckdb_opener query: " .. query)
     else
         table.insert(args, tostring(hovered_url))
@@ -161,15 +215,19 @@ local duckdb_opener = ya.sync(function(_, arg)
         table.insert(args, "-ui")
     end
 
+    -- Give the terminal to DuckDB until it exits. Yazi < 25.12.29 names this ya.hide.
+    local permit = (ui.hide or ya.hide)()
     local child, err = command_with_args("duckdb", args):stdin(Command.INHERIT):stdout(Command.INHERIT)
         :stderr(Command.INHERIT):spawn()
+    if child then
+        child:wait()
+    end
+    permit:drop()
 
     if not child then
         ya.err("Failed to spawn DuckDB: " .. tostring(err))
-        return
     end
-    child:wait()
-end)
+end
 
 function M:entry(job)
     local arg = job.args and job.args[1]
@@ -191,15 +249,21 @@ function M:entry(job)
     scrolled_columns = math.max(0, scrolled_columns + scroll_delta)
     set_opts("scrolled_columns", scrolled_columns)
 
-    ya.emit("seek", { "lateral scroll" })
+    -- A peek at skip 0 means a fresh hover and resets scrolled_columns, so keep the
+    -- row offset but never send less than OFFSET_BASE.
+    ya.emit("peek", { math.max(OFFSET_BASE, get_preview_skip()), force = true })
 end
 
--- Setup from init.lua: require("duckdb"):setup({ mode = "standard"/"summarized" })
+-- Setup from init.lua:
+-- require("duckdb"):setup({
+--   mode = "standard"/"summarized",
+--   auto_install_extensions = false,  -- recommended; pre-install spatial + avro
+--   cache_enabled = true,             -- set false when previewing sensitive data
+-- })
 function M:setup(opts)
     opts = opts or {}
 
-    local mode = opts.mode or "standard"
-    local operating_system = ya.target_os()
+    local mode = opts.mode or "summarized"
     local column_width = opts.minmax_column_width or 21
     local row_id = opts.row_id
     if row_id == nil then
@@ -207,16 +271,25 @@ function M:setup(opts)
     end
     local column_fit_factor = opts.column_fit_factor or 10
     local limit = opts.cache_size or 500
+    local auto_install_extensions = opts.auto_install_extensions
+    if auto_install_extensions == nil then
+        auto_install_extensions = false
+    end
+    local cache_enabled = opts.cache_enabled
+    if cache_enabled == nil then
+        cache_enabled = true
+    end
 
     set_opts("mode", mode)
     set_opts("mode_changed", false)
     set_opts("re_peek", false)
-    set_opts("os", operating_system)
     set_opts("column_width", column_width)
     set_opts("row_id", row_id)
     set_opts("scrolled_columns", 0)
     set_opts("column_fit_factor", column_fit_factor)
     set_opts("limit", limit)
+    set_opts("auto_install_extensions", auto_install_extensions)
+    set_opts("cache_enabled", cache_enabled)
 end
 
 local function generate_preload_query(job, mode, file_type, limit)
@@ -235,8 +308,32 @@ local function generate_preload_query(job, mode, file_type, limit)
     end
 end
 
+-- Formats one SUMMARIZE statistic as a short number (k/m/b). {col} is replaced by the column name.
+local STAT_CASE = [[
+    CASE
+        WHEN {col} IS NULL THEN NULL{timestamp}
+        WHEN TRY_CAST({col} AS DOUBLE) IS NULL THEN CAST({col} AS VARCHAR)
+        WHEN CAST({col} AS DOUBLE) < 100000 THEN CAST(ROUND(CAST({col} AS DOUBLE), 2) AS VARCHAR)
+        WHEN CAST({col} AS DOUBLE) < 1000000 THEN CAST(ROUND(CAST({col} AS DOUBLE) / 1000, 1) AS VARCHAR) || 'k'
+        WHEN CAST({col} AS DOUBLE) < 1000000000 THEN CAST(ROUND(CAST({col} AS DOUBLE) / 1000000, 2) AS VARCHAR) || 'm'
+        WHEN CAST({col} AS DOUBLE) < 1000000000000 THEN CAST(ROUND(CAST({col} AS DOUBLE) / 1000000000, 2) AS VARCHAR) || 'b'
+        ELSE '∞'
+    END AS {col}]]
+local STAT_TIMESTAMP =
+    "\n        WHEN column_type = 'TIMESTAMP' THEN coalesce(strftime(try_strptime({col}::VARCHAR, '%c.%f'), '%c'), {col}::VARCHAR)"
+
 local function generate_summary_cte(target)
     local column_width = get_opts("column_width")
+    local stats = {}
+    for _, col in ipairs({ "avg", "std", "q25", "q50", "q75" }) do
+        -- Only the quantiles of a TIMESTAMP column are reformatted.
+        local timestamp = col:sub(1, 1) == "q" and STAT_TIMESTAMP or ""
+        -- A function replacement keeps the % in strftime formats literal.
+        local stat = STAT_CASE:gsub("{timestamp}", function()
+            return timestamp
+        end):gsub("{col}", col)
+        table.insert(stats, stat)
+    end
     return string.format(
         [[
 SELECT
@@ -247,58 +344,12 @@ SELECT
     null_percentage AS "null%%",
     LEFT(min, %d) AS min,
     LEFT(max, %d) AS max,
-    CASE
-        WHEN avg IS NULL THEN NULL
-        WHEN TRY_CAST(avg AS DOUBLE) IS NULL THEN CAST(avg AS VARCHAR)
-        WHEN CAST(avg AS DOUBLE) < 100000 THEN CAST(ROUND(CAST(avg AS DOUBLE), 2) AS VARCHAR)
-        WHEN CAST(avg AS DOUBLE) < 1000000 THEN CAST(ROUND(CAST(avg AS DOUBLE) / 1000, 1) AS VARCHAR) || 'k'
-        WHEN CAST(avg AS DOUBLE) < 1000000000 THEN CAST(ROUND(CAST(avg AS DOUBLE) / 1000000, 2) AS VARCHAR) || 'm'
-        WHEN CAST(avg AS DOUBLE) < 1000000000000 THEN CAST(ROUND(CAST(avg AS DOUBLE) / 1000000000, 2) AS VARCHAR) || 'b'
-        ELSE '∞'
-    END AS avg,
-    CASE
-        WHEN std IS NULL THEN NULL
-        WHEN TRY_CAST(std AS DOUBLE) IS NULL THEN CAST(std AS VARCHAR)
-        WHEN CAST(std AS DOUBLE) < 100000 THEN CAST(ROUND(CAST(std AS DOUBLE), 2) AS VARCHAR)
-        WHEN CAST(std AS DOUBLE) < 1000000 THEN CAST(ROUND(CAST(std AS DOUBLE) / 1000, 1) AS VARCHAR) || 'k'
-        WHEN CAST(std AS DOUBLE) < 1000000000 THEN CAST(ROUND(CAST(std AS DOUBLE) / 1000000, 2) AS VARCHAR) || 'm'
-        WHEN CAST(std AS DOUBLE) < 1000000000000 THEN CAST(ROUND(CAST(std AS DOUBLE) / 1000000000, 2) AS VARCHAR) || 'b'
-        ELSE '∞'
-    END AS std,
-    CASE
-        WHEN q25 IS NULL THEN NULL
-    WHEN column_type = 'TIMESTAMP' THEN coalesce(strftime(try_strptime(q25::VARCHAR, '%%c.%%f'), '%%c'), q25::VARCHAR)
-        WHEN TRY_CAST(q25 AS DOUBLE) IS NULL THEN CAST(q25 AS VARCHAR)
-        WHEN CAST(q25 AS DOUBLE) < 100000 THEN CAST(ROUND(CAST(q25 AS DOUBLE), 2) AS VARCHAR)
-        WHEN CAST(q25 AS DOUBLE) < 1000000 THEN CAST(ROUND(CAST(q25 AS DOUBLE) / 1000, 1) AS VARCHAR) || 'k'
-        WHEN CAST(q25 AS DOUBLE) < 1000000000 THEN CAST(ROUND(CAST(q25 AS DOUBLE) / 1000000, 2) AS VARCHAR) || 'm'
-        WHEN CAST(q25 AS DOUBLE) < 1000000000000 THEN CAST(ROUND(CAST(q25 AS DOUBLE) / 1000000000, 2) AS VARCHAR) || 'b'
-        ELSE '∞'
-    END AS q25,
-    CASE
-        WHEN q50 IS NULL THEN NULL
-    WHEN column_type = 'TIMESTAMP' THEN coalesce(strftime(try_strptime(q50::VARCHAR, '%%c.%%f'), '%%c'), q50::VARCHAR)
-        WHEN TRY_CAST(q50 AS DOUBLE) IS NULL THEN CAST(q50 AS VARCHAR)
-        WHEN CAST(q50 AS DOUBLE) < 100000 THEN CAST(ROUND(CAST(q50 AS DOUBLE), 2) AS VARCHAR)
-        WHEN CAST(q50 AS DOUBLE) < 1000000 THEN CAST(ROUND(CAST(q50 AS DOUBLE) / 1000, 1) AS VARCHAR) || 'k'
-        WHEN CAST(q50 AS DOUBLE) < 1000000000 THEN CAST(ROUND(CAST(q50 AS DOUBLE) / 1000000, 2) AS VARCHAR) || 'm'
-        WHEN CAST(q50 AS DOUBLE) < 1000000000000 THEN CAST(ROUND(CAST(q50 AS DOUBLE) / 1000000000, 2) AS VARCHAR) || 'b'
-        ELSE '∞'
-    END AS q50,
-    CASE
-        WHEN q75 IS NULL THEN NULL
-    WHEN column_type = 'TIMESTAMP' THEN coalesce(strftime(try_strptime(q75::VARCHAR, '%%c.%%f'), '%%c'), q75::VARCHAR)
-        WHEN TRY_CAST(q75 AS DOUBLE) IS NULL THEN CAST(q75 AS VARCHAR)
-        WHEN CAST(q75 AS DOUBLE) < 100000 THEN CAST(ROUND(CAST(q75 AS DOUBLE), 2) AS VARCHAR)
-        WHEN CAST(q75 AS DOUBLE) < 1000000 THEN CAST(ROUND(CAST(q75 AS DOUBLE) / 1000, 1) AS VARCHAR) || 'k'
-        WHEN CAST(q75 AS DOUBLE) < 1000000000 THEN CAST(ROUND(CAST(q75 AS DOUBLE) / 1000000, 2) AS VARCHAR) || 'm'
-        WHEN CAST(q75 AS DOUBLE) < 1000000000000 THEN CAST(ROUND(CAST(q75 AS DOUBLE) / 1000000000, 2) AS VARCHAR) || 'b'
-        ELSE '∞'
-    END AS q75
+%s
 FROM %s
         ]],
         column_width,
         column_width,
+        table.concat(stats, ",\n"),
         target
     )
 end
@@ -309,7 +360,7 @@ local function get_cache_path(job, mode, extension)
     if extension then
         suffix = "_" .. extension .. "." .. extension
     end
-    local cache_version = 3
+    local cache_version = 4
     local skip = job.skip
     job.skip = 1000000 + cache_version
     local base = ya.file_cache(job)
@@ -331,15 +382,16 @@ local function run_query(job, query, target, file_type)
     local height = math.max((job.area and job.area.h or 25), 25)
 
     local args = {}
+    append_duckdb_preview_args(args)
 
     if file_type == "duckdb" then
         table.insert(args, "-readonly")
         table.insert(args, tostring(target))
-    elseif file_type == "excel" then
-        add_queries_to_table(args, { "install spatial", "load spatial" })
-    elseif file_type == "avro" then
-        add_queries_to_table(args, { "install avro", "load avro" })
+    else
+        add_extension_queries(args, file_type)
     end
+
+    add_duckdb_security_queries(args)
 
     -- Duckbox config
     add_queries_to_table(args, {
@@ -361,12 +413,21 @@ local function run_query(job, query, target, file_type)
     end
 
     local output, err = child:wait_with_output()
-    if err or not output.status.success then
-        ya.err("DuckDB error: " .. (err or output.stderr or "[unknown error]"))
+    if err or not output or not output.status.success then
+        ya.err("DuckDB error: " .. (err or (output and output.stderr) or "[unknown error]"))
         return nil
     end
 
     return output
+end
+
+-- Prints "max_scroll=N" after the table, so peek can stop scrolled_columns at the last column.
+-- peek removes the line before it renders the output.
+local function with_max_scroll(queries, max_scroll_select)
+    table.insert(queries, ".mode list")
+    table.insert(queries, ".headers off")
+    table.insert(queries, "select 'max_scroll=' || (" .. max_scroll_select .. ");")
+    return queries
 end
 
 local function generate_db_query(limit, offset)
@@ -376,7 +437,11 @@ local function generate_db_query(limit, offset)
     local visible_column_count = 10
     local max_scroll_metadata = #metadata_fields
     local metadata_projection = { "table_name" }
+    -- Tables with the same name can exist in several schemas; show the schema when it is not main.
+    local qualified_table_name =
+        "CASE WHEN t.schema_name = 'main' THEN t.table_name ELSE t.schema_name || '.' || t.table_name END"
 
+    local query
     if scroll < max_scroll_metadata then
         for i = scroll + 1, #metadata_fields do
             table.insert(metadata_projection, metadata_fields[i])
@@ -384,23 +449,24 @@ local function generate_db_query(limit, offset)
         table.insert(metadata_projection, "column_names") -- always show
 
         local projection = table.concat(metadata_projection, ", ")
-        return string.format(
+        query = string.format(
             [[
 WITH table_info AS (
   SELECT
-    DISTINCT t.table_name,
+    DISTINCT %s AS table_name,
     t.estimated_size AS rows,
     t.column_count AS columns,
     t.has_primary_key AS has_pk,
     t.index_count AS indexes,
-    STRING_AGG(c.column_name, ', ' ORDER BY c.column_index) OVER (PARTITION BY t.table_name) AS column_names
+    STRING_AGG(c.column_name, ', ' ORDER BY c.column_index) OVER (PARTITION BY t.table_oid) AS column_names
   FROM duckdb_tables() t
-  LEFT JOIN duckdb_columns() c ON t.table_name = c.table_name
+  LEFT JOIN duckdb_columns() c ON t.table_oid = c.table_oid
 )
 SELECT %s FROM table_info
 ORDER BY table_name
 LIMIT %d OFFSET %d;
 ]],
+            qualified_table_name,
             projection,
             limit,
             offset
@@ -410,18 +476,20 @@ LIMIT %d OFFSET %d;
         local start_pos = column_scroll + 1
         local end_pos = column_scroll + visible_column_count
 
-        return string.format(
+        query = string.format(
             [[
 WITH raw AS (
   SELECT
-    t.table_name,
+    t.table_oid,
+    %s AS table_name,
     c.column_name,
-    row_number() OVER (PARTITION BY t.table_name ORDER BY c.column_index) AS col_pos
+    row_number() OVER (PARTITION BY t.table_oid ORDER BY c.column_index) AS col_pos
   FROM duckdb_tables() t
-  LEFT JOIN duckdb_columns() c ON t.table_name = c.table_name
+  LEFT JOIN duckdb_columns() c ON t.table_oid = c.table_oid
 ),
 scrolling AS (
   SELECT
+    table_oid,
     table_name,
     column_name,
     col_pos
@@ -433,18 +501,24 @@ aggregated AS (
     table_name,
     STRING_AGG(column_name, ', ' ORDER BY col_pos) AS column_names
   FROM scrolling
-  GROUP BY table_name
+  GROUP BY table_oid, table_name
 )
 SELECT table_name, column_names FROM aggregated
 ORDER BY table_name
 LIMIT %d OFFSET %d;
 ]],
+            qualified_table_name,
             start_pos,
             end_pos,
             limit,
             offset
         )
     end
+    -- The last scroll position shows the last column of the widest table.
+    -- coalesce: a database with no tables gives NULL, which .mode list prints as a "NULL" line.
+    local max_scroll =
+        string.format("select coalesce(max(column_count), 1) + %d from duckdb_tables()", max_scroll_metadata - 1)
+    return with_max_scroll({ query }, max_scroll)
 end
 
 local function generate_standard_query(target, job, limit, offset)
@@ -470,7 +544,8 @@ set variable included_columns = (
     )
     select list(column_name)
     from column_list
-    where row > %d and row <= (%d)
+    -- Clamp the scroll so the last column stays visible; an empty COLUMNS() set is a binder error.
+    where row > least(%d, (select count(*) from column_list) - 1) and row <= (%d)
 );
 ]],
         target,
@@ -479,18 +554,17 @@ set variable included_columns = (
     )
 
     local filtered_select = string.format(
-        "select %scolumns(c -> list_contains(getvariable('included_columns'), c)) from %s limit %d offset %d;",
+        "select %scolumns(lambda c: list_contains(getvariable('included_columns'), c)) from %s limit %d offset %d;",
         row_id_prefix,
         target,
         limit,
         offset
     )
-    return { included_columns_cte, filtered_select }
+    local max_scroll = string.format("select count(*) - 1 from (describe select * from %s)", target)
+    return with_max_scroll({ included_columns_cte, filtered_select }, max_scroll)
 end
 
 local function generate_summarized_query(source, limit, offset)
-    local scroll = get_opts("scrolled_columns") or 0
-
     -- These are the scrollable fields, in display order
     local fields = {
         '"type"',
@@ -505,6 +579,9 @@ local function generate_summarized_query(source, limit, offset)
         '"q50"',
         '"q75"',
     }
+    -- Stop at the last field, so H moves left on the first press.
+    local scroll = math.min(get_opts("scrolled_columns") or 0, #fields - 1)
+    set_opts("scrolled_columns", scroll)
 
     -- Always include the column name
     local selected_fields = { '"column"' }
@@ -531,6 +608,44 @@ SELECT %s FROM summary_cte LIMIT %d OFFSET %d;
     )
 end
 
+-- Summary rows shown until the summarized cache exists. {p} is the placeholder, {source} the file.
+local PLACEHOLDER_SUMMARY = [[(select
+          column_name,
+          column_type,
+          '   {p} ' as count,
+          '   {p} ' as "approx_unique",
+          '   {p} ' as "null_percentage",
+          '   {p} ' as min,
+          '   {p} ' as max,
+          '   {p} ' as avg,
+          '   {p} ' as std,
+          '   {p} ' as q25,
+          '   {p} ' as q50,
+          '   {p} ' as q75
+          from (describe select * from {source}))]]
+
+-- Parquet keeps count, min and max in its metadata, so those show at once.
+local PARQUET_PLACEHOLDER_SUMMARY = [[
+        (select
+        d.column_name,
+        d.column_type,
+        sum(m.num_values) as count,
+        '   {p} ' as "approx_unique",
+        '   {p} ' as "null_percentage",
+        case when min(m.stats_min) is null then '{p}' else min(m.stats_min) end as min,
+        case when min(m.stats_max) is null then '{p}' else max(m.stats_max) end as max,
+        '   {p} ' as "avg",
+        '   {p} ' as "std",
+        '   {p} ' as q25,
+        '   {p} ' as q50,
+        '   {p} ' as q75
+        from (select *, row_number() over () as pos from (describe select * from {source})) d
+        left join parquet_metadata({source}) m
+        on d.column_name = m.path_in_schema
+        group by all
+        order by min(d.pos))
+        ]]
+
 local function generate_peek_query(target, job, limit, offset, file_type, cache_str)
     local mode = get_opts("mode")
     local is_original_file = (target == job.file.url)
@@ -546,84 +661,23 @@ local function generate_peek_query(target, job, limit, offset, file_type, cache_
     if mode == "standard" then
         return generate_standard_query(source, job, limit, offset)
     end
-    local placeholder = "⏱"
-    if is_on_list("bad_cache", cache_str) then
-        placeholder = "∅"
+    local summary_source = source
+    if is_original_file and not get_opts("cache_enabled") then
+        -- No cache is ever built, so summarize the file now instead of showing placeholders.
+        summary_source = "(" .. generate_preload_query(job, "summarized", file_type) .. ")"
+    elseif is_original_file then
+        local placeholder = is_on_list("bad_cache", cache_str) and "∅" or "⏱"
+        local template = file_type == "parquet" and PARQUET_PLACEHOLDER_SUMMARY or PLACEHOLDER_SUMMARY
+        -- A function replacement keeps any % in the path literal.
+        summary_source = template:gsub("{p}", placeholder):gsub("{source}", function()
+            return source
+        end)
     end
-
-    if file_type ~= "parquet" then
-        local summary_source = is_original_file
-            and string.format(
-                [[(select
-          column_name,
-          column_type,
-          '   %s ' as count,
-          '   %s ' as "approx_unique",
-          '   %s ' as "null_percentage",
-          '   %s ' as min,
-          '   %s ' as max,
-          '   %s ' as avg,
-          '   %s ' as std,
-          '   %s ' as q25,
-          '   %s ' as q50,
-          '   %s ' as q75
-          from (describe select * from %s))]],
-                placeholder,
-                placeholder,
-                placeholder,
-                placeholder,
-                placeholder,
-                placeholder,
-                placeholder,
-                placeholder,
-                placeholder,
-                placeholder,
-                source
-            )
-            or source
-        return generate_summarized_query(summary_source, limit, offset)
-    else
-        local summary_source = is_original_file
-            and string.format(
-                [[
-        (select
-        d.column_name,
-        d.column_type,
-        sum(m.num_values) as count,
-        '   %s ' as "approx_unique",
-        '   %s ' as "null_percentage",
-        case when min(m.stats_min) is null then '%s' else min(m.stats_min) end as min,
-        case when min(m.stats_max) is null then '%s' else max(m.stats_max) end as max,
-        '   %s ' as "avg",
-        '   %s ' as "std",
-        '   %s ' as q25,
-        '   %s ' as q50,
-        '   %s ' as q75
-        from (describe select * from %s) d
-        left join parquet_metadata(%s) m
-        on d.column_name = m.path_in_schema
-        group by all
-        order by min(column_id))
-        ]],
-                placeholder,
-                placeholder,
-                placeholder,
-                placeholder,
-                placeholder,
-                placeholder,
-                placeholder,
-                placeholder,
-                placeholder,
-                source,
-                source
-            )
-            or source
-        return generate_summarized_query(summary_source, limit, offset)
-    end
+    return generate_summarized_query(summary_source, limit, offset)
 end
 
-local function render_output(output, job)
-    local cleaned = output.stdout and output.stdout:gsub("\r", "") or "[no output]"
+local function render_output(stdout, job)
+    local cleaned = stdout:gsub("\r", "")
     ya.preview_widget(job, {
         ui.Text.parse(cleaned):area(job.area),
     })
@@ -661,22 +715,25 @@ local function prepare_peek_context(job)
         if mode_changed then
             set_opts("mode_changed", false)
         end
-        job.skip = math.max(0, raw_skip - 50)
+        job.skip = math.max(0, raw_skip - OFFSET_BASE)
     end
     set_opts("re_peek", false)
 
     local cache_str, cache_url = get_cache_path(job, mode)
-    local scrolled_collumns = get_opts("scrolled_columns")
+    local scrolled_columns = get_opts("scrolled_columns")
 
-    local use_cache = cache_url
+    local cache_enabled = get_opts("cache_enabled")
+    local use_cache = cache_enabled
+        and cache_url
         and fs.cha(cache_url)
         and not is_on_list("preloading", cache_str)
         and not is_on_list("bad_cache", cache_str)
 
     local target = use_cache and cache_url or file_url
-    local file_type = check_file_type(target)
+    local file_type = check_file_type(use_cache and cache_url or file_url)
     local area = job.area or { h = 25 }
-    local limit = area.h - 7
+    -- A negative LIMIT is a DuckDB error, and a failed cached peek marks the cache bad.
+    local limit = math.max(1, area.h - 7)
     local offset = job.skip
 
     return {
@@ -685,7 +742,7 @@ local function prepare_peek_context(job)
         file_type = file_type,
         cache_str = cache_str,
         cache_url = cache_url,
-        scrolled_collumns = scrolled_collumns,
+        scrolled_columns = scrolled_columns,
         use_cache = use_cache,
         target = target,
         limit = limit,
@@ -704,18 +761,20 @@ local function remove_file(cache_url)
     end
 end
 
-local function finish_preload(success, cache_str1, cache_str2)
-    for _, cache_str in ipairs({ cache_str1, cache_str2 }) do
-        if not success then
-            add_to_list("bad_cache", cache_str)
-        end
-        remove_from_list("preloading", cache_str)
-        add_to_list("completed", cache_str)
+local function finish_preload(success, cache_str)
+    if not success then
+        add_to_list("bad_cache", cache_str)
     end
+    remove_from_list("preloading", cache_str)
+    add_to_list("completed", cache_str)
     return success
 end
 
 local function create_cache(job, mode, file_type, limit)
+    if not get_opts("cache_enabled") then
+        return true
+    end
+
     local cache_str, cache_url = get_cache_path(job, mode)
     if not cache_url or fs.cha(cache_url) or is_on_list("bad_cache", cache_str) then
         return true
@@ -729,8 +788,7 @@ local function create_cache(job, mode, file_type, limit)
     local base_query = generate_preload_query(job, mode, file_type, limit)
     local query = string.format("COPY (%s) TO '%s' (FORMAT 'parquet');", base_query, escaped_target)
     local output = run_query(job, query, nil, file_type)
-    ya.dbg("stdout: " .. tostring(output.stdout))
-    ya.dbg("stderr: " .. tostring(output.stderr))
+    log_query_output("[duckdb] create_cache", output)
 
     if not output or (output.stderr and output.stderr ~= "") then
         ya.err(
@@ -748,23 +806,24 @@ local function create_cache(job, mode, file_type, limit)
             )
         )
         remove_file(cache_url)
-        local result = finish_preload(false, cache_str)
-        return result
+        return finish_preload(false, cache_str)
     end
 
-    local result = finish_preload(true, cache_str)
-    return result
+    return finish_preload(true, cache_str)
 end
 
 local function is_plain_text(job, file_type)
-    local file_hash, _ = get_cache_path(job, "standard", "text")
-    if is_on_list("is_plain_text", file_hash) then
-        return true
-    end
-
     file_type = file_type or check_file_type(job.file.url)
     if file_type ~= "text" then
         return false
+    end
+
+    -- Remember both answers, so a tabular .txt file is not sniffed again on every scroll.
+    -- file_hash is nil for a file inside Yazi's cache directory; that file is not remembered.
+    local file_hash, _ = get_cache_path(job, "standard", "text")
+    local known = file_hash and update_state("get", "is_plain_text", file_hash)
+    if known ~= nil then
+        return known
     end
 
     local escaped_url = tostring(job.file.url):gsub("'", "''")
@@ -774,12 +833,14 @@ local function is_plain_text(job, file_type)
         string.format("select count(column_name) from (describe from read_csv('%s'));", escaped_url),
     }
     local output = run_query(job, query, nil, file_type)
-    local result = (output and output.stdout == "1\r\n")
-
-    if result then
-        add_to_list("is_plain_text", file_hash)
+    if not output then
+        -- A failed check is not an answer; try again on the next peek.
+        return false
     end
-
+    local result = output.stdout == "1\r\n"
+    if file_hash then
+        update_state("set", "is_plain_text", file_hash, result)
+    end
     return result
 end
 
@@ -792,8 +853,16 @@ function M:preload(job)
     if is_plain_text(job, nil) then
         return true
     end
+
+    if not get_opts("cache_enabled") then
+        return true
+    end
+
     local limit = get_opts("limit")
     local file_type = check_file_type(job.file.url)
+    if not file_type then
+        return true
+    end
     local all_done = true
 
     if file_type == "duckdb" then
@@ -813,6 +882,9 @@ end
 -- Peek with mode toggle if scrolling at top
 function M:peek(job)
     local args = prepare_peek_context(job)
+    if not args.file_type then
+        return require("code"):peek(job)
+    end
     if is_plain_text(job, args.file_type) then
         return require("code"):peek(job)
     end
@@ -820,34 +892,63 @@ function M:peek(job)
     local query = generate_peek_query(args.target, job, args.limit, args.offset, args.file_type, args.cache_str)
     ya.dbg("query: " .. tostring(query))
     local output = run_query(job, query, args.target, args.file_type)
-    ya.dbg("stdout: " .. tostring(output.stdout))
-    ya.dbg("stderr: " .. tostring(output.stderr))
+    log_query_output("[duckdb] peek", output)
     if not output_is_valid(output, args.mode, job) then
-        if args.target == args.cache_url and args.scrolled_collumns == 0 then
+        if args.target == args.cache_url and args.scrolled_columns == 0 then
             add_to_list("bad_cache", args.cache_str)
             remove_file(args.cache_url)
+            -- job.skip already has OFFSET_BASE removed; do not remove it twice.
+            set_opts("re_peek", true)
             return require("duckdb"):peek(job)
-        elseif is_on_list("bad_cache", args.cache_str) then
-            return require("code"):peek(job)
+        end
+        return require("code"):peek(job)
+    end
+
+    local stdout = output.stdout
+    local table_text, max_scroll = stdout:match("^(.*)max_scroll=(%-?%d+)%s*$")
+    if table_text then
+        stdout = table_text
+        max_scroll = math.max(0, tonumber(max_scroll))
+        if (get_opts("scrolled_columns") or 0) > max_scroll then
+            -- This query ran past the last column (the db view then shows no columns), so run it
+            -- again at the last column. The clamp makes the second run stop here.
+            set_opts("scrolled_columns", max_scroll)
+            set_opts("re_peek", true)
+            return require("duckdb"):peek(job)
         end
     end
 
-    if args.target == args.file_url and args.mode == "summarized" and not args.use_cache then
-        render_output(output, job)
+    -- Only wait for a cache that preload can still build: DuckDB databases are never cached,
+    -- and preload skips a cache already marked bad.
+    local cache_pending = args.cache_url and args.file_type ~= "duckdb" and not is_on_list("bad_cache", args.cache_str)
+    if
+        args.target == args.file_url
+        and args.mode == "summarized"
+        and get_opts("cache_enabled")
+        and not args.use_cache
+        and cache_pending
+    then
+        render_output(stdout, job)
+        -- shortcut: gives up when preload has not started after 30 s (no preloader rule matches, or
+        -- Yazi already preloaded the file). A preload queued longer than that needs a re-hover.
+        local waited = 0
         while not is_on_list("completed", args.cache_str) do
+            if waited >= 30 and not is_on_list("preloading", args.cache_str) then
+                return
+            end
             ya.sleep(0.2)
+            waited = waited + 0.2
         end
-        clear_list("completed")
+        remove_from_list("completed", args.cache_str)
         set_opts("re_peek", true)
         return require("duckdb"):peek(job)
     end
 
-    render_output(output, job)
+    render_output(stdout, job)
 end
 
 -- Seek, also triggers mode change if skip negative.
 function M:seek(job)
-    local OFFSET_BASE = 50
     local current_skip = math.max(0, cx.active.preview.skip - OFFSET_BASE)
     local units = job.units or 0
     local new_skip = current_skip + units
