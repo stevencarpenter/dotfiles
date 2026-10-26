@@ -18,7 +18,7 @@ socket_globs = [
 # Drained-but-recent means the agent may still be finishing up.
 teammate_idle_minutes = 30
 
-# Allow follow-up messages for 90 seconds after a SubagentStop completion event.
+# Allow follow-up messages for 90 seconds after a --completed-agent event.
 completion_grace_seconds = 90
 
 # Report interactive sessions after this idle period; reap never kills them.

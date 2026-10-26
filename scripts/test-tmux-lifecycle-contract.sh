@@ -96,12 +96,17 @@ if ! jq -e '
 	exit 1
 fi
 if ! jq -e '
-  [.hooks.SubagentStop[]?.hooks[]?
+  [.hooks.Stop[]?.hooks[]?
    | select(.type == "command"
-       and .command == "~/.claude/hooks/agent-reap-subagent-stop.sh")]
+       and .command == "~/.claude/hooks/agent-reap-stop.sh")]
   | length == 1 and (.[0].timeout | type == "number" and . > 16)
 ' "${settings_base}" >/dev/null; then
-	echo "tmux lifecycle contract: SubagentStop timeout must leave room for the watchdog" >&2
+	echo "tmux lifecycle contract: Stop timeout must leave room for the watchdog" >&2
+	exit 1
+fi
+if jq -e '.hooks.SubagentStop[]?.hooks[]? | select(.command | test("agent-reap"))' \
+	"${settings_base}" >/dev/null; then
+	echo "tmux lifecycle contract: SubagentStop never carries parent_session_id; no reap hook belongs there" >&2
 	exit 1
 fi
 
@@ -148,67 +153,21 @@ if kill -0 "${hook_worker_pid}" >/dev/null 2>&1; then
 	exit 1
 fi
 
-success_bin="${test_root}/success-bin"
-mkdir -p "${hook_home}/.claude/teams/session-success01" "${success_bin}"
-cat >"${success_bin}/agent-reap" <<'SH'
-#!/bin/bash
-printf '%s\n' "$*" >"${HOME}/agent-reap-success-args"
-exit 0
-SH
-chmod +x "${success_bin}/agent-reap"
-printf '%s\n' '{"session_id":"success01-0000-0000-0000-000000000000"}' | \
-	HOME="${hook_home}" \
-	PATH="${success_bin}:/usr/bin:/bin" \
-	"${repo_root}/home/.claude/hooks/agent-reap-session-end.sh"
-if [[ "$(<"${hook_home}/agent-reap-success-args")" != "reap --team success01 --kill" ]]; then
-	echo "tmux lifecycle contract: successful SessionEnd hook invoked the wrong agent-reap command" >&2
-	exit 1
-fi
-if [[ -d "${hook_home}/.claude/teams/session-success01" ]]; then
-	echo "tmux lifecycle contract: successful SessionEnd hook left team state behind" >&2
-	exit 1
-fi
-
-# A reap can succeed and the removal still fail (read-only parent, busy file).
-# The hook must stay best-effort and exit 0, but it must not leave "removed"
-# and "silently left behind" looking identical in the log.
-readonly_teams="${hook_home}/.claude/teams"
-mkdir -p "${readonly_teams}/session-rofail01"
-: >"${readonly_teams}/session-rofail01/marker"
-chmod 500 "${readonly_teams}"
-set +e
-printf '%s\n' '{"session_id":"rofail01-0000-0000-0000-000000000000"}' | \
-	HOME="${hook_home}" \
-	PATH="${success_bin}:/usr/bin:/bin" \
-	"${repo_root}/home/.claude/hooks/agent-reap-session-end.sh"
-rofail_status=$?
-set -e
-chmod 700 "${readonly_teams}"
-if (( rofail_status != 0 )); then
-	echo "tmux lifecycle contract: SessionEnd hook exited ${rofail_status} when cleanup failed" >&2
-	exit 1
-fi
-if [[ ! -d "${readonly_teams}/session-rofail01" ]]; then
-	echo "tmux lifecycle contract: rm-failure case did not actually fail; test is vacuous" >&2
-	exit 1
-fi
-if ! rg -Fq "warning: could not remove ${readonly_teams}/session-rofail01" \
-	"${hook_home}/.claude/logs/agent-reap-session-end.log"; then
-	echo "tmux lifecycle contract: failed team-state removal left no evidence in the log" >&2
-	exit 1
-fi
-rm -rf -- "${readonly_teams}/session-rofail01"
-
 mkdir -p "${hook_home}/.claude/teams/session-livecafe"
 # An earlier phase already wrote this file through the same fake agent-reap;
 # clear it so the poll below observes THIS invocation, not the stale one.
 rm -f -- "${hook_home}/agent-reap-args"
-printf '%s\n' '{"hook_event_name":"SubagentStop","agent_id":"docs-readme@session-livecafe","parent_session_id":"livecafe-0000-0000-0000-000000000000"}' | \
+SECONDS=0
+printf '%s\n' '{"hook_event_name":"Stop","session_id":"livecafe-0000-0000-0000-000000000000"}' | \
 	HOME="${hook_home}" \
 	PATH="${fake_bin}:/usr/bin:/bin" \
 	AGENT_REAP_HOOK_TIMEOUT_SECS=1 \
-		"${repo_root}/home/.claude/hooks/agent-reap-subagent-stop.sh"
-# The SubagentStop worker is detached so it never blocks the lead's turn, so
+		"${repo_root}/home/.claude/hooks/agent-reap-stop.sh"
+if (( SECONDS >= 3 )); then
+	echo "tmux lifecycle contract: Stop hook blocked the lead for ${SECONDS}s" >&2
+	exit 1
+fi
+# The Stop worker is detached so it never blocks the lead's turn, so
 # its evidence lands after the hook has already returned. Poll rather than
 # assert immediately; a fixed sleep would either be flaky or slow.
 wait_for_file() {
@@ -220,22 +179,35 @@ wait_for_file() {
 	return 1
 }
 if ! wait_for_file "${hook_home}/agent-reap-args"; then
-	echo "tmux lifecycle contract: detached SubagentStop worker never ran" >&2
+	echo "tmux lifecycle contract: detached Stop worker never ran" >&2
 	exit 1
 fi
-if [[ "$(<"${hook_home}/agent-reap-args")" != "reap --live-team livecafe --completed-agent docs-readme --kill" ]]; then
-	echo "tmux lifecycle contract: SubagentStop hook invoked the wrong agent-reap command" >&2
+if [[ "$(<"${hook_home}/agent-reap-args")" != "reap --live-team livecafe --kill" ]]; then
+	echo "tmux lifecycle contract: Stop hook invoked the wrong agent-reap command" >&2
 	exit 1
 fi
 watchdog_deadline=$((SECONDS + 10))
 while ((SECONDS < watchdog_deadline)); do
-	rg -Fq 'agent-reap SubagentStop hook: timed out after 1s; terminating worker group' \
-		"${hook_home}/.claude/logs/agent-reap-subagent-stop.log" && break
+	rg -Fq 'agent-reap Stop hook: timed out after 1s; terminating worker group' \
+		"${hook_home}/.claude/logs/agent-reap-stop.log" && break
 	sleep 0.1
 done
-if ! rg -Fq 'agent-reap SubagentStop hook: timed out after 1s; terminating worker group' \
-	"${hook_home}/.claude/logs/agent-reap-subagent-stop.log"; then
-	echo "tmux lifecycle contract: SubagentStop hook watchdog did not report its timeout" >&2
+if ! rg -Fq 'agent-reap Stop hook: timed out after 1s; terminating worker group' \
+	"${hook_home}/.claude/logs/agent-reap-stop.log"; then
+	echo "tmux lifecycle contract: Stop hook watchdog did not report its timeout" >&2
+	exit 1
+fi
+
+# A session with no team directory (a solo session, or a split-pane teammate
+# whose own session id names no team) must not start a worker at all.
+rm -f -- "${hook_home}/agent-reap-args"
+printf '%s\n' '{"hook_event_name":"Stop","session_id":"cafef00d-0000-0000-0000-000000000000"}' | \
+	HOME="${hook_home}" \
+	PATH="${fake_bin}:/usr/bin:/bin" \
+		"${repo_root}/home/.claude/hooks/agent-reap-stop.sh"
+sleep 0.5
+if [[ -e "${hook_home}/agent-reap-args" ]]; then
+	echo "tmux lifecycle contract: Stop hook ran agent-reap for a session without a team" >&2
 	exit 1
 fi
 
@@ -243,13 +215,13 @@ fi
 # the two states are otherwise indistinguishable in the log.
 missing_lib_home="${test_root}/missing-lib-home"
 mkdir -p "${missing_lib_home}/.claude/teams/session-livecafe"
-cp "${repo_root}/home/.claude/hooks/agent-reap-subagent-stop.sh" "${test_root}/orphan-hook.sh"
-printf '%s\n' '{"hook_event_name":"SubagentStop","agent_id":"docs-readme@session-livecafe","parent_session_id":"livecafe-0000-0000-0000-000000000000"}' | \
+cp "${repo_root}/home/.claude/hooks/agent-reap-stop.sh" "${test_root}/orphan-hook.sh"
+printf '%s\n' '{"hook_event_name":"Stop","session_id":"livecafe-0000-0000-0000-000000000000"}' | \
 	HOME="${missing_lib_home}" \
 	PATH="${fake_bin}:/usr/bin:/bin" \
 	"${test_root}/orphan-hook.sh"
 if ! rg -Fq 'missing hook lib' \
-	"${missing_lib_home}/.claude/logs/agent-reap-subagent-stop.log"; then
+	"${missing_lib_home}/.claude/logs/agent-reap-stop.log"; then
 	echo "tmux lifecycle contract: hook with no lib dir failed silently" >&2
 	exit 1
 fi

@@ -41,11 +41,12 @@ agent-reap -v report       # include the reason every pane was excluded
 
 `agent-reap` is not a daemon and this repo installs no launchd job for it. Automatic cleanup is
 event-driven: the generated Claude settings register
-`~/.claude/hooks/agent-reap-subagent-stop.sh` for `SubagentStop` and
-`~/.claude/hooks/agent-reap-session-end.sh` for `SessionEnd`. The former receives the completed
-agent and parent team from the event, shortens inbox-age to `completion_grace_seconds`
-for that exact teammate (window idle is skipped), and
-keeps the drained-inbox and process-safety checks. The latter runs a team-scoped reap for an ended
+`~/.claude/hooks/agent-reap-stop.sh` for `Stop` and
+`~/.claude/hooks/agent-reap-session-end.sh` for `SessionEnd`. The former runs after each of the
+lead's turns, detached, as `reap --live-team <lead session> --kill`: only the lead's own
+teammates are considered, and every liveness gate still applies. It is the only lead-side moment
+that follows a split-pane teammate's report (`TeammateIdle` fires for in-process teammates only).
+The latter runs a team-scoped reap for an ended
 team and removes that exact team's state directory afterward. Solo sessions exit without creating
 either log.
 
@@ -65,17 +66,21 @@ source/deployment/runtime/process verification model and the other retained-stat
 
 A teammate pane is reaped only when **all** hold: its command carries
 `--agent-id <name>@session-<id>`; the team directory exists; its inbox is drained (an empty
-JSON container) **and** has been quiet past `teammate_idle_minutes`; the window has also been
-quiet past that threshold; the process is sleeping; no active or foreground descendant remains;
+JSON container) **and** has been quiet past `teammate_idle_minutes`; its pane title starts with
+Claude's ✳ waiting marker (a braille spinner means working, and any other title fails closed);
+the process is sleeping; no active or foreground descendant remains;
 and it is not yours. Every condition is checked again immediately before `kill-pane`. "Not yours"
 is enforced by process ancestry (which works without a tmux environment), the current `TMUX_PANE`, and the
 caller's own team session.
 
-The `reap --live-team <id> --completed-agent <name> --kill` path is reserved for the
-`SubagentStop` hook. It skips the window and inbox-age thresholds for the named agent, but still
-requires the team directory, a drained inbox, a sleeping process, no active or foreground
-descendant, and immediate pane and ancestry revalidation. It never broadens selection to sibling
-teammates.
+tmux's `window_activity` is not an idle signal for a Claude pane: the TUI redraws while it
+waits for input, so the timestamp never ages past a few seconds.
+
+`reap --live-team <id> --kill` lifts the own-team guard for that one team so the lead's `Stop`
+hook can reap its own finished teammates; nothing else changes. Adding `--completed-agent <name>`
+narrows it to one teammate named by a completion event: the title gate is skipped and inbox-age
+shortens to `completion_grace_seconds`, while the team directory, drained inbox, sleeping
+process, descendant, and revalidation checks still hold. No shipped hook uses that form today.
 
 Never killed without an explicit extra flag:
 

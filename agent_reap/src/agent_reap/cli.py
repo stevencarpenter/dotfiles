@@ -435,16 +435,17 @@ def build_parser() -> argparse.ArgumentParser:
         "--live-team",
         metavar="SESSION_ID",
         help=(
-            "scope a completion-event reap to this live team; requires "
-            "--completed-agent"
+            "reap only this live team's idle teammates (the lead's Stop hook "
+            "path); lifts the own-team guard, keeps every liveness gate"
         ),
     )
     reap_cmd.add_argument(
         "--completed-agent",
         metavar="AGENT_NAME",
         help=(
-            "reap only the teammate named by a SubagentStop event; window "
-            "idle is skipped, inbox-age shortens to completion_grace_seconds"
+            "with --live-team: reap only this teammate, named by a completion "
+            "event; the title gate is skipped, inbox-age shortens to "
+            "completion_grace_seconds"
         ),
     )
     return parser
@@ -478,11 +479,8 @@ def cli(argv: Sequence[str] | None = None, runner: Runner | None = None) -> int:
     live_team_scope: str | None = getattr(args, "live_team", None)
     completed_agent: str | None = getattr(args, "completed_agent", None)
     destructive = command == "reap" and bool(getattr(args, "kill", False))
-    if (live_team_scope is None) != (completed_agent is None):
-        print(
-            "reap: --live-team and --completed-agent must be provided together",
-            file=sys.stderr,
-        )
+    if completed_agent is not None and live_team_scope is None:
+        print("reap: --completed-agent requires --live-team", file=sys.stderr)
         return 2
     if team_scope is not None and live_team_scope is not None:
         print(

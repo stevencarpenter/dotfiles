@@ -13,6 +13,15 @@ prepend_previewers = [
   { url = "*.db", run = "duckdb" },
   { url = "*.duckdb", run = "duckdb" },
 ]
+# Builds the cache that summarized mode waits for; without it the summary stays on placeholders.
+prepend_preloaders = [
+  { url = "*.csv", run = "duckdb", multi = false },
+  { url = "*.tsv", run = "duckdb", multi = false },
+  { url = "*.parquet", run = "duckdb", multi = false },
+  { url = "*.txt", run = "duckdb", multi = false },
+  { url = "*.xlsx", run = "duckdb", multi = false },
+  { url = "*.avro", run = "duckdb", multi = false },
+]
 
 [mgr]
 ratio = [1, 1, 5]

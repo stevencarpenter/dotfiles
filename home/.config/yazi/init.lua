@@ -4,4 +4,4 @@
 ---
 
 -- DuckDB plugin configuration
-require("duckdb"):setup()
+require("duckdb"):setup({ mode = "standard" })

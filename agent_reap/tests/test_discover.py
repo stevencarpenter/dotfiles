@@ -85,6 +85,7 @@ def test_list_panes_parses_every_field() -> None:
     assert pane.target == "devbox:3.1"
     assert pane.pid == 34033
     assert pane.window_activity == 1785832415
+    assert pane.title == "\u2733 docs-readme"
     assert pane.path == "/Users/dev/.dotfiles"
 
 

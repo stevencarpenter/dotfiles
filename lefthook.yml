@@ -50,6 +50,10 @@ pre-commit:
     - name: trailing-whitespace
       # Re-stage fixes. Filter out binary files to prevent corruption.
       stage_fixed: true
+      # `ya pkg` installs these read-only and hash-checks them; an edit breaks the next upgrade.
+      exclude:
+        - "home/.config/yazi/plugins/**"
+        - "home/.config/yazi/flavors/**"
       # `set -o pipefail` is required: lefthook runs `run:` through `sh -c`
       # without it, so a crashed filter would hand xargs empty input and the
       # job would report success having checked nothing.

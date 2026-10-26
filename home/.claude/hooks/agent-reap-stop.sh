@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
-# agent-reap-subagent-stop.sh: reap one completed teammate in a live team.
+# agent-reap-stop.sh: reap the lead's finished split-pane teammates.
 #
-# Claude's SubagentStop payload identifies the completed agent and its parent
-# team. This hook passes both identities to agent-reap, which skips window-idle
-# for that named agent and shortens inbox-age to completion_grace_seconds. The
-# live team's other panes remain under the ordinary safety rules and are not
-# selected by this invocation.
+# A split-pane (tmux) teammate is a separate Claude process. When it finishes
+# a turn, no hook event reaches the lead: TeammateIdle fires for in-process
+# teammates only, and the teammate's own Stop hook cannot reap its own pane
+# (agent-reap protects the caller's ancestry). The lead's Stop event is the
+# one lead-side moment that follows a teammate's report, so this hook runs a
+# reap scoped to the lead's live team. agent-reap keeps every liveness gate
+# (waiting title, sleeping process, drained inbox older than
+# teammate_idle_minutes), so a teammate that just reported is left alone.
 #
 # FAILURE POLICY
 # Always exit 0. A cleanup hook must not turn a failed or slow reaper into a
@@ -14,8 +17,8 @@
 #
 # The worker is detached: nothing downstream reads its exit status, so running
 # it synchronously would add a multi-socket tmux + process-table scan to the
-# lead's critical path on every teammate completion. SessionEnd is the opposite
-# case and stays synchronous, because it gates the team-directory removal.
+# lead's critical path on every turn. SessionEnd is the opposite case and stays
+# synchronous, because it gates the team-directory removal.
 set -uo pipefail
 
 # Claude caps this command handler at 20 seconds in settings-base.json. The
@@ -30,7 +33,7 @@ readonly REAP_TERM_GRACE_SECS=1
 hook_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly HOOK_LIB="${hook_dir}/lib"
 
-log="${HOME}/.claude/logs/agent-reap-subagent-stop.log"
+log="${HOME}/.claude/logs/agent-reap-stop.log"
 mkdir -p "${log%/*}" 2>/dev/null || true
 
 # A missing lib directory means the hook was moved without its helpers, or the
@@ -52,29 +55,26 @@ if read -r -t 1 -d '' payload <&0 2>/dev/null || [[ -n "$payload" ]]; then
 fi
 [[ -n "$payload" ]] || exit 0
 
-# The parent session is the live team id. SubagentStop's session_id is the
-# subagent's own transcript id, so prefer parent_session_id and fall back to the
-# team_name/agent_id forms emitted by older Claude versions.
-event_target="$(
+# Team directories are named by the session id's first segment; the parser
+# reads the value as JSON rather than by regex.
+session_id="$(
   printf '%s' "$payload" \
-    | /usr/bin/python3 "${HOOK_LIB}/parse-subagent-stop-payload.py"
+    | /usr/bin/python3 "${HOOK_LIB}/parse-session-end-payload.py" 2>/dev/null
 )" || exit 0
+[[ -n "$session_id" ]] || exit 0
+[[ "$session_id" =~ ^[[:alnum:]]+$ ]] || exit 0
 
-IFS=$'\t' read -r session_id agent_name <<<"${event_target}"
-[[ -n "${session_id}" && -n "${agent_name}" ]] || exit 0
+# Solo sessions, and split-pane teammates (whose own session id names no team
+# directory), exit here without a subprocess.
 [[ -d "${HOME}/.claude/teams/session-${session_id}" ]] || exit 0
 
 {
-  printf '\n=== %s session-%s agent-%s\n' \
-    "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$session_id" "$agent_name"
+  printf '\n=== %s session-%s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$session_id"
   /usr/bin/python3 "${HOOK_LIB}/run-reap-worker.py" \
-    --label "agent-reap SubagentStop hook" \
+    --label "agent-reap Stop hook" \
     --timeout "$REAP_TIMEOUT_SECS" \
     --grace "$REAP_TERM_GRACE_SECS" \
-    -- "$agent_reap_bin" reap \
-    --live-team "$session_id" \
-    --completed-agent "$agent_name" \
-    --kill
+    -- "$agent_reap_bin" reap --live-team "$session_id" --kill
 } >>"$log" 2>&1 &
 disown
 

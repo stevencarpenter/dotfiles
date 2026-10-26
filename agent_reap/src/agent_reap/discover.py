@@ -18,9 +18,10 @@ from pathlib import Path
 
 from .runner import Result, Runner
 
-# Tab-delimited. Free-form fields (command, path) come last so a tab inside a path
-# cannot shift the earlier columns: the parser splits with a bounded maxsplit and
-# lets the trailing field keep whatever it contains.
+# Tab-delimited. Free-form fields (command, title, path) come last so a tab inside
+# a path cannot shift the earlier columns: the parser splits with a bounded
+# maxsplit and lets the trailing field keep whatever it contains. A tab inside a
+# title would shift the path; Claude never sets one.
 _PANE_FORMAT = (
     "#{pane_id}\t"
     "#{session_name}\t"
@@ -29,10 +30,11 @@ _PANE_FORMAT = (
     "#{pane_pid}\t"
     "#{window_activity}\t"
     "#{pane_current_command}\t"
+    "#{pane_title}\t"
     "#{pane_current_path}"
 )
 
-_PANE_FIELDS = 8
+_PANE_FIELDS = 9
 
 # Teammate argument format:
 #   --agent-id docs-readme@session-d50ed876 --agent-name docs-readme
@@ -59,6 +61,7 @@ class Pane:
         pid: Pane leader pid.
         window_activity: Unix timestamp of the window's last activity, or None.
         command: Pane's current command name (not the full argv).
+        title: Pane title. Claude Code prefixes it with its state marker.
         path: Pane's current working directory.
     """
 
@@ -70,6 +73,7 @@ class Pane:
     pid: int
     window_activity: int | None
     command: str
+    title: str
     path: str
 
     @property
@@ -249,7 +253,7 @@ def list_panes(socket: str, runner: Runner) -> list[Pane]:
         parts = line.split("\t", _PANE_FIELDS - 1)
         if len(parts) < _PANE_FIELDS:
             continue
-        pane_id, session, window, index, pid, activity, command, path = parts
+        pane_id, session, window, index, pid, activity, command, title, path = parts
         try:
             panes.append(
                 Pane(
@@ -261,6 +265,7 @@ def list_panes(socket: str, runner: Runner) -> list[Pane]:
                     pid=int(pid),
                     window_activity=int(activity) if activity.strip() else None,
                     command=command,
+                    title=title,
                     path=path,
                 )
             )

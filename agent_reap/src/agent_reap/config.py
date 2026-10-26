@@ -49,8 +49,8 @@ class Config:
         teammate_idle_minutes: How long a teammate's inbox must have been quiet
             before its pane is reapable.
         completion_grace_seconds: How long a teammate's inbox must have been
-            quiet before a SubagentStop completion event may reap it. Replaces
-            ``teammate_idle_minutes`` in live-team mode only. A completion event
+            quiet before a ``--completed-agent`` event may reap it. Replaces
+            ``teammate_idle_minutes`` for that one teammate. A completion event
             proves the turn ended, not that the lead is done with the teammate,
             so this window preserves the send-a-follow-up workflow.
         interactive_idle_minutes: How long an interactive session's window must
