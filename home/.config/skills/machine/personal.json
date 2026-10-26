@@ -5,6 +5,12 @@
       "url": "git@github.com:stevencarpenter/fantasy-sports.git",
       "ref": "main",
       "refreshPeriod": "24h"
+    },
+    "agents": {
+      "type": "git",
+      "url": "git@github.com:stevencarpenter/agents.git",
+      "ref": "main",
+      "refreshPeriod": "24h"
     }
   },
   "skills": {
@@ -21,6 +27,6 @@
     "record-todo": { "source": "personal" },
     "wrap-session": { "source": "personal" },
     "kaneo-issue": { "source": "personal" },
-    "blind-review": { "source": "personal" }
+    "blind-review": { "source": "agents", "path": "skills/blind-review" }
   }
 }
