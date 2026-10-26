@@ -367,7 +367,7 @@ the full lint/test matrix.
 
 - `mcp_sync/`: MCP + skills fan-out (the `sync-mcp-configs` / `sync-skills` entry points).
 - [`agent_reap/`](agent_reap/): reports and reaps idle Claude teammate panes across every tmux
-  socket (`agent-reap`); automatic cleanup is a Claude `SessionEnd` hook, not a daemon.
+  socket (`agent-reap`); automatic cleanup is the Claude `Stop` and `SessionEnd` hooks, not a daemon.
 
 ```bash
 just test

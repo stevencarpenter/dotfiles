@@ -54,7 +54,7 @@ The side channels install the local uv tool through `scripts/sync-side-channels.
 machine. Without a tmux server or team directory, the tool exits without action. No capability
 gate is required. The side channels manage `~/.local/bin/agent-reap`; only
 `~/.config/agent-reap/config.toml` is linked by the `core` module.
-It is not a daemon: automatic cleanup is the Claude `SessionEnd` hook, and solo sessions do not
+It is not a daemon: automatic cleanup is the Claude `Stop` and `SessionEnd` hooks, and solo sessions do not
 create a hook log. See `docs/ai-tools/tmux-runtime-lifecycle.md` before diagnosing tmux cwd,
 detach, socket, pane/process, stateful-plugin, generated-config, or stale-binary behavior.
 
