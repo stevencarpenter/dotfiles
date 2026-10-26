@@ -109,11 +109,12 @@ ordinary shells or Codex agent processes.
 
 There is no `agent-reap` daemon or launchd job. Cleanup has three entry points:
 
-- `~/.claude/hooks/agent-reap-subagent-stop.sh` receives the completed `agent_id` and
-  `parent_session_id` from a `SubagentStop` event, then reaps only that named teammate. It
-  skips window-activity idle (the event already proves the turn ended) and shortens inbox-age
-  to `completion_grace_seconds`. It still requires a live session directory, a drained inbox, a
-  sleeping process, no active or foreground descendants, and the normal pane and ancestry guards.
+- `~/.claude/hooks/agent-reap-stop.sh` runs after each of the lead's turns (`Stop`) and reaps
+  the lead's own split-pane teammates that pass every liveness gate. No other lead-side event
+  follows a split-pane teammate's report: `TeammateIdle` fires for in-process teammates only, and
+  `SubagentStop` carries no team identity. The teammate's own `Stop` hook cannot reap its pane
+  because agent-reap protects the caller's ancestry. The hook is detached and exits at once for a
+  session with no team directory.
 - `~/.claude/hooks/agent-reap-session-end.sh` runs a team-scoped reap after a qualifying Claude
   `SessionEnd` event, then removes that ended session's exact `session-*` state directory.
 - `just reap`, `just reap-sockets`, `just reap-strays`, and `just reap-kill` provide manual audit
@@ -123,7 +124,7 @@ The hook logs are created only after a qualifying event owns a matching team dir
 
 ```bash
 tail -n 100 ~/.claude/logs/agent-reap-session-end.log
-tail -n 100 ~/.claude/logs/agent-reap-subagent-stop.log
+tail -n 100 ~/.claude/logs/agent-reap-stop.log
 rg -n -C 4 'SessionEnd|agent-reap' ~/.claude/settings.json
 ```
 
@@ -138,7 +139,9 @@ process-inspection subprocesses it starts.
 
 The status monitor classifies a window only when its pane title begins with Claude's ✳ waiting
 marker or a braille working spinner. Arbitrary application titles such as `nvim` remain unclassified
-instead of being painted as active Claude work.
+instead of being painted as active Claude work. `agent-reap` reads the same marker: a teammate is
+idle only when its title starts with ✳. tmux's `window_activity` is not usable for this, because
+Claude's TUI redraws while it waits for input, so the timestamp never ages.
 
 `agent-reap strays` covers two state classes that pane teardown cannot: persistent SSH control
 masters and allowlisted user processes adopted by PID 1. These remain report-only because broad

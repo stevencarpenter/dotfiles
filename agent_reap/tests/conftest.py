@@ -23,7 +23,7 @@ from agent_reap.runner import RecordingRunner, Result
 NOW = 1_785_830_000.0
 
 # One tab-delimited pane row, matching the format string in discover.py.
-PANE_FORMAT_FIELDS = 8
+PANE_FORMAT_FIELDS = 9
 
 
 def pane_line(
@@ -35,6 +35,7 @@ def pane_line(
     activity: int | str,
     command: str,
     path: str,
+    title: str = "\u2733 docs-readme",
 ) -> str:
     """Build one tmux ``list-panes`` output row.
 
@@ -47,6 +48,7 @@ def pane_line(
         activity: Window activity timestamp, or "" when absent.
         command: Pane current command.
         path: Pane current path.
+        title: Pane title; defaults to Claude's waiting marker.
 
     Returns:
         A tab-delimited row.
@@ -60,6 +62,7 @@ def pane_line(
             str(pid),
             str(activity),
             command,
+            title,
             path,
         ]
     )
@@ -75,6 +78,7 @@ def make_pane(
     command: str = "2.1.221",
     path: str = "/Users/dev/repo",
     socket: str = "/tmp/tmux-501/default",
+    title: str = "\u2733 docs-readme",
 ) -> Pane:
     """Construct a pane directly, bypassing tmux parsing.
 
@@ -88,6 +92,7 @@ def make_pane(
         command: Pane current command.
         path: Pane current path.
         socket: Owning socket.
+        title: Pane title; defaults to Claude's waiting marker.
 
     Returns:
         The pane.
@@ -101,6 +106,7 @@ def make_pane(
         pid=pid,
         window_activity=activity,
         command=command,
+        title=title,
         path=path,
     )
 

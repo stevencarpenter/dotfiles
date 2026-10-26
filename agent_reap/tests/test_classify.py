@@ -104,33 +104,47 @@ def test_running_teammate_is_spared(config: Config, teams_dir: Path) -> None:
     assert "not idle" in report.skipped[0].reason
 
 
-def test_recent_window_activity_spares_sleeping_teammate(
+def test_waiting_title_is_reapable_despite_fresh_window_activity(
     config: Config, teams_dir: Path
 ) -> None:
-    """Fresh output is active work even when the event-loop process is sleeping."""
+    """Claude's TUI redraws while idle, so window activity never ages.
+
+    The waiting marker in the pane title is the idle signal; window activity
+    must not veto it.
+    """
     write_inbox(teams_dir, "abc123", "docs-readme", mtime=DRAINED_LONG_AGO)
-    pane = make_pane(activity=int(NOW))
+    pane = make_pane(activity=int(NOW), title="\u2733 docs-readme")
+
+    report = _classify(config, [pane], {200: make_process(state="Ss+")})
+
+    assert [c.teammate.agent_name for c in report.candidates] == ["docs-readme"]
+
+
+def test_working_title_spares_sleeping_teammate(
+    config: Config, teams_dir: Path
+) -> None:
+    """A braille spinner title is active work even when the process is sleeping."""
+    write_inbox(teams_dir, "abc123", "docs-readme", mtime=DRAINED_LONG_AGO)
+    pane = make_pane(title="\u280b docs-readme")
 
     report = _classify(config, [pane], {200: make_process(state="Ss+")})
 
     assert report.candidates == ()
-    assert "window active" in report.skipped[0].reason
+    assert "working" in report.skipped[0].reason
 
 
-def test_unknown_window_activity_spares_sleeping_teammate(
+def test_title_without_claude_marker_spares_teammate(
     config: Config, teams_dir: Path
 ) -> None:
-    """Missing tmux liveness telemetry must fail closed for destructive candidates."""
+    """No state marker (an editor title, an empty title) fails closed."""
     write_inbox(teams_dir, "abc123", "docs-readme", mtime=DRAINED_LONG_AGO)
 
     report = _classify(
-        config,
-        [make_pane(activity=None)],
-        {200: make_process(state="Ss+")},
+        config, [make_pane(title="nvim")], {200: make_process(state="Ss+")}
     )
 
     assert report.candidates == ()
-    assert "activity unavailable" in report.skipped[0].reason
+    assert "no waiting marker" in report.skipped[0].reason
 
 
 def test_running_descendant_spares_sleeping_teammate(
@@ -172,10 +186,15 @@ def test_sleeping_foreground_descendant_spares_teammate(
     assert "foreground descendant" in report.skipped[0].reason
 
 
-def test_sleeping_same_group_descendant_spares_teammate(
+def test_sleeping_same_group_descendant_does_not_spare_teammate(
     config: Config, teams_dir: Path
 ) -> None:
-    """Silent child work often inherits Claude's own foreground process group."""
+    """MCP servers sleep in Claude's own process group for the whole session.
+
+    Measured on Claude Code 2.1.310: every teammate carries about ten sleeping
+    children (uv, node, codebase-memory, rust-analyzer) with pgid == tpgid ==
+    the Claude pid. Treating them as foreground work would block every reap.
+    """
     write_inbox(teams_dir, "abc123", "docs-readme", mtime=DRAINED_LONG_AGO)
     processes = {
         200: make_process(pid=200, pgid=200, tpgid=200, state="S"),
@@ -185,14 +204,13 @@ def test_sleeping_same_group_descendant_spares_teammate(
             pgid=200,
             tpgid=200,
             state="S",
-            command="sleep 3600",
+            command="codebase-memory-mcp",
         ),
     }
 
     report = _classify(config, [make_pane()], processes)
 
-    assert report.candidates == ()
-    assert "foreground descendant" in report.skipped[0].reason
+    assert [c.teammate.agent_name for c in report.candidates] == ["docs-readme"]
 
 
 def test_own_ancestry_is_never_reapable(config: Config, teams_dir: Path) -> None:
@@ -558,3 +576,63 @@ def test_same_pane_id_on_the_same_socket_is_protected(
 
     assert report.candidates == ()
     assert report.skipped[0].reason == "this session"
+
+
+def test_live_team_alone_reaps_idle_teammates_of_that_team(
+    config: Config, teams_dir: Path
+) -> None:
+    """The lead's Stop hook names its own live team; standard gates still apply."""
+    write_inbox(teams_dir, "abc123", "docs-readme", mtime=DRAINED_LONG_AGO)
+
+    report = _classify(
+        config,
+        [make_pane()],
+        {200: make_process()},
+        protected_sessions={"abc123"},
+        live_team_scope="abc123",
+    )
+
+    assert [c.teammate.agent_name for c in report.candidates] == ["docs-readme"]
+
+
+def test_live_team_alone_keeps_the_idle_threshold(
+    config: Config, teams_dir: Path
+) -> None:
+    """Without a completion event the completion grace does not apply."""
+    write_inbox(teams_dir, "abc123", "docs-readme", mtime=NOW - 600)
+
+    report = _classify(
+        config, [make_pane()], {200: make_process()}, live_team_scope="abc123"
+    )
+
+    assert report.candidates == ()
+    assert "drained only" in report.skipped[0].reason
+
+
+def test_live_team_alone_keeps_the_working_title_gate(
+    config: Config, teams_dir: Path
+) -> None:
+    """A team-wide live reap must not inherit the completion event's idle bypass."""
+    write_inbox(teams_dir, "abc123", "docs-readme", mtime=DRAINED_LONG_AGO)
+
+    report = _classify(
+        config,
+        [make_pane(title="\u280b docs-readme")],
+        {200: make_process()},
+        live_team_scope="abc123",
+    )
+
+    assert report.candidates == ()
+    assert "working" in report.skipped[0].reason
+
+
+def test_live_team_alone_ignores_other_teams(config: Config, teams_dir: Path) -> None:
+    """Naming one live team must not reach a different team's panes."""
+    write_inbox(teams_dir, "abc123", "docs-readme", mtime=DRAINED_LONG_AGO)
+
+    report = _classify(
+        config, [make_pane()], {200: make_process()}, live_team_scope="other99"
+    )
+
+    assert report.candidates == ()
+    assert report.skipped == ()

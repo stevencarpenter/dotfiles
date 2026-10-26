@@ -18,6 +18,12 @@ from .teams import Inbox, read_inbox, session_exists
 # pane command (e.g. "2.1.221"), so match the version shape as well as the name.
 _CLAUDE_COMMANDS = ("claude", "node")
 
+# Claude Code's pane title starts with ✳ while it waits for input and with a
+# braille spinner while it works. tmux's window_activity cannot tell these
+# apart: the TUI redraws while idle, so the timestamp never ages.
+_WAITING_MARKER = "\u2733"
+_BRAILLE_RANGE = ("\u2800", "\u28ff")
+
 
 @dataclass(frozen=True)
 class Candidate:
@@ -133,6 +139,23 @@ def _is_claude_pane(pane: Pane, process: Process) -> bool:
     )
 
 
+def _title_state(title: str) -> str | None:
+    """Read Claude's state marker off a pane title.
+
+    Args:
+        title: The pane title as tmux reports it.
+
+    Returns:
+        ``"waiting"``, ``"working"``, or None when no Claude marker leads the title.
+    """
+    text = title.lstrip()
+    if text.startswith(_WAITING_MARKER):
+        return "waiting"
+    if text and _BRAILLE_RANGE[0] <= text[0] <= _BRAILLE_RANGE[1]:
+        return "working"
+    return None
+
+
 def _agent_allowed(name: str, config: Config) -> bool:
     """Apply the allow/deny lists to a teammate name.
 
@@ -186,23 +209,24 @@ def classify(
             (they exist to avoid reaping mid-work agents in a *live* team), and
             the own-team guard is deliberately lifted for this id. The pane and
             ancestry guards still hold, so the hook can never kill its own shell.
-        live_team_scope: The caller's live team session id for a completion-event
-            reap. Only the named ``completed_agent`` in this team is considered.
-        completed_agent: The exact teammate name confirmed by a ``SubagentStop``
-            event. Window-activity idle is skipped (the event already proves the
-            turn ended). Inbox-age is not: it shortens to
-            ``completion_grace_seconds`` so the lead can still send a follow-up.
-            Session, pane, process, descendant, and drained-inbox checks hold.
+        live_team_scope: The caller's own live team session id. Used by the
+            lead's ``Stop`` hook: only this team's teammates are considered and
+            the own-team guard is lifted for it, while every liveness gate
+            (waiting title, sleeping process, drained and stale inbox) holds.
+        completed_agent: The exact teammate name confirmed by a completion
+            event; requires ``live_team_scope``. The title gate is skipped (the
+            event already proves the turn ended). Inbox-age is not: it shortens
+            to ``completion_grace_seconds`` so the lead can still send a
+            follow-up. Session, pane, process, descendant, and drained-inbox
+            checks hold.
 
     Returns:
         The classification, with a reason attached to every exclusion.
     """
     protected_panes = protected_panes or set()
     protected_sessions = protected_sessions or set()
-    if (live_team_scope is None) != (completed_agent is None):
-        raise ValueError(
-            "live_team_scope and completed_agent must be provided together"
-        )
+    if completed_agent is not None and live_team_scope is None:
+        raise ValueError("completed_agent requires live_team_scope")
     if team_scope is not None and live_team_scope is not None:
         raise ValueError("team_scope and live_team_scope are mutually exclusive")
     root = (teams_dir or config.teams_dir).expanduser()
@@ -269,11 +293,11 @@ def classify(
             continue
 
         if live_team_scope is not None:
-            # A completion event is authoritative only for this exact teammate.
-            # Do not turn live-team mode into a team-wide liveness bypass.
             if teammate.session_id != live_team_scope:
                 continue
-            if teammate.agent_name != completed_agent:
+            # A completion event is authoritative only for this exact teammate.
+            # Do not turn live-team mode into a team-wide liveness bypass.
+            if completed_agent is not None and teammate.agent_name != completed_agent:
                 continue
         elif teammate.session_id in protected_sessions:
             skipped.append(Skipped(pane, "own team session"))
@@ -287,19 +311,13 @@ def classify(
         if not session_exists(root, teammate.session_id):
             skipped.append(Skipped(pane, "no team dir for session"))
             continue
-        if live_team_scope is None:
-            window_idle_s = (
-                None
-                if pane.window_activity is None
-                else max(0.0, now - pane.window_activity)
-            )
-            if window_idle_s is None:
-                skipped.append(Skipped(pane, "window activity unavailable"))
+        if completed_agent is None:
+            state = _title_state(pane.title)
+            if state == "working":
+                skipped.append(Skipped(pane, "teammate working (spinner in title)"))
                 continue
-            if window_idle_s < teammate_idle_s:
-                skipped.append(
-                    Skipped(pane, f"teammate window active {int(window_idle_s)}s ago")
-                )
+            if state != "waiting":
+                skipped.append(Skipped(pane, "no waiting marker in pane title"))
                 continue
         if not process.sleeping:
             skipped.append(Skipped(pane, f"process not idle (state {process.state})"))
@@ -310,10 +328,15 @@ def classify(
             for pid in descendants(pane.pid, processes)
             if pid in processes
         ]
+        # A child owns the terminal only when the foreground group moved away
+        # from Claude's own group. MCP servers inherit Claude's group and sleep
+        # there for the whole session, so same-group children are not work.
         foreground = [
             child
             for child in descendant_processes
-            if process.tpgid > 0 and child.pgid == process.tpgid
+            if process.tpgid > 0
+            and child.pgid == process.tpgid
+            and child.pgid != process.pgid
         ]
         if foreground:
             skipped.append(
@@ -342,7 +365,7 @@ def classify(
         idle_s = inbox.idle_seconds(now) or 0.0
         # Retain a grace period after completion so a follow-up can reuse the teammate.
         min_idle_s = (
-            completion_grace_s if live_team_scope is not None else teammate_idle_s
+            completion_grace_s if completed_agent is not None else teammate_idle_s
         )
         if idle_s < min_idle_s:
             skipped.append(Skipped(pane, f"drained only {int(idle_s)}s ago"))

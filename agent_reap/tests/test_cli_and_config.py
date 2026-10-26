@@ -131,14 +131,16 @@ def test_reap_with_kill_flag_kills_by_pane_id(wired: Machine) -> None:
     assert kills[0][-1] == "%2"
 
 
-def test_revalidation_observes_activity_after_initial_report(wired: Machine) -> None:
-    """Fresh output between reporting and killing invalidates the candidate."""
+def test_revalidation_observes_work_after_initial_report(wired: Machine) -> None:
+    """A spinner appearing between reporting and killing invalidates the candidate."""
     config = load_config(wired.config_path).config
     initial = build_report(config, wired.runner, now=NOW)
     assert len(initial.candidates) == 1
     wired.runner.responses[f"tmux -S {wired.socket} list-panes"] = Result(
         0,
-        pane_line("%2", "devbox", 1, 2, 200, int(NOW), "2.1.221", "/repo"),
+        pane_line(
+            "%2", "devbox", 1, 2, 200, 10, "2.1.221", "/repo", title="\u280b docs"
+        ),
     )
 
     valid, reason = _revalidate_candidate(
@@ -150,7 +152,7 @@ def test_revalidation_observes_activity_after_initial_report(wired: Machine) -> 
     )
 
     assert valid is False
-    assert "window active" in reason
+    assert "working" in reason
 
 
 def test_json_reap_failure_is_nonzero_and_socket_qualified(
@@ -269,10 +271,34 @@ def test_completion_event_kills_only_the_confirmed_agent(wired: Machine) -> None
     assert kills[0][-1] == "%2"
 
 
-def test_completion_event_options_must_be_paired(
+def test_completed_agent_requires_a_live_team(
     wired: Machine, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """An incomplete event scope cannot accidentally become a broad reap."""
+    """A completion event without its team cannot become a broad reap."""
+    status = cli(
+        [
+            "--config",
+            str(wired.config_path),
+            "reap",
+            "--completed-agent",
+            "docs-readme",
+        ],
+        runner=wired.runner,
+    )
+
+    assert status == 2
+    assert "requires --live-team" in capsys.readouterr().err
+    assert not any("kill-pane" in call for call in map(" ".join, wired.runner.calls))
+
+
+def test_live_team_alone_reaps_own_idle_teammates(
+    wired: Machine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The lead's Stop hook reaps its own team's finished teammates."""
+    monkeypatch.setenv("CLAUDE_SESSION_ID", "abc123-0000-0000-0000-000000000000")
+    with wired.config_path.open("a", encoding="utf-8") as config_file:
+        config_file.write("\nkill_enabled = true\n")
+
     status = cli(
         [
             "--config",
@@ -280,13 +306,13 @@ def test_completion_event_options_must_be_paired(
             "reap",
             "--live-team",
             "abc123",
+            "--kill",
         ],
         runner=wired.runner,
     )
 
-    assert status == 2
-    assert "provided together" in capsys.readouterr().err
-    assert not any("kill-pane" in call for call in map(" ".join, wired.runner.calls))
+    assert status == 0
+    assert sum("kill-pane" in call for call in map(" ".join, wired.runner.calls)) == 1
 
 
 def test_completion_event_options_require_the_reap_subcommand(

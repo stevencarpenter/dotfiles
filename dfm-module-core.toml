@@ -238,12 +238,12 @@ target = ".claude/hooks/emit-routing-context.sh"
 source = "home/.claude/hooks/emit-routing-context.sh"
 
 [[resources]]
-id = "claude-hooks-agent-reap-subagent-stop-sh"
+id = "claude-hooks-agent-reap-stop-sh"
 kind = "link"
 adapter = "fs-link/v1"
-target = ".claude/hooks/agent-reap-subagent-stop.sh"
+target = ".claude/hooks/agent-reap-stop.sh"
 [resources.value]
-source = "home/.claude/hooks/agent-reap-subagent-stop.sh"
+source = "home/.claude/hooks/agent-reap-stop.sh"
 
 [[resources]]
 id = "claude-hooks-lib"
@@ -492,10 +492,10 @@ argv = ["${HOME}/.claude/hooks/agent-journal-stop.sh"]
 event = "SubagentStop"
 type = "command"
 argv = ["${HOME}/.claude/hooks/agent-journal-stop.sh"]
-[resources.value.handlers.reap-subagent-stop]
-event = "SubagentStop"
+[resources.value.handlers.reap-stop]
+event = "Stop"
 type = "command"
-argv = ["${HOME}/.claude/hooks/agent-reap-subagent-stop.sh"]
+argv = ["${HOME}/.claude/hooks/agent-reap-stop.sh"]
 timeout = 20
 [resources.value.handlers.reap-session-end]
 event = "SessionEnd"
