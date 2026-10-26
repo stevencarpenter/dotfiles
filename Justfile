@@ -125,6 +125,11 @@ test *FLAGS:
 fmt:
     for p in mcp_sync agent_reap; do uv run --project $p --group dev ruff format $p/src $p/tests || exit $?; done
 
+# A/B hippo enrichment models on recorded requests: record, inspect, run, report.
+[group('Targeted maintenance')]
+hippo-eval *ARGS:
+    scripts/hippo-model-eval.py {{ ARGS }}
+
 # MCP configs only; hooks-sync.sh also regenerates them during sync-dfm-apply.
 [group('Targeted maintenance')]
 mcp-sync:
