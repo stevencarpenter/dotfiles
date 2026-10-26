@@ -35,7 +35,7 @@ remaining servers live in machine overlays:
 | Server | Machine(s) | Package / command | Purpose |
 |--------|-----------|-------------------|---------|
 | **AWS CCAPI** | work | `uvx awslabs.ccapi-mcp-server --readonly` | AWS resource management (read-only) |
-| **hippo** | personal | `uv run --project ~/projects/hippo/brain hippo-mcp` | Local knowledge base / brain |
+| **hippo** | personal | `uv run --no-sync --project ~/.local/share/hippo-brain hippo-mcp` | Local knowledge base / brain |
 | **grafana** | personal, lab | `uvx mcp-grafana --disable-write` | Home-ops dashboards (read-only) |
 | **codegraph** | personal | `codegraph serve --mcp` | Local code-intelligence index |
 

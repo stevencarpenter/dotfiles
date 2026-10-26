@@ -39,8 +39,9 @@
       "command": "uv",
       "args": [
         "run",
+        "--no-sync",
         "--project",
-        "/Users/carpenter/projects/hippo/brain",
+        "/Users/carpenter/.local/share/hippo-brain",
         "hippo-mcp"
       ],
       "autoApprove": [
