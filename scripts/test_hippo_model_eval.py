@@ -331,11 +331,12 @@ class RegressionTests(unittest.TestCase):
 class SecondReviewTests(unittest.TestCase):
     """Warm-up failures, startup power samples, and compressed responses."""
 
-    def run_models(self, *models: str) -> tuple[int, Path]:
+    def run_models(self, *models: str, extra: tuple[str, ...] = ()) -> tuple[int, Path]:
         """Run the evaluator against FakeOmlx with the given models.
 
         Args:
             *models: Candidate model IDs.
+            extra: Additional ``run`` flags.
 
         Returns:
             Exit code and results path.
@@ -351,6 +352,7 @@ class SecondReviewTests(unittest.TestCase):
         argv += ["--out", str(tmp / "results.jsonl")]
         for model in models:
             argv += ["--model", model]
+        argv += list(extra)
         with redirect_stderr(io.StringIO()):
             code = EVAL.main(argv)
         return code, tmp / "results.jsonl"
@@ -388,6 +390,32 @@ class SecondReviewTests(unittest.TestCase):
             time.sleep(0.6)
             summary = sampler.stop()
         self.assertEqual(summary["mean_watts"], 2.0)
+
+    def test_interrupted_run_stops_power_sampler(self) -> None:
+        """Ctrl-C mid-run still stops powermetrics and writes no power row."""
+        stopped: list[bool] = []
+
+        class FakeSampler:
+            def stop(self) -> dict[str, Any]:
+                stopped.append(True)
+                return {}
+
+        real_run_case = EVAL.run_case
+        calls: list[int] = []
+
+        def interrupting_run_case(*args: Any) -> Any:
+            calls.append(1)
+            if len(calls) > 1:
+                raise KeyboardInterrupt
+            return real_run_case(*args)
+
+        with (
+            patch.object(EVAL, "PowerSampler", FakeSampler),
+            patch.object(EVAL, "run_case", interrupting_run_case),
+            self.assertRaises(KeyboardInterrupt),
+        ):
+            self.run_models("a", extra=("--power",))
+        self.assertEqual(stopped, [True])
 
     def test_proxy_strips_accept_encoding(self) -> None:
         """Upstream is never asked to compress, so bodies stay plain JSON."""

@@ -566,11 +566,18 @@ def cmd_run(args: argparse.Namespace) -> int:
             continue
         evaluated += 1
         sampler = PowerSampler() if args.power else None
-        for number, case in enumerate(cases, 1):
-            result = run_case(base_url, case, model, args)
-            append_jsonl(args.out, result)
-            status = result.get("error") or f"{result['elapsed_s']:.1f}s"
-            print(f"   {number}/{len(cases)} {status}", file=sys.stderr)
+        try:
+            for number, case in enumerate(cases, 1):
+                result = run_case(base_url, case, model, args)
+                append_jsonl(args.out, result)
+                status = result.get("error") or f"{result['elapsed_s']:.1f}s"
+                print(f"   {number}/{len(cases)} {status}", file=sys.stderr)
+        except BaseException:
+            # Reap the root powermetrics on Ctrl-C or any error; a partial
+            # run's power row would be misleading, so none is written.
+            if sampler:
+                sampler.stop()
+            raise
         if sampler:
             append_jsonl(args.out, {"type": "power", "model": model, **sampler.stop()})
     print(f"results: {args.out}", file=sys.stderr)
