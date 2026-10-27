@@ -12,6 +12,7 @@ import io
 import json
 import tempfile
 import threading
+import time
 import unittest
 import urllib.request
 from contextlib import redirect_stderr, redirect_stdout
@@ -48,6 +49,7 @@ class FakeOmlx(BaseHTTPRequestHandler):
     """Minimal OpenAI-compatible server that echoes the requested model."""
 
     requests: list[dict[str, Any]] = []
+    headers_seen: list[dict[str, str]] = []
 
     def log_message(self, format: str, *args: Any) -> None:
         """Silence access logging."""
@@ -60,6 +62,10 @@ class FakeOmlx(BaseHTTPRequestHandler):
         """Answer a chat completion with a JSON summary."""
         body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
         FakeOmlx.requests.append(body)
+        FakeOmlx.headers_seen.append({k.lower(): v for k, v in self.headers.items()})
+        if body["model"] == "missing":
+            self.send_error(404, "model not loaded")
+            return
         thinking = (body.get("chat_template_kwargs") or {}).get("enable_thinking", True)
         self._send(
             {
@@ -320,6 +326,91 @@ class RegressionTests(unittest.TestCase):
                 ]
             )
         self.assertEqual(code, 1)
+
+
+class SecondReviewTests(unittest.TestCase):
+    """Warm-up failures, startup power samples, and compressed responses."""
+
+    def run_models(self, *models: str) -> tuple[int, Path]:
+        """Run the evaluator against FakeOmlx with the given models.
+
+        Args:
+            *models: Candidate model IDs.
+
+        Returns:
+            Exit code and results path.
+        """
+        upstream = serve(FakeOmlx)
+        self.addCleanup(upstream.server_close)
+        self.addCleanup(upstream.shutdown)
+        tmp = Path(tempfile.mkdtemp())
+        case = {"id": "c1", "request": {"model": "prod", "messages": []}}
+        (tmp / "cases.jsonl").write_text(json.dumps(case) + "\n")
+        argv = ["run", "--cases", str(tmp / "cases.jsonl"), "--cooldown", "0"]
+        argv += ["--base-url", f"http://127.0.0.1:{upstream.server_address[1]}/v1"]
+        argv += ["--out", str(tmp / "results.jsonl")]
+        for model in models:
+            argv += ["--model", model]
+        with redirect_stderr(io.StringIO()):
+            code = EVAL.main(argv)
+        return code, tmp / "results.jsonl"
+
+    def test_failed_warm_up_is_reported(self) -> None:
+        """A model whose warm-up fails shows up with an error, not silently."""
+        code, results = self.run_models("a", "missing")
+        self.assertEqual(code, 0)
+        summaries = {
+            s["model"]: s for s in EVAL.summarize(EVAL.read_jsonl(results), None)
+        }
+        self.assertEqual(summaries["missing"]["errors"], 1)
+        self.assertEqual(summaries["a"]["errors"], 0)
+
+    def test_run_fails_when_no_model_is_evaluated(self) -> None:
+        """Every warm-up failing is a nonzero exit."""
+        code, results = self.run_models("missing")
+        self.assertEqual(code, 1)
+        self.assertTrue(results.exists())
+
+    def test_power_drops_startup_samples(self) -> None:
+        """Idle samples taken before the run starts are not averaged in."""
+        line = "Combined Power (CPU + GPU + ANE): {} mW"
+        command = (
+            f'echo "{line.format(9000)}"; sleep 1.7; '
+            f'echo "{line.format(2000)}"; echo "{line.format(2000)}"; sleep 30'
+        )
+        real_popen = EVAL.subprocess.Popen
+
+        def fake_popen(_args: list[str], **kwargs: Any) -> Any:
+            return real_popen(["sh", "-c", command], **kwargs)
+
+        with patch.object(EVAL.subprocess, "Popen", fake_popen):
+            sampler = EVAL.PowerSampler()
+            time.sleep(0.6)
+            summary = sampler.stop()
+        self.assertEqual(summary["mean_watts"], 2.0)
+
+    def test_proxy_strips_accept_encoding(self) -> None:
+        """Upstream is never asked to compress, so bodies stay plain JSON."""
+        upstream = serve(FakeOmlx)
+        self.addCleanup(upstream.server_close)
+        self.addCleanup(upstream.shutdown)
+        tmp = Path(tempfile.mkdtemp())
+        recorder = EVAL.Recorder(
+            f"http://127.0.0.1:{upstream.server_address[1]}", tmp / "c.jsonl", 5
+        )
+        proxy = serve(EVAL.make_handler(recorder))
+        self.addCleanup(proxy.server_close)
+        self.addCleanup(proxy.shutdown)
+        request = urllib.request.Request(
+            f"http://127.0.0.1:{proxy.server_address[1]}/v1/chat/completions",
+            data=json.dumps({"model": "m"}).encode(),
+            headers={"Content-Type": "application/json", "Accept-Encoding": "gzip"},
+        )
+        with redirect_stderr(io.StringIO()):
+            with urllib.request.urlopen(request, timeout=3) as response:
+                self.assertIn("choices", json.load(response))
+        # urllib itself adds "identity"; what matters is gzip never reaches upstream.
+        self.assertNotIn("gzip", FakeOmlx.headers_seen[-1].get("accept-encoding", ""))
 
 
 if __name__ == "__main__":

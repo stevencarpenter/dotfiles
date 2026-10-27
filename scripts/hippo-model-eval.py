@@ -182,7 +182,11 @@ def make_handler(recorder: Recorder) -> type[BaseHTTPRequestHandler]:
             headers = {
                 key: value
                 for key, value in self.headers.items()
-                if key.lower() not in {"host", "content-length", "connection"}
+                # Dropping accept-encoding keeps upstream bodies uncompressed, so
+                # the client never gets gzip bytes without Content-Encoding and
+                # recordings stay readable JSON.
+                if key.lower()
+                not in {"host", "content-length", "connection", "accept-encoding"}
             }
             request = urllib.request.Request(
                 recorder.upstream + self.path,
@@ -436,6 +440,7 @@ class PowerSampler:
         # A file, not a pipe: an undrained pipe fills within seconds and
         # powermetrics then blocks, so later samples would never be taken.
         self._log = tempfile.TemporaryFile(mode="w+")
+        launched = time.monotonic()
         self._proc = subprocess.Popen(
             [
                 "sudo",
@@ -454,6 +459,9 @@ class PowerSampler:
         if self._proc.poll() is not None:
             raise RuntimeError("powermetrics failed to start; run `sudo -v` first")
         self.started = time.monotonic()
+        # Samples land once per second; those completed during the startup
+        # wait are idle, not inference, so stop() drops them.
+        self._startup_samples = int(self.started - launched)
 
     def stop(self) -> JsonDict:
         """Stop sampling and summarize.
@@ -466,7 +474,7 @@ class PowerSampler:
         self._proc.wait(timeout=10)
         with self._log:
             self._log.seek(0)
-            samples = parse_power(self._log.read())
+            samples = parse_power(self._log.read())[self._startup_samples :]
         watts = statistics.fmean(samples) / 1000 if samples else 0.0
         return {
             "mean_watts": round(watts, 2),
@@ -542,6 +550,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         print("no recorded cases", file=sys.stderr)
         return 1
     base_url = args.base_url.rstrip("/")
+    evaluated = 0
     for index, model in enumerate(args.model):
         if index and args.cooldown:
             print(f"cooldown {args.cooldown}s", file=sys.stderr)
@@ -552,7 +561,10 @@ def cmd_run(args: argparse.Namespace) -> int:
             print(
                 f"   warm-up failed, skipping model: {warm['error']}", file=sys.stderr
             )
+            # Keep the failure visible in the report instead of dropping the model.
+            append_jsonl(args.out, warm)
             continue
+        evaluated += 1
         sampler = PowerSampler() if args.power else None
         for number, case in enumerate(cases, 1):
             result = run_case(base_url, case, model, args)
@@ -562,7 +574,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         if sampler:
             append_jsonl(args.out, {"type": "power", "model": model, **sampler.stop()})
     print(f"results: {args.out}", file=sys.stderr)
-    return 0
+    return 0 if evaluated else 1
 
 
 # ── report ────────────────────────────────────────────────────────────────
