@@ -36,6 +36,7 @@ import re
 import statistics
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import urllib.error
@@ -190,26 +191,38 @@ def make_handler(recorder: Recorder) -> type[BaseHTTPRequestHandler]:
                 method=self.command,
             )
             try:
-                with urllib.request.urlopen(request, timeout=900) as response:
-                    status, body = response.status, response.read()
-                    content_type = response.headers.get("Content-Type", "")
+                response = urllib.request.urlopen(request, timeout=900)
+                status = response.status
             except urllib.error.HTTPError as error:
-                status, body = error.code, error.read()
-                content_type = error.headers.get("Content-Type", "")
+                response, status = error, error.code
             except OSError as error:
                 self.send_error(502, f"upstream unreachable: {error}")
                 return
+            with response:
+                content_type = response.headers.get("Content-Type", "")
+                self.send_response(status)
+                if content_type:
+                    self.send_header("Content-Type", content_type)
+                if content_type.startswith("text/event-stream"):
+                    # Relay SSE as it arrives so the brain keeps its streaming
+                    # timing; HTTP/1.0 framing ends the body at close.
+                    self.end_headers()
+                    chunks = []
+                    while chunk := response.read1(65536):
+                        self.wfile.write(chunk)
+                        self.wfile.flush()
+                        chunks.append(chunk)
+                    body = b"".join(chunks)
+                else:
+                    body = response.read()
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
             if data and self.path.endswith(CHAT_PATH_SUFFIX):
                 try:
                     recorder.save(self.path, json.loads(data), status, body)
                 except ValueError:
                     pass
-            self.send_response(status)
-            if content_type:
-                self.send_header("Content-Type", content_type)
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
 
         do_GET = _forward
         do_POST = _forward
@@ -420,6 +433,9 @@ class PowerSampler:
         Raises:
             RuntimeError: If powermetrics cannot start without a password.
         """
+        # A file, not a pipe: an undrained pipe fills within seconds and
+        # powermetrics then blocks, so later samples would never be taken.
+        self._log = tempfile.TemporaryFile(mode="w+")
         self._proc = subprocess.Popen(
             [
                 "sudo",
@@ -430,8 +446,8 @@ class PowerSampler:
                 "-i",
                 "1000",
             ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stdout=self._log,
+            stderr=subprocess.STDOUT,
             text=True,
         )
         time.sleep(1.5)
@@ -447,8 +463,10 @@ class PowerSampler:
         """
         seconds = time.monotonic() - self.started
         self._proc.terminate()
-        output, _ = self._proc.communicate(timeout=10)
-        samples = parse_power(output)
+        self._proc.wait(timeout=10)
+        with self._log:
+            self._log.seek(0)
+            samples = parse_power(self._log.read())
         watts = statistics.fmean(samples) / 1000 if samples else 0.0
         return {
             "mean_watts": round(watts, 2),
@@ -514,6 +532,11 @@ def cmd_run(args: argparse.Namespace) -> int:
     Returns:
         Process exit code.
     """
+    if args.out.exists():
+        # One run per file: report keys power and agreement by model and case,
+        # so a second run appended here would be silently merged into the first.
+        print(f"{args.out} exists; pass a new --out", file=sys.stderr)
+        return 1
     cases = read_jsonl(args.cases)[: args.limit or None]
     if not cases:
         print("no recorded cases", file=sys.stderr)
@@ -670,9 +693,10 @@ def summarize(results: list[JsonDict], baseline: str | None) -> list[JsonDict]:
     summaries = []
     for model, rows in by_model.items():
         ok = [row for row in rows if "error" not in row]
-        parsed = {
-            row["case"]: parse_json_content(row.get("content") or "") for row in ok
-        }
+        outputs = [
+            (row["case"], parse_json_content(row.get("content") or "")) for row in ok
+        ]
+        parsed = dict(outputs)
         latencies = [row["elapsed_s"] for row in ok]
         pairs = [
             agreement(output, base_outputs[case])
@@ -683,7 +707,7 @@ def summarize(results: list[JsonDict], baseline: str | None) -> list[JsonDict]:
             "model": model,
             "cases": len(rows),
             "errors": len(rows) - len(ok),
-            "json_valid": sum(value is not None for value in parsed.values()) / len(ok)
+            "json_valid": sum(value is not None for _, value in outputs) / len(ok)
             if ok
             else 0.0,
             "truncated": sum(row.get("finish_reason") == "length" for row in ok),

@@ -19,6 +19,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from types import ModuleType
 from typing import Any
+from unittest.mock import patch
 
 SCRIPT = Path(__file__).resolve().parent / "hippo-model-eval.py"
 
@@ -178,7 +179,7 @@ class EndToEndTests(unittest.TestCase):
                 "omlx",
                 5,
             )
-        self.assertTrue(recorder.done.is_set())
+        self.assertTrue(recorder.done.wait(3))
         self.assertEqual((tmp / "cases.jsonl").stat().st_mode & 0o777, 0o600)
 
         out = io.StringIO()
@@ -225,6 +226,100 @@ class EndToEndTests(unittest.TestCase):
         with redirect_stdout(out):
             EVAL.main(["report", str(results), "--baseline", "a", "--show", "1"])
         self.assertIn("| b | 1 | 0 | 100.0% |", out.getvalue())
+
+
+class SlowSse(BaseHTTPRequestHandler):
+    """SSE upstream that holds its second event until ``release`` is set."""
+
+    release = threading.Event()
+
+    def log_message(self, format: str, *args: Any) -> None:
+        """Silence access logging."""
+
+    def do_POST(self) -> None:
+        """Emit one event, wait, then emit the terminator."""
+        self.rfile.read(int(self.headers["Content-Length"]))
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.end_headers()
+        self.wfile.write(b'data: {"first": true}\n\n')
+        self.wfile.flush()
+        SlowSse.release.wait(5)
+        self.wfile.write(b"data: [DONE]\n\n")
+
+
+class RegressionTests(unittest.TestCase):
+    """Streaming relay, power sampling, and repeated-run accounting."""
+
+    def test_proxy_relays_sse_before_upstream_finishes(self) -> None:
+        """The first event reaches the client while upstream is still open."""
+        upstream = serve(SlowSse)
+        self.addCleanup(upstream.server_close)
+        self.addCleanup(upstream.shutdown)
+        self.addCleanup(SlowSse.release.set)
+        tmp = Path(tempfile.mkdtemp())
+        recorder = EVAL.Recorder(
+            f"http://127.0.0.1:{upstream.server_address[1]}", tmp / "c.jsonl", 1
+        )
+        proxy = serve(EVAL.make_handler(recorder))
+        self.addCleanup(proxy.server_close)
+        self.addCleanup(proxy.shutdown)
+        request = urllib.request.Request(
+            f"http://127.0.0.1:{proxy.server_address[1]}/v1/chat/completions",
+            data=json.dumps({"model": "m", "stream": True}).encode(),
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(request, timeout=3) as response:
+            self.assertEqual(response.readline(), b'data: {"first": true}\n')
+            self.assertFalse(recorder.done.is_set())
+            SlowSse.release.set()
+            self.assertIn(b"[DONE]", response.read())
+        with redirect_stderr(io.StringIO()):
+            self.assertTrue(recorder.done.wait(3))
+        self.assertIn("[DONE]", EVAL.read_jsonl(tmp / "c.jsonl")[0]["response"])
+
+    def test_power_sampler_keeps_samples_past_a_pipe_buffer(self) -> None:
+        """Output larger than a pipe buffer is still fully counted."""
+        # 2000 early lines (~84 KB, past a 64 KB pipe) at 1 W, then 3000 at
+        # 3 W: a stalled sampler only ever sees the 1 W lines.
+        line = "Combined Power (CPU + GPU + ANE): {} mW"
+        command = (
+            f'for i in $(seq 2000); do echo "{line.format(1000)}"; done; '
+            f'for i in $(seq 3000); do echo "{line.format(3000)}"; done; sleep 30'
+        )
+        real_popen = EVAL.subprocess.Popen
+
+        def fake_popen(_args: list[str], **kwargs: Any) -> Any:
+            return real_popen(["sh", "-c", command], **kwargs)
+
+        with patch.object(EVAL.subprocess, "Popen", fake_popen):
+            sampler = EVAL.PowerSampler()
+            summary = sampler.stop()
+        self.assertEqual(summary["mean_watts"], 2.2)
+
+    def test_json_valid_counts_every_row(self) -> None:
+        """Two valid rows for one case report 100%, not 50%."""
+        row = {"type": "case", "model": "m", "case": "c", "elapsed_s": 1.0}
+        rows = [{**row, "content": '{"a": 1}'}, {**row, "content": '{"a": 2}'}]
+        self.assertEqual(EVAL.summarize(rows, None)[0]["json_valid"], 1.0)
+
+    def test_run_refuses_existing_results_file(self) -> None:
+        """A second run cannot append into an earlier run's results."""
+        tmp = Path(tempfile.mkdtemp())
+        (tmp / "results.jsonl").write_text("")
+        with redirect_stderr(io.StringIO()):
+            code = EVAL.main(
+                [
+                    "run",
+                    "--cases",
+                    str(tmp / "missing.jsonl"),
+                    "--model",
+                    "m",
+                    "--out",
+                    str(tmp / "results.jsonl"),
+                ]
+            )
+        self.assertEqual(code, 1)
 
 
 if __name__ == "__main__":
