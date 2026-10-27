@@ -130,6 +130,11 @@ fmt:
 hippo-eval *ARGS:
     scripts/hippo-model-eval.py {{ ARGS }}
 
+# Unattended model x temperature x thinking experiment: plan, start, status, stop, resume, report.
+[group('Targeted maintenance')]
+hippo-experiment *ARGS:
+    scripts/hippo-model-experiment.py {{ ARGS }}
+
 # MCP configs only; hooks-sync.sh also regenerates them during sync-dfm-apply.
 [group('Targeted maintenance')]
 mcp-sync:

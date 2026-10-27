@@ -441,5 +441,58 @@ class SecondReviewTests(unittest.TestCase):
         self.assertNotIn("gzip", FakeOmlx.headers_seen[-1].get("accept-encoding", ""))
 
 
+class SwitchBrainTests(unittest.TestCase):
+    """``record --switch-brain`` repoints the brain and always restores it."""
+
+    CONFIG = (
+        "[inference]\n"
+        'base_url = "http://127.0.0.1:42069/v1" # oMLX\n'
+        "timeout_secs = 300\n"
+    )
+
+    def test_point_brain_at_rewrites_only_base_url(self) -> None:
+        """The URL changes; the comment and other keys survive."""
+        config = Path(tempfile.mkdtemp()) / "config.toml"
+        config.write_text(self.CONFIG)
+        original = EVAL.point_brain_at(config, "http://127.0.0.1:42070/v1")
+        self.assertEqual(original, self.CONFIG)
+        self.assertEqual(
+            config.read_text(),
+            self.CONFIG.replace("42069", "42070"),
+        )
+
+    def test_record_restores_config_when_time_limit_hits(self) -> None:
+        """No traffic before --max-minutes: config restored, brain restarted twice."""
+        config = Path(tempfile.mkdtemp()) / "config.toml"
+        config.write_text(self.CONFIG)
+        seen: list[str] = []
+        with (
+            patch.object(
+                EVAL, "restart_brain", lambda: seen.append(config.read_text())
+            ),
+            redirect_stderr(io.StringIO()),
+        ):
+            code = EVAL.main(
+                [
+                    "record",
+                    "--switch-brain",
+                    "--hippo-config",
+                    str(config),
+                    "--port",
+                    "0",
+                    "--max-minutes",
+                    "0.005",
+                    "--out",
+                    str(config.parent / "cases.jsonl"),
+                ]
+            )
+        self.assertEqual(code, 0)
+        self.assertEqual(len(seen), 2)
+        self.assertRegex(seen[0], r'base_url = "http://127\.0\.0\.1:\d+/v1"')
+        self.assertNotIn("42069", seen[0])
+        self.assertEqual(seen[1], self.CONFIG)
+        self.assertEqual(config.read_text(), self.CONFIG)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,0 +1,34 @@
+# Candidate matrix for `just hippo-experiment start`. Every model runs every
+# temperature x thinking combination unless it overrides them; each combination
+# is one variant, replayed against the same recorded cases.
+#
+# `plan` checks every model ID against oMLX's /v1/models before anything runs,
+# so a missing download fails at start, not hours later.
+
+# Recorded cases to replay (the first N of cases.jsonl).
+cases = 150
+# Cases per round. Every variant finishes a round before the next round starts,
+# so a run stopped early still compares all variants on the same cases. Smaller
+# rounds mean more model reloads.
+round_size = 25
+# "asis" keeps the temperature hippo recorded; a number forces it.
+temperatures = ["asis", 0.2]
+# "off"/"on" force chat_template_kwargs.enable_thinking; "asis" keeps hippo's.
+thinking = ["off", "on"]
+
+[[models]]
+id = "Qwen3.6-35B-A3B-Uncensored-Heretic-MLX-8bit"
+note = "current production"
+
+[[models]]
+id = "Qwen3.6-35B-A3B-Uncensored-Heretic-MLX-6bit"
+note = "convert locally from the Heretic bf16 with mlx_lm.convert --q-bits 6"
+
+[[models]]
+id = "Qwen3.6-35B-A3B-Uncensored-Heretic-MLX-4bit"
+note = "froggeric 4-bit MLX upload"
+
+[[models]]
+id = "LFM2.5-24B-A2B-abliterated-4bit-mlx"
+note = "2.45B active; always reasons, so the thinking flag is not varied"
+thinking = ["asis"]

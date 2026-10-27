@@ -13,10 +13,8 @@ written 0600 under ``~/.local/share/hippo/model-eval`` and never into the repo.
 
 Workflow::
 
-    scripts/hippo-model-eval.py record --limit 200
-    # point [inference].base_url in ~/.config/hippo/config.toml at
-    # http://127.0.0.1:42070/v1, kickstart com.hippo.brain, wait for the
-    # limit, then restore the base_url and kickstart again
+    # points the brain at the proxy, records, then restores and restarts it
+    scripts/hippo-model-eval.py record --switch-brain --limit 200
     scripts/hippo-model-eval.py inspect
     sudo -v   # only for --power
     scripts/hippo-model-eval.py run --power --thinking off \\
@@ -24,6 +22,9 @@ Workflow::
         --model Qwen3.6-35B-A3B-Uncensored-Heretic-MLX-6bit
     scripts/hippo-model-eval.py report \\
         --baseline Qwen3.6-35B-A3B-Uncensored-Heretic-MLX-8bit --show 3
+
+For an unattended model x temperature x thinking matrix over the same cases,
+use ``hippo-model-experiment.py``.
 """
 
 from __future__ import annotations
@@ -33,6 +34,7 @@ import copy
 import json
 import os
 import re
+import signal
 import statistics
 import subprocess
 import sys
@@ -53,6 +55,9 @@ CHAT_PATH_SUFFIX = "/chat/completions"
 POWER_LINE = re.compile(r"Combined Power \(CPU \+ GPU \+ ANE\):\s*(\d+)\s*mW")
 FENCE = re.compile(r"^```(?:json)?\s*\n(.*?)\n```\s*$", re.DOTALL)
 WORD = re.compile(r"[A-Za-z0-9_./-]+")
+BASE_URL_LINE = re.compile(r'^(\s*base_url\s*=\s*)"([^"]*)"', re.MULTILINE)
+HIPPO_CONFIG = Path.home() / ".config/hippo/config.toml"
+BRAIN_SERVICE = "com.hippo.brain"
 
 
 def private_dir(path: Path) -> Path:
@@ -234,8 +239,59 @@ def make_handler(recorder: Recorder) -> type[BaseHTTPRequestHandler]:
     return Handler
 
 
+def point_brain_at(config: Path, url: str) -> str:
+    """Rewrite the first ``base_url`` in hippo's config.
+
+    The config is a symlink into the dotfiles checkout; writing through it
+    edits the tracked file, so callers must restore the returned text.
+
+    Args:
+        config: Path to hippo's ``config.toml``.
+        url: New inference base URL.
+
+    Returns:
+        The original file text, for restoring.
+
+    Raises:
+        ValueError: If the config has no ``base_url`` line.
+    """
+    original = config.read_text(encoding="utf-8")
+    updated, count = BASE_URL_LINE.subn(
+        lambda match: f'{match.group(1)}"{url}"', original, count=1
+    )
+    if count != 1:
+        raise ValueError(f"no base_url line in {config}")
+    config.write_text(updated, encoding="utf-8")
+    return original
+
+
+def restart_brain() -> None:
+    """Restart the hippo brain so it rereads its config (macOS launchd)."""
+    subprocess.run(
+        ["launchctl", "kickstart", "-k", f"gui/{os.getuid()}/{BRAIN_SERVICE}"],
+        check=False,
+    )
+
+
+def raise_exit(signum: int, _frame: Any) -> None:
+    """Turn a termination signal into SystemExit so ``finally`` blocks run.
+
+    Args:
+        signum: Received signal number.
+        _frame: Current stack frame (unused).
+
+    Raises:
+        SystemExit: Always.
+    """
+    raise SystemExit(128 + signum)
+
+
 def cmd_record(args: argparse.Namespace) -> int:
     """Run the recording proxy until ``--limit`` chat requests are captured.
+
+    With ``--switch-brain`` the brain is pointed at the proxy and restarted,
+    then restored and restarted again however recording ends (limit, time
+    limit, Ctrl-C, SIGTERM or SIGHUP).
 
     Args:
         args: Parsed CLI arguments.
@@ -247,22 +303,40 @@ def cmd_record(args: argparse.Namespace) -> int:
     server = ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(recorder))
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
+    proxy_url = f"http://127.0.0.1:{server.server_address[1]}/v1"
+    original = None
+    if args.switch_brain:
+        original = point_brain_at(args.hippo_config, proxy_url)
+        restart_brain()
+        print(f"brain now uses {proxy_url}; it is restored on exit", file=sys.stderr)
+    else:
+        print(
+            f'set [inference].base_url = "{proxy_url}", then\n'
+            f'launchctl kickstart -k "gui/$(id -u)/{BRAIN_SERVICE}"',
+            file=sys.stderr,
+        )
     print(
-        f"proxy http://127.0.0.1:{args.port} -> {recorder.upstream}\n"
-        f'set [inference].base_url = "http://127.0.0.1:{args.port}/v1", then\n'
-        f'launchctl kickstart -k "gui/$(id -u)/com.hippo.brain"\n'
-        f"recording {args.limit} chat requests to {args.out}",
+        f"proxy {proxy_url} -> {recorder.upstream}; recording {args.limit} chat "
+        f"requests to {args.out}",
         file=sys.stderr,
     )
+    previous = {
+        sig: signal.signal(sig, raise_exit) for sig in (signal.SIGTERM, signal.SIGHUP)
+    }
     try:
-        recorder.done.wait()
+        recorder.done.wait(args.max_minutes * 60 if args.max_minutes else None)
     except KeyboardInterrupt:
         pass
-    server.shutdown()
-    print(
-        f"recorded {recorder.count}; restore base_url and kickstart the brain",
-        file=sys.stderr,
-    )
+    finally:
+        for sig, handler in previous.items():
+            signal.signal(sig, handler)
+        server.shutdown()
+        if original is not None:
+            args.hippo_config.write_text(original, encoding="utf-8")
+            restart_brain()
+            print("brain config restored and restarted", file=sys.stderr)
+    tail = "" if original is not None else "; restore base_url and kickstart the brain"
+    print(f"recorded {recorder.count}{tail}", file=sys.stderr)
     return 0
 
 
@@ -365,7 +439,9 @@ def cmd_inspect(args: argparse.Namespace) -> int:
 # ── run ───────────────────────────────────────────────────────────────────
 
 
-def build_request(request: JsonDict, model: str, thinking: str) -> JsonDict:
+def build_request(
+    request: JsonDict, model: str, thinking: str, temperature: float | None = None
+) -> JsonDict:
     """Rewrite a recorded request for one candidate model.
 
     Args:
@@ -373,6 +449,8 @@ def build_request(request: JsonDict, model: str, thinking: str) -> JsonDict:
         model: Candidate model ID.
         thinking: ``"asis"`` keeps the recorded setting; ``"on"``/``"off"``
             force ``chat_template_kwargs.enable_thinking``.
+        temperature: Sampling temperature to force; None keeps the recorded
+            value.
 
     Returns:
         A new, non-streaming request body.
@@ -385,6 +463,8 @@ def build_request(request: JsonDict, model: str, thinking: str) -> JsonDict:
         kwargs = dict(body.get("chat_template_kwargs") or {})
         kwargs["enable_thinking"] = thinking == "on"
         body["chat_template_kwargs"] = kwargs
+    if temperature is not None:
+        body["temperature"] = temperature
     return body
 
 
@@ -492,12 +572,15 @@ def run_case(
         base_url: Inference base URL ending in ``/v1``.
         case: Recorded case.
         model: Candidate model ID.
-        args: Parsed CLI arguments (thinking, api key, timeout).
+        args: Parsed CLI arguments (thinking, api key, timeout, and an
+            optional temperature).
 
     Returns:
         Result record for the results JSONL.
     """
-    body = build_request(case["request"], model, args.thinking)
+    body = build_request(
+        case["request"], model, args.thinking, getattr(args, "temperature", None)
+    )
     result: JsonDict = {"type": "case", "model": model, "case": case["id"]}
     started = time.monotonic()
     try:
@@ -687,28 +770,43 @@ def mean_of(rows: list[JsonDict], key: str) -> float | None:
     return statistics.fmean(values) if values else None
 
 
-def summarize(results: list[JsonDict], baseline: str | None) -> list[JsonDict]:
+def summarize(
+    results: list[JsonDict],
+    baseline: str | None,
+    reference: dict[str, JsonDict | None] | None = None,
+) -> list[JsonDict]:
     """Aggregate per-model metrics from results records.
 
+    A case retried after an error appears more than once; only the last row
+    for each model and case counts.
+
     Args:
-        results: Records written by ``run``.
+        results: Records written by ``run`` or the experiment worker.
         baseline: Model ID to measure agreement against, if any.
+        reference: Parsed outputs by case ID to measure agreement against
+            instead of a baseline model (the experiment uses production's).
 
     Returns:
         One summary dict per model, in first-seen order.
     """
-    by_model: dict[str, list[JsonDict]] = {}
+    latest: dict[tuple[str, str], JsonDict] = {}
     power: dict[str, JsonDict] = {}
     for row in results:
         if row.get("type") == "power":
             power[row["model"]] = row
         else:
-            by_model.setdefault(row["model"], []).append(row)
-    base_outputs = {
-        row["case"]: parse_json_content(row.get("content") or "")
-        for row in by_model.get(baseline or "", [])
-        if "error" not in row
-    }
+            latest[(row["model"], row["case"])] = row
+    by_model: dict[str, list[JsonDict]] = {}
+    for (model, _case), row in latest.items():
+        by_model.setdefault(model, []).append(row)
+    if reference is not None:
+        base_outputs = reference
+    else:
+        base_outputs = {
+            row["case"]: parse_json_content(row.get("content") or "")
+            for row in by_model.get(baseline or "", [])
+            if "error" not in row
+        }
     summaries = []
     for model, rows in by_model.items():
         ok = [row for row in rows if "error" not in row]
@@ -826,6 +924,18 @@ def parser() -> argparse.ArgumentParser:
     )
     record.add_argument("--limit", type=int, default=200)
     record.add_argument("--out", type=Path, default=DEFAULT_DIR / "cases.jsonl")
+    record.add_argument(
+        "--switch-brain",
+        action="store_true",
+        help="point the brain at the proxy and restore it on exit",
+    )
+    record.add_argument("--hippo-config", type=Path, default=HIPPO_CONFIG)
+    record.add_argument(
+        "--max-minutes",
+        type=float,
+        default=0,
+        help="stop after N minutes (0 = no limit)",
+    )
     record.set_defaults(func=cmd_record)
 
     inspect = sub.add_parser("inspect", help="summarize recorded requests")
