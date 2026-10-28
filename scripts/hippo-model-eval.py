@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import http.client
 import json
 import os
 import re
@@ -304,26 +305,32 @@ def cmd_record(args: argparse.Namespace) -> int:
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     proxy_url = f"http://127.0.0.1:{server.server_address[1]}/v1"
-    original = None
-    if args.switch_brain:
-        original = point_brain_at(args.hippo_config, proxy_url)
-        restart_brain()
-        print(f"brain now uses {proxy_url}; it is restored on exit", file=sys.stderr)
-    else:
-        print(
-            f'set [inference].base_url = "{proxy_url}", then\n'
-            f'launchctl kickstart -k "gui/$(id -u)/{BRAIN_SERVICE}"',
-            file=sys.stderr,
-        )
-    print(
-        f"proxy {proxy_url} -> {recorder.upstream}; recording {args.limit} chat "
-        f"requests to {args.out}",
-        file=sys.stderr,
+    # Handlers and the restoring try/finally are in place before the config is
+    # touched, so an interrupt during the switch itself still restores it.
+    original = (
+        args.hippo_config.read_text(encoding="utf-8") if args.switch_brain else None
     )
     previous = {
         sig: signal.signal(sig, raise_exit) for sig in (signal.SIGTERM, signal.SIGHUP)
     }
     try:
+        if args.switch_brain:
+            point_brain_at(args.hippo_config, proxy_url)
+            restart_brain()
+            print(
+                f"brain now uses {proxy_url}; it is restored on exit", file=sys.stderr
+            )
+        else:
+            print(
+                f'set [inference].base_url = "{proxy_url}", then\n'
+                f'launchctl kickstart -k "gui/$(id -u)/{BRAIN_SERVICE}"',
+                file=sys.stderr,
+            )
+        print(
+            f"proxy {proxy_url} -> {recorder.upstream}; recording {args.limit} chat "
+            f"requests to {args.out}",
+            file=sys.stderr,
+        )
         recorder.done.wait(args.max_minutes * 60 if args.max_minutes else None)
     except KeyboardInterrupt:
         pass
@@ -587,8 +594,13 @@ def run_case(
         response = post_json(
             base_url + CHAT_PATH_SUFFIX, body, args.api_key, args.timeout
         )
-    except (OSError, ValueError) as error:
-        result.update(elapsed_s=round(time.monotonic() - started, 3), error=str(error))
+    except (OSError, ValueError, http.client.HTTPException) as error:
+        # HTTPException covers a response cut short (IncompleteRead), which is
+        # neither OSError nor ValueError but is a transport failure all the same.
+        result.update(
+            elapsed_s=round(time.monotonic() - started, 3),
+            error=str(error) or type(error).__name__,
+        )
         return result
     elapsed = time.monotonic() - started
     choice = (response.get("choices") or [{}])[0]

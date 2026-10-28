@@ -903,6 +903,7 @@ def cmd_start(args: argparse.Namespace) -> int:
             "timeout": args.timeout,
             "matrix": str(args.matrix),
             "skipped_models": missing,
+            "power": args.power,
         },
     )
     for case in cases:
@@ -991,7 +992,11 @@ def cmd_resume(args: argparse.Namespace) -> int:
     if pid_alive(run_dir / "worker.pid"):
         print("worker already running", file=sys.stderr)
         return 1
-    if args.power:
+    config = json.loads((run_dir / "config.json").read_text(encoding="utf-8"))
+    if config.get("power"):
+        # Sampling follows the run, not the resume flags: a resumed half with
+        # no samples would still count in the joules-per-case denominator.
+        print("this run samples power; sudo is needed to restart powermetrics")
         subprocess.run(["sudo", "-v"], check=True)
         start_power(run_dir)
     print(f"resumed (pid {spawn_worker(run_dir, args.api_key)}): {run_dir}")
@@ -1060,7 +1065,6 @@ def parser() -> argparse.ArgumentParser:
             command.add_argument(
                 "--api-key", default=os.environ.get("OMLX_API_KEY", "omlx")
             )
-            command.add_argument("--power", action="store_true")
         command.set_defaults(func=func)
     return root
 

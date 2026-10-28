@@ -349,5 +349,36 @@ class ThirdReviewTests(ExperimentFixture):
         self.assertLessEqual(windows[0]["start"], windows[0]["end"])
 
 
+class PowerResumeTests(ExperimentFixture):
+    """A run started with --power keeps sampling after resume."""
+
+    def test_resume_restarts_power_for_a_power_run(self) -> None:
+        """Plain resume restarts powermetrics because the run recorded --power."""
+        FakeOmlx.served = ["a", "b"]
+        FakeOmlx.sigterm_after = 3
+        started: list[Path] = []
+        sudo: list[list[str]] = []
+
+        def fake_spawn(run_dir: Path, api_key: str) -> int:
+            with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+                EXP.run_worker(run_dir, api_key)
+            return 0
+
+        with (
+            patch.object(EXP, "start_power", started.append),
+            patch.object(EXP.subprocess, "run", lambda cmd, **_: sudo.append(cmd)),
+            patch.object(EXP, "spawn_worker", fake_spawn),
+        ):
+            self.assertEqual(self.start("--skip-missing", "--power"), 1)
+            run = EXP.latest_run()
+            self.assertTrue(json.loads((run / "config.json").read_text())["power"])
+            # The foreground worker recorded this test process as its PID.
+            (run / "worker.pid").unlink()
+            with redirect_stdout(io.StringIO()):
+                self.assertEqual(EXP.main(["resume", "--run", str(run)]), 0)
+        self.assertEqual(started, [run, run])
+        self.assertEqual(sudo, [["sudo", "-v"], ["sudo", "-v"]])
+
+
 if __name__ == "__main__":
     unittest.main()

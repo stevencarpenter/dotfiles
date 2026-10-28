@@ -61,6 +61,9 @@ just hippo-experiment stop     # finishes the current call, writes the report
 just hippo-experiment resume   # continues; finished cases are never re-run
 ```
 
+A run started with `--power` asks for sudo again on `resume` and keeps sampling, so energy per
+case stays comparable across the stop.
+
 The worker survives oMLX restarts. On a dropped connection it waits up to 15 minutes, then
 retries. A model that answers 404 is marked failed and the run continues without it.
 

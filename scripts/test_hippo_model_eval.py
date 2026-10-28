@@ -18,7 +18,7 @@ import urllib.request
 from contextlib import redirect_stderr, redirect_stdout
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 from typing import Any
 from unittest.mock import patch
 
@@ -492,6 +492,75 @@ class SwitchBrainTests(unittest.TestCase):
         self.assertNotIn("42069", seen[0])
         self.assertEqual(seen[1], self.CONFIG)
         self.assertEqual(config.read_text(), self.CONFIG)
+
+
+class TruncatedBody(BaseHTTPRequestHandler):
+    """Promises 1000 bytes, sends 13, then closes."""
+
+    def log_message(self, format: str, *args: Any) -> None:
+        """Silence access logging."""
+
+    def do_POST(self) -> None:
+        """Send a short body under a long Content-Length."""
+        self.rfile.read(int(self.headers["Content-Length"]))
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", "1000")
+        self.end_headers()
+        self.wfile.write(b'{"choices": [')
+        self.wfile.flush()
+        self.close_connection = True
+
+
+class FourthReviewTests(unittest.TestCase):
+    """Truncated responses and interrupts during the brain switch."""
+
+    def test_truncated_response_is_an_error_row(self) -> None:
+        """IncompleteRead becomes a transport error row, not an exception."""
+        upstream = serve(TruncatedBody)
+        self.addCleanup(upstream.server_close)
+        self.addCleanup(upstream.shutdown)
+        args = SimpleNamespace(thinking="asis", api_key="k", timeout=5)
+        result = EVAL.run_case(
+            f"http://127.0.0.1:{upstream.server_address[1]}/v1",
+            {"id": "c", "request": {"model": "m", "messages": []}},
+            "m",
+            args,
+        )
+        self.assertIn("error", result)
+        self.assertFalse(result["error"].startswith("HTTP Error"))
+
+    def test_interrupt_during_switch_restores_config(self) -> None:
+        """Ctrl-C inside the first brain restart still restores the config."""
+        config = Path(tempfile.mkdtemp()) / "config.toml"
+        original = 'base_url = "http://127.0.0.1:42069/v1"\n'
+        config.write_text(original)
+        calls: list[str] = []
+
+        def restart() -> None:
+            calls.append(config.read_text())
+            if len(calls) == 1:
+                raise KeyboardInterrupt
+
+        with (
+            patch.object(EVAL, "restart_brain", restart),
+            redirect_stderr(io.StringIO()),
+        ):
+            EVAL.main(
+                [
+                    "record",
+                    "--switch-brain",
+                    "--hippo-config",
+                    str(config),
+                    "--port",
+                    "0",
+                    "--out",
+                    str(config.parent / "cases.jsonl"),
+                ]
+            )
+        self.assertEqual(len(calls), 2)
+        self.assertNotIn("42069", calls[0])
+        self.assertEqual(config.read_text(), original)
 
 
 if __name__ == "__main__":
