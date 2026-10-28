@@ -7,3 +7,4 @@ platform = "macos"
 architecture = "arm64"
 modules = ["personal", "tiling", "mcp", "skills", "agent-journal", "agents", "dev", "gui", "atuin"]
 overrides = []
+updaters = ["claude", "codex", "opencode", "brew", "skills"]
