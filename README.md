@@ -121,7 +121,7 @@ fetches: one root entry for `ssh://git@github.com/stevencarpenter/dotfiles` trac
 After the grant, `dfm sync --root ~/.dotfiles --preview` prints the sync digest.
 
 `sync-dfm-apply` runs, in order: `dfm apply`, `scripts/brew-sync.sh`,
-`scripts/hooks-sync.sh` (MCP sync, skills sync, Codex hooks merge),
+`scripts/hooks-sync.sh` (MCP sync, skills sync),
 `scripts/sync-side-channels.sh`, `scripts/launch-agents.sh load`, the login-shell, tiling and
 macOS-defaults checks, then `dfm state check` and `doctor`. `just --list` groups
 daily commands, targeted maintenance, validation, and utilities.
@@ -352,8 +352,8 @@ and `**/__pycache__`, `**/.venv`, `**/node_modules`. A directory link still publ
 Not managed on purpose:
 
 - Secrets and op-render outputs: `.config/op/*` (except the two linked files), every `.personal.env`.
-- Application state: `~/.claude.json`, `~/.codex/config.toml`, `~/.codex/hooks.json` (the
-  `codexHooksMerge` hippo hook), MCP generated outputs, `~/.config/mcp/overrides`, skills synced by
+- Application state: `~/.claude.json`, `~/.codex/config.toml`, every `~/.codex/hooks.json` entry
+  other than the hippo hook (`personal.codex-hooks`, `codex-hooks/v1`), MCP generated outputs, `~/.config/mcp/overrides`, skills synced by
   `sync-skills`.
 - `~/.config/jj` as a directory (mutable metadata under `repos/`): only `config.toml` is linked.
 - Tools that the side channels install: `~/.local/bin/agent-reap`, `token-auditor`.

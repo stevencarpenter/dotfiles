@@ -424,6 +424,37 @@ target = ".config/agent-journal/workstreams.toml"
 [resources.value]
 source = "home/.config/agent-journal/workstreams.toml"
 
+# Codex hooks: the hippo SessionStart hook joins whatever other installers wrote (codex-hooks/v1
+# keeps foreign entries). Replaces the jq step that scripts/hooks-sync.sh ran.
+[[resources]]
+id = "codex-hooks"
+kind = "merge"
+adapter = "codex-hooks/v1"
+target = ".codex/hooks.json"
+[resources.value.handlers.hippo]
+event = "SessionStart"
+type = "command"
+argv = ["${HOME}/.local/share/hippo-brain/shell/claude-session-hook.sh"]
+
+# oMLX per-model settings for the hippo enrichment model. oMLX reads the file at startup, so
+# a change needs `dfm sync --restart personal.omlx`.
+[[resources]]
+id = "omlx-models"
+kind = "merge"
+adapter = "omlx-model-settings/v1"
+target = ".omlx/model_settings.json"
+[resources.value.managed.models."Qwen3.6-35B-A3B-Abliterated-Heretic-MLX-4bit"]
+enable_thinking = false
+forced_ct_kwargs = ["enable_thinking"]
+trust_remote_code = false
+
+[[resources]]
+id = "omlx"
+kind = "service"
+adapter = "omlx-app/v1"
+[resources.value]
+config = [".omlx/model_settings.json"]
+
 [[contributions]]
 resource = "core.claude-settings"
 path = "/handlers"
