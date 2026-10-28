@@ -55,6 +55,7 @@ class FakeOmlx(BaseHTTPRequestHandler):
 
     served = ["a", "b", "gone"]
     posts: list[dict[str, Any]] = []
+    auth: list[str] = []
     sigterm_after: int | None = None
 
     def log_message(self, format: str, *args: Any) -> None:
@@ -68,6 +69,7 @@ class FakeOmlx(BaseHTTPRequestHandler):
         """Answer a chat completion whose summary depends on the variant."""
         body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
         FakeOmlx.posts.append(body)
+        FakeOmlx.auth.append(self.headers.get("Authorization", ""))
         if body["model"] == "gone":
             self._send(404, {"error": "model not loaded"})
             return
@@ -197,12 +199,13 @@ class PureFunctionTests(unittest.TestCase):
         self.assertEqual(len(calls), 1)
 
 
-class EndToEndTests(unittest.TestCase):
-    """Start in the foreground against a fake oMLX, stop, resume, report."""
+class ExperimentFixture(unittest.TestCase):
+    """Fake oMLX, recorded cases, a small matrix and isolated run dirs."""
 
     def setUp(self) -> None:
         """Serve the fake, write cases and a small matrix, isolate run dirs."""
         FakeOmlx.posts.clear()
+        FakeOmlx.auth.clear()
         FakeOmlx.served = ["a", "b", "gone"]
         server = ThreadingHTTPServer(("127.0.0.1", 0), FakeOmlx)
         threading.Thread(target=server.serve_forever, daemon=True).start()
@@ -247,6 +250,10 @@ class EndToEndTests(unittest.TestCase):
         argv += ["--cases", str(self.tmp / "cases.jsonl"), "--base-url", self.base_url]
         with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
             return EXP.main(argv + list(extra))
+
+
+class EndToEndTests(ExperimentFixture):
+    """Start in the foreground against a fake oMLX, stop, resume, report."""
 
     def test_full_run_writes_report_and_skips_404_model(self) -> None:
         """Every served variant finishes; the 404 model is reported, not fatal."""
@@ -306,6 +313,40 @@ class EndToEndTests(unittest.TestCase):
         self.assertEqual(self.start("--skip-missing"), 0)
         config = json.loads((EXP.latest_run() / "config.json").read_text())
         self.assertEqual(config["skipped_models"], ["gone"])
+
+
+class ThirdReviewTests(ExperimentFixture):
+    """API key handoff, empty blind samples, and power windows on stop."""
+
+    def test_api_key_reaches_worker_but_not_disk(self) -> None:
+        """--api-key is used for every call and never written to the run dir."""
+        self.assertEqual(self.start("--api-key", "s3cret-token"), 0)
+        self.assertTrue(FakeOmlx.auth)
+        self.assertEqual(set(FakeOmlx.auth), {"Bearer s3cret-token"})
+        run = EXP.latest_run()
+        for path in run.rglob("*"):
+            if path.is_file():
+                self.assertNotIn("s3cret-token", path.read_text(errors="replace"))
+
+    def test_report_survives_a_run_with_no_successes(self) -> None:
+        """Only a 404 model: the report and an empty blind sample still appear."""
+        (self.tmp / "matrix.toml").write_text(
+            'cases = 2\nround_size = 2\n[[models]]\nid = "gone"\n'
+        )
+        self.assertEqual(self.start(), 0)
+        run = EXP.latest_run()
+        self.assertTrue((run / "report.md").exists())
+        self.assertEqual(json.loads((run / "blind-key.json").read_text()), {})
+
+    def test_stop_mid_window_still_records_the_window(self) -> None:
+        """Cases saved before a stop keep a power window for their variant."""
+        FakeOmlx.served = ["a", "b"]
+        FakeOmlx.sigterm_after = 2  # warm-up, then case c0, then stop
+        self.assertEqual(self.start("--skip-missing"), 1)
+        run = EXP.latest_run()
+        windows = EXP.EVAL.read_jsonl(run / "windows.jsonl")
+        self.assertEqual([w["variant"] for w in windows], ["a [temp=asis, think=off]"])
+        self.assertLessEqual(windows[0]["start"], windows[0]["end"])
 
 
 if __name__ == "__main__":

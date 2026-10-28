@@ -547,11 +547,13 @@ def run_variant_case(
     return result
 
 
-def run_worker(run_dir: Path) -> int:
+def run_worker(run_dir: Path, api_key: str | None = None) -> int:
     """Execute (or continue) an experiment run until done or stopped.
 
     Args:
         run_dir: Experiment run directory.
+        api_key: oMLX bearer token; defaults to ``OMLX_API_KEY`` or ``omlx``.
+            It is never written into the run directory.
 
     Returns:
         Process exit code.
@@ -567,7 +569,7 @@ def run_worker(run_dir: Path) -> int:
         signal.signal(sig, request_stop)
 
     base_url = config["base_url"].rstrip("/")
-    api_key = os.environ.get("OMLX_API_KEY", "omlx")
+    api_key = api_key or os.environ.get("OMLX_API_KEY", "omlx")
     done = completed(run_dir, variants)
     failed: set[str] = set()
     progress = Progress(
@@ -606,20 +608,24 @@ def run_worker(run_dir: Path) -> int:
                             )
                             continue
                     start = time.time()
-                    for case in todo:
-                        if stop["flag"]:
-                            raise Stopped
-                        result = run_variant_case(base_url, case, variant, ns, stop)
+                    try:
+                        for case in todo:
+                            if stop["flag"]:
+                                raise Stopped
+                            result = run_variant_case(base_url, case, variant, ns, stop)
+                            EVAL.append_jsonl(
+                                run_dir / "results" / f"{variant.slug}.jsonl", result
+                            )
+                            if "error" not in result:
+                                done[variant.slug].add(case["id"])
+                            progress.step(variant.id, "error" in result)
+                    finally:
+                        # Persist the window even on stop, so the cases already
+                        # saved from it keep their energy in the report.
                         EVAL.append_jsonl(
-                            run_dir / "results" / f"{variant.slug}.jsonl", result
+                            run_dir / "windows.jsonl",
+                            {"variant": variant.id, "start": start, "end": time.time()},
                         )
-                        if "error" not in result:
-                            done[variant.slug].add(case["id"])
-                        progress.step(variant.id, "error" in result)
-                    EVAL.append_jsonl(
-                        run_dir / "windows.jsonl",
-                        {"variant": variant.id, "start": start, "end": time.time()},
-                    )
         state = "done"
     except Stopped:
         state = "stopped"
@@ -637,11 +643,13 @@ def run_worker(run_dir: Path) -> int:
     return 0 if state == "done" else 1
 
 
-def spawn_worker(run_dir: Path) -> int:
+def spawn_worker(run_dir: Path, api_key: str) -> int:
     """Launch the worker detached, under ``caffeinate`` when available.
 
     Args:
         run_dir: Experiment run directory.
+        api_key: oMLX bearer token, handed over in the environment so it is
+            neither on the command line nor in the run directory.
 
     Returns:
         PID of the launched process.
@@ -659,6 +667,7 @@ def spawn_worker(run_dir: Path) -> int:
             stdout=log,
             stderr=subprocess.STDOUT,
             start_new_session=True,
+            env={**os.environ, "OMLX_API_KEY": api_key},
         )
     return proc.pid
 
@@ -712,7 +721,11 @@ def write_blind(run_dir: Path, cases: list[JsonDict], rows: list[JsonDict]) -> N
             outputs.setdefault(row["case"], {})[row["model"]] = row.get("content") or ""
     # Variants that produced nothing (e.g. a 404 model) must not empty the sample.
     variants = {row["model"] for row in rows if "error" not in row}
-    complete = [c for c in cases if set(outputs.get(c["id"], {})) >= variants]
+    # A case qualifies only with recorded outputs; with no successes at all
+    # (every call failed, or a stop before the first) the sample is empty.
+    complete = [
+        c for c in cases if c["id"] in outputs and set(outputs[c["id"]]) >= variants
+    ]
     rng = random.Random(0)
     chosen = rng.sample(complete, min(BLIND_CASES, len(complete)))
     key: dict[str, dict[str, str]] = {}
@@ -898,8 +911,8 @@ def cmd_start(args: argparse.Namespace) -> int:
         subprocess.run(["sudo", "-v"], check=True)
         start_power(run_dir)
     if args.foreground:
-        return run_worker(run_dir)
-    pid = spawn_worker(run_dir)
+        return run_worker(run_dir, args.api_key)
+    pid = spawn_worker(run_dir, args.api_key)
     print(
         f"started {len(variants)} variants x {len(cases)} cases (pid {pid})\n"
         f"run dir: {run_dir}\n"
@@ -981,7 +994,7 @@ def cmd_resume(args: argparse.Namespace) -> int:
     if args.power:
         subprocess.run(["sudo", "-v"], check=True)
         start_power(run_dir)
-    print(f"resumed (pid {spawn_worker(run_dir)}): {run_dir}")
+    print(f"resumed (pid {spawn_worker(run_dir, args.api_key)}): {run_dir}")
     return 0
 
 
@@ -1044,6 +1057,9 @@ def parser() -> argparse.ArgumentParser:
         command = sub.add_parser(name, help=text)
         command.add_argument("--run", type=Path, help="run directory (default: latest)")
         if name == "resume":
+            command.add_argument(
+                "--api-key", default=os.environ.get("OMLX_API_KEY", "omlx")
+            )
             command.add_argument("--power", action="store_true")
         command.set_defaults(func=func)
     return root
