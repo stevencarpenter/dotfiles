@@ -1,8 +1,8 @@
 # Hippo Model Experiment
 
-This runbook covers comparing hippo enrichment models, quantizations, temperatures and thinking
-on/off on the same recorded requests. The run is unattended: start it in the morning and read the
-report when you come back.
+This runbook covers comparing hippo enrichment models, quantizations, temperatures, presence
+penalty and thinking on/off on the same recorded requests. The run is unattended: start it in the
+morning and read the report when you come back.
 
 - `scripts/hippo-model-eval.py`: records real brain requests; single ad hoc comparisons.
 - `scripts/hippo-model-experiment.py`: the unattended matrix run (`just hippo-experiment`).
@@ -49,7 +49,7 @@ the whole run and needs no further sudo.
 The worker runs under `caffeinate -ims`, which keeps the Mac awake **only on AC power**. Leave it
 plugged in. Closing the lid without an external display still sleeps it.
 
-The shipped matrix is 14 variants x 150 cases = 2,100 calls, roughly 3 to 9 hours. Variants run
+The shipped matrix is 18 variants x 150 cases = 2,700 calls, roughly 4 to 12 hours. Variants run
 in rounds of 25 cases, so if the run is still going at 5pm, `stop` leaves a fair comparison of
 every variant on the cases finished so far.
 

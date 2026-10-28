@@ -141,6 +141,9 @@ class PureFunctionTests(unittest.TestCase):
         self.assertNotIn(
             "chat_template_kwargs", EVAL.build_request(recorded, "new", "asis")
         )
+        self.assertNotIn("presence_penalty", body)
+        forced = EVAL.build_request(recorded, "new", "asis", presence_penalty=1.5)
+        self.assertEqual(forced["presence_penalty"], 1.5)
 
     def test_thinking_setting_reports_template_default(self) -> None:
         """Absent kwargs mean the template default, not off."""

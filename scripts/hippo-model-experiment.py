@@ -3,7 +3,7 @@
 # requires-python = ">=3.12"
 # dependencies = []
 # ///
-"""Unattended model x temperature x thinking experiment for hippo enrichment.
+"""Unattended model x sampling x thinking experiment for hippo enrichment.
 
 Replays the same recorded hippo requests (see ``hippo-model-eval.py record``)
 against every variant in ``hippo-model-experiment.toml`` and writes a report
@@ -98,23 +98,28 @@ class Stopped(Exception):
 
 @dataclass(frozen=True)
 class Variant:
-    """One model, temperature and thinking combination.
+    """One model, temperature, thinking and presence penalty combination.
 
     Attributes:
         model: oMLX model ID.
         temperature: Forced temperature, or None to keep the recorded one.
         thinking: ``"asis"``, ``"on"`` or ``"off"``.
+        presence_penalty: Forced presence penalty, or None to keep the
+            recorded one (hippo sends none, so the oMLX model setting applies).
     """
 
     model: str
     temperature: float | None
     thinking: str
+    presence_penalty: float | None = None
 
     @property
     def id(self) -> str:
         """Human-readable variant ID used in results and the report."""
         temp = "asis" if self.temperature is None else f"{self.temperature:g}"
-        return f"{self.model} [temp={temp}, think={self.thinking}]"
+        # Omitted when unset so IDs of runs recorded before this axis still match.
+        pp = "" if self.presence_penalty is None else f", pp={self.presence_penalty:g}"
+        return f"{self.model} [temp={temp}, think={self.thinking}{pp}]"
 
     @property
     def slug(self) -> str:
@@ -140,17 +145,22 @@ def expand_matrix(matrix: JsonDict) -> list[Variant]:
             raise ValueError("every [[models]] entry needs an id")
         temperatures = model.get("temperatures", matrix.get("temperatures", ["asis"]))
         thinking = model.get("thinking", matrix.get("thinking", ["asis"]))
+        penalties = model.get(
+            "presence_penalties", matrix.get("presence_penalties", ["asis"])
+        )
         for temperature in temperatures:
             for think in thinking:
                 if think not in THINKING:
                     raise ValueError(f"thinking must be one of {THINKING}: {think!r}")
-                variants.append(
-                    Variant(
-                        model["id"],
-                        None if temperature == "asis" else float(temperature),
-                        think,
+                for penalty in penalties:
+                    variants.append(
+                        Variant(
+                            model["id"],
+                            None if temperature == "asis" else float(temperature),
+                            think,
+                            None if penalty == "asis" else float(penalty),
+                        )
                     )
-                )
     return variants
 
 
@@ -546,7 +556,8 @@ def run_variant_case(
         base_url: Base URL ending in ``/v1``.
         case: Recorded case.
         variant: Variant to run.
-        ns: Request settings (thinking, temperature, api_key, timeout).
+        ns: Request settings (thinking, temperature, presence_penalty,
+            api_key, timeout).
         stop: Shared stop flag.
 
     Returns:
@@ -616,6 +627,7 @@ def run_worker(run_dir: Path, api_key: str | None = None) -> int:
                     ns = SimpleNamespace(
                         thinking=variant.thinking,
                         temperature=variant.temperature,
+                        presence_penalty=variant.presence_penalty,
                         api_key=api_key,
                         timeout=config["timeout"],
                     )

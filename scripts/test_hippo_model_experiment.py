@@ -117,14 +117,23 @@ class PureFunctionTests(unittest.TestCase):
     """Matrix expansion and parsing helpers."""
 
     def test_shipped_matrix_expands_with_overrides(self) -> None:
-        """The checked-in matrix gives 14 variants; LFM keeps its own thinking."""
+        """The checked-in matrix gives 18 variants; overrides stay per model."""
         matrix = tomllib.loads(EXP.MATRIX.read_text())
         variants = EXP.expand_matrix(matrix)
-        self.assertEqual(len(variants), 14)
+        self.assertEqual(len(variants), 18)
         lfm = [v for v in variants if v.model.startswith("LFM")]
         self.assertEqual({v.thinking for v in lfm}, {"asis"})
         self.assertEqual({v.temperature for v in lfm}, {None, 0.2})
-        self.assertEqual(len({v.slug for v in variants}), 14)
+        penalized = {v.model for v in variants if v.presence_penalty is not None}
+        self.assertEqual(penalized, {"Qwen3.6-35B-A3B-Abliterated-Heretic-MLX-4bit"})
+        self.assertEqual(len({v.slug for v in variants}), 18)
+
+    def test_variant_id_omits_unset_presence_penalty(self) -> None:
+        """Runs recorded before the axis keep their IDs, so resume still matches."""
+        self.assertEqual(EXP.Variant("m", None, "off").id, "m [temp=asis, think=off]")
+        self.assertEqual(
+            EXP.Variant("m", 0.2, "off", 1.5).id, "m [temp=0.2, think=off, pp=1.5]"
+        )
 
     def test_expand_rejects_unknown_thinking(self) -> None:
         """A typo in thinking fails at plan time, not mid-run."""

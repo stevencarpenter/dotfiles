@@ -443,7 +443,11 @@ def cmd_inspect(args: argparse.Namespace) -> int:
 
 
 def build_request(
-    request: JsonDict, model: str, thinking: str, temperature: float | None = None
+    request: JsonDict,
+    model: str,
+    thinking: str,
+    temperature: float | None = None,
+    presence_penalty: float | None = None,
 ) -> JsonDict:
     """Rewrite a recorded request for one candidate model.
 
@@ -454,6 +458,8 @@ def build_request(
             force ``chat_template_kwargs.enable_thinking``.
         temperature: Sampling temperature to force; None keeps the recorded
             value.
+        presence_penalty: Presence penalty to force; None keeps the recorded
+            value (absent means the oMLX model setting applies).
 
     Returns:
         A new, non-streaming request body.
@@ -468,6 +474,8 @@ def build_request(
         body["chat_template_kwargs"] = kwargs
     if temperature is not None:
         body["temperature"] = temperature
+    if presence_penalty is not None:
+        body["presence_penalty"] = presence_penalty
     return body
 
 
@@ -576,13 +584,17 @@ def run_case(
         case: Recorded case.
         model: Candidate model ID.
         args: Parsed CLI arguments (thinking, api key, timeout, and an
-            optional temperature).
+            optional temperature and presence penalty).
 
     Returns:
         Result record for the results JSONL.
     """
     body = build_request(
-        case["request"], model, args.thinking, getattr(args, "temperature", None)
+        case["request"],
+        model,
+        args.thinking,
+        getattr(args, "temperature", None),
+        getattr(args, "presence_penalty", None),
     )
     result: JsonDict = {"type": "case", "model": model, "case": case["id"]}
     started = time.monotonic()
