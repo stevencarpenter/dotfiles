@@ -1,0 +1,39 @@
+# Candidate matrix for `just hippo-experiment start`. Every model runs every
+# temperature x thinking x presence_penalty combination unless it overrides
+# them; each combination is one variant, replayed against the same recorded cases.
+#
+# `plan` checks every model ID against oMLX's /v1/models before anything runs,
+# so a missing download fails at start, not hours later.
+
+# Recorded cases to replay (the first N of cases.jsonl).
+cases = 150
+# Cases per round. Every variant finishes a round before the next round starts,
+# so a run stopped early still compares all variants on the same cases. Smaller
+# rounds mean more model reloads.
+round_size = 25
+# "asis" keeps the temperature hippo recorded; a number forces it.
+temperatures = ["asis", 0.2]
+# "off"/"on" force chat_template_kwargs.enable_thinking; "asis" keeps hippo's.
+thinking = ["off", "on"]
+# "asis" sends no presence_penalty, so the oMLX model setting applies; a number
+# forces it. Varied only where a model overrides it, to keep the run short.
+presence_penalties = ["asis"]
+
+[[models]]
+id = "Qwen3.6-35B-A3B-Uncensored-Heretic-MLX-8bit"
+note = "previous production"
+
+[[models]]
+id = "Qwen3.6-35B-A3B-Uncensored-Heretic-MLX-6bit"
+note = "optional: needs a local mlx_lm.convert --q-bits 6; else start --skip-missing"
+
+[[models]]
+id = "Qwen3.6-35B-A3B-Abliterated-Heretic-MLX-4bit"
+note = "current production"
+# 1.5 is Qwen's suggestion against repetition loops, which 4-bit MoE quants risk.
+presence_penalties = ["asis", 1.5]
+
+[[models]]
+id = "LFM2.5-24B-A2B-abliterated-4bit-mlx"
+note = "2.45B active; always reasons, so the thinking flag is not varied"
+thinking = ["asis"]

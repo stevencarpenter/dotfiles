@@ -21,6 +21,9 @@ This directory contains documentation for integrating AI-powered development too
 - [Hippo usage measurement](./hippo-usage-measurement.md): the 2026-08-23 baseline for
   `mcp__hippo__*` recall checks, the 2026-08-30 and 2026-09-23 re-measure commands, and the
   `tool_calls_json` constraints that keep runs comparable
+- [Hippo model experiment](./hippo-model-experiment.md): record real enrichment requests, then
+  run an unattended model, quantization, temperature and thinking comparison
+  (`just hippo-experiment`) and decide from its report and blind sample
 
 ## Environment Variables
 

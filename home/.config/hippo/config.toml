@@ -4,9 +4,13 @@ timeout_secs = 300                     # HTTP timeout for chat/embed calls
 
 [models]
 # ── Chat / enrichment models ──────────────────────────────────────────
-enrichment = "Qwen3.6-35B-A3B-Uncensored-Heretic-MLX-8bit"      # Qwen 3.6 MoE, 35B total / 3B active, 8-bit MLX, ~95 tok/s on M5 Max
-enrichment_bulk = "Qwen3.6-35B-A3B-Uncensored-Heretic-MLX-8bit" # Same local model for bulk enrichment
-query = "Qwen3.6-35B-A3B-Uncensored-Heretic-MLX-8bit"          # Same local model for query reformulation
+# 4-bit: about half the weight memory and weight traffic per token of 8-bit.
+# The ID must match a model oMLX serves (`curl 127.0.0.1:42069/v1/models`), or
+# enrichment fails. Rollback: the 8-bit ID below. Compare: `just hippo-eval`.
+enrichment = "Qwen3.6-35B-A3B-Abliterated-Heretic-MLX-4bit"      # Qwen 3.6 MoE, 35B total / 3B active, 4-bit MLX
+enrichment_bulk = "Qwen3.6-35B-A3B-Abliterated-Heretic-MLX-4bit" # Same local model for bulk enrichment
+query = "Qwen3.6-35B-A3B-Abliterated-Heretic-MLX-4bit"           # Same local model for query reformulation
+# enrichment = "Qwen3.6-35B-A3B-Uncensored-Heretic-MLX-8bit"    # previous: 8-bit MLX, ~95 tok/s on M5 Max
 # ── Embedding model ───────────────────────────────────────────────────
 embedding = "nomicai-modernbert-embed-base-8bit" # 768d MLX embedding (ModernBERT, nomic lineage)
 
@@ -56,4 +60,3 @@ rerank_backend = "jev"
 
 [classification]
 enabled = true
-

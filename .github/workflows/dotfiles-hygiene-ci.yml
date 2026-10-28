@@ -164,6 +164,12 @@ jobs:
       - name: Validate guarded 1Password reverse adoption
         run: scripts/test_op_adopt.py
 
+      - name: Validate hippo model A/B evaluator
+        run: scripts/test_hippo_model_eval.py
+
+      - name: Validate hippo model experiment runner
+        run: scripts/test_hippo_model_experiment.py
+
       - name: Validate direct activation entry points
         run: scripts/test-sync-hook-runtime.sh
 
