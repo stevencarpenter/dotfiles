@@ -376,13 +376,53 @@ class PowerResumeTests(ExperimentFixture):
             self.assertEqual(self.start("--skip-missing", "--power"), 1)
             run = EXP.latest_run()
             self.assertTrue(json.loads((run / "config.json").read_text())["power"])
-            # The foreground worker recorded this test process as its PID.
-            (run / "worker.pid").unlink()
+            self.assertFalse((run / "worker.pid").exists())
             with redirect_stdout(io.StringIO()):
                 self.assertEqual(EXP.main(["resume", "--run", str(run)]), 0)
         self.assertEqual(started, [run, run])
         # Only sudo calls: on macOS the end-of-run notification also runs here.
         self.assertEqual([c for c in sudo if c[0] == "sudo"], [["sudo", "-v"]] * 2)
+
+
+class TruncatedModels(BaseHTTPRequestHandler):
+    """Promises a /models body it never finishes."""
+
+    def log_message(self, format: str, *args: Any) -> None:
+        """Silence access logging."""
+
+    def do_GET(self) -> None:
+        """Send 13 of 1000 promised bytes, then close."""
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", "1000")
+        self.end_headers()
+        self.wfile.write(b'{"data": [{"i')
+        self.wfile.flush()
+        self.close_connection = True
+
+
+class FifthReviewTests(ExperimentFixture):
+    """Truncated recovery polls and stale or reused worker PIDs."""
+
+    def test_truncated_models_response_reads_as_unreachable(self) -> None:
+        """A cut-off /models body is 'not answering', not an exception."""
+        server = ThreadingHTTPServer(("127.0.0.1", 0), TruncatedModels)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        url = f"http://127.0.0.1:{server.server_address[1]}/v1"
+        self.assertIsNone(EXP.server_models(url, "k"))
+
+    def test_stale_pid_of_another_process_is_ignored(self) -> None:
+        """A reused PID is neither signalled by stop nor blocks resume."""
+        self.start()
+        run = EXP.latest_run()
+        self.assertFalse((run / "worker.pid").exists())
+        # This test process is alive but is not the experiment worker.
+        (run / "worker.pid").write_text(str(os.getpid()))
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            self.assertEqual(EXP.main(["stop", "--run", str(run)]), 1)
+        self.assertIsNone(EXP.worker_pid(run / "worker.pid"))
 
 
 if __name__ == "__main__":

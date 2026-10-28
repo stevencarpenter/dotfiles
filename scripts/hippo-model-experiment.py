@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import http.client
 import importlib.util
 import json
 import os
@@ -171,7 +172,9 @@ def server_models(base_url: str, api_key: str, timeout: float = 5.0) -> set[str]
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
             body = json.load(response)
-    except (OSError, ValueError):
+    except (OSError, ValueError, http.client.HTTPException):
+        # HTTPException covers a truncated body (IncompleteRead), so recovery
+        # polling keeps waiting instead of failing the run.
         return None
     data = body.get("data") if isinstance(body, dict) else None
     if not isinstance(data, list):
@@ -348,20 +351,31 @@ def completed(run_dir: Path, variants: list[Variant]) -> dict[str, set[str]]:
     return done
 
 
-def pid_alive(path: Path) -> bool:
-    """Check whether the PID stored in a file is a running process.
+def worker_pid(path: Path) -> int | None:
+    """Return the PID in a worker PID file if that process is still the worker.
+
+    The worker removes its PID file on exit, but a crash can leave one behind
+    and the OS can reuse the PID, so the process's command line must name this
+    script before the PID is trusted.
 
     Args:
-        path: File holding a PID.
+        path: ``worker.pid`` of a run.
 
     Returns:
-        True when the process exists.
+        The live worker's PID, or None.
     """
     try:
-        os.kill(int(path.read_text().strip()), 0)
+        pid = int(path.read_text().strip())
+        os.kill(pid, 0)
     except (OSError, ValueError):
-        return False
-    return True
+        return None
+    command = subprocess.run(
+        ["ps", "-p", str(pid), "-o", "command="],
+        capture_output=True,
+        text=True,
+        check=False,
+    ).stdout
+    return pid if Path(__file__).name in command else None
 
 
 def notify(title: str, message: str) -> None:
@@ -633,6 +647,7 @@ def run_worker(run_dir: Path, api_key: str | None = None) -> int:
         traceback.print_exc()
     finally:
         stop_power(run_dir)
+        (run_dir / "worker.pid").unlink(missing_ok=True)
         progress.write(state)
         try:
             report = write_report(run_dir)
@@ -947,7 +962,7 @@ def cmd_status(args: argparse.Namespace) -> int:
     run_dir = resolve_run(args.run)
     status_file = run_dir / "status.json"
     status = json.loads(status_file.read_text()) if status_file.exists() else {}
-    alive = pid_alive(run_dir / "worker.pid")
+    alive = worker_pid(run_dir / "worker.pid") is not None
     print(f"run:     {run_dir}")
     print(
         f"state:   {status.get('state', 'starting')}{'' if alive else ' (no worker running)'}"
@@ -970,11 +985,11 @@ def cmd_stop(args: argparse.Namespace) -> int:
         Process exit code.
     """
     run_dir = resolve_run(args.run)
-    pid_file = run_dir / "worker.pid"
-    if not pid_alive(pid_file):
+    pid = worker_pid(run_dir / "worker.pid")
+    if pid is None:
         print("no worker running", file=sys.stderr)
         return 1
-    os.kill(int(pid_file.read_text().strip()), signal.SIGTERM)
+    os.kill(pid, signal.SIGTERM)
     print("stop requested; the worker finishes its current call and writes the report")
     return 0
 
@@ -989,7 +1004,7 @@ def cmd_resume(args: argparse.Namespace) -> int:
         Process exit code.
     """
     run_dir = resolve_run(args.run)
-    if pid_alive(run_dir / "worker.pid"):
+    if worker_pid(run_dir / "worker.pid") is not None:
         print("worker already running", file=sys.stderr)
         return 1
     config = json.loads((run_dir / "config.json").read_text(encoding="utf-8"))
