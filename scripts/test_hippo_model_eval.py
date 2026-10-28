@@ -454,8 +454,7 @@ class SwitchBrainTests(unittest.TestCase):
         """The URL changes; the comment and other keys survive."""
         config = Path(tempfile.mkdtemp()) / "config.toml"
         config.write_text(self.CONFIG)
-        original = EVAL.point_brain_at(config, "http://127.0.0.1:42070/v1")
-        self.assertEqual(original, self.CONFIG)
+        EVAL.point_brain_at(config, "http://127.0.0.1:42070/v1")
         self.assertEqual(
             config.read_text(),
             self.CONFIG.replace("42069", "42070"),

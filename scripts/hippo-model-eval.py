@@ -240,18 +240,15 @@ def make_handler(recorder: Recorder) -> type[BaseHTTPRequestHandler]:
     return Handler
 
 
-def point_brain_at(config: Path, url: str) -> str:
+def point_brain_at(config: Path, url: str) -> None:
     """Rewrite the first ``base_url`` in hippo's config.
 
     The config is a symlink into the dotfiles checkout; writing through it
-    edits the tracked file, so callers must restore the returned text.
+    edits the tracked file, so callers must save and restore its text.
 
     Args:
         config: Path to hippo's ``config.toml``.
         url: New inference base URL.
-
-    Returns:
-        The original file text, for restoring.
 
     Raises:
         ValueError: If the config has no ``base_url`` line.
@@ -263,7 +260,6 @@ def point_brain_at(config: Path, url: str) -> str:
     if count != 1:
         raise ValueError(f"no base_url line in {config}")
     config.write_text(updated, encoding="utf-8")
-    return original
 
 
 def restart_brain() -> None:
