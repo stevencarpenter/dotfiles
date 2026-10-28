@@ -11,8 +11,8 @@ report when you come back.
 ## Before the day of the run
 
 1. **Get every model into oMLX** under the IDs the matrix names. `just hippo-experiment plan`
-   lists anything oMLX does not serve. The 6-bit Heretic has no upload; convert it from the
-   Heretic bf16:
+   lists anything oMLX does not serve. The 6-bit Heretic is optional and has no upload. Either
+   convert it from the Heretic bf16, or start with `--skip-missing` to run without it:
 
    ```bash
    mlx_lm.convert --hf-path <heretic-bf16-source> -q --q-bits 6 --q-group-size 64 \
