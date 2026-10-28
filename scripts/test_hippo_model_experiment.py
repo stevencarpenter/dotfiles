@@ -459,5 +459,24 @@ class FifthReviewTests(ExperimentFixture):
         self.assertIsNone(EXP.worker_pid(run / "worker.pid"))
 
 
+class StopBetweenModelsTests(ExperimentFixture):
+    """A stop during a model's last case does not warm up the next model."""
+
+    def test_stop_skips_next_model_warm_up(self) -> None:
+        """SIGTERM on a's last request means b is never called."""
+        FakeOmlx.served = ["a", "b"]
+        (self.tmp / "matrix.toml").write_text(
+            'cases = 1\nround_size = 1\nthinking = ["off"]\n'
+            '[[models]]\nid = "a"\n[[models]]\nid = "b"\n'
+        )
+        FakeOmlx.sigterm_after = 2  # a's warm-up, then a's only case
+        self.assertEqual(self.start(), 1)
+        self.assertEqual([p["model"] for p in FakeOmlx.posts], ["a", "a"])
+        run = EXP.latest_run()
+        self.assertEqual(
+            json.loads((run / "status.json").read_text())["state"], "stopped"
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -609,6 +609,10 @@ def run_worker(run_dir: Path, api_key: str | None = None) -> int:
                     todo = [c for c in round_cases if c["id"] not in done[variant.slug]]
                     if not todo:
                         continue
+                    if stop["flag"]:
+                        # Before any request for this variant, warm-up included:
+                        # a stop finishes only the call that was in flight.
+                        raise Stopped
                     ns = SimpleNamespace(
                         thinking=variant.thinking,
                         temperature=variant.temperature,
