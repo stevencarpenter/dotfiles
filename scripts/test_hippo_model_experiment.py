@@ -234,6 +234,10 @@ class ExperimentFixture(unittest.TestCase):
         runs = patch.object(EXP, "RUNS_DIR", self.tmp / "runs")
         runs.start()
         self.addCleanup(runs.stop)
+        # No real macOS notifications from test runs.
+        quiet = patch.object(EXP, "notify", lambda *_: None)
+        quiet.start()
+        self.addCleanup(quiet.stop)
         handlers = {s: signal.getsignal(s) for s in (signal.SIGTERM, signal.SIGINT)}
         self.addCleanup(lambda: [signal.signal(s, h) for s, h in handlers.items()])
 
@@ -377,7 +381,8 @@ class PowerResumeTests(ExperimentFixture):
             with redirect_stdout(io.StringIO()):
                 self.assertEqual(EXP.main(["resume", "--run", str(run)]), 0)
         self.assertEqual(started, [run, run])
-        self.assertEqual(sudo, [["sudo", "-v"], ["sudo", "-v"]])
+        # Only sudo calls: on macOS the end-of-run notification also runs here.
+        self.assertEqual([c for c in sudo if c[0] == "sudo"], [["sudo", "-v"]] * 2)
 
 
 if __name__ == "__main__":
