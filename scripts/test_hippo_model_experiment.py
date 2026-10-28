@@ -150,15 +150,22 @@ class PureFunctionTests(unittest.TestCase):
         tmp = Path(tempfile.mkdtemp())
         (tmp / "powermetrics.txt").write_text(POWER_TEXT)
         first, last = samples[0][0], samples[-1][0]
+        windows = [
+            # Exactly the second sample's interval: 30 W for 1 s.
+            {"variant": "v1", "start": first, "end": first + 1},
+            # The third sample's interval: 50 W for 1 s.
+            {"variant": "v2", "start": last - 1, "end": last},
+            # 0.2 s inside the first sample: 10 W x 0.2 s, not the whole 10 J.
+            {"variant": "v3", "start": first - 0.6, "end": first - 0.4},
+        ]
         (tmp / "windows.jsonl").write_text(
-            json.dumps({"variant": "v1", "start": first, "end": first + 1})
-            + "\n"
-            + json.dumps({"variant": "v2", "start": last, "end": last})
-            + "\n"
+            "".join(json.dumps(w) + "\n" for w in windows)
         )
         power = EXP.variant_power(tmp)
-        self.assertEqual(power["v1"], {"watts": 20.0, "joules": 40.0})
+        self.assertEqual(power["v1"], {"watts": 30.0, "joules": 30.0})
         self.assertEqual(power["v2"], {"watts": 50.0, "joules": 50.0})
+        self.assertAlmostEqual(power["v3"]["joules"], 2.0, places=3)
+        self.assertAlmostEqual(power["v3"]["watts"], 10.0, places=3)
 
     def test_transport_error_waits_and_retries_once(self) -> None:
         """A dropped connection is retried after the server answers again."""
@@ -183,6 +190,33 @@ class PureFunctionTests(unittest.TestCase):
         self.assertEqual(len(calls), 2)
         self.assertNotIn("error", result)
         self.assertEqual(result["model"], variant.id)
+
+    def test_stop_during_recovery_skips_the_retry(self) -> None:
+        """A stop that lands while waiting for oMLX ends without a new call."""
+        calls: list[int] = []
+
+        def failing(*_args: Any) -> dict[str, Any]:
+            calls.append(1)
+            return {"model": "m", "case": "c", "error": "<urlopen error refused>"}
+
+        def stop_while_waiting(_url: str, _key: str, stop: dict[str, bool]) -> bool:
+            stop["flag"] = True
+            return False
+
+        with (
+            patch.object(EXP.EVAL, "run_case", failing),
+            patch.object(EXP, "wait_for_server", stop_while_waiting),
+            redirect_stdout(io.StringIO()),
+        ):
+            result = EXP.run_variant_case(
+                "u",
+                {"id": "c"},
+                EXP.Variant("m", None, "off"),
+                SimpleNamespace(api_key="k"),
+                {"flag": False},
+            )
+        self.assertEqual(len(calls), 1)
+        self.assertIn("error", result)
 
     def test_http_error_is_not_retried(self) -> None:
         """An answer from the server, even an error, is final."""

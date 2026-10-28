@@ -262,9 +262,12 @@ def variant_power(run_dir: Path) -> dict[str, JsonDict]:
     for window in EVAL.read_jsonl(windows_file):
         energy_seconds = totals.setdefault(window["variant"], [0.0, 0.0])
         for end, seconds, watts in samples:
-            if window["start"] <= end <= window["end"]:
-                energy_seconds[0] += watts * seconds
-                energy_seconds[1] += seconds
+            # Charge only the part of the sample interval inside the window, so
+            # warm-up or the next variant never leaks across a boundary.
+            overlap = min(end, window["end"]) - max(end - seconds, window["start"])
+            if overlap > 0:
+                energy_seconds[0] += watts * overlap
+                energy_seconds[1] += overlap
     return {
         variant: {"watts": energy / seconds, "joules": energy}
         for variant, (energy, seconds) in totals.items()
@@ -558,6 +561,9 @@ def run_variant_case(
             break
         print(f"   transport error ({error}); waiting for oMLX", flush=True)
         wait_for_server(base_url, ns.api_key, stop)
+        if stop["flag"]:
+            # A stop during recovery must not start another (possibly long) call.
+            break
     return result
 
 
