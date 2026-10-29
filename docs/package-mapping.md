@@ -38,7 +38,7 @@ Decisions:
 | `fd` | brew `fd` | 10.5.0 |  |
 | `grex` | brew `grex` | 1.4.6 |  |
 | `htop` | brew `htop` | 3.5.3 |  |
-| `jq` | brew `jq` | 1.8.2 | also used by `scripts/hooks-sync.sh` (Codex hooks merge) |
+| `jq` | brew `jq` | 1.8.2 | command-line JSON tool |
 | `gnumake` | brew `make` | 4.4.1 | installs as `gmake`; `make` needs the gnubin path, otherwise Xcode make is used |
 | `tree` | brew `tree` | 2.3.2 |  |
 | `wget` | brew `wget` | 1.25.0 |  |

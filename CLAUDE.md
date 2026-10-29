@@ -232,7 +232,10 @@ locations:
   deploys it from the `agents` git source (`main`), so a change reaches hosts after it merges.
 - **`personal`** (identity): `dfm-module-personal.toml` links the personal shell profiles,
   hippo, homelab-over-Tailscale SSH fragment template, and contributes the
-  hippo SessionStart handler. It also links the identity files of shared capabilities: the
+  hippo SessionStart handler. It merges the hippo hook into `~/.codex/hooks.json` (`codex-hooks/v1`)
+  and the hippo model's oMLX settings into `~/.omlx/model_settings.json`
+  (`omlx-model-settings/v1`), and declares the `omlx-app/v1` service; run
+  `dfm sync --restart personal.omlx` after a model-settings change. It also links the identity files of shared capabilities: the
   Claude `settings.d` `allowWrite` fragment, jj, the MCP and skills overlays, the pinned skills,
   the aerospace and sketchybar variants and the journal config. `Brewfile.personal` holds jj and
   tailscale.
