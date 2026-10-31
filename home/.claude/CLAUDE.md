@@ -63,55 +63,20 @@ Use LSP before `rg` for symbol resolution, type checking, and references.
 - Python (`pyright`), Go (`gopls`), and Rust (`rust-analyzer`) are enabled on every machine.
 - Swift, TypeScript, and Lua are enabled on machines with the `dev` capability.
 
-### Codebase Memory for structural code intelligence (`mcp__codebase-memory-mcp__*`)
+### Codebase Memory (`mcp__codebase-memory-mcp__*`)
 
-Use codebase-memory for structural code questions in indexed repositories.
+Use codebase-memory for structural code questions in indexed repositories. The `codebase-memory`
+skill holds the tool routing table.
 
-Session discipline:
-
-- On entering a repository, check `list_projects` or `index_status`.
-- If the repository is not indexed, run `index_repository` once. From the shell, use
-  `~/.local/bin/codebase-memory-mcp cli index_repository --repo-path <path>`.
-- Keep `auto_index` disabled.
+- If a repository is not indexed, run `index_repository` once. Keep `auto_index` disabled.
 - Do not index scratch, temporary, or non-repository directories.
-- The background git watcher (`auto_watch`) updates indexed repositories.
 - Re-index manually after a large pull or generated-source update.
-- Use `detect_changes` to map uncommitted work to affected symbols.
-
-Route by question:
-
-| Question                              | Tool                                        |
-| ------------------------------------- | ------------------------------------------- |
-| Who calls X / what does X call        | `trace_path` (`direction="both"` for full context) |
-| Find a symbol by name pattern         | `search_graph(name_pattern=...)`            |
-| Exact source of a symbol              | `get_code_snippet`                          |
-| Multi-hop or cross-edge patterns      | `query_graph` (Cypher)                      |
-| Orientation in an unfamiliar repo     | `get_architecture`                          |
-| Impact of local uncommitted changes   | `detect_changes`                            |
-| Dead code, high fan-in/fan-out        | `search_graph` degree filters               |
-
-Evidence discipline:
-
-- Call `check_index_coverage` for every file that supports a conclusion.
-- For partial, skipped, or excluded coverage, read or search the reported ranges directly.
-- Do not make absence, exhaustive, or dead-code claims from the graph alone.
-- Coverage does not prove completeness.
-- Persist a material architecture decision with `manage_adr` when the task calls for
-  a durable record; routine code lookups do not require an ADR.
-- `rg`/`Read` remain correct for literals, configs, and non-code files; the graph does not index them.
-
-### Codegraph for code exploration (when `mcp__codegraph__*` is available)
-
-- Use `codegraph_explore` for an explanation or location query that benefits from source grouped by
-  file.
-- Use codebase-memory for caller and callee tracing, change impact, dead-code and degree analysis,
-  Cypher queries, cross-repository edges, and claims that require coverage verification.
-- Use `rg` or `Read` for configuration, data files, `.plist`, YAML, and other non-indexed artifacts.
+- Call `check_index_coverage` for every file that supports a conclusion. Do not make absence,
+  exhaustive, or dead-code claims from the graph alone.
+- When codegraph is also available, use codebase-memory for caller tracing, change impact,
+  dead-code analysis, and claims that require coverage verification.
 
 ### Hippo for prior work and lessons (when `mcp__hippo__*` is configured)
-
-Hippo captures shell activity, Claude and Codex sessions, and browser history across all projects.
-Its history answers whether an idea was already tried and what the attempt taught.
 
 - After forming a new idea, query hippo before implementing it. An idea includes a proposed
   approach, design, fix hypothesis, refactor direction, tool choice, or dependency choice.
@@ -125,10 +90,8 @@ Its history answers whether an idea was already tried and what the attempt taugh
 - Recheck at later checkpoints: before writing a plan, when a debugging hypothesis changes, and
   before adopting a new tool or dependency.
 - Skip the check only on machines where the hippo server is not configured.
-- Usage of this rule is measured. The baseline, the scheduled re-measure dates, the instruments in
-  `~/.local/share/hippo/metrics/`, and the query constraints are documented in
-  `~/.dotfiles/docs/ai-tools/hippo-usage-measurement.md`. Read that file before re-measuring or
-  before changing how hippo usage is counted.
+- Usage of this rule is measured. Read `~/.dotfiles/docs/ai-tools/hippo-usage-measurement.md`
+  before re-measuring or before changing how hippo usage is counted.
 
 ### Shell tooling
 
@@ -147,10 +110,3 @@ Call `ToolSearch` before using `mcp__idea__*`, `LSP`, `TeamCreate`, or another d
 
 If `agent-journal` is configured, use its skills to record material decisions, todos, blockers,
 completed changes, and session summaries. Do not journal secrets, credentials, or routine commands.
-
-## Batallion
-
-To onboard a project onto batallion:
-`uv tool install --reinstall git+ssh://git@github.com/stevencarpenter/batallion`,
-then run `batallion onboard` and follow its instructions.
-Health check for an onboarded project: `batallion doctor`.
