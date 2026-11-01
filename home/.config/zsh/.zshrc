@@ -628,6 +628,10 @@ fi
 # Worktrunk shell completions
 if command -v wt >/dev/null 2>&1; then zcached wt-shell-init "$(command -v wt)" command wt config shell init zsh; fi
 
+# dfm shell completions. The cache key follows the dfm link to the installed version, so each
+# self-update regenerates it. stderr is quiet because a dfm older than DFM-79 has no completions.
+if command -v dfm >/dev/null 2>&1; then zcached dfm-completions "$(command -v dfm)" command dfm completions zsh 2>/dev/null; fi
+
 # Activate mise on first use. Shim precedence is configured with PATH above.
 if command -v mise >/dev/null 2>&1; then
   # Create wrapper function that activates on first use
