@@ -412,7 +412,7 @@ skipDangerousModePermissionPrompt = true
 skipAutoPermissionPrompt = true
 voiceEnabled = true
 teammateMode = "tmux"
-cleanupPeriodDays = 14
+cleanupPeriodDays = 30
 [resources.value.managed.env]
 CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = "1"
 CLAUDE_CODE_NO_FLICKER = "1"
