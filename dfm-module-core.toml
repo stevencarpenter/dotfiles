@@ -392,8 +392,9 @@ separator = "\n"
 # sandbox.filesystem.allowWrite is empty here (append needs the array under managed). Each
 # identity module links a .claude/settings.d fragment that appends its own absolute paths.
 # Hooks are handlers. The two SessionStart handlers are contributed by the personal
-# (hippo) and agents (routing) modules. Edit-in-tool values stay: tables merge, plugins
-# the application enables survive, and model and effortLevel are seeds.
+# (hippo) and agents (routing) modules. A field Claude Code can change in its own UI
+# (/plugin, /config, /voice, /model) is a seed, so a UI edit never blocks a sync.
+# Managed holds only fields that no UI writes.
 [[resources]]
 id = "claude-settings"
 kind = "merge"
@@ -405,13 +406,8 @@ fragments_dir = ".claude/settings.d"
 pattern = "*.json"
 [resources.value.managed]
 "$schema" = "https://json.schemastore.org/claude-code-settings.json"
-outputStyle = "STE"
-verbose = false
-autoDreamEnabled = true
 skipDangerousModePermissionPrompt = true
 skipAutoPermissionPrompt = true
-voiceEnabled = true
-teammateMode = "tmux"
 cleanupPeriodDays = 14
 [resources.value.managed.env]
 CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = "1"
@@ -420,22 +416,20 @@ ENABLE_LSP_TOOL = "1"
 CLAUDE_CODE_FORK_SUBAGENTS = "1"
 CLAUDE_CODE_WORKFLOWS = "1"
 CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS = "64"
-[resources.value.managed.permissions]
-defaultMode = "auto"
 [resources.value.managed.statusLine]
 type = "command"
 command = "bash ~/.claude/statusline-command.sh"
-[resources.value.managed.skillOverrides]
+[resources.value.seed.skillOverrides]
 building-browser-extensions = "off"
 claude-cost = "off"
 record-todo = "off"
-[resources.value.managed.extraKnownMarketplaces.claude-plugins-official.source]
+[resources.value.seed.extraKnownMarketplaces.claude-plugins-official.source]
 source = "github"
 repo = "anthropics/claude-plugins-official"
-[resources.value.managed.extraKnownMarketplaces.ponytail.source]
+[resources.value.seed.extraKnownMarketplaces.ponytail.source]
 source = "github"
 repo = "DietrichGebert/ponytail"
-[resources.value.managed.enabledPlugins]
+[resources.value.seed.enabledPlugins]
 "atlassian@claude-plugins-official" = false
 "claude-code-setup@claude-plugins-official" = false
 "claude-md-management@claude-plugins-official" = false
@@ -470,6 +464,13 @@ allowWrite = []
 [resources.value.seed]
 model = "opusplan"
 effortLevel = "xhigh"
+outputStyle = "STE"
+verbose = false
+autoDreamEnabled = true
+voiceEnabled = true
+teammateMode = "tmux"
+[resources.value.seed.permissions]
+defaultMode = "auto"
 
 [resources.value.handlers.em-dash-check]
 event = "PreToolUse"
