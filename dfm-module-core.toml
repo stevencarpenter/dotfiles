@@ -400,15 +400,18 @@ id = "claude-settings"
 kind = "merge"
 adapter = "claude-settings/v1"
 target = ".claude/settings.json"
+
 [resources.value]
 append = ["/sandbox/filesystem/allowWrite"]
 fragments_dir = ".claude/settings.d"
 pattern = "*.json"
+
 [resources.value.managed]
 "$schema" = "https://json.schemastore.org/claude-code-settings.json"
 skipDangerousModePermissionPrompt = true
 skipAutoPermissionPrompt = true
-cleanupPeriodDays = 14
+cleanupPeriodDays = 30
+
 [resources.value.managed.env]
 CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = "1"
 CLAUDE_CODE_NO_FLICKER = "1"
@@ -416,19 +419,24 @@ ENABLE_LSP_TOOL = "1"
 CLAUDE_CODE_FORK_SUBAGENTS = "1"
 CLAUDE_CODE_WORKFLOWS = "1"
 CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS = "64"
+
 [resources.value.managed.statusLine]
 type = "command"
 command = "bash ~/.claude/statusline-command.sh"
+
 [resources.value.seed.skillOverrides]
 building-browser-extensions = "off"
 claude-cost = "off"
 record-todo = "off"
+
 [resources.value.seed.extraKnownMarketplaces.claude-plugins-official.source]
 source = "github"
 repo = "anthropics/claude-plugins-official"
+
 [resources.value.seed.extraKnownMarketplaces.ponytail.source]
 source = "github"
 repo = "DietrichGebert/ponytail"
+
 [resources.value.seed.enabledPlugins]
 "atlassian@claude-plugins-official" = false
 "claude-code-setup@claude-plugins-official" = false
@@ -458,6 +466,7 @@ repo = "DietrichGebert/ponytail"
 "superpowers@claude-plugins-official" = true
 "swift-lsp@claude-plugins-official" = true
 "typescript-lsp@claude-plugins-official" = true
+
 [resources.value.managed.sandbox.filesystem]
 allowWrite = []
 
@@ -477,27 +486,33 @@ event = "PreToolUse"
 matcher = "Bash"
 type = "command"
 argv = ["${HOME}/.claude/hooks/no-em-dash-commit.sh"]
+
 [resources.value.handlers.worktree-create]
 event = "WorktreeCreate"
 type = "command"
 argv = ["${HOME}/.claude/hooks/wt-create.sh"]
+
 [resources.value.handlers.worktree-remove]
 event = "WorktreeRemove"
 type = "command"
 argv = ["${HOME}/.claude/hooks/wt-remove.sh"]
+
 [resources.value.handlers.journal-stop]
 event = "Stop"
 type = "command"
 argv = ["${HOME}/.claude/hooks/agent-journal-stop.sh"]
+
 [resources.value.handlers.journal-subagent-stop]
 event = "SubagentStop"
 type = "command"
 argv = ["${HOME}/.claude/hooks/agent-journal-stop.sh"]
+
 [resources.value.handlers.reap-stop]
 event = "Stop"
 type = "command"
 argv = ["${HOME}/.claude/hooks/agent-reap-stop.sh"]
 timeout = 20
+
 [resources.value.handlers.reap-session-end]
 event = "SessionEnd"
 type = "command"
