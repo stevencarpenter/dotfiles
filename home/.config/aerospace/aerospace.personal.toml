@@ -201,6 +201,9 @@ run = 'move-node-to-workspace 9'
 
 # ─── Window Rules ─────────────────────────────────────────────────────────────
 # Float apps that don't tile well (shared across all machines)
+[[on-window-detected]]
+if.window-title-regex-substring = 'Terrain Deformation'
+run = 'layout floating'
 
 [[on-window-detected]]
 if.app-id = 'com.apple.systempreferences'
