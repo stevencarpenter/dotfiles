@@ -6,7 +6,7 @@
 config-version = 2
 
 # Version 2 requires this list to retain empty workspaces.
-persistent-workspaces = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
+persistent-workspaces = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'G']
 
 start-at-login = true
 after-startup-command = [
@@ -78,6 +78,7 @@ alt-6 = 'workspace 6'
 alt-7 = 'workspace 7'
 alt-8 = 'workspace 8'
 alt-9 = 'workspace 9'
+alt-g = 'workspace G'
 
 # Move window to workspace (alt-shift + number)
 alt-shift-1 = ['move-node-to-workspace 1', 'workspace 1']
@@ -89,6 +90,7 @@ alt-shift-6 = ['move-node-to-workspace 6', 'workspace 6']
 alt-shift-7 = ['move-node-to-workspace 7', 'workspace 7']
 alt-shift-8 = ['move-node-to-workspace 8', 'workspace 8']
 alt-shift-9 = ['move-node-to-workspace 9', 'workspace 9']
+alt-shift-g = ['move-node-to-workspace G', 'workspace G']
 
 # Layout
 alt-comma = 'layout tiles horizontal vertical'
@@ -146,6 +148,28 @@ esc = 'mode main'
 # 7: Notes (Obsidian)
 # 8: Comms (Mail, Calendar, Messages)
 # 9: Remote Access (Screen Sharing)
+# G: Game dev (Unreal, Godot, Unity, Simulator), floating
+
+# G: Game dev. Engine, game and simulator windows float on G: no tiling, resizing or grid snapping.
+[[on-window-detected]]
+if.app-id = 'com.epicgames.UnrealEditor'
+run = ['layout floating', 'move-node-to-workspace G']
+
+[[on-window-detected]]
+if.app-id = 'com.epicgames.CrashReportClient'
+run = ['layout floating', 'move-node-to-workspace G']
+
+[[on-window-detected]]
+if.app-id = 'org.godotengine.godot'
+run = ['layout floating', 'move-node-to-workspace G']
+
+[[on-window-detected]]
+if.app-id = 'com.unity3d.UnityEditor5.x'
+run = ['layout floating', 'move-node-to-workspace G']
+
+[[on-window-detected]]
+if.app-id = 'com.apple.iphonesimulator'
+run = ['layout floating', 'move-node-to-workspace G']
 
 [[on-window-detected]]
 if.app-id = 'com.mitchellh.ghostty'
