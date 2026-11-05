@@ -8,13 +8,18 @@ set -euo pipefail
 source "$PLUGIN_DIR/app_badge.sh"
 
 MAX_APPS=5
-WORKSPACES=(1 2 3 4 5 6 7 8 9)
+if [[ -r "$CONFIG_DIR/machine.env" ]]; then
+  # shellcheck disable=SC1091
+  source "$CONFIG_DIR/machine.env"
+fi
+# plugins/aerospace.sh reads the same variable; machine.env sets it per identity.
+read -ra WORKSPACES <<<"${SKETCHYBAR_WORKSPACES:-1 2 3 4 5 6 7 8 9}"
 
 # Event handling uses a controller pattern: a single hidden `workspaces.controller`
 # item (defined at the bottom of this file) subscribes to aerospace_workspace_change
-# and front_app_switched, then updates all 9 workspaces from a single aerospace
+# and front_app_switched, then updates every workspace from a single aerospace
 # query. The individual workspace items below have NO `script=` and NO --subscribe,
-# which avoids the 9× subprocess fanout (one invocation per workspace per event).
+# which avoids a subprocess fanout (one invocation per workspace per event).
 for sid in "${WORKSPACES[@]}"; do
   # Workspace number. icon.padding_left sets the bracket's left-edge padding.
   # icon.padding_right is the gap between the number and the first app icon

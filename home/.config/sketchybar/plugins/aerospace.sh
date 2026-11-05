@@ -22,18 +22,19 @@ BG2=0xff374145
 GRAY=0xff7a8478
 RED=0xffe67e80
 MAX_APPS=5
-WORKSPACES=(1 2 3 4 5 6 7 8 9)
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/icon_map.sh"
 source "$SCRIPT_DIR/app_badge.sh"
 
-machine_env="$SCRIPT_DIR/../machine.env"
+# Not $SCRIPT_DIR/..: plugins/ is a symlink into the checkout, which has no machine.env.
+machine_env="${CONFIG_DIR:-$HOME/.config/sketchybar}/machine.env"
 if [[ -r "$machine_env" ]]; then
   # shellcheck disable=SC1090
   source "$machine_env"
 fi
 SKETCHYBAR_WORKSPACE_BADGES="${SKETCHYBAR_WORKSPACE_BADGES:-1}"
+read -ra WORKSPACES <<<"${SKETCHYBAR_WORKSPACES:-1 2 3 4 5 6 7 8 9}"
 
 # ─── App → Brand color map ───────────────────────────────────────────────────
 
