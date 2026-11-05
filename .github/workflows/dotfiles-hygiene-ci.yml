@@ -1,7 +1,9 @@
 name: Dotfiles Hygiene CI
 
 on:
+  # Branch pushes are covered by pull_request; push on every branch ran the job twice.
   push:
+    branches: [main]
     paths:
       - ".github/workflows/dotfiles-hygiene-ci.yml"
       - "lefthook.yml"
