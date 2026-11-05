@@ -97,6 +97,8 @@ skill holds the tool routing table.
 
 - Use `rg` (ripgrep) instead of `grep` in commands and pipelines.
 - Use `grep` only in scripts that must run on a machine without ripgrep.
+- The interactive shell aliases `sed` to `gsed` (GNU sed). In commands for the user to run, use
+  GNU syntax: `sed -i 's/a/b/' file`, with no `''` after `-i`.
 
 ### Experimental Agent Teams (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`)
 

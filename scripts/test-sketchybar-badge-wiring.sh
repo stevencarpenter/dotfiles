@@ -143,6 +143,7 @@ cp "${repo_root}/home/.config/sketchybar/plugins/icon_map.sh" "${tmpdir}/plugins
 cp "${badge_plugin}" "${tmpdir}/plugins/app_badge.sh"
 cat > "${tmpdir}/machine.env" <<'ENV'
 SKETCHYBAR_WORKSPACE_BADGES=0
+SKETCHYBAR_WORKSPACES="1 G"
 ENV
 cat > "${tmpdir}/bin/aerospace" <<'SH'
 #!/usr/bin/env bash
@@ -153,7 +154,7 @@ esac
 SH
 cat > "${tmpdir}/bin/sketchybar" <<'SH'
 #!/usr/bin/env bash
-exit 0
+printf '%s\n' "$*" >> "${CONFIG_DIR}/sketchybar.log"
 SH
 cat > "${tmpdir}/bin/lsappinfo" <<'SH'
 #!/usr/bin/env bash
@@ -161,6 +162,9 @@ echo 'lsappinfo should not be called when SKETCHYBAR_WORKSPACE_BADGES=0' >&2
 exit 99
 SH
 chmod +x "${tmpdir}/bin/aerospace" "${tmpdir}/bin/sketchybar" "${tmpdir}/bin/lsappinfo"
-PATH="${tmpdir}/bin:${PATH}" bash "${tmpdir}/plugins/aerospace.sh"
+# SketchyBar exports CONFIG_DIR to plugin scripts; the plugin must not derive it from its own path.
+CONFIG_DIR="${tmpdir}" PATH="${tmpdir}/bin:${PATH}" bash "${tmpdir}/plugins/aerospace.sh"
+grep -q 'workspace.G ' "${tmpdir}/sketchybar.log" \
+  || { echo "expected SKETCHYBAR_WORKSPACES from machine.env to add workspace G" >&2; exit 1; }
 
 echo "sketchybar badge deployment wiring and normalization are covered"
