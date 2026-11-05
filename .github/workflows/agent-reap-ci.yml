@@ -1,7 +1,9 @@
 name: Agent Reap CI
 
 on:
+  # Branch pushes are covered by pull_request; push on every branch ran the job twice.
   push:
+    branches: [main]
     paths:
       - "agent_reap/**"
       - "home/.config/agent-reap/**"

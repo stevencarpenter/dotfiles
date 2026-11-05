@@ -1,7 +1,9 @@
 name: MCP Sync CI
 
 on:
+  # Branch pushes are covered by pull_request; push on every branch ran the job twice.
   push:
+    branches: [main]
     paths:
       - "mcp_sync/**"
       - ".claude/skills/mcp-sync-verify/scripts/print_target_paths.py"
