@@ -181,7 +181,7 @@ them exist because an orchestrator or a human actually filters on them:
 | `needs-human` | Done-when needs a device, console, or credential access |
 | `agent-autonomous` | Safe to run unsupervised |
 | `agent-parallel` | Safe to run concurrently with siblings |
-| `M1`–`M5` | Snugmarina roadmap milestones: the only stand-in for the milestone entity Kaneo lacks |
+| `M1` to `M5` | Snugmarina roadmap milestones: the only stand-in for the milestone entity Kaneo lacks |
 
 Apply `ready-for-agent` only when an agent can finish the task from its
 description alone with no decisions left open. The effort-tier labels

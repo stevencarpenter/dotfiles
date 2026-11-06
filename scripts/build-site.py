@@ -544,7 +544,7 @@ def split_units(block: str) -> list[str]:
                 current = []
             cells = [c.strip() for c in line.strip().strip("|").split("|")]
             if not all(set(c) <= {"-", ":", " "} for c in cells if c):
-                units.append(" — ".join(c for c in cells if c))
+                units.append(": ".join(c for c in cells if c))
             continue
         if LIST_ITEM.match(line):
             if current:

@@ -133,7 +133,7 @@ Project-specific notes worth knowing:
   manual deletion in the UI: never file there.
 - **Gringotts**: flat backlog, no epics or DAG. ADR numbers in titles refer to
   the gringotts repo's ADR corpus.
-- **Snugmarina**: holds both the migrated backlog and the Kaneo-native M1–M5
+- **Snugmarina**: holds both the migrated backlog and the Kaneo-native M1 to M5
   product roadmap.
 
 ## Migration facts
