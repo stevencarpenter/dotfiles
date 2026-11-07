@@ -22,7 +22,7 @@ Cmd             macOS         system shortcuts (copy, paste, quit)
 | Keys               | Action                   |
 |--------------------|--------------------------|
 | `alt-h/j/k/l`      | Focus left/down/up/right |
-| `alt-1` .. `alt-9` | Switch to workspace 1–9  |
+| `alt-1` .. `alt-9` | Switch to workspace 1 to 9  |
 
 ### Windows
 
@@ -130,7 +130,7 @@ These apps auto-float (won't tile): System Settings, 1Password, Raycast, Finder,
 
 ### Left: Workspace Indicators
 
-- Numbers 1–9 with app icons from **sketchybar-app-font**
+- Numbers 1 to 9 with app icons from **sketchybar-app-font**
 - Focused workspace: green number + brand-colored app icons
 - Unfocused: gray icons
 - Each workspace is a clickable bracket (number + icons)

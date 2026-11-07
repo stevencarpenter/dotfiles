@@ -42,7 +42,7 @@
         const expanded = open.has(child);
         const cls = ["row", isDir ? "dir" : "file", child === cur ? "on" : ""].join(" ");
         const tw = isDir ? (expanded ? "▾" : "▸") : "·";
-        const flag = c.pending ? "○" : c.excluded ? "–" : "";
+        const flag = c.pending ? "○" : c.excluded ? "-" : "";
         out.push(
           `<div class="${cls}" data-path="${esc(child)}" style="padding-left:${8 + depth * 13}px">` +
             `<span class="tw">${tw}</span>` +

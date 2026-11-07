@@ -60,3 +60,8 @@ rerank_backend = "jev"
 
 [classification]
 enabled = true
+
+[backup]
+destination = "/Users/carpenter/Library/CloudStorage/GoogleDrive-steven@sjcarpenter.com/My Drive/Backups/hippo"
+recipient = "age1uq63y3zs9m2v0ephhjvg4rt855jcy4eldlrnxfem0nwmzq2fzd9shtdxtd"
+identity_ref = "op://mdehlsb4b5ywlwm5eivxxpbn5y/wuiptqr2hii5sqmu6ocepdjbpm/private_key"
