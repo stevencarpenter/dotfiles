@@ -156,3 +156,4 @@ cask "font-victor-mono"  # 1.5.6
 cask "font-dejavu-sans-mono-nerd-font"  # 3.5.1
 # conftest is work-only (identity == "work"); uncomment on a work machine.
 # brew "conftest"  # 0.71.1
+brew "tuicr"

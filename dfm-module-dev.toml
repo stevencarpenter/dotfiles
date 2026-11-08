@@ -13,3 +13,11 @@ target = ".config/mise/conf.d/dev.toml"
 [resources.value]
 source = "home/.config/mise/conf.d/dev.toml"
 
+
+[[resources]]
+id = "config-tuicr-config-toml"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/tuicr/config.toml"
+[resources.value]
+source = "home/.config/tuicr/config.toml"

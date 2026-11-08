@@ -1,0 +1,34 @@
+# tuicr configuration. Each value is the most common one in 74 public
+# ~/.config/tuicr/config.toml files on GitHub (2026-10-31).
+
+# Dark only. tuicr bundles Everforest medium (no hard variant); the transparent
+# background shows the terminal background, so an Everforest dark hard terminal
+# gives the hard background.
+appearance = "dark"
+theme = "everforest-dark"
+transparent_background = true
+
+diff_view = "side-by-side"
+show_file_list = true
+cursor_line = true
+scroll_offset = 5
+wrap = false
+ignore_whitespace = false
+mouse = true
+
+comment_vim = true
+comment_tab_width = 4
+
+# Homebrew owns updates (Brewfile and the dfm brew updater).
+no_update_check = true
+
+comment_types = [
+  { id = "issue", definition = "problems to fix", color = "red" },
+  { id = "suggestion", definition = "possible improvements", color = "cyan" },
+  { id = "praise", definition = "positive feedback", color = "green" },
+  { id = "nit", label = "nitpick", definition = "small optional tweaks", color = "#d19a66" },
+  { id = "note", label = "question", definition = "ask for clarification", color = "yellow" },
+]
+
+[forge]
+comment_type_prefix = true
