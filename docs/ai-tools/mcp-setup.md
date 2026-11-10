@@ -27,8 +27,8 @@ The step is mcpSync in `scripts/hooks-sync.sh`; it reports a failure without fai
 ## Current MCP Servers
 
 The master config is intentionally empty: no server is deployed to every machine. GitHub is no
-longer an MCP server in this sync; any Claude Code GitHub plugin setup is managed separately in
-the `core.claude-settings` resource of `dfm-module-core.toml`. The retired `github` and `xcode` MCP server names are
+longer an MCP server in this sync, and the `core.claude-settings` resource of
+`dfm-module-core.toml` declares no Claude Code GitHub plugin. The retired `github` and `xcode` MCP server names are
 scrubbed from generated targets and old in-place configs during sync. Railway was removed. All
 remaining servers live in machine overlays:
 
