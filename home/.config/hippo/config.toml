@@ -36,7 +36,6 @@ watched_repos = [
   "stevencarpenter/dotfiles",
   "sjcarpenter/whistlepost",
   "sjcarpenter/homelab",
-  "stevencarpenter/batallion",
   "sjcarpenter/sluice",
   "sjcarpenter/gringotts",
   "sjcarpenter/snugmarina",
