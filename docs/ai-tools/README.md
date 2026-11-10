@@ -24,6 +24,9 @@ This directory contains documentation for integrating AI-powered development too
 - [Hippo model experiment](./hippo-model-experiment.md): record real enrichment requests, then
   run an unattended model, quantization, temperature and thinking comparison
   (`just hippo-experiment`) and decide from its report and blind sample
+- [Hippo effectiveness study](./hippo-effectiveness-study.md): a phased plan to measure whether
+  the 4-bit enrichment model is materially worse than 8-bit, starting with a read-only
+  `hippo.db` probe (`just hippo-study-probe`)
 
 ## Environment Variables
 
