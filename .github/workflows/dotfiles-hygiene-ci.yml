@@ -172,6 +172,9 @@ jobs:
       - name: Validate hippo model experiment runner
         run: scripts/test_hippo_model_experiment.py
 
+      - name: Validate hippo study probe
+        run: scripts/test_hippo_study_probe.py
+
       - name: Validate direct activation entry points
         run: scripts/test-sync-hook-runtime.sh
 

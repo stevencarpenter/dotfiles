@@ -135,6 +135,11 @@ hippo-eval *ARGS:
 hippo-experiment *ARGS:
     scripts/hippo-model-experiment.py {{ ARGS }}
 
+# Read-only hippo.db probe for the 8-bit vs 4-bit effectiveness study (Phase 0).
+[group('Targeted maintenance')]
+hippo-study-probe *ARGS:
+    scripts/hippo-study-probe.py {{ ARGS }}
+
 # MCP configs only; hooks-sync.sh also regenerates them during sync-dfm-apply.
 [group('Targeted maintenance')]
 mcp-sync:
