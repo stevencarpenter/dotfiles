@@ -228,5 +228,36 @@ class ReviewFindingTests(unittest.TestCase):
         )
 
 
+class OutputDirectoryTests(unittest.TestCase):
+    """The report never changes permissions on a caller's existing directory."""
+
+    def test_existing_parent_keeps_its_mode(self) -> None:
+        """--out inside a shared 0777 directory leaves that directory 0777."""
+        tmp = Path(tempfile.mkdtemp())
+        db = tmp / "hippo.db"
+        make_db(db)
+        shared = tmp / "shared"
+        shared.mkdir()
+        shared.chmod(0o777)
+        out = shared / "probe.md"
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            code = PROBE.main(
+                ["--db", str(db), "--out", str(out), "--cutover", CUTOVER]
+            )
+        self.assertEqual(code, 0)
+        self.assertEqual(shared.stat().st_mode & 0o777, 0o777)
+        self.assertEqual(out.stat().st_mode & 0o777, 0o600)
+
+    def test_created_parent_is_private(self) -> None:
+        """A directory the probe creates for --out is 0700."""
+        tmp = Path(tempfile.mkdtemp())
+        db = tmp / "hippo.db"
+        make_db(db)
+        out = tmp / "new" / "probe.md"
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            PROBE.main(["--db", str(db), "--out", str(out), "--cutover", CUTOVER])
+        self.assertEqual(out.parent.stat().st_mode & 0o777, 0o700)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -471,8 +471,12 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     with conn:
         report = build_report(conn, cutover, args.cutover)
-    args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.parent.chmod(0o700)
+    # Only a directory this probe creates (or its own default) is locked down;
+    # a caller's existing directory, such as /tmp, keeps its permissions.
+    if not args.out.parent.exists():
+        args.out.parent.mkdir(mode=0o700, parents=True)
+    elif args.out.parent.resolve() == DEFAULT_OUT.parent.resolve():
+        args.out.parent.chmod(0o700)
     fd = os.open(args.out, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as handle:
         handle.write(report)
