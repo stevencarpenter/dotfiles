@@ -465,7 +465,7 @@ outputStyle = "STE"
 verbose = false
 autoDreamEnabled = true
 voiceEnabled = true
-teammateMode = "tmux"
+teammateMode = "auto"
 [resources.value.seed.permissions]
 defaultMode = "auto"
 
