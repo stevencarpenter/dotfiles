@@ -10,6 +10,7 @@ from __future__ import annotations
 import importlib.util
 import io
 import json
+import os
 import sqlite3
 import tempfile
 import unittest
@@ -257,6 +258,62 @@ class OutputDirectoryTests(unittest.TestCase):
         with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
             PROBE.main(["--db", str(db), "--out", str(out), "--cutover", CUTOVER])
         self.assertEqual(out.parent.stat().st_mode & 0o777, 0o700)
+
+
+class SecondReviewTests(unittest.TestCase):
+    """Free-text model columns, hard links, and replaced report modes."""
+
+    def setUp(self) -> None:
+        """Create the fake database."""
+        self.tmp = Path(tempfile.mkdtemp())
+        self.db = self.tmp / "hippo.db"
+        make_db(self.db)
+
+    def run_probe(self, out: Path) -> int:
+        """Run the probe CLI writing to ``out``.
+
+        Args:
+            out: Report path.
+
+        Returns:
+            Exit code.
+        """
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            return PROBE.main(
+                ["--db", str(self.db), "--out", str(out), "--cutover", CUTOVER]
+            )
+
+    def test_free_text_model_values_are_redacted(self) -> None:
+        """Prompt-like text in a model column is counted, never shown."""
+        conn = sqlite3.connect(self.db)
+        conn.execute(
+            "UPDATE knowledge_nodes SET enrichment_model = ? WHERE id = 1",
+            (SECRET,),
+        )
+        conn.commit()
+        conn.close()
+        out = self.tmp / "probe.md"
+        self.assertEqual(self.run_probe(out), 0)
+        text = out.read_text()
+        self.assertNotIn("very-private-path", text)
+        self.assertIn("(redacted: not model identifiers) x1", text)
+        self.assertIn("`qwen-8bit` x1", text)
+
+    def test_refuses_hard_link_to_database(self) -> None:
+        """A hard link to the database is caught by inode, not by name."""
+        link = self.tmp / "hard.md"
+        os.link(self.db, link)
+        before = self.db.read_bytes()
+        self.assertEqual(self.run_probe(link), 2)
+        self.assertEqual(self.db.read_bytes(), before)
+
+    def test_replaced_report_is_private(self) -> None:
+        """An existing 0644 report is rewritten as 0600."""
+        out = self.tmp / "probe.md"
+        out.write_text("old")
+        out.chmod(0o644)
+        self.assertEqual(self.run_probe(out), 0)
+        self.assertEqual(out.stat().st_mode & 0o777, 0o600)
 
 
 if __name__ == "__main__":

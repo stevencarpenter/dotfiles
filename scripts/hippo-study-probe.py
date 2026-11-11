@@ -45,6 +45,7 @@ LONG_TEXT_CHARS = 500
 TOOL_CALL_SAMPLE = 500
 TOP_VALUES = 10
 TIME_SAMPLE = 50
+MODEL_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,119}")
 
 
 def quote(name: str) -> str:
@@ -198,14 +199,29 @@ def model_values(
         table: Table name.
         column: Model-like column.
 
+    Only values shaped like a model identifier are shown. Anything else (a
+    column that happens to hold prompts or responses) is counted, not shown,
+    so the report stays free of row text.
+
     Returns:
-        ``(value, count)`` pairs, most frequent first.
+        ``(value, count)`` pairs, most frequent first, with free text folded
+        into one ``(redacted)`` entry.
     """
     rows = conn.execute(
         f"SELECT {quote(column)}, COUNT(*) FROM {quote(table)} "
-        f"GROUP BY 1 ORDER BY 2 DESC LIMIT {TOP_VALUES}"
+        f"WHERE {quote(column)} IS NOT NULL GROUP BY 1 ORDER BY 2 DESC"
     )
-    return [(str(value)[:120], count) for value, count in rows]
+    shown: list[tuple[str, int]] = []
+    redacted = 0
+    for value, count in rows:
+        text = str(value)
+        if MODEL_ID.fullmatch(text) and len(shown) < TOP_VALUES:
+            shown.append((text, count))
+        elif not MODEL_ID.fullmatch(text):
+            redacted += count
+    if redacted:
+        shown.append(("(redacted: not model identifiers)", redacted))
+    return shown
 
 
 def populated(conn: sqlite3.Connection, table: str, column: str) -> bool:
@@ -229,22 +245,26 @@ def populated(conn: sqlite3.Connection, table: str, column: str) -> bool:
 def overwrites_database(out: Path, db: Path) -> bool:
     """Check whether writing the report would clobber the database.
 
-    Covers the database file itself, a symlink to it, and SQLite's sidecar
-    files (``-wal``, ``-shm``, ``-journal``).
+    Covers the database file itself and SQLite's sidecar files (``-wal``,
+    ``-shm``, ``-journal``), reached by path, symlink or hard link: existing
+    files are compared by device and inode, not by name.
 
     Args:
         out: Report path.
         db: Database path.
 
     Returns:
-        True when ``out`` resolves to the database or one of its sidecars.
+        True when ``out`` is the database or one of its sidecars.
     """
-    target = out.resolve()
     base = db.resolve()
-    guarded = {base} | {
+    guarded = [base] + [
         base.with_name(base.name + s) for s in ("-wal", "-shm", "-journal")
-    }
-    return target in guarded
+    ]
+    if out.resolve() in guarded:
+        return True
+    if not out.exists():
+        return False
+    return any(path.exists() and os.path.samefile(out, path) for path in guarded)
 
 
 def long_text_columns(conn: sqlite3.Connection, table: str) -> list[tuple[str, int]]:
@@ -422,7 +442,8 @@ def build_report(conn: sqlite3.Connection, cutover: float, cutover_label: str) -
         lines += ["", "## Model column values", ""]
         for table, column in provenance:
             values = ", ".join(
-                f"`{v}` x{n}" for v, n in model_values(conn, table, column)
+                f"{v} x{n}" if v.startswith("(") else f"`{v}` x{n}"
+                for v, n in model_values(conn, table, column)
             )
             lines.append(f"- `{table}.{column}`: {values}")
     if hippo:
@@ -478,6 +499,9 @@ def main(argv: list[str] | None = None) -> int:
     elif args.out.parent.resolve() == DEFAULT_OUT.parent.resolve():
         args.out.parent.chmod(0o700)
     fd = os.open(args.out, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    # O_CREAT's mode applies only to a new file; an existing report keeps its
+    # old mode unless it is set explicitly.
+    os.fchmod(fd, 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as handle:
         handle.write(report)
     print(report)
