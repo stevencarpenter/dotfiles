@@ -205,7 +205,7 @@ locations:
   links the `machine/<identity>.json` overlay) and the
   `mcpSync` step of `scripts/hooks-sync.sh`. (No github MCP server ships anywhere: `mcp_sync`
   strips a `github` server via `RETIRED_MCP_SERVER_NAMES`, and the `github@claude-plugins-official`
-  plugin, which bundles a remote GitHub MCP server, is pinned `false` in the
+  plugin, which bundles a remote GitHub MCP server, is not declared in the
   `core.claude-settings` resource of `dfm-module-core.toml`. `gh-axi` is used for GitHub instead.)
 - **`skills`**: `dfm-module-skills.toml` (manifest; the identity module links the overlay and the
   pinned skill links) and the
