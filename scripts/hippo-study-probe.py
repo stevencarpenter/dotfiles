@@ -44,6 +44,7 @@ RESULT_KEYS = ("result", "output", "response", "content", "tool_result")
 LONG_TEXT_CHARS = 500
 TOOL_CALL_SAMPLE = 500
 TOP_VALUES = 10
+TIME_SAMPLE = 50
 
 
 def quote(name: str) -> str:
@@ -151,11 +152,12 @@ def time_column(conn: sqlite3.Connection, table: str) -> str | None:
     names = [name for name, _ in columns(conn, table) if TIME_COLUMN.search(name)]
     names.sort(key=lambda n: (not n.lower().startswith(("created", "start")), n))
     for name in names:
-        row = conn.execute(
+        # Sample several values so one malformed row cannot hide a usable column.
+        rows = conn.execute(
             f"SELECT {quote(name)} FROM {quote(table)} "
-            f"WHERE {quote(name)} IS NOT NULL LIMIT 1"
-        ).fetchone()
-        if row and to_epoch(row[0]) is not None:
+            f"WHERE {quote(name)} IS NOT NULL LIMIT {TIME_SAMPLE}"
+        )
+        if any(to_epoch(value) is not None for (value,) in rows):
             return name
     return None
 
@@ -204,6 +206,45 @@ def model_values(
         f"GROUP BY 1 ORDER BY 2 DESC LIMIT {TOP_VALUES}"
     )
     return [(str(value)[:120], count) for value, count in rows]
+
+
+def populated(conn: sqlite3.Connection, table: str, column: str) -> bool:
+    """Check whether any row holds a non-empty value in a column.
+
+    Args:
+        conn: Database connection.
+        table: Table name.
+        column: Column name.
+
+    Returns:
+        True when at least one value is neither NULL nor blank.
+    """
+    row = conn.execute(
+        f"SELECT 1 FROM {quote(table)} WHERE {quote(column)} IS NOT NULL "
+        f"AND TRIM(CAST({quote(column)} AS TEXT)) != '' LIMIT 1"
+    ).fetchone()
+    return row is not None
+
+
+def overwrites_database(out: Path, db: Path) -> bool:
+    """Check whether writing the report would clobber the database.
+
+    Covers the database file itself, a symlink to it, and SQLite's sidecar
+    files (``-wal``, ``-shm``, ``-journal``).
+
+    Args:
+        out: Report path.
+        db: Database path.
+
+    Returns:
+        True when ``out`` resolves to the database or one of its sidecars.
+    """
+    target = out.resolve()
+    base = db.resolve()
+    guarded = {base} | {
+        base.with_name(base.name + s) for s in ("-wal", "-shm", "-journal")
+    }
+    return target in guarded
 
 
 def long_text_columns(conn: sqlite3.Connection, table: str) -> list[tuple[str, int]]:
@@ -313,22 +354,30 @@ def build_report(conn: sqlite3.Connection, cutover: float, cutover_label: str) -
         "## Answers",
         "",
     ]
-    provenance = [
+    model_columns = [
         (table, name)
         for table in names
         for name, _ in columns(conn, table)
         if MODEL_COLUMN.search(name)
     ]
+    # A model column only counts as provenance if some row actually fills it.
+    provenance = [
+        (table, name) for table, name in model_columns if populated(conn, table, name)
+    ]
+    empty_models = [pair for pair in model_columns if pair not in provenance]
     hippo = hippo_tool_calls(conn)
     raw_inputs = {table: long_text_columns(conn, table) for table in names}
-    lines.append(
-        "1. Model provenance: "
-        + (
-            "yes, in " + ", ".join(f"`{t}.{c}`" for t, c in provenance)
-            if provenance
-            else "no model column; eras come from timestamps only"
+    if provenance:
+        answer = "yes, in " + ", ".join(f"`{t}.{c}`" for t, c in provenance)
+    elif empty_models:
+        answer = (
+            "no; "
+            + ", ".join(f"`{t}.{c}`" for t, c in empty_models)
+            + " exist but are empty, so eras come from timestamps only"
         )
-    )
+    else:
+        answer = "no model column; eras come from timestamps only"
+    lines.append("1. Model provenance: " + answer)
     retained = [t for t, cols in raw_inputs.items() if cols]
     lines.append(
         "2. Raw input retained (heuristic, long text columns): "
@@ -411,6 +460,9 @@ def main(argv: list[str] | None = None) -> int:
     cutover = to_epoch(args.cutover)
     if cutover is None:
         print(f"cannot parse --cutover {args.cutover!r}", file=sys.stderr)
+        return 2
+    if overwrites_database(args.out, args.db):
+        print(f"--out {args.out} would overwrite the database", file=sys.stderr)
         return 2
     try:
         conn = open_readonly(args.db)

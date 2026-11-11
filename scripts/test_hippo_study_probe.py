@@ -167,5 +167,66 @@ class ProbeTests(unittest.TestCase):
         self.assertFalse((self.tmp / "nope.db").exists())
 
 
+class ReviewFindingTests(unittest.TestCase):
+    """Database clobbering, malformed first timestamps, empty model columns."""
+
+    def setUp(self) -> None:
+        """Create the fake database."""
+        self.tmp = Path(tempfile.mkdtemp())
+        self.db = self.tmp / "hippo.db"
+        make_db(self.db)
+
+    def run_probe(self, *argv: str) -> tuple[int, str]:
+        """Run the probe CLI.
+
+        Args:
+            *argv: CLI arguments.
+
+        Returns:
+            Exit code and the report text (empty if none was written).
+        """
+        out = self.tmp / "probe.md"
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            code = PROBE.main(["--db", str(self.db), "--cutover", CUTOVER, *argv])
+        return code, out.read_text() if out.exists() else ""
+
+    def test_refuses_to_overwrite_database(self) -> None:
+        """--out naming the database, a symlink to it, or its WAL is refused."""
+        link = self.tmp / "link.db"
+        link.symlink_to(self.db)
+        before = self.db.read_bytes()
+        for target in (self.db, link, Path(str(self.db) + "-wal")):
+            code, _ = self.run_probe("--out", str(target))
+            self.assertEqual(code, 2)
+        self.assertEqual(self.db.read_bytes(), before)
+
+    def test_malformed_first_timestamp_does_not_hide_column(self) -> None:
+        """A bad first value still lets later valid timestamps date the table."""
+        conn = sqlite3.connect(self.db)
+        conn.execute("CREATE TABLE events (id INTEGER PRIMARY KEY, created_at TEXT)")
+        conn.executemany(
+            "INSERT INTO events (created_at) VALUES (?)",
+            [("garbage",), ("2026-10-20T10:00:00Z",), ("2026-11-02T10:00:00Z",)],
+        )
+        conn.commit()
+        conn.close()
+        _, text = self.run_probe("--out", str(self.tmp / "probe.md"))
+        self.assertIn("| `events` | 3 | `created_at` | 1 | 1 | 1 |", text)
+
+    def test_empty_model_column_is_not_provenance(self) -> None:
+        """A model column with only NULL or blank values does not count."""
+        conn = sqlite3.connect(self.db)
+        conn.execute("UPDATE knowledge_nodes SET enrichment_model = NULL")
+        conn.execute("UPDATE knowledge_nodes SET enrichment_model = '' WHERE id = 1")
+        conn.commit()
+        conn.close()
+        _, text = self.run_probe("--out", str(self.tmp / "probe.md"))
+        self.assertIn(
+            "1. Model provenance: no; `knowledge_nodes.enrichment_model` exist but "
+            "are empty",
+            text,
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
