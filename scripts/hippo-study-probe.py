@@ -35,11 +35,17 @@ from typing import Any
 
 DEFAULT_DB = Path.home() / ".local/share/hippo/hippo.db"
 DEFAULT_OUT = Path.home() / ".local/share/hippo/model-eval/study/probe.md"
-# The production config switched to the 4-bit model in a commit at
-# 2026-10-27 23:47 -06:00; the brain picked it up on its next restart.
+# The 4-bit switch was first committed in bcdf7da at 2026-10-27 23:47 -06:00 on
+# the checkout the config symlinks into; #246 re-landed it on main at 03:33.
+# The brain applies a config change on restart, so pass --cutover with the
+# restart time when it is known.
 DEFAULT_CUTOVER = "2026-10-28T05:47:00+00:00"
 TIME_COLUMN = re.compile(r"(^|_)(created|updated|start|end|time|ts|at|timestamp)", re.I)
 MODEL_COLUMN = re.compile(r"model", re.I)
+# Queue statuses are expected to be short enum labels; anything else might be
+# diagnostic text and is counted under one placeholder instead of shown.
+STATUS_LABEL = re.compile(r"[A-Za-z][A-Za-z0-9_-]{0,31}")
+OTHER_STATUS = "(other: not a status label)"
 RESULT_KEYS = ("result", "output", "response", "content", "tool_result")
 LONG_TEXT_CHARS = 500
 TOOL_CALL_SAMPLE = 500
@@ -281,9 +287,11 @@ def long_text_columns(conn: sqlite3.Connection, table: str) -> list[tuple[str, i
     for name, declared in columns(conn, table):
         if declared and not re.search(r"text|char|clob|json|blob", declared, re.I):
             continue
+        # Every non-blank row, not a leading sample: retained inputs may exist
+        # only in recent rows.
         row = conn.execute(
-            f"SELECT AVG(LENGTH({quote(name)})) FROM "
-            f"(SELECT {quote(name)} FROM {quote(table)} LIMIT 1000)"
+            f"SELECT AVG(LENGTH({quote(name)})) FROM {quote(table)} "
+            f"WHERE {quote(name)} IS NOT NULL AND {quote(name)} != ''"
         ).fetchone()
         if row and row[0] and row[0] > LONG_TEXT_CHARS:
             found.append((name, int(row[0])))
@@ -341,7 +349,8 @@ def status_by_era(
         cutover: Cutover as epoch seconds.
 
     Returns:
-        Status to ``[before, after]`` counts.
+        Status to ``[before, after]`` counts. A value that is not a short
+        status label is counted under ``OTHER_STATUS``, never shown.
     """
     split: dict[str, list[int]] = {}
     rows = conn.execute(f"SELECT status, {quote(column)} FROM {quote(table)}")
@@ -349,7 +358,10 @@ def status_by_era(
         epoch = to_epoch(value)
         if epoch is None:
             continue
-        counts = split.setdefault(str(status), [0, 0])
+        label = str(status)
+        if not STATUS_LABEL.fullmatch(label):
+            label = OTHER_STATUS
+        counts = split.setdefault(label, [0, 0])
         counts[0 if epoch < cutover else 1] += 1
     return split
 

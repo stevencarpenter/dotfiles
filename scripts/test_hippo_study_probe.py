@@ -316,5 +316,57 @@ class SecondReviewTests(unittest.TestCase):
         self.assertEqual(out.stat().st_mode & 0o777, 0o600)
 
 
+class ThirdReviewTests(unittest.TestCase):
+    """Free-text queue statuses and retained inputs beyond a leading sample."""
+
+    def setUp(self) -> None:
+        """Create the fake database."""
+        self.tmp = Path(tempfile.mkdtemp())
+        self.db = self.tmp / "hippo.db"
+        make_db(self.db)
+
+    def report(self) -> str:
+        """Run the probe CLI and return the written report.
+
+        Returns:
+            Report text.
+        """
+        out = self.tmp / "probe.md"
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            code = PROBE.main(
+                ["--db", str(self.db), "--out", str(out), "--cutover", CUTOVER]
+            )
+        self.assertEqual(code, 0)
+        return out.read_text()
+
+    def test_free_text_status_is_redacted(self) -> None:
+        """A diagnostic string in a status column is counted, never shown."""
+        conn = sqlite3.connect(self.db)
+        conn.execute(
+            "UPDATE claude_enrichment_queue SET status = ? WHERE id = 2",
+            ("failed: " + SECRET,),
+        )
+        conn.commit()
+        conn.close()
+        text = self.report()
+        self.assertNotIn("very-private-path", text)
+        self.assertIn(
+            f"| `claude_enrichment_queue` | {PROBE.OTHER_STATUS} | 1 | 0 |", text
+        )
+        self.assertIn("| `claude_enrichment_queue` | done | 1 | 1 |", text)
+
+    def test_long_input_found_beyond_first_thousand_rows(self) -> None:
+        """Inputs retained only in recent rows still mark the column."""
+        conn = sqlite3.connect(self.db)
+        conn.execute("CREATE TABLE late_queue (id INTEGER PRIMARY KEY, input TEXT)")
+        conn.executemany("INSERT INTO late_queue (input) VALUES (?)", [(None,)] * 1200)
+        conn.executemany(
+            "INSERT INTO late_queue (input) VALUES (?)", [("y" * 900,)] * 5
+        )
+        conn.commit()
+        conn.close()
+        self.assertIn("- `late_queue`: `input` (avg 900 chars)", self.report())
+
+
 if __name__ == "__main__":
     unittest.main()

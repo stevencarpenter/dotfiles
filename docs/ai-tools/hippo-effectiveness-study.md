@@ -73,6 +73,9 @@ just hippo-study-probe            # writes ~/.local/share/hippo/model-eval/study
 just hippo-study-probe --cutover 2026-10-28T12:00:00-06:00   # if the switch was later
 ```
 
+The default cutover is the 4-bit switch commit (`bcdf7da`, 2026-10-27 23:47 -06:00). The brain
+applies a config change on restart, so pass the restart time if you know it was later.
+
 The report opens with three answers that pick the path forward:
 
 1. **Model provenance:** if no column records the model, eras come from the cutover time, and
