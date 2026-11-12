@@ -1,8 +1,9 @@
 [tools]
 # Version policy: at the global level, go stays pinned to a minor (a Go minor changes the
 # language), java to the latest LTS major, and scala, sbt, terraform and gradle to a major;
-# dfm sync's mise upgrade takes every release within each pin. Every other tool rolls to its newest version. Pin a tool only where a newer major
-# breaks a consumer, and say why beside the pin.
+# dfm sync's mise upgrade takes every release within each pin. Every other tool rolls to
+# its newest version. Pin a tool only where a newer major breaks a consumer, and say why
+# beside the pin.
 #
 # Shared tools for all machines. The dev and infra modules link capability
 # additions from conf.d/dev.toml and conf.d/infra.toml. mise merges those tables.
