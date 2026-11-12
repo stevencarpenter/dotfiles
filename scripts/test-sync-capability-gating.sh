@@ -7,7 +7,6 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 fixture="$(mktemp -d)"
-token_auditor_version="$(tr -d '\n' <"$repo_root/versions/token-auditor")"
 trap 'rm -rf "$fixture"' EXIT
 
 if [ ! -x "$repo_root/scripts/sync-side-channels.sh" ]; then
@@ -119,12 +118,8 @@ if ! rg -Fxq 'npx --yes skills@1.7.0 add https://github.com/kunchenguid/gh-axi/t
   echo "sync did not refresh the declared upstream skill noninteractively" >&2
   exit 1
 fi
-if ! rg -Fq 'mise install' "$fixture/work/commands.log"; then
-  echo "sync did not reconcile mise-managed tools" >&2
-  exit 1
-fi
-if ! rg -Fxq 'mise upgrade --no-prune' "$fixture/work/commands.log"; then
-  echo "sync did not upgrade all mise tools within their configured version constraints" >&2
+if rg -q '^mise (install|upgrade)' "$fixture/work/commands.log"; then
+  echo "sync ran a mise install or upgrade that dfm's gated mise updater owns" >&2
   exit 1
 fi
 if ! rg -Fxq 'mise exec -- duckdb -init /dev/null -c INSTALL spatial; INSTALL avro;' "$fixture/work/commands.log"; then
@@ -214,7 +209,6 @@ run_sync_tty() {
     "GIT_BIN=$fixture/bin/git" "UV_BIN=$fixture/bin/uv"
     "MISE_BIN=$fixture/bin/mise" "FIRSTMATE_BIN=$fixture/bin/firstmate"
     "OP_RENDER_BIN=$fixture/bin/op-render" "OP_BIN=$fixture/bin/op"
-    "TOKEN_AUDITOR_VERSION=$token_auditor_version"
     "$repo_root/scripts/sync-side-channels.sh"
   )
   # pty.spawn waits for the child; BSD script can exit early on stdin EOF.
@@ -254,14 +248,8 @@ if ! rg -Fq "uv run --directory $fixture/personal-working/home/projects/agents" 
   exit 1
 fi
 
-if ! rg -Fq "token-auditor@${token_auditor_version}" "$fixture/personal/commands.log"; then
-  echo "direct sync did not use the pinned token-auditor release" >&2
-  exit 1
-fi
-if TOKEN_AUDITOR_VERSION=latest \
-  HOME="$fixture/home" \
-  "$repo_root/scripts/sync-side-channels.sh" >/dev/null 2>&1; then
-  echo "sync accepted the mutable token-auditor main branch" >&2
+if rg -q 'tool install' "$fixture/personal/commands.log"; then
+  echo "sync installed a uv tool that dfm's uv-tool/v1 resources own" >&2
   exit 1
 fi
 
@@ -273,7 +261,7 @@ if [[ "$(tail -n 1 "$fixture/work/commands.log")" != 'firstmate --request-update
   echo 'sync did not request the native update last, after dependency installation' >&2
   exit 1
 fi
-if TEST_UV_STATUS=1 run_sync work 0 install-failed; then
+if TEST_UV_STATUS=1 run_sync personal 1 install-failed; then
   echo 'sync ignored a dependency installation failure' >&2; exit 1
 fi
 if rg -Fq 'firstmate --request-update' "$fixture/install-failed/commands.log"; then

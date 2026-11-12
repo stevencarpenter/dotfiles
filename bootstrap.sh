@@ -102,7 +102,7 @@ else
 fi
 echo "    3. just sync-dfm                      # plan; writes the approval flags"
 echo "    4. just sync-dfm-apply <plan digest>  # apply, packages, side channels, agents, checks"
-echo "    Side channels that need network or SSH (secrets, agent-registry, token-auditor)"
+echo "    Side channels that need network or SSH (secrets, agent-registry)"
 echo "    run inside step 4, or alone with 'just sync-side-channels'."
 echo
 echo "    Manual first-run steps (TCC-protected, cannot be scripted):"
