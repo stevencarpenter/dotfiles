@@ -41,16 +41,6 @@ if [ "$firstmate_enabled" = "1" ]; then
   "${FIRSTMATE_BIN:-$repo_root/home/.local/bin/firstmate}" --setup
 fi
 
-identity="$("$capability_bin" --identity)"
-
-# Private fantasy-sports agents + Cursor skill: personal identity only, because a work
-# host cannot read the private repo and must not hold it. The clone needs GitHub SSH.
-if [ "$identity" = "personal" ] && [ "$("$capability_bin" skills)" = "1" ]; then
-  "$repo_root/scripts/install-fantasy-sports.sh"
-else
-  echo "==> Skipping fantasy-sports (identity: $identity, or skills capability disabled)"
-fi
-
 # Install hooks during sync because this writes the checkout's .git directory.
 if command -v lefthook >/dev/null 2>&1; then
   echo "==> Installing git hooks (lefthook)"

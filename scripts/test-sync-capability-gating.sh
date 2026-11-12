@@ -136,16 +136,9 @@ if rg -q 'fantasy-sports' "$fixture/work/commands.log"; then
 fi
 
 run_sync personal 1
-if ! rg -q 'git clone .*fantasy-sports' "$fixture/personal/commands.log"; then
-  echo "personal sync did not clone the private fantasy-sports repo" >&2
-  exit 1
-fi
-if [ ! -f "$fixture/personal/home/.claude/agents/fantasy-football-manager.md" ]; then
-  echo "personal sync did not install the fantasy-sports agent" >&2
-  exit 1
-fi
-if [ ! -f "$fixture/personal/home/.cursor/skills/fantasy-football-guidelines/SKILL.md" ]; then
-  echo "personal sync did not install the fantasy-sports Cursor skill" >&2
+# dfm owns fantasy-sports now: a tracking nested source with its own module.
+if rg -q 'fantasy-sports' "$fixture/personal/commands.log"; then
+  echo "personal sync touched fantasy-sports, which dfm's nested source owns" >&2
   exit 1
 fi
 # dfm owns these now: the op-template/v1 secrets (no op-render, no op signin), the tpm and

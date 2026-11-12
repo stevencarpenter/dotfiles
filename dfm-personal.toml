@@ -7,8 +7,9 @@ extends = "dfm-bundle.toml"
 [sources]
 # The checkout holds runtime trees (plugin checkouts with a .git, venvs, node_modules, caches).
 # Only these roots, and the files beside this bundle, are sources.
-roots = ["home", "skills", "dfm"]
+roots = ["home", "skills", "dfm", "external/fantasy-sports"]
 exclude = [
+  "external/fantasy-sports/.git",
   "home/.config/tmux/plugins",
   "home/.pi/agent/extensions/node_modules",
   "**/__pycache__",
@@ -17,3 +18,5 @@ exclude = [
 ]
 
 [modules]
+# A tracking nested source (dotfiles-manager.lock); its module links the agents and the skill.
+fantasy-sports = "external/fantasy-sports/dfm-module-fantasy-sports.toml"

@@ -6,3 +6,12 @@ id = "dotfiles"
 kind = "git"
 origin = "ssh://git@github.com/stevencarpenter/dotfiles"
 ref = "refs/heads/main"
+
+# The private fantasy-sports agents (DFM-25 C01). No commit: sync tracks main. Grant once:
+#   dfm sync --trust-origin 'ssh://git@github.com/stevencarpenter/fantasy-sports'
+[[sources]]
+id = "fantasy-sports"
+kind = "git"
+origin = "ssh://git@github.com/stevencarpenter/fantasy-sports"
+ref = "refs/heads/main"
+path = "external/fantasy-sports"

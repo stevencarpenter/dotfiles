@@ -92,7 +92,7 @@ just sync-dfm                 # dfm plan; prints the digest, writes the approval
 just sync-dfm-apply <digest>  # apply, then Brewfile, hooks-sync, side channels, agents, checks
 just update                   # preview Homebrew and mise upgrades; approve; upgrade + side channels
 just update -y                # same, assume approval (sudo/op may still prompt)
-just sync-side-channels       # side channels only: DuckDB extensions, skills, fantasy-sports, Firstmate, hooks
+just sync-side-channels       # side channels only: DuckDB extensions, skills, Firstmate, hooks
 ./bootstrap.sh                # fresh-machine setup (CLT, Homebrew, Brewfile), then prints the steps
 scripts/brew-sync.sh --check  # Brewfile gaps, installs nothing
 scripts/mac-defaults.sh --check

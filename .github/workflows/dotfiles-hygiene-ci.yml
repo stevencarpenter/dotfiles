@@ -124,9 +124,6 @@ jobs:
       - name: Validate non-interactive zsh PATH precedence
         run: scripts/test-zshenv-path-order.sh
 
-      - name: Validate fantasy-sports agent and skill install
-        run: scripts/test-install-fantasy-sports.sh
-
       - name: Validate hooks-sync --check writes nothing
         run: scripts/test-hooks-sync.sh
 

@@ -41,8 +41,6 @@ exec_scripts=(
   scripts/test-tiling-reload-gating.sh
   scripts/test-zshenv-path-order.sh
   scripts/sync-side-channels.sh
-  scripts/install-fantasy-sports.sh
-  scripts/test-install-fantasy-sports.sh
   scripts/hooks-sync.sh
   scripts/test-hooks-sync.sh
   scripts/update-inputs.sh

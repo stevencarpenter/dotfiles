@@ -278,7 +278,7 @@ Provisioning that requires network access, SSH authentication, or `sudo` runs th
 `scripts/sync-side-channels.sh`, after the manager's apply:
 
 - The script installs the DuckDB extensions, refreshes the upstream `gh-axi` skill, installs
-  the fantasy-sports agents, ensures Firstmate and the ponytail Codex plugin, and wires the
+  ensures Firstmate and the ponytail Codex plugin, and wires the
   lefthook git hooks. Safe to re-run. A failed side channel makes the command fail instead of
   leaving a silently partial install.
 - `dfm sync` owns the rest: the `op-template/v1` secrets (`.personal.env` and

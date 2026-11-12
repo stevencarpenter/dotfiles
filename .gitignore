@@ -98,3 +98,5 @@ home/.pi/agent/extensions/node_modules/
 /site/*
 !/site/enrichment.json
 .lavish/
+# Tracking nested dfm source (dotfiles-manager.lock)
+/external/fantasy-sports/
