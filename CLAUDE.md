@@ -104,6 +104,8 @@ dfm sync --root ~/.dotfiles --preview   # needs the one-time origin grant below
 `dotfiles-manager.lock` at the checkout root declares the Git source `sync` fetches (root entry,
 `ssh://git@github.com/stevencarpenter/dotfiles`, `refs/heads/main`). Grant that origin once per
 machine: `dfm sync --root ~/.dotfiles --trust-origin ssh://git@github.com/stevencarpenter/dotfiles`.
+After its scopes, `dfm sync` runs the profile's `updaters` in order. The last one, `side-channels`,
+runs `just sync-side-channels` in the checkout (detached, so `op signin` gets no prompt).
 
 See [Daily use](README.md#daily-use) for the command hierarchy.
 
