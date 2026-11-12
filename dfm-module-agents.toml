@@ -15,3 +15,14 @@ reason = "the agents capability adds the routing-context SessionStart hook."
 event = "SessionStart"
 type = "command"
 argv = ["${HOME}/.claude/hooks/emit-routing-context.sh"]
+
+# The personal agent registry (DFM-25 C01). dfm clones the managed copy when missing; the
+# agents updater pulls it and runs scripts/install-agent-registry.sh. A working copy at
+# ~/projects/agents takes precedence for the install.
+[[resources]]
+id = "agent-registry"
+kind = "package"
+adapter = "git-checkout/v1"
+[resources.value]
+url = "git@github.com:stevencarpenter/agents.git"
+path = ".local/share/agent-registry"
