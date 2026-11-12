@@ -77,8 +77,8 @@ uv run --project mcp_sync sync-mcp-configs
 
 `token-auditor` (the auditor behind the `codax`/`claade`/`opencade` wrappers) is maintained in its own
 repo: <https://github.com/stevencarpenter/token-auditor>. Lint/type/test run there, not here. The
-`core` module declares it as a `uv-tool/v1` resource whose `source` pins the release tag, and
-`dfm sync` installs it. Bump the tag in `dfm-module-core.toml`. The install is **unconditional** on every machine by design;
+`core` module declares it as a `uv-tool/v1` resource from its default branch, and
+`dfm sync` installs it and rolls it to the newest commit. The install is **unconditional** on every machine by design;
 the former `token_auditor` capability was dropped (2026-07-17) because no consumer read it.
 
 ```bash

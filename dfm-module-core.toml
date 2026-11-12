@@ -511,16 +511,16 @@ timeout = 20
 defaults = []
 extensions = ["/handlers"]
 
-# uv tools (DFM-25 C01). dfm installs each from its declared source. The git source needs
-# `dfm sync --trust-origin 'https://github.com/stevencarpenter/token-auditor'`. Bump the tag here.
+# uv tools (DFM-25 C01). dfm installs each from its declared source, and the uv updater rolls
+# token-auditor to the newest commit of its default branch.
 [[resources]]
 id = "token-auditor"
 kind = "package"
 adapter = "uv-tool/v1"
 [resources.value]
 name = "token-auditor"
-update_policy = "hold"
-source = "git+https://github.com/stevencarpenter/token-auditor@2026.11.11"
+update_policy = "rolling"
+source = "git+https://github.com/stevencarpenter/token-auditor"
 
 [[resources]]
 id = "agent-reap"
