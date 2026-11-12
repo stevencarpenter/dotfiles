@@ -1,18 +1,20 @@
 [tools]
-# Version policy: roll every tool to its newest version (dfm sync runs mise install and
-# mise upgrade). Pin only where a newer major breaks a consumer, and say why beside the pin.
+# Version policy: language toolchains (go, java, scala, sbt, terraform, gradle) stay pinned
+# to a major or minor at the global level; dfm sync's mise upgrade rolls them within that
+# range. Every other tool rolls to its newest version. Pin a tool only where a newer major
+# breaks a consumer, and say why beside the pin.
 #
 # Shared tools for all machines. The dev and infra modules link capability
 # additions from conf.d/dev.toml and conf.d/infra.toml. mise merges those tables.
 
 # Programming Languages & Runtimes (all machines)
-go = "latest"
+go = "1.27"
 java = "corretto-27"
-scala = "latest"
-sbt = "latest"
+scala = "3.9"
+sbt = "2.1"
 usage = "latest"
-terraform = "latest"
-gradle = "latest"
+terraform = "1.16"
+gradle = "9"
 goreleaser = "latest"
 
 # LSP servers (backing binaries for the Claude Code *-lsp plugins; the plugins are
