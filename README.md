@@ -278,13 +278,13 @@ Provisioning that requires network access, SSH authentication, or `sudo` runs th
 `scripts/sync-side-channels.sh`, after the manager's apply:
 
 - Rendering personal `op://` secrets comes first (personal identity only) because it produces
-  the `~/.ssh/config.d` fragment the agent-registry clone authenticates with. Then: install
-  and upgrade mise tools; refresh the upstream `gh-axi` skill; clone/refresh tpm over HTTPS;
+  the `~/.ssh/config.d` fragment the agent-registry clone authenticates with. Then: install the
+  DuckDB extensions; refresh the upstream `gh-axi` skill; clone/refresh tpm over HTTPS;
   install and validate the personal `agent-registry` from `~/projects/agents` when that
   working copy exists, otherwise clone/refresh `~/.local/share/agent-registry`, only when the
-  selected host's `agents` capability is enabled; install the immutable `token-auditor`
-  release pinned in `versions/token-auditor` and `agent-reap` from this checkout; wire the
-  lefthook git hooks. Safe to re-run. A failed side channel makes the command fail instead of
+  selected host's `agents` capability is enabled; wire the lefthook git hooks. `dfm sync`
+  installs and upgrades the mise tools (its `mise` updater) and the uv tools `token-auditor` and
+  `agent-reap` (`uv-tool/v1` resources in the `core` module). Safe to re-run. A failed side channel makes the command fail instead of
   leaving a silently partial install.
 - **`just sync-side-channels`**: the side channels alone, when the links are already current.
 
@@ -356,7 +356,6 @@ Not managed on purpose:
   other than the hippo hook (`personal.codex-hooks`, `codex-hooks/v1`), MCP generated outputs, `~/.config/mcp/overrides`, skills synced by
   `sync-skills`.
 - `~/.config/jj` as a directory (mutable metadata under `repos/`): only `config.toml` is linked.
-- Tools that the side channels install: `~/.local/bin/agent-reap`, `token-auditor`.
 
 The cutover from the previous manager is recorded in [`docs/m5-cutover.md`](docs/m5-cutover.md).
 
@@ -380,4 +379,4 @@ now owns AWS profile generation, so this repo no longer ships it.
 
 `token-auditor` (behind the `codax`/`claade`/`opencade` wrappers) was extracted to
 [its own repo](https://github.com/stevencarpenter/token-auditor) and installs as a standalone uv
-tool from the side channels (immutable release in `versions/token-auditor`).
+tool. The `core` module declares it as a `uv-tool/v1` resource whose `source` pins the release tag.

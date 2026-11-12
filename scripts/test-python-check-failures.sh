@@ -5,8 +5,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 fixture="$(mktemp -d)"
 trap 'rm -rf "$fixture"' EXIT
-mkdir -p "$fixture/bin" "$fixture/versions"
-cp "$repo_root/versions/token-auditor" "$fixture/versions/token-auditor"
+mkdir -p "$fixture/bin"
 cat >"$fixture/bin/uv" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >>"$TEST_COMMAND_LOG"
