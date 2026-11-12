@@ -379,4 +379,4 @@ now owns AWS profile generation, so this repo no longer ships it.
 
 `token-auditor` (behind the `codax`/`claade`/`opencade` wrappers) was extracted to
 [its own repo](https://github.com/stevencarpenter/token-auditor) and installs as a standalone uv
-tool. The `core` module declares it as a `uv-tool/v1` resource whose `source` pins the release tag.
+tool. The `core` module declares it as a `uv-tool/v1` resource from its default branch, and `dfm sync` rolls it.
