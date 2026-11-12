@@ -92,7 +92,7 @@ just sync-dfm                 # dfm plan; prints the digest, writes the approval
 just sync-dfm-apply <digest>  # apply, then Brewfile, hooks-sync, side channels, agents, checks
 just update                   # preview Homebrew and mise upgrades; approve; upgrade + side channels
 just update -y                # same, assume approval (sudo/op may still prompt)
-just sync-side-channels       # side channels only: mise, op-render, skills, Git sources, tools
+just sync-side-channels       # side channels only: DuckDB extensions, skills, fantasy-sports, Firstmate, hooks
 ./bootstrap.sh                # fresh-machine setup (CLT, Homebrew, Brewfile), then prints the steps
 scripts/brew-sync.sh --check  # Brewfile gaps, installs nothing
 scripts/mac-defaults.sh --check
@@ -304,12 +304,10 @@ choices remain preferences. Runtime debugging and cleanup procedures are in
 
 Personal and work secrets use different workflows:
 
-- **Personal:** add an `op://` reference to the appropriate template under `home/`, keep the target
-  in `home/.config/op/render-manifest`, run the side channels (or `op-render` directly), and verify
-  mode `0600`, structural parity, no unresolved references, and an updated `.last-render` sentinel.
-  op-render must run from an interactive terminal: the side channels run `eval "$(op signin)"`
-  right before it (TTY-guarded, since `op signin` blocks on input) because op sessions expire
-  after ~30 minutes.
+- **Personal:** add an `op://` reference to the appropriate template under `home/`, declare the
+  target as an `op-template/v1` secret in `dfm-module-personal.toml`, and run `dfm sync`. Without a
+  1Password session dfm skips the secrets with a warning; run `op signin`, then `dfm sync` again.
+  `op-render` stays available for a manual render from `home/.config/op/render-manifest`.
   For reviewed edits to the rendered `.personal.env`, run `just op-adopt` for a
   names-only plan and let the user run `just op-adopt --apply` after review. Never run the apply
   path on the user's behalf. Adoption is limited to exact mappings in

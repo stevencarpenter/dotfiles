@@ -530,3 +530,13 @@ adapter = "uv-tool/v1"
 name = "agent-reap"
 update_policy = "rolling"
 source = "path:agent_reap"
+
+# tmux plugin manager (DFM-25 C01). dfm clones it when missing, and the checkouts updater
+# fast-forwards it on every sync.
+[[resources]]
+id = "tpm"
+kind = "package"
+adapter = "git-checkout/v1"
+[resources.value]
+url = "https://github.com/tmux-plugins/tpm.git"
+path = ".config/tmux/plugins/tpm"

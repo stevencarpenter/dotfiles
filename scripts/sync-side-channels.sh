@@ -3,13 +3,11 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-git_bin="${GIT_BIN:-git}"
-uv_bin="${UV_BIN:-uv}"
 mise_bin="${MISE_BIN:-mise}"
 npx_bin="${NPX_BIN:-npx}"
 capability_bin="${HOST_CAPABILITY_BIN:-$repo_root/scripts/host-capability.sh}"
 
-# dfm's mise updater installs and upgrades the configured tools under its grant checks.
+# dfm's mise updater installs and upgrades the configured tools.
 if command -v "$mise_bin" >/dev/null 2>&1; then
   # yazi's duckdb previews only LOAD these (auto_install_extensions = false), and DuckDB
   # keeps extensions per version, so a DuckDB upgrade needs them installed again.
@@ -43,73 +41,10 @@ if [ "$firstmate_enabled" = "1" ]; then
   "${FIRSTMATE_BIN:-$repo_root/home/.local/bin/firstmate}" --setup
 fi
 
-# Render personal secrets before the agent-registry clone needs ~/.ssh/config.
-# Rendering requires network and interactive 1Password authorization.
 identity="$("$capability_bin" --identity)"
-if [ "$identity" = "personal" ]; then
-  render_bin="${OP_RENDER_BIN:-$repo_root/home/.local/bin/op-render}"
-  if [ -x "$render_bin" ]; then
-    # Refresh expired sessions only with a TTY; headless signin can block.
-    # Evaluate op's exported session in this subshell so op-render inherits it,
-    # but subsequent Git and third-party build processes do not.
-    # Never log or persist the session token.
-    echo "==> Rendering op:// secrets"
-    (
-      if [ -t 0 ]; then
-        # Capture exported session variables; keep prompts and errors visible on stderr.
-        signin_out=""
-        if signin_out="$("${OP_BIN:-op}" signin)"; then
-          eval "$signin_out"
-        else
-          echo "warning: op signin failed (see op's message above); rendering anyway" >&2
-        fi
-      fi
-      "$render_bin"
-    ) || echo "warning: op-render did not complete; existing secrets left intact" >&2
-  else
-    echo "warning: op-render not executable at $render_bin; skipping" >&2
-  fi
-else
-  echo "==> Skipping op-render (identity: $identity)"
-fi
-
-# Refresh tpm from its public HTTPS repository on each sync.
-tpm_dir="$HOME/.config/tmux/plugins/tpm"
-if [ -d "$tpm_dir/.git" ]; then
-  echo "==> Refreshing tpm"
-  "$git_bin" -C "$tpm_dir" pull --ff-only
-else
-  echo "==> Cloning tpm"
-  "$git_bin" clone https://github.com/tmux-plugins/tpm.git "$tpm_dir"
-fi
-
-# The agent registry is personal content. Fail closed: only touch its SSH
-# remote when the selected host's canonical agents capability is true.
-agents_enabled="$($capability_bin agents)"
-if [ "$agents_enabled" = "1" ]; then
-  working_copy="$HOME/projects/agents"
-  managed_copy="$HOME/.local/share/agent-registry"
-  if [ -f "$working_copy/pyproject.toml" ]; then
-    reg_dir="$working_copy"
-    echo "==> Using agent-registry working copy ($reg_dir)"
-  else
-    reg_dir="$managed_copy"
-    if [ -d "$reg_dir/.git" ]; then
-      echo "==> Refreshing agent-registry"
-      "$git_bin" -C "$reg_dir" pull --ff-only
-    else
-      echo "==> Cloning agent-registry (SSH)"
-      "$git_bin" clone git@github.com:stevencarpenter/agents.git "$reg_dir"
-    fi
-  fi
-  "$repo_root/scripts/install-agent-registry.sh" "$reg_dir"
-else
-  echo "==> Skipping personal agent-registry (agents capability disabled)"
-fi
 
 # Private fantasy-sports agents + Cursor skill: personal identity only, because a work
-# host cannot read the private repo and must not hold it. Clone needs GitHub SSH, so
-# this runs after op-render.
+# host cannot read the private repo and must not hold it. The clone needs GitHub SSH.
 if [ "$identity" = "personal" ] && [ "$("$capability_bin" skills)" = "1" ]; then
   "$repo_root/scripts/install-fantasy-sports.sh"
 else
