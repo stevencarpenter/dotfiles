@@ -1,19 +1,19 @@
 [tools]
 # Version policy: language toolchains (go, java, scala, sbt, terraform, gradle) stay pinned
-# to a major or minor at the global level; dfm sync's mise upgrade rolls them within that
-# range. Every other tool rolls to its newest version. Pin a tool only where a newer major
+# to a major version at the global level; dfm sync's mise upgrade takes every minor and patch
+# release within it. Every other tool rolls to its newest version. Pin a tool only where a newer major
 # breaks a consumer, and say why beside the pin.
 #
 # Shared tools for all machines. The dev and infra modules link capability
 # additions from conf.d/dev.toml and conf.d/infra.toml. mise merges those tables.
 
 # Programming Languages & Runtimes (all machines)
-go = "1.27"
+go = "1"
 java = "corretto-27"
-scala = "3.9"
-sbt = "2.1"
+scala = "3"
+sbt = "2"
 usage = "latest"
-terraform = "1.16"
+terraform = "1"
 gradle = "9"
 goreleaser = "latest"
 
