@@ -3,7 +3,7 @@
 set -euo pipefail
 
 uv_bin="${UV_BIN:-uv}"
-project="${1:-$HOME/.local/share/agent-registry}"
+project="${1:-$HOME/projects/agents}"
 
 if [ ! -f "$project/pyproject.toml" ]; then
   echo "error: agent registry is missing at $project; run scripts/sync-side-channels.sh first" >&2
