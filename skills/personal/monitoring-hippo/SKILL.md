@@ -75,14 +75,14 @@ tail -20 ~/.local/share/hippo/daemon.stderr.log
 
 There is one enrichment queue **per source**, each with a `status` column
 (`pending` / `processing` / `done` / `failed` / `skipped`):
-`enrichment_queue` (shell), `claude_enrichment_queue`,
-`browser_enrichment_queue`, `workflow_enrichment_queue`,
-`agentic_enrichment_queue` (Codex / opencode).
+`enrichment_queue` (shell), `browser_enrichment_queue`,
+`workflow_enrichment_queue`, `memory_enrichment_queue` (Claude auto-memory),
+`agentic_enrichment_queue` (Claude Code, Codex, Cursor, opencode, Pi).
 
 ### Check enrichment queue depth (all sources)
 ```bash
-for q in enrichment_queue claude_enrichment_queue browser_enrichment_queue \
-         workflow_enrichment_queue agentic_enrichment_queue; do
+for q in enrichment_queue browser_enrichment_queue workflow_enrichment_queue \
+         memory_enrichment_queue agentic_enrichment_queue; do
   echo "== $q =="
   sqlite3 -readonly ~/.local/share/hippo/hippo.db "SELECT status, COUNT(*) FROM $q GROUP BY status;"
 done
@@ -95,14 +95,15 @@ sqlite3 -readonly ~/.local/share/hippo/hippo.db "SELECT COUNT(*) FROM knowledge_
 
 ### Inspect failed enrichment (with error messages)
 ```bash
-sqlite3 -readonly ~/.local/share/hippo/hippo.db "SELECT id, retry_count, error_message FROM claude_enrichment_queue WHERE status = 'failed' ORDER BY updated_at DESC LIMIT 10;"
+sqlite3 -readonly ~/.local/share/hippo/hippo.db "SELECT id, retry_count, error_message FROM agentic_enrichment_queue WHERE status = 'failed' ORDER BY updated_at DESC LIMIT 10;"
 ```
 
 ## Service Management (launchd)
 
-Hippo runs as launchd agents under `gui/$(id -u)`: `com.hippo.daemon`,
-`com.hippo.brain`, `com.hippo.omlx`, plus `watchdog`, `probe`,
-`claude-session-watcher`, `gh-poll`, `opencode-poll`, `codex-session`.
+Hippo runs as launchd agents under `gui/$(id -u)`, one per plist in the
+checkout's `launchd/` directory (`com.hippo.daemon`, `com.hippo.brain`,
+`com.hippo.omlx`, the source pollers and watchers, `watchdog`, `probe`, `backup`,
+and others). `launchctl list | grep hippo` shows the live set.
 
 ```bash
 launchctl list | rg com.hippo                       # which services are loaded

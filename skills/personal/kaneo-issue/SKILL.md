@@ -107,7 +107,7 @@ Search before filing. Kaneo has no text-query tool, so list and scan tasks:
 list_tasks(projectId: "<id>", limit: 100, sortBy: "createdAt", sortOrder: "desc")
 ```
 
-Boards are large (`WPFV` ~224 tasks, `SLU` ~216) and full listings are heavy,
+Boards are large (`WP` and `SLU` each hold a few hundred tasks) and full listings are heavy,
 so narrow with `status` or `priority` when you can and page rather than pulling
 everything at once. Scan for the *symptom*, not your phrasing of it: a defect
 is often already filed under different words. If a matching task exists, report
@@ -148,8 +148,7 @@ What makes the template work:
   transient S3 body error retries, other generic errors stay fatal" passes. The
   last box is the repo's gate command, so a green run is part of done.
 - **`Suggested agent` names the agent types**, never a model or an effort
-  tier. The orchestrator chooses the runner. The `agent:haiku` and
-  `agent:sonnet` labels were retired on 2026-10-20; do not attach them.
+  tier. The orchestrator chooses the runner.
 - **`Dependencies` is a mirror, never the source of truth.** The authoritative
   form is the relation. Create the relation first; add the prose line only when
   the *why* isn't obvious from the linked title. A task whose prose claims a
@@ -184,17 +183,14 @@ them exist because an orchestrator or a human actually filters on them:
 | `M1` to `M5` | Snugmarina roadmap milestones: the only stand-in for the milestone entity Kaneo lacks |
 
 Apply `ready-for-agent` only when an agent can finish the task from its
-description alone with no decisions left open. The effort-tier labels
-`agent:haiku` and `agent:sonnet` were retired on 2026-10-20 (owner
-instruction): never attach them; detach any you find on a task you edit.
+description alone with no decisions left open. Do not attach the effort-tier
+labels `agent:haiku` or `agent:sonnet` (owner instruction); detach any you
+find on a task you edit.
 
 **Don't reach for a label when a field exists.** Priority is the worked
 example: set the native `priority` field (`no-priority` | `low` | `medium` |
 `high` | `urgent`), never a `priority:*` label. The board sorts on the field, so
-a label carrying the same value can drift. The `priority:*` labels inherited
-from Linear were deleted on
-2026-08-10 after three tasks turned up whose field said `urgent` while their
-label still said `priority:high`. Don't recreate them.
+a label carrying the same value can drift. Do not create `priority:*` labels.
 
 More generally: Linear's long tail (`area:*`, `db:*`, `connector:*`,
 `format:*`, work types, per-repo labels) does not exist here and shouldn't be

@@ -32,8 +32,8 @@ lower-priority tool when a higher-priority tool provides the same operation.
 
 ### Tool Priority Order (highest to lowest)
 
-1. **Specialized agents.** Use Explore, Plan, code-reviewer, and other Agent subtypes for tasks
-   matching their descriptions.
+1. **Specialized agents.** Delegate a bounded, independent subtask to the Agent subtype whose
+   description matches it. Handle a single cohesive task directly.
 2. **Skills.** Check available skills before starting each task. Invoke a matching skill before acting.
 3. **MCP servers.** Use `mcp__codebase-memory-mcp__*` for structural code questions,
    `mcp__idea__*` for IntelliJ operations, `mcp__grafana__*` for Grafana operations, and
@@ -47,18 +47,32 @@ lower-priority tool when a higher-priority tool provides the same operation.
 - Never sign commits as being created by an AI agent, assistant, or coding harness.
 - Never add a reference to an AI agent, assistant, harness, model, or tool to a commit message.
 
-### IntelliJ MCP substitutions (IntelliJ is always running)
+### Symbol and structure lookup
 
-| Instead of                  | Prefer                                                                        |
-| --------------------------- | ----------------------------------------------------------------------------- |
-| `Read` on a project file    | `mcp__idea__get_file_text_by_path`                                            |
-| `Grep` for code/text search | `mcp__idea__search_in_files_by_text` or `mcp__idea__search_in_files_by_regex` |
-| `Glob` for file discovery   | `mcp__idea__find_files_by_glob` or `mcp__idea__find_files_by_name_keyword`    |
-| Manual lint/error checking  | `mcp__idea__get_file_problems`                                                |
-| Symbol/type resolution      | `mcp__idea__get_symbol_info`                                                  |
-| Running tests/builds        | `mcp__idea__execute_run_configuration` or `mcp__idea__build_project`          |
+Use this order for finding a symbol, its callers and callees, and change impact:
 
-Use LSP before `rg` for symbol resolution, type checking, and references.
+1. codebase-memory: `search_graph`, then `trace_path`. It resolves calls written as qualified
+   paths and reports index coverage.
+2. codegraph: `codegraph_explore` to read the source of an area in one call. Do not rely on
+   `codegraph_callers` for a complete caller list; it misses qualified-path calls.
+3. IntelliJ `mcp__idea__get_symbol_info` or LSP for type, hover, and definition information at a
+   known position, and for repositories that are not indexed.
+4. `rg` for literals, configuration, and files the graphs do not index.
+
+### IntelliJ MCP substitutions (when the project is open in IntelliJ)
+
+The `idea` tools work only for projects open in IntelliJ. Pass `projectPath`; if the project is
+not open, use the built-in tool.
+
+| Instead of                  | Prefer                                                               |
+| --------------------------- | -------------------------------------------------------------------- |
+| `Read` on a project file    | `mcp__idea__read_file`                                               |
+| `Grep` for code/text search | `mcp__idea__search_text` or `mcp__idea__search_regex`                |
+| `Glob` for file discovery   | `mcp__idea__search_file`                                             |
+| Manual lint/error checking  | `mcp__idea__get_file_problems`                                       |
+| Running tests/builds        | `mcp__idea__execute_run_configuration` or `mcp__idea__build_project` |
+
+Use LSP for type checking, hover, and go-to-definition at a known position.
 
 - Python (`pyright`), Go (`gopls`), and Rust (`rust-analyzer`) are enabled on every machine.
 - Swift, TypeScript, and Lua are enabled on machines with the `dev` capability.
@@ -73,8 +87,6 @@ skill holds the tool routing table.
 - Re-index manually after a large pull or generated-source update.
 - Call `check_index_coverage` for every file that supports a conclusion. Do not make absence,
   exhaustive, or dead-code claims from the graph alone.
-- When codegraph is also available, use codebase-memory for caller tracing, change impact,
-  dead-code analysis, and claims that require coverage verification.
 
 ### Hippo for prior work and lessons (when `mcp__hippo__*` is configured)
 
@@ -104,7 +116,7 @@ skill holds the tool routing table.
 
 - Agent teams use tmux mode (`teammateMode: tmux`).
 - Each agent runs in its own tmux window.
-- Use `TeamCreate` for two or more independent subtasks.
+- Use `TeamCreate` when two or more independent subtasks are each large enough to need their own context.
 
 Call `ToolSearch` before using `mcp__idea__*`, `LSP`, `TeamCreate`, or another deferred tool.
 

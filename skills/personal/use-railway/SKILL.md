@@ -177,11 +177,11 @@ Forces the device-code flow (RFC 8628): prints a sign-in link and a short code f
 That behavior is not user authorization for additional operations. A human must
 still complete OAuth in the browser.
 
-**Device-code sign-in: relay the link immediately (CRITICAL):**
+**Device-code sign-in: relay the link immediately:**
 
 When the CLI can't open a browser (sandboxed shell, container, SSH, no `DISPLAY`), unauthed `railway up` and `railway login` print a sign-in URL + short code and then **block, polling for up to 10 minutes** while the user completes sign-in. The code expires after 10 minutes. If you run this as a normal foreground command, your harness buffers the output until the command exits: **the user never sees the link until the code is already dead**. This is the #1 cause of failed agent-driven signups. Handle it like this:
 
-1. **Preferred: background execution** (e.g. Claude Code: `run_in_background`, then poll with `BashOutput`):
+1. **Preferred: background execution** (e.g. Claude Code: `run_in_background`, then read the command's output file):
    - Start the command in the background.
    - Poll its output. The instant a sign-in block appears (`Sign in with one click: <url>` on newer CLIs, or `Sign in at: <url>` / `Enter this code: <code>` on older ones), **stop everything and relay it to the user verbatim**: do not summarize, shorten, or defer it. Prefer the one-click URL when present; otherwise relay the URL and code together. Tell the user to open the link now.
    - Leave the command running and keep polling. When the user completes sign-in, the same process picks up the session and continues into the deploy on its own. Then verify per the deploy rules below.
