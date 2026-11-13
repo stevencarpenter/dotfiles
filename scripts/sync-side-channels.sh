@@ -8,29 +8,16 @@ uv_bin="${UV_BIN:-uv}"
 mise_bin="${MISE_BIN:-mise}"
 npx_bin="${NPX_BIN:-npx}"
 capability_bin="${HOST_CAPABILITY_BIN:-$repo_root/scripts/host-capability.sh}"
-token_auditor_version="$(
-  printf '%s' "${TOKEN_AUDITOR_VERSION:-$(tr -d '\n' <"$repo_root/versions/token-auditor")}"
-)"
-if [ -z "$token_auditor_version" ] || [ "$token_auditor_version" = "latest" ]; then
-  echo "error: token-auditor requires an immutable release tag" >&2
-  exit 1
-fi
 
-# Install and upgrade tools within their declared mise version constraints.
+# dfm's mise updater installs and upgrades the configured tools under its grant checks.
 if command -v "$mise_bin" >/dev/null 2>&1; then
-  echo "==> Installing mise-managed tools"
-  "$mise_bin" install
-  # Refresh latest and version ranges without --bump; exact pins stay fixed.
-  # Keep older installs available to sessions already running from those paths.
-  echo "==> Upgrading mise-managed tools within configured version constraints"
-  "$mise_bin" upgrade --no-prune
   # yazi's duckdb previews only LOAD these (auto_install_extensions = false), and DuckDB
   # keeps extensions per version, so a DuckDB upgrade needs them installed again.
   echo "==> Installing DuckDB extensions for yazi previews"
   DUCKDB_AGENT_MODE=0 "$mise_bin" exec -- duckdb -init /dev/null -c "INSTALL spatial; INSTALL avro;" >/dev/null ||
     echo "warning: DuckDB extension install failed; xlsx and avro previews fall back to plain text" >&2
 else
-  echo "error: mise not found; cannot install declared global tools" >&2
+  echo "error: mise not found; cannot install the DuckDB extensions" >&2
   exit 1
 fi
 
@@ -137,27 +124,6 @@ if command -v lefthook >/dev/null 2>&1; then
     echo "warning: lefthook install failed; git hooks not wired" >&2
 else
   echo "warning: lefthook not found; git hooks not installed (run 'just sync-side-channels' after installing it)" >&2
-fi
-
-# token-auditor: standalone uv tool from its own public repo. --force makes
-# re-install idempotent and upgrades in place on a version bump.
-if command -v "$uv_bin" >/dev/null 2>&1; then
-  ref="git+https://github.com/stevencarpenter/token-auditor@${token_auditor_version}"
-  echo "==> Installing token-auditor (${ref})"
-  "$uv_bin" tool install --force "$ref"
-else
-  echo "error: uv not found; cannot install token-auditor" >&2
-  exit 1
-fi
-
-# Install agent-reap from this checkout on every host; it is inert without tmux.
-# --reinstall prevents uv from reusing a cached wheel when the version is unchanged.
-if command -v "$uv_bin" >/dev/null 2>&1; then
-  echo "==> Installing agent-reap (${repo_root}/agent_reap)"
-  "$uv_bin" tool install --force --reinstall "$repo_root/agent_reap"
-else
-  echo "error: uv not found; cannot install agent-reap" >&2
-  exit 1
 fi
 
 # Codex owns this plugin's configuration and cache; ensure it during sync.

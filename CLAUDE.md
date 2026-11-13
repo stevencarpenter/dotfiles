@@ -50,9 +50,9 @@ uv run --project agent_reap --group dev mypy agent_reap/src agent_reap/tests
 uv run --project agent_reap --group dev pytest agent_reap/tests --cov=agent_reap
 ```
 
-The side channels install the local uv tool through `scripts/sync-side-channels.sh` on every
-machine. Without a tmux server or team directory, the tool exits without action. No capability
-gate is required. The side channels manage `~/.local/bin/agent-reap`; only
+`dfm sync` installs the local uv tool on every machine from the `core` module's `agent-reap`
+resource (`uv-tool/v1`, `source = "path:agent_reap"`). Without a tmux server or team directory, the tool exits without action. No capability
+gate is required. dfm manages `~/.local/bin/agent-reap`; only
 `~/.config/agent-reap/config.toml` is linked by the `core` module.
 It is not a daemon: automatic cleanup is the Claude `Stop` and `SessionEnd` hooks, and solo sessions do not
 create a hook log. See `docs/ai-tools/tmux-runtime-lifecycle.md` before diagnosing tmux cwd,
@@ -77,12 +77,11 @@ uv run --project mcp_sync sync-mcp-configs
 
 `token-auditor` (the auditor behind the `codax`/`claade`/`opencade` wrappers) is maintained in its own
 repo: <https://github.com/stevencarpenter/token-auditor>. Lint/type/test run there, not here. The
-dotfiles pin it in `versions/token-auditor` (read by the Justfile and the side-channel script) and
-install it from the side channels. The install is **unconditional** on every machine by design;
+`core` module declares it as a `uv-tool/v1` resource from its default branch, and
+`dfm sync` installs it and rolls it to the newest commit. The install is **unconditional** on every machine by design;
 the former `token_auditor` capability was dropped (2026-07-17) because no consumer read it.
 
 ```bash
-uv tool install git+https://github.com/stevencarpenter/token-auditor   # manual install / upgrade
 token-auditor --help                                                   # or `codax --help`
 ```
 
@@ -241,7 +240,7 @@ locations:
   Claude `settings.d` `allowWrite` fragment, jj, the MCP and skills overlays, the pinned skills,
   the aerospace and sketchybar variants and the journal config. `Brewfile.personal` holds jj and
   tailscale.
-- token-auditor is **not capability-gated**: the side channels install it unconditionally.
+- token-auditor is **not capability-gated**: the `core` module installs it on every machine.
 
 `scripts/host-capability.sh <cap>` prints 1 or 0 from the profile (the one `dfm binding` names,
 or `dfm/profiles/<host>.toml` before bind) and `--identity` prints the identity module. The shell-side gates in `scripts/sync-side-channels.sh` read it; the hygiene
@@ -263,7 +262,7 @@ test `scripts/test-host-capability.sh` pins the personal-mac answers.
 - `mcp_sync/`: MCP and skills config generator (uv project, Python 3.14+, no runtime dependencies)
 - `agent_reap/`: idle Claude teammate reaper (uv project, Python 3.14+, no runtime dependencies)
 - `bootstrap.sh`: new-machine setup with host auto-detection
-- `Justfile`: plan, apply, update, Python, and sync recipes; `versions/token-auditor` specifies the tool release
+- `Justfile`: plan, apply, update, Python, and sync recipes
 - `scripts/`: system scripts (`mac-defaults.sh`, `launch-agents.sh`, `login-shell.sh`,
   `tiling-reload.sh`, `brew-sync.sh`, `hooks-sync.sh`), side channels, hygiene tests
 - `docs/ai-tools/`: setup guides for MCP, Copilot, and related tools, plus

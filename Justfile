@@ -1,10 +1,6 @@
 # Dotfiles task runner
 # Usage: just <recipe>       List: just --list
 
-# Immutable token-auditor release used by the explicit network sync workflow.
-# Update deliberately after reviewing the corresponding upstream release.
-TOKEN_AUDITOR_VERSION := `tr -d '\n' < versions/token-auditor`
-
 # Default recipe: show available commands
 [private]
 default:
@@ -100,7 +96,7 @@ sync-dfm-apply $digest:
 # Mise upgrades, secrets, Git sources, agents, and tools only; included in sync.
 [group('Targeted maintenance')]
 sync-side-channels:
-    TOKEN_AUDITOR_VERSION="{{ TOKEN_AUDITOR_VERSION }}" scripts/sync-side-channels.sh
+    scripts/sync-side-channels.sh
 
 # Firstmate only: provision its native-update checkout; included in sync-side-channels.
 [group('Targeted maintenance')]
