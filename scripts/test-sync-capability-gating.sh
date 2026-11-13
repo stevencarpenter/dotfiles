@@ -148,105 +148,18 @@ if [ ! -f "$fixture/personal/home/.cursor/skills/fantasy-football-guidelines/SKI
   echo "personal sync did not install the fantasy-sports Cursor skill" >&2
   exit 1
 fi
-if ! rg -q '^git clone .* /[^ ]*/agent-registry$' "$fixture/personal/commands.log"; then
-  echo "personal sync did not retain the agent registry clone" >&2
-  exit 1
-fi
-if ! rg -Fq 'uv run --directory' "$fixture/personal/commands.log"; then
-  echo "personal sync did not install the agent registry" >&2
-  exit 1
-fi
-if ! rg -Fq "uv run --directory $fixture/personal/home/.local/share/agent-registry" \
-  "$fixture/personal/commands.log"; then
-  echo "personal sync did not install from its freshly cloned registry" >&2
-  exit 1
-fi
-if rg -Fq 'uv run --directory' "$fixture/work/commands.log"; then
-  echo "work sync attempted to install the personal agent registry" >&2
-  exit 1
-fi
-
-# op-render renders personal 1Password content; a work host must never invoke
-# it (work secrets are the external wrapper's custody). And on personal it must run
-# BEFORE the agent-registry clone, which authenticates over SSH using the
-# ~/.ssh/config op-render produces.
-if rg -Fq 'op-render' "$fixture/work/commands.log"; then
-  echo "work sync invoked the personal op-render" >&2
-  exit 1
-fi
-if ! rg -Fq 'op-render' "$fixture/personal/commands.log"; then
-  echo "personal sync did not render op:// secrets" >&2
-  exit 1
-fi
-render_line="$(rg -n -Fm1 'op-render' "$fixture/personal/commands.log" | cut -d: -f1)"
-clone_line="$(rg -n -m1 '^git clone .* /[^ ]*/agent-registry$' "$fixture/personal/commands.log" | cut -d: -f1)"
-if [ -z "$render_line" ] || [ -z "$clone_line" ] || [ "$render_line" -ge "$clone_line" ]; then
-  echo "op-render must precede the SSH agent-registry clone (renders its ssh config)" >&2
-  exit 1
-fi
-
-# op signin requires a TTY so non-interactive callers cannot block on input.
-if rg -Fq 'op signin' "$fixture/personal/commands.log"; then
-  echo "sync ran a blocking 'op signin' without a TTY" >&2
-  exit 1
-fi
-if ! rg -Fq 'op-render session=none' "$fixture/personal/commands.log"; then
-  echo "non-TTY sync should still attempt the render, sessionless" >&2
-  exit 1
-fi
-
-# With a TTY, signin must run AND its exported session must reach op-render:
-# each just recipe line is its own shell, so the export only propagates because
-# signin happens inside this script rather than in the Justfile.
-run_sync_tty() {
-  local run_root="$fixture/personal-tty"
-  mkdir -p "$run_root/home"
-  local -a inner=(
-    env "TEST_COMMAND_LOG=$run_root/commands.log"
-    MOCK_IDENTITY=personal MOCK_AGENTS=1
-    "HOST_CAPABILITY_BIN=$fixture/bin/host-capability"
-    "HOME=$run_root/home" "PATH=$fixture/bin:/usr/bin:/bin"
-    "GIT_BIN=$fixture/bin/git" "UV_BIN=$fixture/bin/uv"
-    "MISE_BIN=$fixture/bin/mise" "FIRSTMATE_BIN=$fixture/bin/firstmate"
-    "OP_RENDER_BIN=$fixture/bin/op-render" "OP_BIN=$fixture/bin/op"
-    "$repo_root/scripts/sync-side-channels.sh"
-  )
-  # pty.spawn waits for the child; BSD script can exit early on stdin EOF.
-  # pty-spawn.py decodes the wait status so child failures propagate.
-  "${repo_root}/scripts/pty-spawn.py" "${inner[@]}" >/dev/null 2>&1
-}
-
-# Python is required by this suite and installed by CI; absence must fail the test.
-if ! run_sync_tty; then
-  echo "pty harness failed to run sync under a TTY (python3 missing or pty denied)" >&2
-  exit 1
-fi
-if [ ! -s "$fixture/personal-tty/commands.log" ]; then
-  echo "TTY sync produced no command log: harness ran but exercised nothing" >&2
-  exit 1
-fi
-if ! rg -Fq 'op signin' "$fixture/personal-tty/commands.log"; then
-  echo "TTY sync did not establish an op session before rendering" >&2
-  exit 1
-fi
-if ! rg -Fq 'op-render session=tok' "$fixture/personal-tty/commands.log"; then
-  echo "op session did not propagate into op-render's environment" >&2
-  exit 1
-fi
-
-mkdir -p "$fixture/personal-working/home/projects/agents"
-touch "$fixture/personal-working/home/projects/agents/pyproject.toml"
-run_sync personal 1 personal-working
-if rg -q '^git clone .* /[^ ]*/agent-registry$' \
-  "$fixture/personal-working/commands.log"; then
-  echo "personal sync cloned a redundant registry beside the working copy" >&2
-  exit 1
-fi
-if ! rg -Fq "uv run --directory $fixture/personal-working/home/projects/agents" \
-  "$fixture/personal-working/commands.log"; then
-  echo "personal sync did not install from the existing working copy" >&2
-  exit 1
-fi
+# dfm owns these now: the op-template/v1 secrets (no op-render, no op signin), the tpm and
+# agent-registry git-checkout/v1 resources with the checkouts updater, and the agents updater.
+for run in personal work; do
+  if rg -q 'op-render|op signin' "$fixture/$run/commands.log"; then
+    echo "$run sync ran op-render or op signin, which dfm's secrets scope replaced" >&2
+    exit 1
+  fi
+  if rg -q 'agent-registry|tmux-plugins/tpm|/plugins/tpm' "$fixture/$run/commands.log"; then
+    echo "$run sync touched tpm or the agent registry, which dfm's checkouts own" >&2
+    exit 1
+  fi
+done
 
 if rg -q 'tool install' "$fixture/personal/commands.log"; then
   echo "sync installed a uv tool that dfm's uv-tool/v1 resources own" >&2
@@ -260,12 +173,6 @@ fi
 if [[ "$(tail -n 1 "$fixture/work/commands.log")" != 'firstmate --request-update' ]]; then
   echo 'sync did not request the native update last, after dependency installation' >&2
   exit 1
-fi
-if TEST_UV_STATUS=1 run_sync personal 1 install-failed; then
-  echo 'sync ignored a dependency installation failure' >&2; exit 1
-fi
-if rg -Fq 'firstmate --request-update' "$fixture/install-failed/commands.log"; then
-  echo 'sync requested a native update before dependencies finished' >&2; exit 1
 fi
 if TEST_REQUEST_STATUS=3 run_sync work 0 request-failed; then
   echo 'sync hid a native update request failure' >&2; exit 1

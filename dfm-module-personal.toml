@@ -74,6 +74,16 @@ template = "home/.config/zsh/.personal.env.tpl"
 account = "my.1password.com"
 mode = 0o600
 
+[[resources]]
+id = "ssh-homelab"
+kind = "secret"
+adapter = "op-template/v1"
+target = ".ssh/config.d/10-homelab.conf"
+[resources.value]
+template = "home/.ssh/config.d/10-homelab.conf.tpl"
+account = "my.1password.com"
+mode = 0o600
+
 # Claude sandbox write paths for this user; core.claude-settings appends every fragment in
 # .claude/settings.d to sandbox.filesystem.allowWrite.
 [[resources]]

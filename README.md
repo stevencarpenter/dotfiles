@@ -70,7 +70,7 @@ names, or `dfm/profiles/<host>.toml` before the machine is bound.
 | `dev` | yes | mise `conf.d/dev.toml` |
 | `infra` | no | mise `conf.d/infra.toml`, Kubernetes / cluster-ops tooling |
 | `agent_journal` | yes | CLI wrappers |
-| `agents` | yes | routing SessionStart hook; personal agent-registry clone in the side channels |
+| `agents` | yes | routing SessionStart hook; the agent-registry checkout and the `agents` updater |
 | `personal` (identity) | yes | hippo hook, op-render templates, and the identity files of shared capabilities: Claude `allowWrite` fragment, jj, MCP and skills overlays, pinned skills, aerospace and sketchybar variants, journal config |
 
 **Adding a machine:** add `dfm/profiles/<name>.toml`, and add the name to the shared detect
@@ -277,15 +277,16 @@ that styles are model instructions. The source standard is
 Provisioning that requires network access, SSH authentication, or `sudo` runs through
 `scripts/sync-side-channels.sh`, after the manager's apply:
 
-- Rendering personal `op://` secrets comes first (personal identity only) because it produces
-  the `~/.ssh/config.d` fragment the agent-registry clone authenticates with. Then: install the
-  DuckDB extensions; refresh the upstream `gh-axi` skill; clone/refresh tpm over HTTPS;
-  install and validate the personal `agent-registry` from `~/projects/agents` when that
-  working copy exists, otherwise clone/refresh `~/.local/share/agent-registry`, only when the
-  selected host's `agents` capability is enabled; wire the lefthook git hooks. `dfm sync`
-  installs and upgrades the mise tools (its `mise` updater) and the uv tools `token-auditor` and
-  `agent-reap` (`uv-tool/v1` resources in the `core` module). Safe to re-run. A failed side channel makes the command fail instead of
+- The script installs the DuckDB extensions, refreshes the upstream `gh-axi` skill, installs
+  the fantasy-sports agents, ensures Firstmate and the ponytail Codex plugin, and wires the
+  lefthook git hooks. Safe to re-run. A failed side channel makes the command fail instead of
   leaving a silently partial install.
+- `dfm sync` owns the rest: the `op-template/v1` secrets (`.personal.env` and
+  `~/.ssh/config.d/10-homelab.conf`), the mise tools (its `mise` updater), the uv tools
+  `token-auditor` and `agent-reap` (`uv-tool/v1`), and the tpm and agent-registry checkouts
+  (`git-checkout/v1`, cloned when missing and fast-forwarded by the `checkouts` updater). The
+  `agents` updater pulls the registry and installs it; a working copy at `~/projects/agents`
+  takes precedence for the install.
 - **`just sync-side-channels`**: the side channels alone, when the links are already current.
 
 The rule: declarative or offline+fast+idempotent work is a manager resource or a
