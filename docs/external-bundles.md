@@ -93,11 +93,18 @@ module does. Fragment names use a `20-` prefix and must not repeat a base file n
 Write paths under the user's home as absolute paths in a settings fragment. The merge copies
 values as written; only hook commands keep a `${HOME}` reference live.
 
+`home/.ssh/config` includes the SSH fragments through the `%d` token, which needs OpenSSH 9.9
+or later. An older client loads no fragment.
+
 ## Packages and secrets
 
 - `scripts/brew-sync.sh` applies the shared `Brewfile`, then `Brewfile.<identity>` when this
   repository has one. Declare packages for another identity as `homebrew/v1` or `mise/v1`
   resources in the identity module. `dfm packages` installs them; `dfm apply` does not.
+- Declare `agent-reap` in the identity module as a `uv-tool/v1` resource with
+  `source = "path:base/agent_reap"`. dfm resolves a path source against the bound checkout and
+  refuses one that a nested source declares (`E_MANIFEST_INVALID`), so no base module declares it
+  for an external bundle. The `core` module links its hooks and configuration.
 - Declare secrets as `op-template/v1` resources in the identity module, with the identity's
   1Password account. This repository holds personal secrets only.
 

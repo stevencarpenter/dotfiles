@@ -511,8 +511,9 @@ timeout = 20
 defaults = []
 extensions = ["/handlers"]
 
-# uv tools (DFM-25 C01). dfm installs each from its declared source, and the uv updater rolls
-# token-auditor to the newest commit of its default branch.
+# uv tools (DFM-25 C01). dfm installs token-auditor from its declared source, and the uv updater
+# rolls it to the newest commit of its default branch. agent-reap is in the identity module: dfm
+# accepts a path source only from the bound checkout, and an external bundle nests this one.
 [[resources]]
 id = "token-auditor"
 kind = "package"
@@ -521,15 +522,6 @@ adapter = "uv-tool/v1"
 name = "token-auditor"
 update_policy = "rolling"
 source = "git+https://github.com/stevencarpenter/token-auditor"
-
-[[resources]]
-id = "agent-reap"
-kind = "package"
-adapter = "uv-tool/v1"
-[resources.value]
-name = "agent-reap"
-update_policy = "rolling"
-source = "path:agent_reap"
 
 # tmux plugin manager (DFM-25 C01). dfm clones it when missing, and the checkouts updater
 # fast-forwards it on every sync.

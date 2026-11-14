@@ -50,8 +50,10 @@ uv run --project agent_reap --group dev mypy agent_reap/src agent_reap/tests
 uv run --project agent_reap --group dev pytest agent_reap/tests --cov=agent_reap
 ```
 
-`dfm sync` installs the local uv tool on every machine from the `core` module's `agent-reap`
-resource (`uv-tool/v1`, `source = "path:agent_reap"`). Without a tmux server or team directory, the tool exits without action. No capability
+`dfm sync` installs the local uv tool from the identity module's `agent-reap` resource
+(`uv-tool/v1`, `source = "path:agent_reap"` in `personal`). dfm accepts a path source only from
+the bound checkout, so an external bundle declares it in its own identity module
+(`docs/external-bundles.md`). Without a tmux server or team directory, the tool exits without action. No capability
 gate is required. dfm manages `~/.local/bin/agent-reap`; only
 `~/.config/agent-reap/config.toml` is linked by the `core` module.
 It is not a daemon: automatic cleanup is the Claude `Stop` and `SessionEnd` hooks, and solo sessions do not
