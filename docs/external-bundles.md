@@ -93,6 +93,9 @@ module does. Fragment names use a `20-` prefix and must not repeat a base file n
 Write paths under the user's home as absolute paths in a settings fragment. The merge copies
 values as written; only hook commands keep a `${HOME}` reference live.
 
+`home/.ssh/config` includes the SSH fragments through the `%d` token, which needs OpenSSH 9.9
+or later. An older client loads no fragment.
+
 ## Packages and secrets
 
 - `scripts/brew-sync.sh` applies the shared `Brewfile`, then `Brewfile.<identity>` when this
