@@ -26,14 +26,6 @@ if [ "${1:-}" = "clone" ]; then
   if [[ "$target" == */agent-registry ]]; then
     touch "$target/pyproject.toml"
   fi
-  if [[ "$target" == */fantasy-sports ]]; then
-    mkdir -p "$target/agents/fantasy-football-manager" \
-      "$target/skills/fantasy-football-guidelines"
-    printf '%s\n' '---' 'name: fantasy-football-manager' '---' \
-      >"$target/agents/fantasy-football-manager/agent.md"
-    printf '%s\n' '---' 'name: fantasy-football-guidelines' '---' \
-      >"$target/skills/fantasy-football-guidelines/SKILL.md"
-  fi
 fi
 EOF
 
@@ -119,22 +111,14 @@ if rg -q '^git clone .* /[^ ]*/agent-registry$' "$fixture/work/commands.log"; th
   echo "work sync contacted the personal agent registry" >&2
   exit 1
 fi
-if rg -q 'fantasy-sports' "$fixture/work/commands.log"; then
-  echo "work sync touched the private fantasy-sports repo" >&2
-  exit 1
-fi
 
 run_sync personal 1
-if ! rg -q 'git clone .*fantasy-sports' "$fixture/personal/commands.log"; then
-  echo "personal sync did not clone the private fantasy-sports repo" >&2
+if ! rg -Fxq 'npx --yes skills@latest add https://github.com/kunchenguid/gh-axi/tree/main/skills/gh-axi --skill gh-axi --global --yes --agent claude-code codex pi junie' "$fixture/personal/commands.log"; then
+  echo "personal sync did not refresh the declared upstream skill" >&2
   exit 1
 fi
-if [ ! -f "$fixture/personal/home/.claude/agents/fantasy-football-manager.md" ]; then
-  echo "personal sync did not install the fantasy-sports agent" >&2
-  exit 1
-fi
-if [ ! -f "$fixture/personal/home/.cursor/skills/fantasy-football-guidelines/SKILL.md" ]; then
-  echo "personal sync did not install the fantasy-sports Cursor skill" >&2
+if rg -q '^git ' "$fixture/personal/commands.log"; then
+  echo "personal sync ran git, but no side channel clones a repo" >&2
   exit 1
 fi
 # dfm owns these now: the op-template/v1 secrets (no op-render, no op signin), the tpm and
@@ -166,9 +150,6 @@ done
 MOCK_SKILLS=0 run_sync work 0 without-skills
 if rg -q '^npx ' "$fixture/without-skills/commands.log"; then
   echo 'sync refreshed upstream skills with the skills capability disabled' >&2; exit 1
-fi
-if rg -q 'fantasy-sports' "$fixture/without-skills/commands.log"; then
-  echo 'sync installed fantasy-sports with the skills capability disabled' >&2; exit 1
 fi
 if TEST_SKILLS_STATUS=1 run_sync work 0 skills-failed; then
   echo 'sync hid an upstream skill installation failure' >&2; exit 1

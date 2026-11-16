@@ -110,7 +110,7 @@ just sync-dfm                    # plan; prints the digest and writes the approv
 just sync-dfm-apply <digest>     # apply, then Brewfile, hooks, side channels, agents, checks
 just update                      # preview Homebrew/mise upgrades, approve, upgrade + side channels
 just update -y                   # same, without the confirmation
-just sync-side-channels          # side channels only: gh-axi skill, fantasy-sports, ponytail plugin
+just sync-side-channels          # side channels only: gh-axi skill, ponytail plugin
 just brew-audit                  # compare declared and installed Homebrew inventory, read-only
 ```
 
@@ -275,9 +275,9 @@ that styles are model instructions. The source standard is
 Provisioning that requires network access, SSH authentication, or `sudo` runs through
 `scripts/sync-side-channels.sh`, after the manager's apply:
 
-- The script refreshes the upstream `gh-axi` skill, installs the fantasy-sports agents and
-  ensures the ponytail Codex plugin. Safe to re-run. A failed side channel makes the command fail instead of
-  leaving a silently partial install.
+- The script refreshes the upstream `gh-axi` skill and ensures the ponytail Codex plugin. Safe
+  to re-run. A failed side channel makes the command fail instead of leaving a silently partial
+  install.
 - `dfm sync` owns the rest: the `op-template/v1` secrets (`.personal.env` and
   `~/.ssh/config.d/10-homelab.conf`), the mise tools (its `mise` updater), the uv tools
   `token-auditor` and `agent-reap` (`uv-tool/v1`), and the tpm and agent-registry checkouts

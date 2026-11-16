@@ -114,6 +114,5 @@ or later. An older client loads no fragment.
 the nested checkout gate on the private profile. A capability query must name a module declared
 in `dfm-bundle.toml`.
 
-`scripts/sync-side-channels.sh` runs `op-render` and installs the private fantasy-sports repo
-only for the `personal` identity; the fantasy-sports skill source lives in the personal skills
-overlay, not in `skills-master.json`.
+`scripts/sync-side-channels.sh` gates its upstream skill refresh on the `skills` capability. It
+has no identity-specific step.

@@ -25,7 +25,7 @@ echo "==> Mise upgrades (within configured version constraints)"
 mise install --dry-run
 mise upgrade --dry-run --no-prune
 echo "==> After approval: upgrade Homebrew, then run the side channels."
-echo "Side channels refresh the gh-axi skill, fantasy-sports and the ponytail Codex plugin. dfm sync owns the rest."
+echo "Side channels refresh the gh-axi skill and the ponytail Codex plugin. dfm sync owns the rest."
 echo "Exact pins remain fixed. Applied upgrades cannot be automatically undone."
 
 if [ "$assume_yes" -eq 0 ]; then

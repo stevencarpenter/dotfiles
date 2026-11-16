@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# First installs that dfm has no resource for yet: the gh-axi skill, the Codex ponytail
-# plugin and the private fantasy-sports agents. dfm sync runs it as the side-channels updater.
+# First installs that dfm has no resource for yet: the gh-axi skill and the Codex ponytail
+# plugin. dfm sync runs it as the side-channels updater.
 # dfm owns the rest: mise, DuckDB extensions, checkouts, the agent registry and lefthook.
 set -euo pipefail
 
@@ -19,16 +19,6 @@ if [ "$("$capability_bin" skills)" = "1" ]; then
   DISABLE_TELEMETRY=1 "$npx_bin" --yes skills@latest add \
     https://github.com/kunchenguid/gh-axi/tree/main/skills/gh-axi \
     --skill gh-axi --global --yes --agent claude-code codex pi junie
-fi
-
-identity="$("$capability_bin" --identity)"
-
-# Private fantasy-sports agents + Cursor skill: personal identity only, because a work
-# host cannot read the private repo and must not hold it. The clone needs GitHub SSH.
-if [ "$identity" = "personal" ] && [ "$("$capability_bin" skills)" = "1" ]; then
-  "$repo_root/scripts/install-fantasy-sports.sh"
-else
-  echo "==> Skipping fantasy-sports (identity: $identity, or skills capability disabled)"
 fi
 
 # Codex owns this plugin's configuration and cache; ensure it during sync.

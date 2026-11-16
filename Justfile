@@ -93,7 +93,7 @@ sync-dfm-apply $digest:
     dfm state check
     dfm doctor --root "$root"
 
-# gh-axi skill, fantasy-sports and the ponytail Codex plugin only; included in sync.
+# gh-axi skill and the ponytail Codex plugin only; included in sync.
 [group('Targeted maintenance')]
 sync-side-channels:
     scripts/sync-side-channels.sh
