@@ -3,7 +3,8 @@
 # Usage: hooks-sync.sh [--check]
 #   (none)   run mcpSync, then skillsSync
 #   --check  print what would run; write nothing
-# Each step warns and continues on failure.
+# Every step runs even when an earlier one failed. The script exits 1 when a step failed.
+# A step without its project or machine overlay is skipped with a warning, not failed.
 set -uo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
@@ -23,6 +24,7 @@ fi
 project="$canonical/mcp_sync"
 
 check=0
+failed=0
 case "${1:-}" in
   "") ;;
   --check) check=1 ;;
@@ -38,7 +40,7 @@ run_py() {
   fi
   PYTHONNOUSERSITE=1 PYTHONPATH="$project/src" \
     "$uv_bin" run --frozen --no-dev --project "$project" python -m "$@" ||
-    echo "Warning: $label failed." >&2
+    { echo "Warning: $label failed." >&2; failed=1; }
 }
 
 mcp_sync() {
@@ -60,4 +62,4 @@ skills_sync() {
 
 mcp_sync
 skills_sync
-exit 0
+exit "$failed"

@@ -40,6 +40,13 @@ cat >"$fixture/bin/mise" <<'EOF'
 printf 'mise %s\n' "$*" >>"$TEST_COMMAND_LOG"
 EOF
 
+# The hooks step runs through HOOKS_SYNC_BIN, so the real hooks-sync.sh never runs.
+cat >"$fixture/bin/hooks-sync" <<'EOF'
+#!/usr/bin/env bash
+printf 'hooks-sync\n' >>"$TEST_COMMAND_LOG"
+exit "${TEST_HOOKS_STATUS:-0}"
+EOF
+
 cat >"$fixture/bin/npx" <<'EOF'
 #!/usr/bin/env bash
 printf 'npx %s\n' "$*" >>"$TEST_COMMAND_LOG"
@@ -73,9 +80,11 @@ exit 0
 EOF
 
 chmod +x "$fixture/bin/git" "$fixture/bin/uv" "$fixture/bin/mise" "$fixture/bin/host-capability" \
-  "$fixture/bin/op-render" "$fixture/bin/op" "$fixture/bin/npx"
+  "$fixture/bin/op-render" "$fixture/bin/op" "$fixture/bin/npx" "$fixture/bin/hooks-sync"
 
 # run_sync <identity> <agents-capability> [run-name]
+# The script's combined output goes to $run_root/output and its log under $run_root/state.
+# XDG_STATE_HOME is set because an exported one would put the log under the real HOME.
 run_sync() {
   local identity="$1"
   local agents="$2"
@@ -88,6 +97,8 @@ run_sync() {
     MOCK_AGENTS="$agents" \
     HOST_CAPABILITY_BIN="$fixture/bin/host-capability" \
     HOME="$run_root/home" \
+    XDG_STATE_HOME="$run_root/state" \
+    HOOKS_SYNC_BIN="$fixture/bin/hooks-sync" \
     PATH="$fixture/bin:/usr/bin:/bin" \
     GIT_BIN="$fixture/bin/git" \
     UV_BIN="$fixture/bin/uv" \
@@ -95,7 +106,7 @@ run_sync() {
     NPX_BIN="${TEST_NPX_BIN:-$fixture/bin/npx}" \
     OP_RENDER_BIN="$fixture/bin/op-render" \
     OP_BIN="$fixture/bin/op" \
-    "$repo_root/scripts/sync-side-channels.sh" >/dev/null
+    "$repo_root/scripts/sync-side-channels.sh" >"$run_root/output"
 }
 
 run_sync work 0
@@ -155,14 +166,49 @@ if TEST_SKILLS_STATUS=1 run_sync work 0 skills-failed; then
   echo 'sync hid an upstream skill installation failure' >&2; exit 1
 fi
 
-# The gh-axi refresh needs npx. Its absence must fail with a repo-authored
-# diagnostic instead of a bare 127 partway through provisioning.
-mkdir -p "$fixture/without-npx"
-if TEST_NPX_BIN="$fixture/bin/npx-missing" run_sync work 0 without-npx 2>"$fixture/without-npx/stderr"; then
+# The gh-axi refresh needs npx. Its absence is a failed step with a repo-authored
+# diagnostic, not a bare 127, and the summary names the step.
+if TEST_NPX_BIN="$fixture/bin/npx-missing" run_sync work 0 without-npx; then
   echo 'sync hid a missing npx dependency' >&2; exit 1
 fi
-if ! rg -Fq 'npx not found; cannot refresh the gh-axi skill' "$fixture/without-npx/stderr"; then
+if ! rg -Fq 'npx not found; cannot refresh the gh-axi skill' "$fixture/without-npx/output"; then
   echo 'sync did not explain the missing npx dependency' >&2; exit 1
 fi
+if ! rg -Fq 'side-channels: failed steps: gh-axi;' "$fixture/without-npx/output"; then
+  echo 'the summary did not name the failed gh-axi step' >&2; exit 1
+fi
 
-echo "side-channel sync honors the agents and skills capability boundaries"
+# The hooks step runs first.
+if [ "$(head -n 1 "$fixture/personal/commands.log")" != hooks-sync ]; then
+  echo 'sync did not run hooks-sync first' >&2; cat "$fixture/personal/commands.log" >&2; exit 1
+fi
+
+# A failed hooks step does not stop the gh-axi step, and the script then exits nonzero.
+if TEST_HOOKS_STATUS=1 run_sync work 0 hooks-failed; then
+  echo 'sync hid a failed hooks-sync step' >&2; exit 1
+fi
+if ! rg -q '^npx --yes skills@latest add ' "$fixture/hooks-failed/commands.log"; then
+  echo 'a failed hooks-sync step stopped the gh-axi step' >&2; exit 1
+fi
+if ! rg -Fq 'side-channels: failed steps: hooks-sync;' "$fixture/hooks-failed/output"; then
+  echo 'the summary did not name the failed hooks-sync step' >&2; exit 1
+fi
+if ! rg -Fq 'side-channels: failed steps: hooks-sync;' "$fixture/hooks-failed/state/dotfiles/side-channels.log"; then
+  echo 'the side-channels log lacks the failure summary' >&2; exit 1
+fi
+
+# dfm shows no output, so the log holds all of it: a 0600 file, truncated on each run.
+log="$fixture/personal/state/dotfiles/side-channels.log"
+run_sync personal 1
+if [ -z "$(find "$log" -perm 0600 2>/dev/null)" ]; then
+  echo "the side-channels log is missing or not mode 0600: $log" >&2; exit 1
+fi
+if ! cmp -s "$log" "$fixture/personal/output"; then
+  echo 'the side-channels log does not hold the full output' >&2; exit 1
+fi
+if [ "$(rg -c '^==> Refreshing upstream gh-axi skill$' "$log")" != 1 ] ||
+  [ "$(rg -c '^side-channels: all steps passed; full output in ' "$log")" != 1 ]; then
+  echo 'the side-channels log was not truncated per run or lacks the step output' >&2; exit 1
+fi
+
+echo "side-channel sync honors the capability boundaries, runs every step and logs its output"
