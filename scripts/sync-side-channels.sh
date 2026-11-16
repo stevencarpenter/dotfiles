@@ -68,4 +68,8 @@ main() {
 mkdir -p "$log_dir" && (umask 077 && : >"$log") && chmod 600 "$log" ||
   { echo "error: cannot write the log $log" >&2; exit 1; }
 main 2>&1 | tee "$log"
-exit "${PIPESTATUS[0]}"
+status=("${PIPESTATUS[@]}")
+[ "${status[0]}" -eq 0 ] || exit "${status[0]}"
+# dfm shows no output, so an incomplete log must not pass as success.
+[ "${status[1]}" -eq 0 ] ||
+  { echo "error: the log $log is incomplete (tee exited ${status[1]})" >&2; exit 1; }

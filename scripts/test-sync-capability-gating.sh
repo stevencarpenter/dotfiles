@@ -99,7 +99,7 @@ run_sync() {
     HOME="$run_root/home" \
     XDG_STATE_HOME="$run_root/state" \
     HOOKS_SYNC_BIN="$fixture/bin/hooks-sync" \
-    PATH="$fixture/bin:/usr/bin:/bin" \
+    PATH="${PATH_PREFIX:+$PATH_PREFIX:}$fixture/bin:/usr/bin:/bin" \
     GIT_BIN="$fixture/bin/git" \
     UV_BIN="$fixture/bin/uv" \
     MISE_BIN="$fixture/bin/mise" \
@@ -209,6 +209,18 @@ fi
 if [ "$(rg -c '^==> Refreshing upstream gh-axi skill$' "$log")" != 1 ] ||
   [ "$(rg -c '^side-channels: all steps passed; full output in ' "$log")" != 1 ]; then
   echo 'the side-channels log was not truncated per run or lacks the step output' >&2; exit 1
+fi
+
+# A log writer that fails must fail the run: dfm shows no output, so the log is the only record.
+mkdir -p "$fixture/tee-bin"
+printf '%s\n' '#!/usr/bin/env bash' 'cat >/dev/null' 'exit 1' >"$fixture/tee-bin/tee"
+chmod +x "$fixture/tee-bin/tee"
+cp -R "$fixture/bin/." "$fixture/tee-bin/"
+if (PATH_PREFIX="$fixture/tee-bin" run_sync work 0 tee-failed) 2>"$fixture/tee-failed.stderr"; then
+  echo 'sync hid a failing log writer' >&2; exit 1
+fi
+if ! rg -Fq 'is incomplete (tee exited 1)' "$fixture/tee-failed.stderr"; then
+  echo 'sync did not explain the failing log writer' >&2; exit 1
 fi
 
 echo "side-channel sync honors the capability boundaries, runs every step and logs its output"
