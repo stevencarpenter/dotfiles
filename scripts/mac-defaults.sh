@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# macOS defaults for the personal MacBook.
+# macOS defaults for the personal MacBook. A manual command; dfm sync does not run it.
 #
 # Usage: mac-defaults.sh [--check | --no-restart]
 #   --check       Read every key, print ok / differs / unset. Exit 1 if any differs

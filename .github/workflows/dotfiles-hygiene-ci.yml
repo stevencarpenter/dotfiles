@@ -184,9 +184,6 @@ jobs:
       - name: Validate repository atlas contracts
         run: scripts/test-build-site.sh
 
-      - name: Validate rolling-input updater
-        run: scripts/test-update-inputs.sh
-
       - name: Validate Homebrew audit is read-only
         run: scripts/test-homebrew-audit-read-only.sh
 

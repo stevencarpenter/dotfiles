@@ -87,27 +87,37 @@ the former `token_auditor` capability was dropped (2026-07-17) because no consum
 token-auditor --help                                                   # or `codax --help`
 ```
 
-### Plan, apply, update
+### Sync and checks
+
+`dfm sync` is the daily command. `dfm doctor` and `dfm status` are the checks. Do not deploy
+through `just`.
 
 ```bash
-just sync-dfm                 # dfm plan; prints the digest, writes the approval flags
-just sync-dfm-apply <digest>  # apply, then Brewfile, hooks-sync, side channels, agents, checks
-just update                   # preview Homebrew upgrades; approve; upgrade + side channels (dfm sync upgrades mise)
-just update -y                # same, assume approval (sudo/op may still prompt)
-just sync-side-channels       # side channels only: gh-axi skill, ponytail Codex plugin
-./bootstrap.sh                # fresh-machine setup (CLT, Homebrew, Brewfile), then prints the steps
-scripts/brew-sync.sh --check  # Brewfile gaps, installs nothing
-scripts/mac-defaults.sh --check
-dfm doctor --root ~/.dotfiles
-dfm sync --root ~/.dotfiles --preview   # needs the one-time origin grant below
+dfm sync                        # fetch, apply, install, render secrets, services, then the updaters
+dfm doctor                      # read-only health report with a fix for each row
+dfm status                      # the same rows, status and subject only
+dfm sync --preview              # print the plan; change nothing
+./bootstrap.sh                  # fresh-machine setup (CLT, Homebrew, Brewfile), then prints the steps
+scripts/brew-sync.sh            # install missing Brewfile items; --check reports gaps and installs nothing
+scripts/launch-agents.sh load   # after a change to the maxfiles plist; launchd also loads it at login
+scripts/tiling-reload.sh        # after a sketchybar or AeroSpace config change; restarts sketchybar
+scripts/login-shell.sh --check  # read-only login shell check
+scripts/mac-defaults.sh --check # read-only macOS defaults check
 ```
+
+`dfm sync` does not run the `scripts/` commands above. Run each one by hand when its comment applies.
 
 `dotfiles-manager.lock` at the checkout root declares the Git source `sync` fetches (root entry,
 `ssh://git@github.com/stevencarpenter/dotfiles`, `refs/heads/main`). Grant that origin once per
 machine: `dfm sync --root ~/.dotfiles --trust-origin ssh://git@github.com/stevencarpenter/dotfiles`.
+A plain `dfm sync` prints the plan and runs it. A new origin needs `--trust-origin <origin>`. An
+adoption or takeover needs `--allow-adopt <operation-id>`. A restart needs `--restart <resource-id>`.
 After its scopes, `dfm sync` runs the profile's `updaters` in order. `lefthook` wires the git hooks,
 and `side-channels` runs last: it runs `just sync-side-channels` in the checkout (detached, no
-terminal).
+terminal). That recipe exists only for dfm. It runs `scripts/sync-side-channels.sh`: `hooks-sync.sh`
+(MCP client configs, then the skills fan-out), the gh-axi skill and the ponytail Codex plugin.
+dfm shows only a `current` or `failed` row, so the script writes its full output to
+`~/.local/state/dotfiles/side-channels.log`.
 
 See [Daily use](README.md#daily-use) for the command hierarchy.
 
@@ -186,10 +196,11 @@ The sync tool reads `home/.config/mcp/mcp-master.json` and generates tool-specif
   `sync.py` implements the overrides layer. Each target reads `~/.config/mcp/overrides/<key>.json`
   at sync time. No override files are managed in the repository.
 
-The sync runs during `just sync-dfm-apply` through `scripts/hooks-sync.sh`, which selects the
-overlay for this host's identity (`~/.config/mcp/machine/<identity>.json`) and passes it via
-`--machine-config`. It runs through `uv run --frozen --project mcp_sync` and reports failures
-without failing the apply. Run it manually with `just mcp-sync`.
+`dfm sync` runs the sync through its `side-channels` updater, which runs `scripts/hooks-sync.sh`.
+That script selects the overlay for this host's identity (`~/.config/mcp/machine/<identity>.json`)
+and passes it via `--machine-config`. It runs through `uv run --frozen --project mcp_sync`. A
+failed step does not stop the next one, but it makes the updater row `failed`. Run the MCP
+sync alone with `just mcp-sync`.
 
 #### Capability gating
 

@@ -13,7 +13,7 @@ Decisions:
   tree-sitter, duckdb and the axi tools (`home/.config/mise/`). No nix package duplicates any of them,
   so no mise file changed.
 - `python314` maps to brew `python@3.14`. mise `python = "3.14"` is the alternative; it was not added.
-- `mise` itself comes from brew. `scripts/sync-side-channels.sh` already runs `mise install` and `mise upgrade`.
+- `mise` itself comes from brew. The `mise` updater of `dfm sync` runs `mise install` and `mise upgrade`.
 - Unstable pin: `flake.nix` on branch `daily-nix-bump` pins nixpkgs-unstable at
   `7dd199b0e2993e37b4775ed66b1c291699608c9f` (2026-10-07). Branch `main` pins `c9fe7d12cd78d1adcd12dd15e24432dde5b155a0`
   (2026-09-30). Pinned versions below were read from `pkgs/by-name/*/package.nix` at the `7dd199b0` rev.

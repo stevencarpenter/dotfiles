@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # hooks-sync.sh --check must print the plan and write nothing under HOME.
 # A normal run with a stubbed uv must leave ~/.codex/hooks.json to dfm (codex-hooks/v1).
+# A failed step must not stop the next one, and the script must then exit nonzero.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
@@ -37,5 +38,18 @@ for _ in 1 2; do
   HOME="$home" DFM_REPO_ROOT="$repo_root" UV_BIN="$fixture/uv" "$repo_root/scripts/hooks-sync.sh" >/dev/null 2>&1
 done
 [[ -L $home/.codex/hooks.json ]] || { echo "hooks-sync touched ~/.codex/hooks.json" >&2; exit 1; }
+
+cat >"$fixture/uv-fail" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >>"$fixture/uv-calls"
+exit 1
+EOF
+chmod +x "$fixture/uv-fail"
+if HOME="$home" DFM_REPO_ROOT="$repo_root" UV_BIN="$fixture/uv-fail" "$repo_root/scripts/hooks-sync.sh" >/dev/null 2>&1; then
+  echo "hooks-sync exited 0 although a step failed" >&2; exit 1
+fi
+for want in "python -m mcp_sync --machine-config" "python -m mcp_sync.skills_cli"; do
+  rg -Fq -- "$want" "$fixture/uv-calls" || { echo "a failed step stopped the next one: $want did not run" >&2; exit 1; }
+done
 
 echo "hooks-sync test passed"

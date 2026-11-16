@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Login shell pin.
+# Login shell pin. A manual command; dfm sync does not run it.
 # Usage: login-shell.sh --check | --set
 #   --check  Compare the Directory Services UserShell with /bin/zsh and report a
 #            stale launchctl SHELL override. Exit 1 on a difference. Never writes.

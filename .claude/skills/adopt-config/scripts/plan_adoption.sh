@@ -47,8 +47,8 @@ if [ -L "$abs" ]; then
       echo "ALREADY ADOPTED: $abs is a symlink resolving into the repo:"
       echo "  -> $resolved"
       echo "Edit that repo file directly; it's live. If the manager does not own the link yet"
-      echo "(made by stow or by hand), the plan shows it as 'adopt' and just sync-dfm writes"
-      echo "the --allow-adopt flag for just sync-dfm-apply."
+      echo "(made by stow or by hand), the plan shows it as 'adopt'. dfm sync withholds it and"
+      echo "prints the --allow-adopt flag to add."
       exit 0
       ;;
     *)
@@ -145,7 +145,7 @@ THEN:
   1) cp the config into home/<path>   2) add the stanza above
   3) verify the copy, then move the original aside (the mv under COLLISION); keep
      that backup until step 5 passes
-  4) just sync-dfm, then just sync-dfm-apply <digest> when an apply is authorized
+  4) dfm sync --preview, then dfm sync when a sync is authorized
   5) realpath the deployed path -> must land in ~/.dotfiles; the tool reads it; delete the backup
 
 Full runbook: docs/adopting-a-config.md

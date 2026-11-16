@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Bootstrap a fresh Mac for this dotfiles-manager checkout.
-# Idempotent: safe to re-run. First run only; routine applies use `just sync-dfm`.
+# Idempotent: safe to re-run. First run only; after it, `dfm sync` manages the machine.
 set -euo pipefail
 
 # Resolve the physical checkout path. When bootstrap is invoked through the
@@ -100,10 +100,13 @@ else
   echo "    2. Bind this machine to its profile (plan needs a binding):"
   echo "       dfm bind --profile $HOME/.dotfiles/dfm/profiles/$HOST.toml --machine-id <id>"
 fi
-echo "    3. just sync-dfm                      # plan; writes the approval flags"
-echo "    4. just sync-dfm-apply <plan digest>  # apply, packages, side channels, agents, checks"
-echo "    Side channels that need network or SSH (secrets, agent-registry)"
-echo "    run inside step 4, or alone with 'just sync-side-channels'."
+echo "    3. Grant the dotfiles origin once. This run prints the plan and stops:"
+echo "       dfm sync --root $HOME/.dotfiles --trust-origin ssh://git@github.com/stevencarpenter/dotfiles"
+echo "    4. dfm sync                           # links, packages, secrets, services, updaters"
+echo "       Run 'dfm sync' daily. Check with 'dfm doctor' and 'dfm status'."
+echo "    5. One-time commands that dfm sync does not run:"
+echo "       scripts/launch-agents.sh load      # load the maxfiles LaunchAgent now; launchd loads it at login"
+echo "       scripts/tiling-reload.sh           # when the profile selects the tiling module; restarts sketchybar"
 echo
 echo "    Manual first-run steps (TCC-protected, cannot be scripted):"
 echo "      - Accessibility → Display → Reduce transparency"

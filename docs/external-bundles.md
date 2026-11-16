@@ -114,5 +114,5 @@ or later. An older client loads no fragment.
 the nested checkout gate on the private profile. A capability query must name a module declared
 in `dfm-bundle.toml`.
 
-`scripts/sync-side-channels.sh` gates its upstream skill refresh on the `skills` capability. It
-has no identity-specific step.
+`scripts/sync-side-channels.sh` gates its upstream skill refresh on the `skills` capability. Its
+`hooks-sync.sh` step selects the MCP and skills overlays for the host's identity.

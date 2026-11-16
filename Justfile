@@ -13,12 +13,6 @@ default:
 op-adopt *FLAGS:
     home/.local/bin/op-adopt {{ FLAGS }}
 
-# Preview Homebrew upgrades, approve, then run the side channels. Pass -y to approve automatically.
-# dfm sync upgrades the mise tools.
-[group('Daily')]
-update *ARGS:
-    scripts/update-inputs.sh {{ ARGS }}
-
 # Homebrew only: refresh metadata and upgrade installed unpinned packages; accepts --dry-run.
 [group('Targeted maintenance')]
 brew-upgrade *ARGS:
@@ -35,72 +29,10 @@ brew-audit:
 bootstrap *HOST:
     ./bootstrap.sh {{ HOST }}
 
-# ── Sync (full deploy) ───────────────────────────────────
+# ── dfm updater hook ─────────────────────────────────────
 
-# Step 1: print the plan and its digest. Applies nothing.
-# Also writes the approval flags that `apply --preview` lists to $DFM_ALLOW_DIR/allow.txt
-# (default ~/.local/state/dfm-cutover/allow.txt, a 0700 directory), one `--allow-* '<id>'` per line. Review that file.
-[group('Daily')]
-sync-dfm:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    root="{{ justfile_directory() }}"
-    dir="${DFM_ALLOW_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/dfm-cutover}"
-    mkdir -p -m 700 "$dir"
-    [[ -d $dir && ! -L $dir && -O $dir && ! -g $dir ]] || { echo "error: $dir must be a real directory you own" >&2; exit 2; }
-    chmod 700 "$dir"
-    allow="$dir/allow.txt"
-    dfm plan --root "$root"
-    # --preview exits non-zero while an approval is missing; the flags are what we want.
-    preview="$(dfm apply --root "$root" --preview 2>&1 || true)"
-    rm -f "$allow"
-    ( umask 077; printf '%s\n' "$preview" | grep -oE "\-\-allow-(adopt|disruptive) '[^']*'" | awk '!seen[$0]++' > "$allow" || true )
-    echo "flags written to $allow:"; cat "$allow"
-    echo "Review the plan and the flags, then approve its digest with: just sync-dfm-apply <digest>"
-
-# Step 2: apply the approved digest, then packages, side channels, agents and checks.
-# Reads the flags from $DFM_ALLOW_DIR/allow.txt (see sync-dfm). Needs an interactive terminal (op signin).
-[group('Daily')]
-sync-dfm-apply $digest:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    root="{{ justfile_directory() }}"
-    [[ $digest =~ ^[0-9a-f]{64}$ ]] || { echo "error: digest must be 64 lowercase hex characters" >&2; exit 2; }
-    dir="${DFM_ALLOW_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/dfm-cutover}"
-    mkdir -p -m 700 "$dir"
-    [[ -d $dir && ! -L $dir && -O $dir && ! -g $dir ]] || { echo "error: $dir must be a real directory you own" >&2; exit 2; }
-    chmod 700 "$dir"
-    allow="$dir/allow.txt"
-    flags=()
-    if [[ -e $allow || -L $allow ]]; then
-      [[ -f $allow && ! -L $allow && -O $allow ]] || { echo "error: $allow must be a regular file you own" >&2; exit 2; }
-      while IFS= read -r line; do
-        [[ -n $line ]] || continue
-        if [[ $line =~ ^(--allow-adopt|--allow-disruptive)\ \'([^\']+)\'$ ]]; then
-          flags+=("${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}")
-        else
-          echo "error: unexpected line in $allow: $line" >&2; exit 2
-        fi
-      done < "$allow"
-    fi
-    dfm apply --root "$root" --yes-plan "$digest" ${flags[@]+"${flags[@]}"}
-    # dfm apply installs no package and runs no updater. On the dfm sync path the
-    # duckdb-extension/v1 resources and the lefthook updater do these two steps.
-    DUCKDB_AGENT_MODE=0 mise exec -- duckdb -init /dev/null -c "INSTALL spatial; INSTALL avro;" >/dev/null ||
-      echo "warning: DuckDB extension install failed; xlsx and avro previews fall back to plain text" >&2
-    lefthook install || echo "warning: lefthook install failed; git hooks not wired" >&2
-    scripts/brew-sync.sh
-    scripts/hooks-sync.sh
-    scripts/sync-side-channels.sh
-    scripts/launch-agents.sh load
-    scripts/login-shell.sh --check
-    scripts/tiling-reload.sh || echo "tiling-reload failed; continuing" >&2
-    scripts/mac-defaults.sh --check || echo "mac-defaults differs; read the lines above, then continue" >&2
-    dfm state check
-    dfm doctor --root "$root"
-
-# gh-axi skill and the ponytail Codex plugin only; included in sync.
-[group('Targeted maintenance')]
+# dfm sync's side-channels updater runs this recipe; dfm fixes its name. Not an entry point: run dfm sync.
+[private]
 sync-side-channels:
     scripts/sync-side-channels.sh
 
@@ -137,7 +69,7 @@ hippo-experiment *ARGS:
 hippo-study-probe *ARGS:
     scripts/hippo-study-probe.py {{ ARGS }}
 
-# MCP configs only; hooks-sync.sh also regenerates them during sync-dfm-apply.
+# MCP configs only; dfm sync also regenerates them (side-channels updater, through hooks-sync.sh).
 [group('Targeted maintenance')]
 mcp-sync:
     #!/usr/bin/env bash

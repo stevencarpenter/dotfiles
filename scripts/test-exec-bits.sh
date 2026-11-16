@@ -42,7 +42,6 @@ exec_scripts=(
   scripts/sync-side-channels.sh
   scripts/hooks-sync.sh
   scripts/test-hooks-sync.sh
-  scripts/update-inputs.sh
   scripts/test-gh-account-routing.sh
   scripts/test-obsidian-capture.sh
   scripts/test-worktrunk-commit-generator.sh
@@ -54,7 +53,6 @@ exec_scripts=(
   scripts/test-railway-psql-errors.sh
   scripts/test-sync-capability-gating.sh
   scripts/test-tmux-lifecycle-contract.sh
-  scripts/test-update-inputs.sh
   scripts/test-lefthook-hooks.sh
   scripts/vim-golf
 )
