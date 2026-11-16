@@ -64,7 +64,7 @@ names, or `dfm/profiles/<host>.toml` before the machine is bound.
 |--------|:--:|-------|
 | `tiling` | yes | AeroSpace + SketchyBar + borders links |
 | `atuin` | yes | `config.sync.toml` with the self-hosted `sync_address` |
-| `mcp` | yes | MCP master config, pi, firstmate links; MCP sync step |
+| `mcp` | yes | MCP master config, pi, mise axi tools links; MCP sync step |
 | `skills` | yes | skills manifest link, sync step |
 | `gui` | yes | no resources; marks GUI casks and display fonts as wanted |
 | `dev` | yes | mise `conf.d/dev.toml` |
@@ -108,9 +108,9 @@ remap, granting AeroSpace/SketchyBar Accessibility): `bootstrap.sh` prints them 
 ```bash
 just sync-dfm                    # plan; prints the digest and writes the approval flags
 just sync-dfm-apply <digest>     # apply, then Brewfile, hooks, side channels, agents, checks
-just update                      # preview Homebrew/mise upgrades, approve, upgrade + side channels
+just update                      # preview Homebrew upgrades, approve, upgrade + side channels
 just update -y                   # same, without the confirmation
-just sync-side-channels          # side channels only: mise, secrets, skills, Git sources, tools
+just sync-side-channels          # side channels only: gh-axi skill, ponytail plugin
 just brew-audit                  # compare declared and installed Homebrew inventory, read-only
 ```
 
@@ -127,9 +127,8 @@ macOS-defaults checks, then `dfm state check` and `doctor`. `just --list` groups
 daily commands, targeted maintenance, validation, and utilities.
 
 `just update [-y]` refreshes Homebrew metadata and previews upgrades for installed unpinned
-formulae/casks and mise tools. Approval upgrades Homebrew and runs the side channels.
-Applications that own their updates, such as [Firstmate](docs/ai-tools/firstmate.md), are
-provisioned by the side channels and receive native update requests after dependency installation.
+formulae/casks. Approval upgrades Homebrew and runs the side channels. `dfm sync` upgrades the
+mise tools (its `mise` updater).
 Exact pins and Homebrew pins are respected. This does not upgrade macOS or independently
 managed application/plugin ecosystems. `-y` skips the update confirmation, not sudo or
 1Password authentication.
@@ -150,8 +149,8 @@ save. An apply is only needed when you add or remove a *link*, change a module's
 | MCP servers | `home/.config/mcp/mcp-master.json` and `machine/*.json` | `just mcp-sync` (also inside the apply) |
 | macOS defaults | `scripts/mac-defaults.sh` | `scripts/mac-defaults.sh` ([`docs/m5-system-scripts.md`](docs/m5-system-scripts.md)) |
 
-**Update everything installed.** `just update` previews Homebrew and mise upgrades, asks,
-upgrades, then runs the side channels (`-y` skips the question). Exact pins stay. Homebrew
+**Update everything installed.** `dfm sync` rolls every package manager. `just update` previews
+Homebrew upgrades, asks, upgrades, then runs the side channels (`-y` skips the question). Exact pins stay. Homebrew
 alone: `just brew-upgrade`. To pick up configuration pushed from another machine:
 `git pull`, then `just sync-dfm` and `just sync-dfm-apply <digest>`; a pull that changed only
 linked files needs no apply.
@@ -277,16 +276,16 @@ that styles are model instructions. The source standard is
 Provisioning that requires network access, SSH authentication, or `sudo` runs through
 `scripts/sync-side-channels.sh`, after the manager's apply:
 
-- The script installs the DuckDB extensions, refreshes the upstream `gh-axi` skill, installs
-  the fantasy-sports agents, ensures Firstmate and the ponytail Codex plugin, and wires the
-  lefthook git hooks. Safe to re-run. A failed side channel makes the command fail instead of
-  leaving a silently partial install.
+- The script refreshes the upstream `gh-axi` skill and ensures the ponytail Codex plugin. Safe
+  to re-run. A failed side channel makes the command fail instead of leaving a silently partial
+  install.
 - `dfm sync` owns the rest: the `op-template/v1` secrets (`.personal.env` and
   `~/.ssh/config.d/10-homelab.conf`), the mise tools (its `mise` updater), the uv tools
   `token-auditor` and `agent-reap` (`uv-tool/v1`), and the tpm and agent-registry checkouts
-  (`git-checkout/v1`, cloned when missing and fast-forwarded by the `checkouts` updater). The
-  `agents` updater pulls the registry and installs it; a working copy at `~/projects/agents`
-  takes precedence for the install.
+  (`git-checkout/v1`, cloned when missing and fast-forwarded by the `checkouts` updater), the
+  DuckDB extensions for the yazi previews (`duckdb-extension/v1`), the lefthook git hooks (the
+  `lefthook` updater). The `agents` updater pulls the registry and installs it; a working copy
+  at `~/projects/agents` takes precedence for the install.
 - **`just sync-side-channels`**: the side channels alone, when the links are already current.
 
 The rule: declarative or offline+fast+idempotent work is a manager resource or a
@@ -323,7 +322,7 @@ Each link text is `<checkout>/home/<path>` (skills: `<checkout>/skills/personal/
 | `core` (all machines: ssh, mise base, agent-reap, `.duckdbrc`, `20-output-policy.md` fragments, maxfiles plist) | 43 links, 2 `text-fragments/v1` assemblies, 1 `claude-settings/v1` merge |
 | `personal` (+ identity files of shared capabilities) | 46 links (30 skill links), 1 `op-template/v1` secret, hippo SessionStart handler |
 | `tiling` | 4 links |
-| `mcp` (master config, pi, firstmate, mise firstmate) | 17 links |
+| `mcp` (master config, pi, mise axi tools) | 14 links |
 | `skills` | 1 config link |
 | `agent-journal` | 2 links |
 | `dev` | 1 link |

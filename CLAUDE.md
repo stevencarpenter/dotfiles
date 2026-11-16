@@ -92,9 +92,9 @@ token-auditor --help                                                   # or `cod
 ```bash
 just sync-dfm                 # dfm plan; prints the digest, writes the approval flags
 just sync-dfm-apply <digest>  # apply, then Brewfile, hooks-sync, side channels, agents, checks
-just update                   # preview Homebrew and mise upgrades; approve; upgrade + side channels
+just update                   # preview Homebrew upgrades; approve; upgrade + side channels (dfm sync upgrades mise)
 just update -y                # same, assume approval (sudo/op may still prompt)
-just sync-side-channels       # side channels only: DuckDB extensions, skills, fantasy-sports, Firstmate, hooks
+just sync-side-channels       # side channels only: gh-axi skill, ponytail Codex plugin
 ./bootstrap.sh                # fresh-machine setup (CLT, Homebrew, Brewfile), then prints the steps
 scripts/brew-sync.sh --check  # Brewfile gaps, installs nothing
 scripts/mac-defaults.sh --check
@@ -105,8 +105,9 @@ dfm sync --root ~/.dotfiles --preview   # needs the one-time origin grant below
 `dotfiles-manager.lock` at the checkout root declares the Git source `sync` fetches (root entry,
 `ssh://git@github.com/stevencarpenter/dotfiles`, `refs/heads/main`). Grant that origin once per
 machine: `dfm sync --root ~/.dotfiles --trust-origin ssh://git@github.com/stevencarpenter/dotfiles`.
-After its scopes, `dfm sync` runs the profile's `updaters` in order. The last one, `side-channels`,
-runs `just sync-side-channels` in the checkout (detached, so `op signin` gets no prompt).
+After its scopes, `dfm sync` runs the profile's `updaters` in order. `lefthook` wires the git hooks,
+and `side-channels` runs last: it runs `just sync-side-channels` in the checkout (detached, no
+terminal).
 
 See [Daily use](README.md#daily-use) for the command hierarchy.
 
@@ -124,13 +125,13 @@ management, so nothing needs a global install beyond `lefthook`, `gitleaks`, and
 
 ```bash
 just lefthook            # run every pre-commit job against all files, as CI does
-just lefthook-install    # wire .git/hooks (also done by the side channels)
+just lefthook-install    # wire .git/hooks (also done by dfm sync's lefthook updater)
 lefthook run pre-commit  # staged files only, exactly what a commit triggers
 lefthook validate        # config sanity
 ```
 
-`lefthook install` runs from `scripts/sync-side-channels.sh`, so a machine that has run the
-side channels has its hooks wired. lefthook has no equivalent of pre-commit's
+`dfm sync` runs `lefthook install` in the checkout (its `lefthook` updater), so a machine that
+has synced has its hooks wired. lefthook has no equivalent of pre-commit's
 `types: [text]` filter, so a job that rewrites files pipes its list through
 `scripts/hook-text-files.py` first (handing a PNG to the whitespace fixer corrupts it).
 The `gitleaks` job scans staged changes only; the whole-tree scan runs in CI.
@@ -204,8 +205,8 @@ locations:
   `config.local.toml` (`auto_sync = false`) is the variant for such a host; an external bundle's
   identity module links it. Both include `history_filter` and `[tmux] enabled`.
   `scripts/check-atuin-parity.py` keeps the two filter lists identical.
-- **`mcp`**: `dfm-module-mcp.toml` (master config + pi + firstmate links; the identity module
-  links the `machine/<identity>.json` overlay) and the
+- **`mcp`**: `dfm-module-mcp.toml` (master config + pi links + mise `conf.d/axi.toml`; the
+  identity module links the `machine/<identity>.json` overlay) and the
   `mcpSync` step of `scripts/hooks-sync.sh`. (No github MCP server ships anywhere: `mcp_sync`
   strips a `github` server via `RETIRED_MCP_SERVER_NAMES`, and the `github@claude-plugins-official`
   plugin, which bundles a remote GitHub MCP server, is not declared in the

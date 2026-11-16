@@ -29,15 +29,11 @@ printf 'brew %s\n' "$*" >>"$TEST_LOG"
 [ "$HOMEBREW_NO_AUTO_UPDATE" = 1 ]
 [ "${FAIL_STAGE:-}" != brew-apply ]
 SH
+# The update never calls mise: dfm sync's mise updater owns those upgrades.
 cat >"$fixture/bin/mise" <<'SH'
 #!/usr/bin/env bash
-set -euo pipefail
 printf 'mise %s\n' "$*" >>"$TEST_LOG"
-case "$*" in
-  'install --dry-run'|'upgrade --dry-run --no-prune') ;;
-  *) exit 1 ;;
-esac
-[ "${FAIL_STAGE:-}" != mise-preview ]
+exit 1
 SH
 chmod +x "$fixture/bin/"* "$fixture/scripts/"*.sh
 export PATH="$fixture/bin:$PATH" TEST_LOG="$fixture/commands.log"
@@ -61,8 +57,6 @@ assert_not_applied
 # Explicit approval and -y/--yes preview first, then apply once.
 cat >"$fixture/expected" <<'LOG'
 just brew-upgrade --dry-run
-mise install --dry-run
-mise upgrade --dry-run --no-prune
 brew upgrade --yes
 side-channels
 LOG
@@ -84,7 +78,7 @@ for bad in abc --bogus 14; do
 done
 
 # Every preview failure stops before applying, even with -y.
-for stage in brew-preview mise-preview; do
+for stage in brew-preview; do
   if FAIL_STAGE="$stage" run_update -y >"$fixture/output" 2>&1; then
     echo "ignored failure: $stage" >&2; exit 1
   fi

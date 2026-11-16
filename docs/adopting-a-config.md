@@ -95,8 +95,7 @@ its release frequency alone. A version manager can handle frequent CLI releases;
 coordinating persistent workers may need its own update and restart protocol. Application-owned
 installations are provisioned from `scripts/sync-side-channels.sh`, gated by the same capability
 as their configuration, and link only individual declarative settings; the application keeps
-its own versions, runtime state, and update receipts. See
-[Firstmate](ai-tools/firstmate.md#native-updates) for the reference implementation.
+its own versions, runtime state, and update receipts.
 
 For rapidly changing upstream skills, prefer the maintainer's supported installer and a
 shared `~/.agents/skills` installation. Keep locally authored skills and deliberately patched

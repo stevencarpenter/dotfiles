@@ -1,5 +1,5 @@
-# caps.mcp: master config, pi and firstmate files. The machine/<identity>.json overlay differs
-# per identity, so the identity module links it.
+# caps.mcp: master config, pi files and the mise axi tools. The machine/<identity>.json
+# overlay differs per identity, so the identity module links it.
 # Not managed: .config/mcp/overrides (.keep seam), MCP generated outputs.
 
 schema = 1
@@ -112,33 +112,9 @@ target = ".config/pi/web-search.json"
 source = "home/.config/pi/web-search.json"
 
 [[resources]]
-id = "local-bin-firstmate"
+id = "config-mise-conf-d-axi-toml"
 kind = "link"
 adapter = "fs-link/v1"
-target = ".local/bin/firstmate"
+target = ".config/mise/conf.d/axi.toml"
 [resources.value]
-source = "home/.local/bin/firstmate"
-
-[[resources]]
-id = "local-share-firstmate-config-backend"
-kind = "link"
-adapter = "fs-link/v1"
-target = ".local/share/firstmate/config/backend"
-[resources.value]
-source = "home/.local/share/firstmate/config/backend"
-
-[[resources]]
-id = "local-share-firstmate-config-crew-harness"
-kind = "link"
-adapter = "fs-link/v1"
-target = ".local/share/firstmate/config/crew-harness"
-[resources.value]
-source = "home/.local/share/firstmate/config/crew-harness"
-
-[[resources]]
-id = "config-mise-conf-d-firstmate-toml"
-kind = "link"
-adapter = "fs-link/v1"
-target = ".config/mise/conf.d/firstmate.toml"
-[resources.value]
-source = "home/.config/mise/conf.d/firstmate.toml"
+source = "home/.config/mise/conf.d/axi.toml"

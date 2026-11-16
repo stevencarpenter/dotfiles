@@ -532,3 +532,19 @@ adapter = "git-checkout/v1"
 [resources.value]
 url = "https://github.com/tmux-plugins/tpm.git"
 path = ".config/tmux/plugins/tpm"
+
+# DuckDB extensions that yazi's duckdb previews LOAD (auto_install_extensions = false). DuckDB
+# keeps extensions per version, so dfm installs them again after a DuckDB upgrade (DFM-25 C01).
+[[resources]]
+id = "duckdb-extension-spatial"
+kind = "package"
+adapter = "duckdb-extension/v1"
+[resources.value]
+name = "spatial"
+
+[[resources]]
+id = "duckdb-extension-avro"
+kind = "package"
+adapter = "duckdb-extension/v1"
+[resources.value]
+name = "avro"

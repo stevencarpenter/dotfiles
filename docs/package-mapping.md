@@ -10,7 +10,7 @@ Result: 81 mapped to brew (71 formulae, 10 font casks), 3 dropped (`nixd`, `nixf
 Decisions:
 
 - mise already provides go, java, scala, sbt, terraform, gradle, goreleaser, npm and go tool packages, LSP servers,
-  tree-sitter, duckdb and the Firstmate toolchain (`home/.config/mise/`). No nix package duplicates any of them,
+  tree-sitter, duckdb and the axi tools (`home/.config/mise/`). No nix package duplicates any of them,
   so no mise file changed.
 - `python314` maps to brew `python@3.14`. mise `python = "3.14"` is the alternative; it was not added.
 - `mise` itself comes from brew. `scripts/sync-side-channels.sh` already runs `mise install` and `mise upgrade`.

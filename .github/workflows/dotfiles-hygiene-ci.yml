@@ -98,9 +98,6 @@ jobs:
       - name: Validate MCP master config structure
         run: scripts/validate-mcp-master.py
 
-      - name: Validate Firstmate launcher
-        run: scripts/test-firstmate-config.sh
-
       - name: Shell syntax checks
         run: |
           set -euo pipefail
@@ -123,9 +120,6 @@ jobs:
 
       - name: Validate non-interactive zsh PATH precedence
         run: scripts/test-zshenv-path-order.sh
-
-      - name: Validate fantasy-sports agent and skill install
-        run: scripts/test-install-fantasy-sports.sh
 
       - name: Validate hooks-sync --check writes nothing
         run: scripts/test-hooks-sync.sh

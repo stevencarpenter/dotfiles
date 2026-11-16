@@ -13,7 +13,8 @@ default:
 op-adopt *FLAGS:
     home/.local/bin/op-adopt {{ FLAGS }}
 
-# Preview Homebrew and mise upgrades, approve, then run the side channels. Pass -y to approve automatically.
+# Preview Homebrew upgrades, approve, then run the side channels. Pass -y to approve automatically.
+# dfm sync upgrades the mise tools.
 [group('Daily')]
 update *ARGS:
     scripts/update-inputs.sh {{ ARGS }}
@@ -83,6 +84,11 @@ sync-dfm-apply $digest:
       done < "$allow"
     fi
     dfm apply --root "$root" --yes-plan "$digest" ${flags[@]+"${flags[@]}"}
+    # dfm apply installs no package and runs no updater. On the dfm sync path the
+    # duckdb-extension/v1 resources and the lefthook updater do these two steps.
+    DUCKDB_AGENT_MODE=0 mise exec -- duckdb -init /dev/null -c "INSTALL spatial; INSTALL avro;" >/dev/null ||
+      echo "warning: DuckDB extension install failed; xlsx and avro previews fall back to plain text" >&2
+    lefthook install || echo "warning: lefthook install failed; git hooks not wired" >&2
     scripts/brew-sync.sh
     scripts/hooks-sync.sh
     scripts/sync-side-channels.sh
@@ -93,15 +99,10 @@ sync-dfm-apply $digest:
     dfm state check
     dfm doctor --root "$root"
 
-# Mise upgrades, secrets, Git sources, agents, and tools only; included in sync.
+# gh-axi skill and the ponytail Codex plugin only; included in sync.
 [group('Targeted maintenance')]
 sync-side-channels:
     scripts/sync-side-channels.sh
-
-# Firstmate only: provision its native-update checkout; included in sync-side-channels.
-[group('Targeted maintenance')]
-firstmate-setup:
-    firstmate --setup
 
 # ── Python checks ────────────────────────────────────────
 
@@ -182,7 +183,7 @@ py-check: lint test
 lefthook:
     lefthook run pre-commit --all-files
 
-# Install hooks only (does not run checks); included in sync-side-channels.
+# Install hooks only (does not run checks); dfm sync's lefthook updater also does this.
 [group('Targeted maintenance')]
 lefthook-install:
     lefthook install

@@ -6,7 +6,7 @@ uv_bin="${UV_BIN:-uv}"
 project="${1:-$HOME/projects/agents}"
 
 if [ ! -f "$project/pyproject.toml" ]; then
-  echo "error: agent registry is missing at $project; run scripts/sync-side-channels.sh first" >&2
+  echo "error: agent registry is missing at $project; run dfm sync first (it clones the declared checkout)" >&2
   exit 1
 fi
 
