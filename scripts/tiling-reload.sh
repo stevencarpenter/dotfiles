@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Restart the tiling stack after an apply.
+# Restart the tiling stack. Run it by hand after a sketchybar or AeroSpace config change;
+# dfm sync does not run it.
 # Usage: tiling-reload.sh [--check]
 #   --check  Report whether the sketchybar service and AeroSpace run; exit 1 if either does not.
 #   default  brew services restart sketchybar; reload AeroSpace config, or open it when not running.
@@ -46,7 +47,7 @@ if [[ $mode == check ]]; then
   exit "$rc"
 fi
 
-# A failed step makes the script exit 1. A caller that must continue (just sync-dfm-apply) uses `|| echo`.
+# A failed step makes the script exit 1.
 rc=0
 if [[ -x $sketchybar && -x $brew ]]; then
   # Strip SUDO_* so brew services uses gui/<uid>.
