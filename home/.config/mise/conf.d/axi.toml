@@ -1,0 +1,11 @@
+# The axi command-line tools (gh-axi, chrome-devtools-axi, lavish-axi, tasks-axi, quota-axi)
+# and two agent workflow tools (treehouse, no-mistakes). Upstream releases them often, so
+# they track "latest"; dfm sync's mise updater keeps them current.
+[tools]
+"github:kunchenguid/treehouse" = "latest"
+"github:kunchenguid/no-mistakes" = "latest"
+"npm:gh-axi" = "latest"
+"npm:chrome-devtools-axi" = "latest"
+"npm:lavish-axi" = "latest"
+"npm:tasks-axi" = "latest"
+"npm:quota-axi" = "latest"

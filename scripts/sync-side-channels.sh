@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # First installs that dfm has no resource for yet: the gh-axi skill, the Codex ponytail
 # plugin and the private fantasy-sports agents. dfm sync runs it as the side-channels updater.
-# dfm owns the rest: mise, DuckDB extensions, checkouts, the agent registry, lefthook, Firstmate.
+# dfm owns the rest: mise, DuckDB extensions, checkouts, the agent registry and lefthook.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

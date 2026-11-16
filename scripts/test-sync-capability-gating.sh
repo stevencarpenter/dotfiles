@@ -54,13 +54,6 @@ printf 'npx %s\n' "$*" >>"$TEST_COMMAND_LOG"
 exit "${TEST_SKILLS_STATUS:-0}"
 EOF
 
-cat >"$fixture/bin/firstmate" <<'EOF'
-#!/usr/bin/env bash
-printf 'firstmate %s\n' "$*" >>"$TEST_COMMAND_LOG"
-if [ "${1:-}" = --request-update ]; then exit "${TEST_REQUEST_STATUS:-0}"; fi
-exit 0
-EOF
-
 # Mock host-capability.sh because work identities live in an external overlay
 # and have no profile under dfm/profiles.
 cat >"$fixture/bin/host-capability" <<'EOF'
@@ -88,7 +81,7 @@ exit 0
 EOF
 
 chmod +x "$fixture/bin/git" "$fixture/bin/uv" "$fixture/bin/mise" "$fixture/bin/host-capability" \
-  "$fixture/bin/op-render" "$fixture/bin/op" "$fixture/bin/firstmate" "$fixture/bin/npx"
+  "$fixture/bin/op-render" "$fixture/bin/op" "$fixture/bin/npx"
 
 # run_sync <identity> <agents-capability> [run-name]
 run_sync() {
@@ -108,7 +101,6 @@ run_sync() {
     UV_BIN="$fixture/bin/uv" \
     MISE_BIN="$fixture/bin/mise" \
     NPX_BIN="${TEST_NPX_BIN:-$fixture/bin/npx}" \
-    FIRSTMATE_BIN="$fixture/bin/firstmate" \
     OP_RENDER_BIN="$fixture/bin/op-render" \
     OP_BIN="$fixture/bin/op" \
     "$repo_root/scripts/sync-side-channels.sh" >/dev/null
@@ -163,11 +155,10 @@ if rg -q 'tool install' "$fixture/personal/commands.log"; then
   exit 1
 fi
 
-# dfm owns these too: the duckdb-extension/v1 resources, the lefthook updater, and Firstmate
-# (a git-checkout/v1 checkout and the firstmate updater).
+# dfm owns these too: the duckdb-extension/v1 resources and the lefthook updater.
 for run in personal work; do
-  if rg -q 'duckdb|firstmate|lefthook' "$fixture/$run/commands.log"; then
-    echo "$run sync ran a DuckDB, Firstmate or lefthook step that dfm owns" >&2
+  if rg -q 'duckdb|lefthook' "$fixture/$run/commands.log"; then
+    echo "$run sync ran a DuckDB or lefthook step that dfm owns" >&2
     exit 1
   fi
 done

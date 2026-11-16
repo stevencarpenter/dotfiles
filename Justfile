@@ -98,11 +98,6 @@ sync-dfm-apply $digest:
 sync-side-channels:
     scripts/sync-side-channels.sh
 
-# Firstmate only: provision its native-update checkout by hand; dfm sync clones it.
-[group('Targeted maintenance')]
-firstmate-setup:
-    firstmate --setup
-
 # ── Python checks ────────────────────────────────────────
 
 # Lint and verify formatting in both Python projects; included in py-check.

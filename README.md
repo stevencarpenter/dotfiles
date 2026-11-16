@@ -64,7 +64,7 @@ names, or `dfm/profiles/<host>.toml` before the machine is bound.
 |--------|:--:|-------|
 | `tiling` | yes | AeroSpace + SketchyBar + borders links |
 | `atuin` | yes | `config.sync.toml` with the self-hosted `sync_address` |
-| `mcp` | yes | MCP master config, pi, firstmate links; MCP sync step |
+| `mcp` | yes | MCP master config, pi, mise axi tools links; MCP sync step |
 | `skills` | yes | skills manifest link, sync step |
 | `gui` | yes | no resources; marks GUI casks and display fonts as wanted |
 | `dev` | yes | mise `conf.d/dev.toml` |
@@ -128,8 +128,6 @@ daily commands, targeted maintenance, validation, and utilities.
 
 `just update [-y]` refreshes Homebrew metadata and previews upgrades for installed unpinned
 formulae/casks and mise tools. Approval upgrades Homebrew and runs the side channels.
-Applications that own their updates, such as [Firstmate](docs/ai-tools/firstmate.md), are
-provisioned by `dfm sync`, whose `firstmate` updater sends the native update request.
 Exact pins and Homebrew pins are respected. This does not upgrade macOS or independently
 managed application/plugin ecosystems. `-y` skips the update confirmation, not sudo or
 1Password authentication.
@@ -285,10 +283,8 @@ Provisioning that requires network access, SSH authentication, or `sudo` runs th
   `token-auditor` and `agent-reap` (`uv-tool/v1`), and the tpm and agent-registry checkouts
   (`git-checkout/v1`, cloned when missing and fast-forwarded by the `checkouts` updater), the
   DuckDB extensions for the yazi previews (`duckdb-extension/v1`), the lefthook git hooks (the
-  `lefthook` updater), and Firstmate (a `git-checkout/v1` checkout that Firstmate pulls itself,
-  and the `firstmate` updater, which sends the native update request last). The
-  `agents` updater pulls the registry and installs it; a working copy at `~/projects/agents`
-  takes precedence for the install.
+  `lefthook` updater). The `agents` updater pulls the registry and installs it; a working copy
+  at `~/projects/agents` takes precedence for the install.
 - **`just sync-side-channels`**: the side channels alone, when the links are already current.
 
 The rule: declarative or offline+fast+idempotent work is a manager resource or a
@@ -325,7 +321,7 @@ Each link text is `<checkout>/home/<path>` (skills: `<checkout>/skills/personal/
 | `core` (all machines: ssh, mise base, agent-reap, `.duckdbrc`, `20-output-policy.md` fragments, maxfiles plist) | 43 links, 2 `text-fragments/v1` assemblies, 1 `claude-settings/v1` merge |
 | `personal` (+ identity files of shared capabilities) | 46 links (30 skill links), 1 `op-template/v1` secret, hippo SessionStart handler |
 | `tiling` | 4 links |
-| `mcp` (master config, pi, firstmate, mise firstmate) | 17 links |
+| `mcp` (master config, pi, mise axi tools) | 14 links |
 | `skills` | 1 config link |
 | `agent-journal` | 2 links |
 | `dev` | 1 link |

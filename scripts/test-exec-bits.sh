@@ -21,7 +21,6 @@ exec_scripts=(
   home/.config/aerospace/layouts/workspace-8-comms.sh
   home/.config/tmux/scripts/claude-pane-monitor.sh
   home/.local/bin/gh
-  home/.local/bin/firstmate
   home/.local/bin/obsidian-capture
   home/.local/bin/worktrunk-commit-generator
   # PEP 723 uv scripts exec'd by path (CI steps, the Justfile, lefthook jobs,

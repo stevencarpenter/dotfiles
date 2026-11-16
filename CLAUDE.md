@@ -106,8 +106,8 @@ dfm sync --root ~/.dotfiles --preview   # needs the one-time origin grant below
 `ssh://git@github.com/stevencarpenter/dotfiles`, `refs/heads/main`). Grant that origin once per
 machine: `dfm sync --root ~/.dotfiles --trust-origin ssh://git@github.com/stevencarpenter/dotfiles`.
 After its scopes, `dfm sync` runs the profile's `updaters` in order. `lefthook` wires the git hooks,
-`side-channels` runs `just sync-side-channels` in the checkout (detached, no terminal), and
-`firstmate` runs last and sends Firstmate its native update request.
+and `side-channels` runs last: it runs `just sync-side-channels` in the checkout (detached, no
+terminal).
 
 See [Daily use](README.md#daily-use) for the command hierarchy.
 
@@ -205,8 +205,8 @@ locations:
   `config.local.toml` (`auto_sync = false`) is the variant for such a host; an external bundle's
   identity module links it. Both include `history_filter` and `[tmux] enabled`.
   `scripts/check-atuin-parity.py` keeps the two filter lists identical.
-- **`mcp`**: `dfm-module-mcp.toml` (master config + pi + firstmate links; the identity module
-  links the `machine/<identity>.json` overlay) and the
+- **`mcp`**: `dfm-module-mcp.toml` (master config + pi links + mise `conf.d/axi.toml`; the
+  identity module links the `machine/<identity>.json` overlay) and the
   `mcpSync` step of `scripts/hooks-sync.sh`. (No github MCP server ships anywhere: `mcp_sync`
   strips a `github` server via `RETIRED_MCP_SERVER_NAMES`, and the `github@claude-plugins-official`
   plugin, which bundles a remote GitHub MCP server, is not declared in the
