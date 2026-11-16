@@ -93,12 +93,12 @@ sync-dfm-apply $digest:
     dfm state check
     dfm doctor --root "$root"
 
-# Mise upgrades, secrets, Git sources, agents, and tools only; included in sync.
+# gh-axi skill, fantasy-sports and the ponytail Codex plugin only; included in sync.
 [group('Targeted maintenance')]
 sync-side-channels:
     scripts/sync-side-channels.sh
 
-# Firstmate only: provision its native-update checkout; included in sync-side-channels.
+# Firstmate only: provision its native-update checkout by hand; dfm sync clones it.
 [group('Targeted maintenance')]
 firstmate-setup:
     firstmate --setup
@@ -182,7 +182,7 @@ py-check: lint test
 lefthook:
     lefthook run pre-commit --all-files
 
-# Install hooks only (does not run checks); included in sync-side-channels.
+# Install hooks only (does not run checks); dfm sync's lefthook updater also does this.
 [group('Targeted maintenance')]
 lefthook-install:
     lefthook install

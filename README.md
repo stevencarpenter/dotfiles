@@ -110,7 +110,7 @@ just sync-dfm                    # plan; prints the digest and writes the approv
 just sync-dfm-apply <digest>     # apply, then Brewfile, hooks, side channels, agents, checks
 just update                      # preview Homebrew/mise upgrades, approve, upgrade + side channels
 just update -y                   # same, without the confirmation
-just sync-side-channels          # side channels only: mise, secrets, skills, Git sources, tools
+just sync-side-channels          # side channels only: gh-axi skill, fantasy-sports, ponytail plugin
 just brew-audit                  # compare declared and installed Homebrew inventory, read-only
 ```
 
@@ -129,7 +129,7 @@ daily commands, targeted maintenance, validation, and utilities.
 `just update [-y]` refreshes Homebrew metadata and previews upgrades for installed unpinned
 formulae/casks and mise tools. Approval upgrades Homebrew and runs the side channels.
 Applications that own their updates, such as [Firstmate](docs/ai-tools/firstmate.md), are
-provisioned by the side channels and receive native update requests after dependency installation.
+provisioned by `dfm sync`, whose `firstmate` updater sends the native update request.
 Exact pins and Homebrew pins are respected. This does not upgrade macOS or independently
 managed application/plugin ecosystems. `-y` skips the update confirmation, not sudo or
 1Password authentication.
@@ -277,14 +277,16 @@ that styles are model instructions. The source standard is
 Provisioning that requires network access, SSH authentication, or `sudo` runs through
 `scripts/sync-side-channels.sh`, after the manager's apply:
 
-- The script installs the DuckDB extensions, refreshes the upstream `gh-axi` skill, installs
-  the fantasy-sports agents, ensures Firstmate and the ponytail Codex plugin, and wires the
-  lefthook git hooks. Safe to re-run. A failed side channel makes the command fail instead of
+- The script refreshes the upstream `gh-axi` skill, installs the fantasy-sports agents and
+  ensures the ponytail Codex plugin. Safe to re-run. A failed side channel makes the command fail instead of
   leaving a silently partial install.
 - `dfm sync` owns the rest: the `op-template/v1` secrets (`.personal.env` and
   `~/.ssh/config.d/10-homelab.conf`), the mise tools (its `mise` updater), the uv tools
   `token-auditor` and `agent-reap` (`uv-tool/v1`), and the tpm and agent-registry checkouts
-  (`git-checkout/v1`, cloned when missing and fast-forwarded by the `checkouts` updater). The
+  (`git-checkout/v1`, cloned when missing and fast-forwarded by the `checkouts` updater), the
+  DuckDB extensions for the yazi previews (`duckdb-extension/v1`), the lefthook git hooks (the
+  `lefthook` updater), and Firstmate (a `git-checkout/v1` checkout that Firstmate pulls itself,
+  and the `firstmate` updater, which sends the native update request last). The
   `agents` updater pulls the registry and installs it; a working copy at `~/projects/agents`
   takes precedence for the install.
 - **`just sync-side-channels`**: the side channels alone, when the links are already current.

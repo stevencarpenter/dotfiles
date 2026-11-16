@@ -142,3 +142,16 @@ adapter = "fs-link/v1"
 target = ".config/mise/conf.d/firstmate.toml"
 [resources.value]
 source = "home/.config/mise/conf.d/firstmate.toml"
+
+# Firstmate's checkout (DFM-25 C01). dfm clones it when missing. Firstmate pulls it itself
+# (the firstmate updater sends the request), so the checkouts updater never pulls it. The url
+# must equal the one the wrapper home/.local/bin/firstmate checks.
+[[resources]]
+id = "firstmate-repo"
+kind = "package"
+adapter = "git-checkout/v1"
+[resources.value]
+url = "https://github.com/kunchenguid/firstmate.git"
+path = ".local/share/firstmate/repo"
+branch = "main"
+update_policy = "native-request"

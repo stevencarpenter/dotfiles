@@ -6,7 +6,7 @@ watcher, turn-end guard, Calm UI, and supervision branch remain project-local.
 Normal Pi sessions retain their existing packages, model, and trust policy.
 
 ```bash
-just sync-side-channels   # installs tools, provisions Firstmate if absent
+dfm sync                  # installs tools, clones Firstmate if absent, requests its update
 firstmate                 # run inside tmux to see workers in the same session
 # Outside tmux, optionally start a dedicated session:
 tmux new-session -s firstmate firstmate
@@ -15,8 +15,9 @@ tmux new-session -s firstmate firstmate
 Approve Pi's project trust prompt for `~/.local/share/firstmate/repo` on first
 launch. This loads the upstream `.pi/extensions/` and `.agents/skills/`.
 Do not install Firstmate with `pi install` or copy its internal skills globally.
-`firstmate --setup` (also `just firstmate-setup`) installs the checkout without
-launching Pi; it expects the configuration links created by `just sync-dfm-apply`.
+`dfm sync` clones the checkout (the `firstmate-repo` `git-checkout/v1` resource in
+`dfm-module-mcp.toml`). `firstmate --setup` (also `just firstmate-setup`) does the same by hand
+without launching Pi; it expects the configuration links that dfm creates.
 New installations clone upstream `main`. Existing installations are reused without fetching
 or changing their version, including after a native self-update.
 
@@ -58,8 +59,8 @@ eligible secondmate agents after acknowledgement. Their crewmates keep running. 
 reread or an unconfirmed restart is reported separately from a successful restart. The primary
 rereads its instructions; its launch-time settings are not thereby guaranteed refreshed.
 
-`just update` updates the package-manager-owned dependencies and runs sync. At the end of a
-successful `just sync` or `just sync-side-channels`, dotfiles runs `firstmate --request-update`,
+`dfm sync` updates the package-manager-owned dependencies. Its last updater, `firstmate`, runs
+`firstmate --request-update`,
 which writes a durable request through Firstmate's `bin/fm-inbox.sh note` and queues a wake. The
 primary processes the full native update skill at its next inbox drain; this command does not
 launch another supervisor.
@@ -95,7 +96,7 @@ no-mistakes daemon interrupts other lanes' active runs.
 
 ## Migrating the former pinned installation
 
-Run `firstmate --setup` once, or let the next sync run it. A clean detached checkout is attached
+Run `firstmate --setup` once. Sync no longer runs it. A clean detached checkout is attached
 to `main` at its existing commit only when `origin/main` contains that commit and the local
 `main` has no commits absent from it. The retired pin updater advanced the checkout with a URL
 fetch that never moved the cached `origin/main`, so a legacy checkout can legitimately sit ahead

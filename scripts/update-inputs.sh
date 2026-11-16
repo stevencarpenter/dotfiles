@@ -25,8 +25,7 @@ echo "==> Mise upgrades (within configured version constraints)"
 mise install --dry-run
 mise upgrade --dry-run --no-prune
 echo "==> After approval: upgrade Homebrew, then run the side channels."
-echo "Side channels update mise, render secrets, and refresh upstream skills, Git sources, agents, and pinned tools."
-echo "Sync also queues Firstmate's native update; Firstmate reports its completion asynchronously."
+echo "Side channels refresh the gh-axi skill, fantasy-sports and the ponytail Codex plugin. dfm sync owns the rest."
 echo "Exact pins remain fixed. Applied upgrades cannot be automatically undone."
 
 if [ "$assume_yes" -eq 0 ]; then
@@ -40,4 +39,4 @@ fi
 
 brew upgrade --yes
 "$REPO_ROOT/scripts/sync-side-channels.sh"
-echo "==> Package update and side channels complete; queued application updates finish asynchronously."
+echo "==> Package update and side channels complete."

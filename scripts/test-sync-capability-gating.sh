@@ -97,6 +97,7 @@ run_sync() {
   local run_name="${3:-$identity}"
   local run_root="$fixture/$run_name"
   mkdir -p "$run_root/home"
+  : >"$run_root/commands.log"
   TEST_COMMAND_LOG="$run_root/commands.log" \
     MOCK_IDENTITY="$identity" \
     MOCK_AGENTS="$agents" \
@@ -120,10 +121,6 @@ if ! rg -Fxq 'npx --yes skills@latest add https://github.com/kunchenguid/gh-axi/
 fi
 if rg -q '^mise (install|upgrade)' "$fixture/work/commands.log"; then
   echo "sync ran a mise install or upgrade that dfm's gated mise updater owns" >&2
-  exit 1
-fi
-if ! rg -Fxq 'mise exec -- duckdb -init /dev/null -c INSTALL spatial; INSTALL avro;' "$fixture/work/commands.log"; then
-  echo "sync did not install the DuckDB extensions yazi previews load" >&2
   exit 1
 fi
 if rg -q '^git clone .* /[^ ]*/agent-registry$' "$fixture/work/commands.log"; then
@@ -166,22 +163,14 @@ if rg -q 'tool install' "$fixture/personal/commands.log"; then
   exit 1
 fi
 
-if ! rg -Fq 'firstmate --setup' "$fixture/work/commands.log"; then
-  echo "sync did not ensure Firstmate for a Pi-enabled host" >&2
-  exit 1
-fi
-if [[ "$(tail -n 1 "$fixture/work/commands.log")" != 'firstmate --request-update' ]]; then
-  echo 'sync did not request the native update last, after dependency installation' >&2
-  exit 1
-fi
-if TEST_REQUEST_STATUS=3 run_sync work 0 request-failed; then
-  echo 'sync hid a native update request failure' >&2; exit 1
-fi
-MOCK_MCP=0 run_sync work 0 without-pi
-if rg -Fq 'firstmate' "$fixture/without-pi/commands.log"; then
-  echo "sync installed Firstmate with the Pi/MCP capability disabled" >&2
-  exit 1
-fi
+# dfm owns these too: the duckdb-extension/v1 resources, the lefthook updater, and Firstmate
+# (a git-checkout/v1 checkout and the firstmate updater).
+for run in personal work; do
+  if rg -q 'duckdb|firstmate|lefthook' "$fixture/$run/commands.log"; then
+    echo "$run sync ran a DuckDB, Firstmate or lefthook step that dfm owns" >&2
+    exit 1
+  fi
+done
 
 MOCK_SKILLS=0 run_sync work 0 without-skills
 if rg -q '^npx ' "$fixture/without-skills/commands.log"; then
@@ -193,9 +182,6 @@ fi
 if TEST_SKILLS_STATUS=1 run_sync work 0 skills-failed; then
   echo 'sync hid an upstream skill installation failure' >&2; exit 1
 fi
-if rg -Fq 'firstmate --request-update' "$fixture/skills-failed/commands.log"; then
-  echo 'sync requested a native update after skill installation failed' >&2; exit 1
-fi
 
 # The gh-axi refresh needs npx. Its absence must fail with a repo-authored
 # diagnostic instead of a bare 127 partway through provisioning.
@@ -206,8 +192,5 @@ fi
 if ! rg -Fq 'npx not found; cannot refresh the gh-axi skill' "$fixture/without-npx/stderr"; then
   echo 'sync did not explain the missing npx dependency' >&2; exit 1
 fi
-if rg -Fq 'firstmate --request-update' "$fixture/without-npx/commands.log"; then
-  echo 'sync requested a native update after the skill refresh failed' >&2; exit 1
-fi
 
-echo "side-channel sync honors the agents, skills, and Pi/MCP capability boundaries"
+echo "side-channel sync honors the agents and skills capability boundaries"
