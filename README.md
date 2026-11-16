@@ -108,7 +108,7 @@ remap, granting AeroSpace/SketchyBar Accessibility): `bootstrap.sh` prints them 
 ```bash
 just sync-dfm                    # plan; prints the digest and writes the approval flags
 just sync-dfm-apply <digest>     # apply, then Brewfile, hooks, side channels, agents, checks
-just update                      # preview Homebrew/mise upgrades, approve, upgrade + side channels
+just update                      # preview Homebrew upgrades, approve, upgrade + side channels
 just update -y                   # same, without the confirmation
 just sync-side-channels          # side channels only: gh-axi skill, ponytail plugin
 just brew-audit                  # compare declared and installed Homebrew inventory, read-only
@@ -127,7 +127,8 @@ macOS-defaults checks, then `dfm state check` and `doctor`. `just --list` groups
 daily commands, targeted maintenance, validation, and utilities.
 
 `just update [-y]` refreshes Homebrew metadata and previews upgrades for installed unpinned
-formulae/casks and mise tools. Approval upgrades Homebrew and runs the side channels.
+formulae/casks. Approval upgrades Homebrew and runs the side channels. `dfm sync` upgrades the
+mise tools (its `mise` updater).
 Exact pins and Homebrew pins are respected. This does not upgrade macOS or independently
 managed application/plugin ecosystems. `-y` skips the update confirmation, not sudo or
 1Password authentication.
@@ -148,8 +149,8 @@ save. An apply is only needed when you add or remove a *link*, change a module's
 | MCP servers | `home/.config/mcp/mcp-master.json` and `machine/*.json` | `just mcp-sync` (also inside the apply) |
 | macOS defaults | `scripts/mac-defaults.sh` | `scripts/mac-defaults.sh` ([`docs/m5-system-scripts.md`](docs/m5-system-scripts.md)) |
 
-**Update everything installed.** `just update` previews Homebrew and mise upgrades, asks,
-upgrades, then runs the side channels (`-y` skips the question). Exact pins stay. Homebrew
+**Update everything installed.** `dfm sync` rolls every package manager. `just update` previews
+Homebrew upgrades, asks, upgrades, then runs the side channels (`-y` skips the question). Exact pins stay. Homebrew
 alone: `just brew-upgrade`. To pick up configuration pushed from another machine:
 `git pull`, then `just sync-dfm` and `just sync-dfm-apply <digest>`; a pull that changed only
 linked files needs no apply.

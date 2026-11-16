@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Preview Homebrew and mise upgrades, then apply them and run the side channels after approval.
+# Preview Homebrew upgrades, then apply them and run the side channels after approval.
+# dfm sync upgrades the mise tools (its mise updater); this script does not.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
@@ -11,7 +12,8 @@ for arg in "$@"; do
     -y|--yes) assume_yes=1 ;;
     -h|--help)
       echo "Usage: just update [-y|--yes]"
-      echo "Preview Homebrew and mise updates, then approve, upgrade and run the side channels."
+      echo "Preview Homebrew updates, then approve, upgrade and run the side channels."
+      echo "dfm sync upgrades the mise tools."
       exit 0 ;;
     *) echo "update: unknown argument: $arg" >&2; exit 2 ;;
   esac
@@ -21,11 +23,8 @@ export HOMEBREW_NO_ANALYTICS=1 HOMEBREW_NO_ENV_HINTS=1
 echo "==> Homebrew upgrades (installed, unpinned packages)"
 just brew-upgrade --dry-run
 export HOMEBREW_NO_AUTO_UPDATE=1
-echo "==> Mise upgrades (within configured version constraints)"
-mise install --dry-run
-mise upgrade --dry-run --no-prune
 echo "==> After approval: upgrade Homebrew, then run the side channels."
-echo "Side channels refresh the gh-axi skill and the ponytail Codex plugin. dfm sync owns the rest."
+echo "Side channels refresh the gh-axi skill and the ponytail Codex plugin. dfm sync owns the rest, mise upgrades included."
 echo "Exact pins remain fixed. Applied upgrades cannot be automatically undone."
 
 if [ "$assume_yes" -eq 0 ]; then
