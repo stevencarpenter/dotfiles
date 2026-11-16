@@ -55,9 +55,9 @@ the generated `~/.claude/settings.json`, the hook log, `agent-reap -v sockets`, 
 inventory together. The reaper recognizes Claude teammate command lines and Claude team inboxes;
 it is not a general tmux or Codex process collector.
 
-The executable is a side channel owned by `just sync` / `just sync-side-channels`, while the config
-is a live out-of-store symlink. The installer uses `--force --reinstall`: `uv` can
-otherwise reuse a stale wheel when local source changes without a version bump.
+`dfm sync` installs the executable from the `agent-reap` `uv-tool/v1` resource, while the config
+is a live out-of-store symlink. `uv` can reuse a stale wheel when local source changes without a
+version bump. Then reinstall by hand: `uv tool install --force --reinstall ~/.dotfiles/agent_reap`.
 
 See the [tmux runtime lifecycle runbook](../docs/ai-tools/tmux-runtime-lifecycle.md) for the broader
 source/deployment/runtime/process verification model and the other retained-state failure classes.

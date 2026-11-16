@@ -16,8 +16,8 @@ home/.ssh/config.d/10-homelab.conf.tpl -> ~/.ssh/config.d/10-homelab.conf
 
 `home/.config/op/render-manifest` is the authoritative template-to-target map.
 `home/.config/op/adopt-policy.json` separately pins every allowed reference, variable, item,
-field, and reverse-adoption permission. The `personal` module links both; `just sync-dfm-apply`
-invokes the renderer (via `scripts/sync-side-channels.sh`, which signs in first when it has a TTY).
+field, and reverse-adoption permission. The `personal` module links both. `dfm sync`
+renders the same targets as `op-template/v1` secrets and does not run `op-render`.
 
 The renderer:
 
@@ -42,7 +42,7 @@ safely keeps the last-good files but cannot refresh them.
    `home/.config/op/adopt-policy.json`.
 3. Add only that exact reference to the appropriate `*.tpl` file under `home/`.
 4. Add a manifest entry only when introducing a new template/target pair.
-5. Run `just sync-side-channels` (or `home/.local/bin/op-render` directly) from an interactive
+5. Run `dfm sync`, or `home/.local/bin/op-render` directly, from an interactive
    terminal with an authenticated `op` session. 1Password authorizes CLI access by
    calling-process ancestry, so only a terminal you have approved can render.
 6. Run the documented secret-policy and renderer checks.

@@ -17,13 +17,12 @@ manager wants a symlink**. Adoption moves the content into the repo, declares th
 module manifest, and applies. Two facts shape every adoption:
 
 - **It ends in an apply.** A new `[[resources]]` link means `dfm` must create
-  the symlink: `just sync-dfm`, then `just sync-dfm-apply <digest>`. (Editing an
-  *already-linked* file is live, no apply.)
+  the symlink: `dfm sync`. (Editing an *already-linked* file is live, no apply.)
 - **Collisions are refused, not overwritten.** A real file at a managed target blocks the plan
   with `E_CONFLICT`, and no flag overrides it. Verify the repository copy, then move the
-  original aside before `just sync-dfm`. For a link, `--allow-adopt '<id>'` applies only when
+  original aside before `dfm sync`. For a link, `--allow-adopt <operation-id>` applies only when
   the live path already is the exact symlink; the other use is the first merge into an existing
-  `~/.claude/settings.json`. The `sync-dfm` recipe writes the flag in both cases.
+  `~/.claude/settings.json`. In both cases `dfm sync` withholds the operation and prints the flag.
 
 ## Run the planner first
 
@@ -63,8 +62,9 @@ When unsure, link the file.
 3. Add the planner's `[[resources]]` stanza to the right `dfm-module-*.toml`.
 4. Verify the copied contents, then move the original aside
    (`mv <path> <path>.pre-dfm`). Keep that backup until step 6 passes.
-5. Run `just sync-dfm`, read the plan, then `just sync-dfm-apply <digest>` when an apply is
-   authorized. A request to prepare a config change for review does not require applying.
+5. Run `dfm sync --preview` and read the plan. Run `dfm sync` only when a sync is authorized.
+   A request to prepare a config change for review does not require a sync. `dfm sync` acts on
+   the bound checkout `~/.dotfiles`; an edit in another worktree reaches it only after it merges.
 6. After the apply, verify that the deployed path resolves into the repository and
    the tool reads the intended configuration. Then delete the backup.
 

@@ -3,8 +3,8 @@
 ## Overview
 
 This dotfiles repo fans a layered MCP config out to every AI development tool automatically. The
-fan-out is handled by the `mcp_sync/` Python tool, which `scripts/hooks-sync.sh` runs after every
-`just sync-dfm-apply`. It skips a host that has no machine overlay.
+fan-out is handled by the `mcp_sync/` Python tool, which `scripts/hooks-sync.sh` runs on every
+`dfm sync` (through the `side-channels` updater). It skips a host that has no machine overlay.
 
 ## How It Works
 

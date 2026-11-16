@@ -91,8 +91,8 @@ and select it in each profile that wants it.
    staged out of `~/.rustup`.
 6. Prints the remaining steps: stage the toolchain and install the manager (`dfm`) from its
    own repository ([`docs/m5-cutover.md`](docs/m5-cutover.md) section 1), bind the machine
-   to its profile (`dfm bind --profile … --machine-id <id>`), then
-   `just sync-dfm` and `just sync-dfm-apply <digest>`.
+   to its profile (`dfm bind --profile … --machine-id <id>`), grant the dotfiles origin, run
+   `dfm sync`, then the one-time commands that `dfm sync` does not run.
 
 ```bash
 ./bootstrap.sh              # auto-detect host from LocalHostName
@@ -106,32 +106,46 @@ remap, granting AeroSpace/SketchyBar Accessibility): `bootstrap.sh` prints them 
 ## Daily use
 
 ```bash
-just sync-dfm                    # plan; prints the digest and writes the approval flags
-just sync-dfm-apply <digest>     # apply, then Brewfile, hooks, side channels, agents, checks
-just update                      # preview Homebrew upgrades, approve, upgrade + side channels
-just update -y                   # same, without the confirmation
-just sync-side-channels          # side channels only: gh-axi skill, ponytail plugin
+dfm sync                         # fetch, apply, install, render secrets, services, then the updaters
+dfm doctor                       # read-only health report with a fix for each row
+dfm status                       # the same rows, status and subject only
+dfm sync --preview               # print the plan; change nothing
 just brew-audit                  # compare declared and installed Homebrew inventory, read-only
 ```
+
+`dfm sync` is the daily command, and `dfm doctor` and `dfm status` are the checks. Do not deploy
+through `just`. `dfm sync` runs from any directory, because the binding names this checkout. It
+fast-forwards the bound checkout (`~/.dotfiles`) and applies it as it is, uncommitted edits
+included. An edit in another worktree reaches a sync only after it merges to `main`.
 
 `dotfiles-manager.lock` at the checkout root declares the Git source that `dfm sync`
 fetches: one root entry for `ssh://git@github.com/stevencarpenter/dotfiles` tracking
 `main`. Each machine grants that origin once, before the first sync:
 `dfm sync --root ~/.dotfiles --trust-origin ssh://git@github.com/stevencarpenter/dotfiles`.
-After the grant, `dfm sync --root ~/.dotfiles --preview` prints the sync digest.
+That run prints the plan and stops.
 
-`sync-dfm-apply` runs, in order: `dfm apply`, `scripts/brew-sync.sh`,
-`scripts/hooks-sync.sh` (MCP sync, skills sync),
-`scripts/sync-side-channels.sh`, `scripts/launch-agents.sh load`, the login-shell, tiling and
-macOS-defaults checks, then `dfm state check` and `doctor`. `just --list` groups
-daily commands, targeted maintenance, validation, and utilities.
+A plain `dfm sync` prints the plan and runs it, removals included. A new origin needs
+`--trust-origin <origin>`: without the grant, dfm refuses the whole run and prints the command.
+An adoption or takeover needs `--allow-adopt <operation-id>`: without it, dfm withholds that
+operation, runs the rest and prints the flag to add. A running service restarts only with
+`--restart <resource-id>`.
 
-`just update [-y]` refreshes Homebrew metadata and previews upgrades for installed unpinned
-formulae/casks. Approval upgrades Homebrew and runs the side channels. `dfm sync` upgrades the
-mise tools (its `mise` updater).
-Exact pins and Homebrew pins are respected. This does not upgrade macOS or independently
-managed application/plugin ecosystems. `-y` skips the update confirmation, not sudo or
-1Password authentication.
+After its scopes, `dfm sync` runs the profile's updaters. They upgrade the package managers
+(Homebrew, mise, rustup, uv, npm and others). `brew pin` holds and the declared mise ranges
+stay. The last updater, `side-channels`, runs `scripts/sync-side-channels.sh` (see
+[Side channels](#side-channels)).
+
+`dfm sync` does not run these commands. Run each one by hand when its comment applies:
+
+```bash
+scripts/brew-sync.sh             # install missing Brewfile items; --check reports gaps
+scripts/launch-agents.sh load    # after a change to the maxfiles plist; launchd also loads it at login
+scripts/tiling-reload.sh         # after a sketchybar or AeroSpace config change; restarts sketchybar
+scripts/login-shell.sh --check   # read-only login shell check
+scripts/mac-defaults.sh --check  # read-only macOS defaults check
+```
+
+`just --list` groups targeted maintenance, validation, and utilities.
 
 ### Day-to-day procedures
 
@@ -143,26 +157,23 @@ save. An apply is only needed when you add or remove a *link*, change a module's
 | Change | Where | Then run |
 | --- | --- | --- |
 | A file that is already linked (`home/**`) | edit it in place | nothing; it is live |
-| A package | `Brewfile`; `home/.config/mise/config.toml` for every machine, or a `home/.config/mise/conf.d/<capability>.toml` fragment | `scripts/brew-sync.sh`, or `mise install`; both run inside `just sync-dfm-apply`, whose side channels also run `mise upgrade --no-prune` |
-| A link, a module's `[[resources]]`, a profile's module list | `dfm-module-*.toml`, `dfm/profiles/<host>.toml` | `just sync-dfm`, then `just sync-dfm-apply <digest>` |
-| Claude settings | the `core.claude-settings` resource in `dfm-module-core.toml` (inline `managed`, `seed` and `handlers` tables; `home/.claude/settings-base.json` is the pre-cutover copy and is not deployed) | `just sync-dfm`, then `just sync-dfm-apply <digest>` |
-| MCP servers | `home/.config/mcp/mcp-master.json` and `machine/*.json` | `just mcp-sync` (also inside the apply) |
+| A package | `Brewfile`; `home/.config/mise/config.toml` for every machine, or a `home/.config/mise/conf.d/<capability>.toml` fragment | `scripts/brew-sync.sh` for a Brewfile line; `dfm sync` for a mise line (its `mise` updater installs missing tools) |
+| A link, a module's `[[resources]]`, a profile's module list | `dfm-module-*.toml`, `dfm/profiles/<host>.toml` | `dfm sync` |
+| Claude settings | the `core.claude-settings` resource in `dfm-module-core.toml` (inline `managed`, `seed` and `handlers` tables; `home/.claude/settings-base.json` is the pre-cutover copy and is not deployed) | `dfm sync` |
+| MCP servers | `home/.config/mcp/mcp-master.json` and `machine/*.json` | `just mcp-sync`, or `dfm sync` |
 | macOS defaults | `scripts/mac-defaults.sh` | `scripts/mac-defaults.sh` ([`docs/m5-system-scripts.md`](docs/m5-system-scripts.md)) |
 
-**Update everything installed.** `dfm sync` rolls every package manager. `just update` previews
-Homebrew upgrades, asks, upgrades, then runs the side channels (`-y` skips the question). Exact pins stay. Homebrew
-alone: `just brew-upgrade`. To pick up configuration pushed from another machine:
-`git pull`, then `just sync-dfm` and `just sync-dfm-apply <digest>`; a pull that changed only
-linked files needs no apply.
+**Update everything installed.** `dfm sync` rolls every package manager. Exact pins stay.
+Homebrew alone: `just brew-upgrade`. To pick up configuration pushed from another machine, run
+`dfm sync`: it fetches and fast-forwards the checkout first.
 
 **Add a tool.**
 
 1. Declare the package: a `Brewfile` line for a formula, cask or font, or a mise line in
    `home/.config/mise/config.toml` (every machine) or `home/.config/mise/conf.d/<capability>.toml`
    (gated). Record its origin in [`docs/package-mapping.md`](docs/package-mapping.md).
-2. Install it: `scripts/brew-sync.sh` or `mise install`. Neither upgrades anything else. Both
-   also run inside the next `just sync-dfm-apply`, whose side channels then run
-   `mise upgrade --no-prune` as well.
+2. Install it: `scripts/brew-sync.sh` for a Brewfile line, `mise install` for a mise line.
+   Neither upgrades anything else. The next `dfm sync` also installs a missing mise tool.
 3. Try it. When its configuration is worth keeping, adopt it (next procedure).
 
 **Add a configuration** (promote a config the tool wrote under `~`). Full runbook:
@@ -175,17 +186,16 @@ linked files needs no apply.
    identity, `dfm-module-<capability>.toml` for a gated capability.
 3. Verify the copy, then move the original aside: `mv <path> <path>.pre-dfm`. A real file at
    a managed target blocks the plan with `E_CONFLICT`; no flag overrides it.
-4. `just sync-dfm`, review the plan, `just sync-dfm-apply <digest>`.
+4. `dfm sync`. It prints the plan and runs it.
 5. `realpath <path>` lands in `~/.dotfiles/home/…` and the tool reads it. Delete the backup.
 
 **Remove a configuration.**
 
 1. Delete its `[[resources]]` stanza from the module. To drop a whole capability on one
    machine, remove the module from `dfm/profiles/<host>.toml` instead.
-2. `just sync-dfm`. The plan lists one `remove@<resource>@<path>` per owned output and writes one
-   `--allow-disruptive '<id>'` per line to the approval file. Read that file.
-3. `just sync-dfm-apply <digest>`. The manager deletes only exact, unchanged outputs it owns
-   and reports anything modified or foreign as a conflict instead of deleting it.
+2. `dfm sync --preview`. The plan lists one `remove@<resource>@<path>` per owned output.
+3. `dfm sync`. The manager deletes only exact, unchanged outputs it owns and reports anything
+   modified or foreign as a conflict instead of deleting it.
 4. `git rm` the source under `home/` and commit.
 
 **Remove a tool.** Remove its configuration as above, then delete the `Brewfile` or mise line.
@@ -222,14 +232,11 @@ No host holds an age identity. `home/.local/bin/op-render` atomically renders
 `~/.config/zsh/.personal.env` and `~/.ssh/config.d/10-homelab.conf` from public-safe templates
 containing `op://` references. It preserves the last known-good targets on any failure.
 
-It runs from the side channels (`just sync-dfm-apply`, `just sync-side-channels`). Rendering
-needs the network and a live `op` session. Sessions expire after ~30 minutes of inactivity, so
-the side channels run `eval "$(op signin)"` themselves, immediately before rendering, and
-`op-render` inherits the exported `OP_SESSION_*` as a child process. That signin is
-TTY-guarded (`[ -t 0 ]`): `op signin` blocks on input, and this script also runs from
-non-interactive contexts where hanging would block provisioning. `op-render
---warn-stale-only` reads the `.last-render` sentinel, touches no network, and warns when the
-last successful render is older than `OP_RENDER_STALE_DAYS` (default 7).
+`dfm sync` renders the same targets as `op-template/v1` secrets. Without a 1Password session dfm
+skips the secrets with a warning; run `op signin`, then `dfm sync` again. Run `op-render` by hand
+from an authenticated terminal for a manual render. `op-render --warn-stale-only` reads the
+`.last-render` sentinel, touches no network, and warns when the last successful render is older
+than `OP_RENDER_STALE_DAYS` (default 7).
 
 For reviewed edits made directly to `~/.config/zsh/.personal.env`, `just op-adopt` produces a
 names-only reverse-adoption plan and `just op-adopt --apply` updates only fields already pinned in
@@ -259,7 +266,7 @@ An explicit user request for another language, format, or audience style takes p
 | Pi | The `pi-agents` assembly appends the same policy to global `AGENTS.md` after the Pi runtime notes. |
 | OpenCode | MCP sync renders the policy's absolute path into the global config's `instructions` list. |
 
-Run `just sync-dfm` and apply after adding these paths or editing the policy to refresh the
+Run `dfm sync` after adding these paths or editing the policy to refresh the
 assembled Codex and Pi instructions. Claude and OpenCode read the linked policy directly in a
 new session. Restart sessions after deployment. Project settings and explicit overrides can
 change the defaults. The adapters do not add the policy to separately constructed subagent
@@ -273,39 +280,41 @@ that styles are model instructions. The source standard is
 
 ## Side channels
 
-Provisioning that requires network access, SSH authentication, or `sudo` runs through
-`scripts/sync-side-channels.sh`, after the manager's apply:
+`scripts/sync-side-channels.sh` holds the sync steps that dfm has no resource for yet. The
+`side-channels` updater runs it last in every `dfm sync`, through the `sync-side-channels`
+recipe, detached and with a cleared environment:
 
-- The script refreshes the upstream `gh-axi` skill and ensures the ponytail Codex plugin. Safe
-  to re-run. A failed side channel makes the command fail instead of leaving a silently partial
-  install.
-- `dfm sync` owns the rest: the `op-template/v1` secrets (`.personal.env` and
-  `~/.ssh/config.d/10-homelab.conf`), the mise tools (its `mise` updater), the uv tools
-  `token-auditor` and `agent-reap` (`uv-tool/v1`), and the tpm and agent-registry checkouts
-  (`git-checkout/v1`, cloned when missing and fast-forwarded by the `checkouts` updater), the
-  DuckDB extensions for the yazi previews (`duckdb-extension/v1`), the lefthook git hooks (the
-  `lefthook` updater). The `agents` updater pulls the registry and installs it; a working copy
-  at `~/projects/agents` takes precedence for the install.
-- **`just sync-side-channels`**: the side channels alone, when the links are already current.
+- `scripts/hooks-sync.sh`: the MCP client configs, then the skills fan-out (`mcp_sync`).
+- The upstream `gh-axi` skill, on hosts with the `skills` capability. dfm's `skills` updater
+  keeps it at its newest version; see [update ownership](docs/adopting-a-config.md#update-ownership).
+- The ponytail Codex plugin. A failure here is a warning, not a failed step.
 
-The rule: declarative or offline+fast+idempotent work is a manager resource or a
-`hooks-sync.sh` step; anything touching network/SSH/sudo goes in the side channels.
+Every step runs even when an earlier one failed. The script then exits 1, so dfm reports the
+updater as `failed`, and a summary line names the failed steps. dfm shows none of the output,
+so the script also writes it to `~/.local/state/dotfiles/side-channels.log`.
 
-Global npm CLIs are declared in `home/.config/mise/config.toml`. The side channels run
-`mise install` and `mise upgrade --no-prune`: `latest` tracks releases, partial versions track
-their declared range, and exact versions stay pinned. Older installs remain available to running
-sessions. Inspect the inventory with `mise ls`.
+`dfm sync` owns the rest: the `op-template/v1` secrets (`.personal.env` and
+`~/.ssh/config.d/10-homelab.conf`), the mise tools (its `mise` updater), the uv tools
+`token-auditor` and `agent-reap` (`uv-tool/v1`), and the tpm and agent-registry checkouts
+(`git-checkout/v1`, cloned when missing and fast-forwarded by the `checkouts` updater), the
+DuckDB extensions for the yazi previews (`duckdb-extension/v1`), the lefthook git hooks (the
+`lefthook` updater). The `agents` updater pulls the registry and installs it; a working copy
+at `~/projects/agents` takes precedence for the install.
 
-On skills-enabled hosts, the side channels refresh `gh-axi` through its upstream `skills`
-installer; see [update ownership](docs/adopting-a-config.md#update-ownership) for source and
-update policy.
+The rule: declarative work is a manager resource or updater. The side channels hold only the
+steps that dfm cannot declare yet.
+
+Global npm CLIs are declared in `home/.config/mise/config.toml`. dfm's `mise` updater installs
+the missing tools and upgrades each one inside its declared range: `latest` tracks releases,
+partial versions track their range, and exact versions stay pinned. mise removes a replaced
+version after its grace period (24 h by default). Inspect the inventory with `mise ls`.
 
 ## Homebrew policy
 
 `Brewfile` plus `Brewfile.<identity>` is the complete declared inventory: formulae, casks and
-fonts. `scripts/brew-sync.sh` applies the identity file after the shared one, installs what is missing and never uninstalls; `--check` reports gaps. Run `just update` for
-reviewed upgrades across package managers, or `just brew-upgrade` for Homebrew alone. Both upgrade
-installed unpinned packages, including retained unmanaged packages. Use `just brew-audit` to
+fonts. `scripts/brew-sync.sh` applies the identity file after the shared one, installs what is missing and never uninstalls; `--check` reports gaps. `dfm sync` upgrades
+every outdated formula and cask except `brew pin` holds, including retained unmanaged packages.
+`just brew-upgrade` upgrades Homebrew alone. Use `just brew-audit` to
 compare declared and installed inventory using read-only `brew list`, `brew leaves`, and
 `brew tap` queries. It never invokes Homebrew cleanup or uninstall.
 [`docs/package-mapping.md`](docs/package-mapping.md) records how each package arrived in the

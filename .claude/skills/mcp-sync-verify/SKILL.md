@@ -65,7 +65,7 @@ What the script does:
    from the repo (so `_load_override` finds them).
 3. Auto-detect the deployed machine overlay at `~/.config/mcp/machine/*.json` and pass
    it via `--machine-config` (matching what the `mcpSync` step of `scripts/hooks-sync.sh`
-   does during `just sync-dfm-apply`). Override by passing a path: `bash .../dry_run_diff.sh /path/to/overlay.json`.
+   does during `dfm sync`). Override by passing a path: `bash .../dry_run_diff.sh /path/to/overlay.json`.
 4. Mirror in-place patch targets (`~/.claude.json`, `~/.codex/config.toml`) into the
    sandbox so the patchers have something to rewrite.
 5. Run `uv run --project mcp_sync sync-mcp-configs --home "$SANDBOX" --machine-config ...`.
@@ -82,8 +82,8 @@ Only after the diff looks correct:
 just mcp-sync
 ```
 
-(Or `just sync-dfm-apply <digest>`: `scripts/hooks-sync.sh` re-runs `sync-mcp-configs`
-against the real `$HOME` after every apply.)
+(Or `dfm sync`: its `side-channels` updater runs `scripts/hooks-sync.sh`, which re-runs
+`sync-mcp-configs` against the real `$HOME`.)
 
 ## Reading the diff output
 

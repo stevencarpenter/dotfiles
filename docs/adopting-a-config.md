@@ -12,10 +12,10 @@ before planning.
 ## When an apply is required
 
 - **Raw config content:** editing an *already-linked* file under `home/` needs no apply.
-- **Adding a new file/path:** the manager must create the symlink. Needs `just sync-dfm`
-  and `just sync-dfm-apply <digest>`.
+- **Adding a new file/path:** the manager must create the symlink. Needs `dfm sync`.
 - **Packages:** a `Brewfile` edit takes effect at the next `scripts/brew-sync.sh` run, which
-  `sync-dfm-apply` includes. A mise edit takes effect at the next `mise install`.
+  you run by hand; `dfm sync` does not run it. A mise edit takes effect at the next
+  `mise install` or `dfm sync` (its `mise` updater).
 
 **Adoption requires an apply** because it adds a new `[[resources]]` link.
 Subsequent edits to the linked file need no apply.
@@ -23,12 +23,13 @@ Subsequent edits to the linked file need no apply.
 ## Collision handling
 
 The planner refuses a real file or directory at a managed target: the plan shows the path as
-`blocked … E_CONFLICT`, `just sync-dfm` stops there, and no flag overrides it. Before you plan,
+`blocked … E_CONFLICT`, `dfm sync` stops there, and no flag overrides it. Before you plan,
 verify the repository copy, then move the original aside
 (`mv ~/.config/foo/config ~/.config/foo/config.pre-dfm`). Keep that backup until the apply and
 the tool both check out, then delete it.
 
-`--allow-adopt '<id>'` covers two cases, and `just sync-dfm` writes the flag for both. For a
+`--allow-adopt <operation-id>` covers two cases. In both, `dfm sync` withholds the operation and
+prints the flag to add. For a
 link resource: the live path already is the exact symlink the plan would create (made by stow
 or by hand) and the manager does not own it yet; the plan shows it as `adopt`. For the
 `claude-settings/v1` merge: the first write into an existing `~/.claude/settings.json` that
@@ -71,9 +72,9 @@ the manager does not own yet (`takeover`). Neither case covers a real file at a 
    `mv ~/.config/foo/config ~/.config/foo/config.pre-dfm`. A real file at the target blocks
    the plan with `E_CONFLICT`; see [Collision handling](#collision-handling).
 
-6. **Plan.** `just sync-dfm`. The plan shows the new link as `planned`.
+6. **Plan.** `dfm sync --preview`. The plan shows the new link as `planned`.
 
-7. **Apply.** `just sync-dfm-apply <digest>`. The manager creates the symlink.
+7. **Apply.** `dfm sync`. The manager creates the symlink.
 
 8. **Verify.** `realpath ~/.config/foo/config` lands in `~/.dotfiles/…` and the tool still
    reads it. Then delete the `.pre-dfm` backup.
