@@ -1,8 +1,7 @@
-# The axi command-line tools (gh-axi, chrome-devtools-axi, lavish-axi, tasks-axi, quota-axi)
-# and the agent worktree tool treehouse. Upstream releases them often, so they track
-# "latest"; dfm sync's mise updater keeps them current.
+# The axi command-line tools (gh-axi, chrome-devtools-axi, lavish-axi, tasks-axi, quota-axi).
+# Upstream releases them often, so they track "latest"; dfm sync's mise updater keeps them
+# current.
 [tools]
-"github:kunchenguid/treehouse" = "latest"
 "npm:gh-axi" = "latest"
 "npm:chrome-devtools-axi" = "latest"
 "npm:lavish-axi" = "latest"
