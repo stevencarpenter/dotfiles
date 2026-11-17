@@ -433,6 +433,10 @@ record-todo = "off"
 source = "github"
 repo = "anthropics/claude-plugins-official"
 
+[resources.value.seed.extraKnownMarketplaces.cursor-plugins.source]
+source = "github"
+repo = "cursor/plugins"
+
 [resources.value.seed.extraKnownMarketplaces.ponytail.source]
 source = "github"
 repo = "DietrichGebert/ponytail"
@@ -447,11 +451,12 @@ repo = "DietrichGebert/ponytail"
 "lua-lsp@claude-plugins-official" = true
 "playwright@claude-plugins-official" = true
 "ponytail@ponytail" = true
+"pstack@cursor-plugins" = true
 "pyright-lsp@claude-plugins-official" = true
 "railway@claude-plugins-official" = true
 "rust-analyzer-lsp@claude-plugins-official" = true
 "security-guidance@claude-plugins-official" = true
-"superpowers@claude-plugins-official" = true
+"superpowers@claude-plugins-official" = false
 "swift-lsp@claude-plugins-official" = true
 "typescript-lsp@claude-plugins-official" = true
 
