@@ -410,7 +410,7 @@ pattern = "*.json"
 "$schema" = "https://json.schemastore.org/claude-code-settings.json"
 skipDangerousModePermissionPrompt = true
 skipAutoPermissionPrompt = true
-cleanupPeriodDays = 30
+cleanupPeriodDays = 400
 
 [resources.value.managed.env]
 CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = "1"
