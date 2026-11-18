@@ -27,7 +27,6 @@ brew "bash-completion"
 brew "watch"
 # Git worktree helper.
 brew "worktrunk"
-brew "herdr"
 brew "mole"
 # Homebrew 6 requires formula-level trust and a fully qualified tap name.
 brew "charmbracelet/tap/crush", trusted: true
@@ -101,12 +100,10 @@ brew "btop"  # 1.4.7
 brew "ffmpeg"  # 9.0.2
 brew "neovim"  # 0.12.6
 brew "cloc"  # 2.10
-brew "mosh"  # 1.4.0
 brew "cloudflared"  # 2026.10.0
 brew "glow"  # 3.0.0
 brew "nmap"  # 7.991
 brew "poppler"  # 26.10.0
-brew "television"  # 0.15.9
 brew "typst"  # 0.15.1
 brew "yt-dlp"  # 2026.8.19
 brew "git"  # 2.56.0
