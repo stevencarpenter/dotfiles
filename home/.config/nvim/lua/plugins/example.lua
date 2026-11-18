@@ -60,6 +60,19 @@ return {
             },
         },
     },
+    {
+      "folke/snacks.nvim",
+      opts = {
+        picker = {
+          sources = {
+              explorer = {
+                hidden = true,
+                -- ignored = true, -- Uncomment this line to also show .gitignore files by default
+              },
+            },
+          },
+      },
+    },
 
     -- override nvim-cmp and add cmp-emoji
     {
