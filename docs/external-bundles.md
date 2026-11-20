@@ -83,6 +83,7 @@ module does. Fragment names use a `20-` prefix and must not repeat a base file n
 | Tiling | `.config/aerospace/aerospace.toml`, `.config/sketchybar/machine.env` | AeroSpace, SketchyBar |
 | MCP overlay | `.config/mcp/machine/<identity>.json` | `scripts/hooks-sync.sh` (mcpSync) |
 | Skills overlay | `.config/skills/machine/<identity>.json` | `scripts/hooks-sync.sh` (skillsSync) |
+| Agent registry opt-outs | `.config/agents/machine/<identity>.json` | `scripts/install-agent-registry.sh` |
 | Claude settings | `.claude/settings.d/20-*.json`; `sandbox.filesystem.allowWrite` appends | `core.claude-settings` merge |
 | Codex and pi instructions | `.codex/AGENTS.d/20-*.md`, `.pi/agent/AGENTS.d/20-*.md` | `core.codex-agents`, `core.pi-agents` |
 | Shell | `.config/zsh/profile.d/*.zsh` | `.zshrc` |
