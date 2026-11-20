@@ -32,7 +32,7 @@ fi
 echo "==> Installing agents from $project"
 "$uv_bin" run --directory "$project" python -m agent_registry.cli install "${overlay_args[@]+"${overlay_args[@]}"}"
 
-# Refresh the SessionStart routing cache atomically after a successful install.
+# Refresh the SessionStart cache after install. A disabled hook writes an empty cache.
 routing_script="$project/tools/routing/generate_context.py"
 routing_cache="$HOME/.cache/agent-routing/context.md"
 if [ -f "$routing_script" ]; then
