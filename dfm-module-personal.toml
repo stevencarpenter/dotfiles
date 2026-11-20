@@ -132,6 +132,16 @@ target = ".config/skills/machine/personal.json"
 [resources.value]
 source = "home/.config/skills/machine/personal.json"
 
+# Agent registry opt-out overlay for this identity. Empty by default; set
+# individual agents/skills/hooks to false here to override sync-manifest.toml.
+[[resources]]
+id = "config-agents-machine-personal-json"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/agents/machine/personal.json"
+[resources.value]
+source = "home/.config/agents/machine/personal.json"
+
 [[resources]]
 id = "config-opencode-skills-use-railway"
 kind = "link"

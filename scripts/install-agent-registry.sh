@@ -5,6 +5,20 @@ set -euo pipefail
 uv_bin="${UV_BIN:-uv}"
 project="${1:-$HOME/projects/agents}"
 
+# Resolve the host identity so a per-machine opt-out overlay can be applied.
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+identity=""
+if [[ -n ${DFM_IDENTITY:-} ]]; then
+  identity="$DFM_IDENTITY"
+else
+  identity="$("$repo_root/scripts/host-capability.sh" --identity 2>/dev/null || true)"
+fi
+overlay="$HOME/.config/agents/machine/$identity.json"
+overlay_args=()
+if [[ -n "$identity" && -f "$overlay" ]]; then
+  overlay_args=(--machine-config "$overlay")
+fi
+
 if [ ! -f "$project/pyproject.toml" ]; then
   echo "error: agent registry is missing at $project; run dfm sync first (it clones the declared checkout)" >&2
   exit 1
@@ -16,15 +30,20 @@ if ! command -v "$uv_bin" >/dev/null 2>&1; then
 fi
 
 echo "==> Installing agents from $project"
-"$uv_bin" run --directory "$project" python -m agent_registry.cli install
+"$uv_bin" run --directory "$project" python -m agent_registry.cli install "${overlay_args[@]+"${overlay_args[@]}"}"
 
-# Refresh the SessionStart routing cache atomically after a successful install.
+# Refresh the SessionStart cache after install. A disabled hook writes an empty cache.
 routing_script="$project/tools/routing/generate_context.py"
 routing_cache="$HOME/.cache/agent-routing/context.md"
 if [ -f "$routing_script" ]; then
   mkdir -p "$(dirname "$routing_cache")"
   routing_tmp="${routing_cache}.tmp.$$"
   trap 'rm -f "$routing_tmp"' EXIT
+  # The generator cannot see the identity resolution above on an external
+  # bundle, so hand it the overlay this script already picked.
+  if [[ -n "$identity" && -f "$overlay" ]]; then
+    export AGENTS_MACHINE_CONFIG="$overlay"
+  fi
   "$uv_bin" run --directory "$project" python "$routing_script" >"$routing_tmp"
   mv "$routing_tmp" "$routing_cache"
   trap - EXIT
