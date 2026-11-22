@@ -150,7 +150,20 @@ alias gss='git status -sb'
 alias gpl='gh pr list'
 
 # Cargo: the full pre-commit check chain (fmt + check + clippy --fix + test)
-alias crust='cargo fmt --all && cargo check --all && cargo clippy --all-targets --all-features --fix --allow-dirty -- -D warnings && cargo test --workspace'
+function crust() {
+  if (( $# > 0 )); then
+    if (( $# != 1 )) || [[ $1 != --update ]]; then
+      print -u2 'Usage: crust [--update]'
+      return 2
+    fi
+    cargo update --verbose || return
+  fi
+
+  cargo fmt --all &&
+    cargo check --all &&
+    cargo clippy --all-targets --all-features --fix --allow-dirty -- -D warnings &&
+    cargo test --workspace
+}
 
 # uv: sync dev deps and refresh lockfile
 alias uvsl='uv sync --dev && uv lock'
