@@ -4,3 +4,12 @@
 # brew services supervises tailscaled.
 brew "tailscale"
 
+# Rust development tools as bottles, not `cargo install`: dfm sync's cargo updater rebuilt each
+# one from source. cargo-audit and cargo-deny are in the shared Brewfile.
+brew "cargo-about"  # 0.9.3
+brew "cargo-bloat"  # 0.12.1
+brew "cargo-fuzz"  # 0.13.2
+brew "cargo-insta"  # 1.49.0
+brew "cargo-llvm-cov"  # 0.9.2
+brew "sqlx-cli"  # 0.9.1
+brew "wasm-pack"  # 0.15.1
