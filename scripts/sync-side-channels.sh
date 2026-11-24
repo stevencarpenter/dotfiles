@@ -53,11 +53,21 @@ ponytail_plugin() {
   return 0
 }
 
+# timed <name> <command...>: run one step and log its wall time, so a slow step shows in the log.
+timed() {
+  local name="$1" start=$SECONDS rc=0
+  shift
+  "$@" || rc=$?
+  echo "--- $name: $((SECONDS - start)) s (exit $rc)"
+  return "$rc"
+}
+
 main() {
+  echo "side-channels: started $(date -u +%Y-%m-%dT%H:%M:%SZ)"
   failed=""
-  hooks_sync || failed="$failed hooks-sync"
-  gh_axi_skill || failed="$failed gh-axi"
-  ponytail_plugin
+  timed hooks-sync hooks_sync || failed="$failed hooks-sync"
+  timed gh-axi gh_axi_skill || failed="$failed gh-axi"
+  timed ponytail ponytail_plugin
   if [ -n "$failed" ]; then
     echo "side-channels: failed steps:$failed; full output in $log" >&2
     return 1
