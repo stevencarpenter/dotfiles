@@ -3,4 +3,4 @@
 
 # brew services supervises tailscaled.
 brew "tailscale"
-brew "jj"  # 0.46.0
+

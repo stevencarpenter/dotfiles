@@ -1,8 +1,16 @@
 # gui capability: GUI casks and display fonts, which the Brewfile installs outside
-# dotfiles-manager scope. This module holds no resources.
+# dotfiles-manager scope. Its one resource is the `rex` CLI wrapper, because Rex
+# does not install its CLI onto PATH.
 
 schema = 1
 id = "gui"
 platforms = ["macos"]
 requires = []
 
+[[resources]]
+id = "local-bin-rex"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".local/bin/rex"
+[resources.value]
+source = "home/.local/bin/rex"

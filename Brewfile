@@ -50,12 +50,10 @@ brew "xcbeautify"
 cask "1password-cli"
 cask "ghostty"
 cask "raycast"
-cask "1password"
 cask "bbedit"
 cask "obsidian"
 cask "orbstack"
 cask "codex"
-cask "handy"
 # Bespoke Powerlevel10k-patched Meslo build.
 cask "font-meslo-for-powerlevel10k"
 # aerospace is a third-party tap cask. A fresh machine has no trust.json entry for
@@ -127,8 +125,6 @@ brew "gitleaks"  # 8.30.1
 brew "actionlint"  # 1.7.12
 brew "yamllint"  # 1.38.0
 brew "trivy"  # 0.75.0
-brew "osv-scanner"  # 2.6.0
-brew "trufflehog"  # 3.99.2
 brew "checkov"  # 3.3.20
 brew "hadolint"  # 2.15.1
 brew "nuclei"  # 3.11.1
