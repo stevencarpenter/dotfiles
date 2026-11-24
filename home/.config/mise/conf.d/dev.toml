@@ -5,3 +5,7 @@
 "npm:typescript-language-server" = "latest"
 "npm:typescript" = "latest"               # tsserver: required by typescript-language-server
 lua-language-server = "latest"
+
+# Rust release and coverage tools as prebuilt release binaries, not `cargo install` (no formula).
+release-plz = "latest"
+"github:xd009642/tarpaulin" = "latest"  # cargo-tarpaulin
