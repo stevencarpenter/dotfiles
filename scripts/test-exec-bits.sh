@@ -23,6 +23,7 @@ exec_scripts=(
   home/.local/bin/gh
   home/.local/bin/obsidian-capture
   home/.local/bin/worktrunk-commit-generator
+  home/.local/bin/rex
   # PEP 723 uv scripts exec'd by path (CI steps, the Justfile, lefthook jobs,
   # and the shell test wrappers all rely on the `uv run --script` shebang).
   home/.local/bin/op-adopt

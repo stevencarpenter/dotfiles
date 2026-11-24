@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# rex: put the Rex CLI on PATH outside Rex terminals.
+#
+# Rex's own terminals already get `rex` on PATH. Shells outside Rex (Ghostty,
+# agent harnesses) do not, and the beta app has no install-to-PATH step. Rex
+# copies its server, which holds the CLI, into Application Support and points
+# `Current` at the newest copy, so this path survives app renames and updates.
+set -euo pipefail
+
+rex_bin="${HOME}/Library/Application Support/com.superlogical.rex/RexServer/Versions/Current/Rex Server.app/Contents/MacOS/rex"
+
+if [[ ! -x "${rex_bin}" ]]; then
+  echo "rex: CLI not found at ${rex_bin}. Install and launch Rex first." >&2
+  exit 127
+fi
+
+exec "${rex_bin}" "$@"
