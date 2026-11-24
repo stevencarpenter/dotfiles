@@ -60,6 +60,12 @@ skills_sync() {
   PATH="/usr/bin:$PATH" run_py "skill sync" mcp_sync.skills_cli --repo-root "$canonical" --machine-config "$overlay"
 }
 
+# Each step logs its wall time, so a slow step shows in the side-channels log. --check runs
+# no step, so it logs none.
+start=$SECONDS
 mcp_sync
+((check)) || echo "--- mcp-sync: $((SECONDS - start)) s"
+start=$SECONDS
 skills_sync
+((check)) || echo "--- skills-sync: $((SECONDS - start)) s"
 exit "$failed"
