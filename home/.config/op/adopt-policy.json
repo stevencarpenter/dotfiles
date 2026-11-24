@@ -16,6 +16,14 @@
           "category": "API_CREDENTIAL",
           "json_edit": true
         },
+        "Private/GRAFANA_CLOUD_SA_TOKEN": {
+          "category": "API_CREDENTIAL",
+          "json_edit": true
+        },
+        "Homelab/grafana-mcp-service-account": {
+          "category": "PASSWORD",
+          "json_edit": false
+        },
         "Private/m5-dev-env": {
           "category": "SECURE_NOTE",
           "json_edit": true
@@ -35,6 +43,16 @@
           "reference": "op://Private/OPENROUTER_TOKEN/credential",
           "item": "Private/OPENROUTER_TOKEN",
           "field": "credential"
+        },
+        "GRAFANA_CLOUD_SA_TOKEN": {
+          "reference": "op://Private/GRAFANA_CLOUD_SA_TOKEN/credential",
+          "item": "Private/GRAFANA_CLOUD_SA_TOKEN",
+          "field": "credential"
+        },
+        "GRAFANA_HOMELAB_SA_TOKEN": {
+          "reference": "op://Homelab/grafana-mcp-service-account/password",
+          "item": "Homelab/grafana-mcp-service-account",
+          "field": "password"
         },
         "NUGS_EMAIL": {
           "reference": "op://Private/nugs.net/username",

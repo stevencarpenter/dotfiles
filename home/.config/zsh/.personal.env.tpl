@@ -6,10 +6,13 @@
 # Vault mapping is authoritative in Kaneo DOT-3. Never write a literal
 # 1Password ref scheme in a comment: inject scans the whole file.
 #
-# Refs live in the Private vault: 4 pre-existing canonical items + a
-# consolidated `m5-dev-env` item holding the rest.
+# Refs live in the Private vault: 5 canonical items + a
+# consolidated `m5-dev-env` item holding the rest. The homelab Grafana token
+# is the one ref in the Homelab vault.
 export OPENAI_API_KEY="{{ op://Private/OPENAI_API_KEY/credential }}"
 export OPENROUTER_TOKEN="{{ op://Private/OPENROUTER_TOKEN/credential }}"
+export GRAFANA_CLOUD_SA_TOKEN="{{ op://Private/GRAFANA_CLOUD_SA_TOKEN/credential }}"
+export GRAFANA_HOMELAB_SA_TOKEN="{{ op://Homelab/grafana-mcp-service-account/password }}"
 export NUGS_EMAIL="{{ op://Private/nugs.net/username }}"
 export NUGS_PASSWORD="{{ op://Private/nugs.net/password }}"
 export CONTEXT7_API_KEY="{{ op://Private/m5-dev-env/CONTEXT7_API_KEY }}"
