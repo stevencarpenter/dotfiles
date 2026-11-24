@@ -50,6 +50,41 @@
         "search_events",
         "get_entities"
       ]
+    },
+    "grafana": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "mcp-grafana@1.6.1",
+        "--disable-write"
+      ],
+      "env": {
+        "GRAFANA_URL": "http://localhost:3030"
+      }
+    },
+    "grafana-homelab": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "mcp-grafana@1.6.1",
+        "--disable-write"
+      ],
+      "env": {
+        "GRAFANA_URL": "https://grafana.snugmarina.org",
+        "GRAFANA_SERVICE_ACCOUNT_TOKEN": "${GRAFANA_HOMELAB_SA_TOKEN:-}"
+      }
+    },
+    "grafana-cloud": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "mcp-grafana@1.6.1",
+        "--disable-write"
+      ],
+      "env": {
+        "GRAFANA_URL": "https://daringdate906.grafana.net",
+        "GRAFANA_SERVICE_ACCOUNT_TOKEN": "${GRAFANA_CLOUD_SA_TOKEN:-}"
+      }
     }
   }
 }

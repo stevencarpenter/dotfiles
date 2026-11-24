@@ -36,7 +36,9 @@ remaining servers live in machine overlays:
 |--------|-----------|-------------------|---------|
 | **AWS CCAPI** | work | `uvx awslabs.ccapi-mcp-server --readonly` | AWS resource management (read-only) |
 | **hippo** | personal | `uv run --no-sync --project ~/.local/share/hippo-brain hippo-mcp` | Local knowledge base / brain |
-| **grafana** | personal, lab | `uvx mcp-grafana --disable-write` | Home-ops dashboards (read-only) |
+| **grafana** | personal, lab | `uvx mcp-grafana --disable-write` | Local Grafana (read-only). The master entry uses `localhost:3000`. The personal overlay sets `localhost:3030`, the hippo OTel stack. |
+| **grafana-homelab** | personal | `uvx mcp-grafana --disable-write` | Homelab Grafana on i9 at `grafana.snugmarina.org`, tailnet only (read-only) |
+| **grafana-cloud** | personal | `uvx mcp-grafana --disable-write` | Grafana Cloud stack `daringdate906.grafana.net` (read-only) |
 | **codegraph** | personal | `codegraph serve --mcp` | Local code-intelligence index |
 
 ## Sync Targets
@@ -82,6 +84,10 @@ uv run --project ~/.dotfiles/mcp_sync sync-mcp-configs
 - **AWS CCAPI**: reads `${AWS_PROFILE}` (expanded by the MCP client at launch); SSO config comes
   from the external `aws-config-gen` tool (owned by the work wrapper). No long-lived secret in the config.
 - **hippo / grafana**: no credentials: local stdio servers talking to localhost.
+- **grafana-homelab / grafana-cloud**: each reads a Grafana service account token (Viewer role)
+  from `${GRAFANA_HOMELAB_SA_TOKEN}` or `${GRAFANA_CLOUD_SA_TOKEN}`. The entry uses the
+  `${VAR:-}` form, so an unset variable gives an empty token and the server returns 401.
+  Only a client that expands `${VAR}` in `env` can use these two servers.
 - **GitHub** (the plugin, not an MCP server here): authenticates via the Claude Code plugin /
   `gh` keychain token, not via this sync.
 
