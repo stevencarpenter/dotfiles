@@ -115,8 +115,8 @@ adoption or takeover needs `--allow-adopt <operation-id>`. A restart needs `--re
 After its scopes, `dfm sync` runs the profile's `updaters` in order. `lefthook` wires the git hooks,
 and `side-channels` runs last: it runs `just sync-side-channels` in the checkout (detached, no
 terminal). That recipe exists only for dfm. It runs `scripts/sync-side-channels.sh`: `hooks-sync.sh`
-(MCP client configs, then the skills fan-out), the gh-axi skill, the personal pi `models.json` merge
-and the ponytail Codex plugin.
+(MCP client configs, then the skills fan-out), the gh-axi skill, pi's `models.json` (the shared
+file plus `models.<identity>.json`) and the ponytail Codex plugin.
 dfm shows only a `current` or `failed` row, so the script writes its full output to
 `~/.local/state/dotfiles/side-channels.log`.
 

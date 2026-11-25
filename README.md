@@ -287,9 +287,9 @@ recipe, detached and with a cleared environment:
 - `scripts/hooks-sync.sh`: the MCP client configs, then the skills fan-out (`mcp_sync`).
 - The upstream `gh-axi` skill, on hosts with the `skills` capability. dfm's `skills` updater
   keeps it at its newest version; see [update ownership](docs/adopting-a-config.md#update-ownership).
-- On identity `personal`: `~/.pi/agent/models.json`, written from the shared
-  `home/.pi/agent/models.json` with `~/.pi/agent/models.personal.json` merged over it. Pi has no
-  override layer, so the local and OpenRouter providers reach no other identity.
+- `~/.pi/agent/models.json`, written from the shared, provider-free `home/.pi/agent/models.json`
+  with `~/.pi/agent/models.<identity>.json` merged over it when the identity module links one.
+  Pi has no override layer, so this is where an identity adds its own providers.
 - The ponytail Codex plugin. A failure here is a warning, not a failed step.
 
 Every step runs even when an earlier one failed. The script then exits 1, so dfm reports the

@@ -1,8 +1,8 @@
 # caps.mcp: master config, pi files and the mise axi tools. The machine/<identity>.json
 # overlay differs per identity, so the identity module links it.
 # Not managed: .config/mcp/overrides (an identity module may link a file there), MCP generated
-# outputs, and .pi/agent/models.json (scripts/sync-side-channels.sh writes it on identity personal;
-# home/.pi/agent/models.json is the shared, provider-free layer).
+# outputs, and .pi/agent/models.json (scripts/sync-side-channels.sh writes it from the shared,
+# provider-free home/.pi/agent/models.json plus the identity's models.<identity>.json, if linked).
 
 schema = 1
 id = "mcp"

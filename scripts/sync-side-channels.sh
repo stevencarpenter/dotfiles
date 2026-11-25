@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Sync steps that dfm has no resource for yet: hooks-sync (MCP client configs, then the skills
-# fan-out), the gh-axi skill, the personal pi models.json merge and the Codex ponytail plugin. dfm sync runs this script through
+# fan-out), the gh-axi skill, pi's models.json and the Codex ponytail plugin. dfm sync runs this script through
 # `just sync-side-channels` as its side-channels updater: detached, with no terminal and a
 # cleared environment. dfm shows none of the output, so all of it also goes to the log below.
 # Every step runs even when an earlier one failed. The script exits 1 when a step failed.
@@ -63,27 +63,27 @@ ponytail_plugin() {
   return 0
 }
 
-# Pi reads only ~/.pi/agent/models.json and has no override layer. On identity personal, write
-# that file from the shared home/.pi/agent/models.json with models.personal.json (linked by the
-# personal module) deep-merged over it. The write replaces the file, so a stale link into the
-# checkout is replaced and the tracked shared file is never written. Other identities: no-op.
+# Pi reads only ~/.pi/agent/models.json and has no override layer. Write that file from the
+# shared, provider-free home/.pi/agent/models.json, with ~/.pi/agent/models.<identity>.json
+# deep-merged over it when the identity module links one. The write replaces the file, so a
+# stale link into the checkout is replaced and the tracked shared file is never written.
 pi_models() {
-  [ "$("$capability_bin" --identity)" = "personal" ] || return 0
-  local shared="$repo_root/home/.pi/agent/models.json" personal="$pi_dir/models.personal.json"
-  local target="$pi_dir/models.json" tmp
-  if [ ! -f "$personal" ]; then
-    echo "error: $personal is missing; run dfm sync to link it" >&2
-    return 1
-  fi
-  if ! command -v "$jq_bin" >/dev/null 2>&1; then
-    echo "error: jq not found; cannot write $target" >&2
-    return 1
-  fi
-  echo "==> Writing $target (shared providers + models.personal.json)"
-  tmp="$(mktemp "$pi_dir/.models.json.XXXXXX")" || return 1
-  if ! "$jq_bin" -s '.[0] * .[1]' "$shared" "$personal" >"$tmp"; then
-    rm -f "$tmp"
-    return 1
+  local identity shared="$repo_root/home/.pi/agent/models.json" target="$pi_dir/models.json"
+  local overlay tmp
+  identity="$("$capability_bin" --identity)" || return 1
+  overlay="$pi_dir/models.$identity.json"
+  mkdir -p "$pi_dir" && tmp="$(mktemp "$pi_dir/.models.json.XXXXXX")" || return 1
+  if [ -f "$overlay" ]; then
+    if ! command -v "$jq_bin" >/dev/null 2>&1; then
+      echo "error: jq not found; cannot merge $overlay into $target" >&2
+      rm -f "$tmp"
+      return 1
+    fi
+    echo "==> Writing $target (shared + models.$identity.json)"
+    "$jq_bin" -s '.[0] * .[1]' "$shared" "$overlay" >"$tmp" || { rm -f "$tmp"; return 1; }
+  else
+    echo "==> Writing $target (shared; no models.$identity.json)"
+    cp "$shared" "$tmp" || { rm -f "$tmp"; return 1; }
   fi
   chmod 644 "$tmp" && mv -f "$tmp" "$target"
 }

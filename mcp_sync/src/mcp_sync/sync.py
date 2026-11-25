@@ -49,16 +49,17 @@ class SyncTarget:
         generated = self.transform(merged_master)
 
         config = deep_merge(base, generated)
-        # ponytail: drift/capture pass live=False so transient model lists
-        # never read as drift or get persisted into overrides.
+        cleaned_overrides = _override_without_servers(overrides)
+        if cleaned_overrides:
+            config = deep_merge(config, cleaned_overrides)
+        # Refresh after the overrides: an identity can declare the provider block
+        # there instead of in the template. Drift/capture pass live=False so
+        # transient model lists never read as drift or get persisted into overrides.
         if live:
             try:
                 config = refresh_provider_models(config)
             except Exception as exc:
-                log_info(f"omlx discovery failed ({exc}); keeping template fallback")
-        cleaned_overrides = _override_without_servers(overrides)
-        if cleaned_overrides:
-            config = deep_merge(config, cleaned_overrides)
+                log_info(f"omlx discovery failed ({exc}); keeping static fallback")
         return _remove_retired_server_entries(config)
 
     def sync(self, master: JsonDict, home: Path | None = None) -> None:
