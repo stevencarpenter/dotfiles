@@ -167,9 +167,9 @@ def test_run_check_exit_codes(temp_home, monkeypatch_home, master_config_file):
 def test_cli_check_flag(temp_home, monkeypatch_home, master_config_file):
     """The --check flag runs drift detection instead of syncing."""
     run_sync(home=temp_home)
-    lmstudio_path = temp_home / ".lmstudio" / "mcp.json"
-    before = lmstudio_path.read_text(encoding="utf-8")
-    lmstudio_path.unlink()
+    junie_path = temp_home / ".junie" / "mcp" / "mcp.json"
+    before = junie_path.read_text(encoding="utf-8")
+    junie_path.unlink()
 
     exit_code = cli(
         ["--check", "--home", str(temp_home), "--master", str(master_config_file)]
@@ -177,10 +177,10 @@ def test_cli_check_flag(temp_home, monkeypatch_home, master_config_file):
 
     assert exit_code == 1
     # --check must never write anything.
-    assert not lmstudio_path.exists()
+    assert not junie_path.exists()
     # And a clean home passes.
     run_sync(home=temp_home)
-    assert lmstudio_path.read_text(encoding="utf-8") == before
+    assert junie_path.read_text(encoding="utf-8") == before
     exit_code = cli(
         ["--check", "--home", str(temp_home), "--master", str(master_config_file)]
     )

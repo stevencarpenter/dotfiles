@@ -1,18 +1,5 @@
 {
   "providers": {
-    "lmstudio": {
-      "baseUrl": "http://localhost:1234/v1",
-      "api": "openai-completions",
-      "apiKey": "lmstudio",
-      "models": [
-        {
-          "id": "qwen/qwen3-coder-next"
-        },
-        {
-          "id": "nvidia/nemotron-3-super"
-        }
-      ]
-    },
     "omlx": {
       "baseUrl": "http://localhost:42069/v1",
       "api": "openai-completions",

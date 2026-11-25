@@ -57,14 +57,6 @@ source = "home/.config/hippo"
 directory = true
 
 [[resources]]
-id = "config-zsh-profile-d-local-llm-zsh"
-kind = "link"
-adapter = "fs-link/v1"
-target = ".config/zsh/profile.d/local-llm.zsh"
-[resources.value]
-source = "home/.config/zsh/profile.d/local-llm.zsh"
-
-[[resources]]
 id = "config-dev-container-config-profiles-map"
 kind = "link"
 adapter = "fs-link/v1"
@@ -172,7 +164,7 @@ target = ".config/mcp/machine/personal.json"
 [resources.value]
 source = "home/.config/mcp/machine/personal.json"
 
-# Local model providers (LM Studio, oMLX) and OpenRouter exist on this identity only.
+# Local model providers (oMLX) and OpenRouter exist on this identity only.
 # mcp_sync deep-merges the opencode override after the template, then refreshes the omlx list
 # from the live server. Pi has no override layer, so scripts/sync-side-channels.sh writes
 # ~/.pi/agent/models.json from the shared file plus models.<identity>.json. omlx-discovery.ts

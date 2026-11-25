@@ -53,7 +53,6 @@ After the sync, the merged config is written to:
 | Cursor | `~/.cursor/mcp.json` |
 | VS Code | `~/Library/Application Support/Code/User/mcp.json` |
 | Junie | `~/.junie/mcp/mcp.json` |
-| LM Studio | `~/.lmstudio/mcp.json` |
 | Codex CLI | `~/.codex/config.toml` (MCP servers patched in place; Codex owns the file) |
 | Claude Code | `~/.claude.json` (servers patched in place; tool-owned file) |
 | OpenCode | `~/.config/opencode/opencode.json` |

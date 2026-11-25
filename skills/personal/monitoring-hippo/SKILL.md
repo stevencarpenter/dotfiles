@@ -1,6 +1,6 @@
 ---
 name: monitoring-hippo
-description: Use when user asks if hippo is working, running, healthy, or needs debugging. Provides commands to check daemon, brain, the inference server (oMLX or LM Studio), logs, and enrichment status.
+description: Use when user asks if hippo is working, running, healthy, or needs debugging. Provides commands to check daemon, brain, the inference server (oMLX), logs, and enrichment status.
 ---
 
 # Monitoring Hippo
@@ -33,7 +33,7 @@ Use the relevant check when diagnosing the component reported by `doctor`:
 
 ### 1. Check running processes
 ```bash
-pgrep -fl 'hippo|lmstudio|omlx'
+pgrep -fl 'hippo|omlx'
 ```
 
 ### 2. Check whether the daemon socket exists
@@ -49,7 +49,7 @@ curl -s http://localhost:9175/health
 
 ### 4. Check inference server API
 ```bash
-# omlx default (LM Studio uses port 1234)
+# omlx default
 curl -s http://localhost:42069/v1/models
 ```
 
@@ -124,7 +124,7 @@ mise run monitor   # live enrichment pipeline view (refreshes every 5s)
 |---------|-------|-----|
 | "brain not reachable" in daemon logs | Brain on port 9175? `curl localhost:9175/health` | `launchctl kickstart -k "gui/$(id -u)/com.hippo.brain"` |
 | No enrichment happening | `brain.stderr.log` for errors; queue depth growing? | Restart brain (kickstart), then `hippo doctor` |
-| Inference server not responding | `curl http://localhost:42069/v1/models` (`:1234` for LM Studio) | `launchctl kickstart -k "gui/$(id -u)/com.hippo.omlx"`, ensure a model is loaded |
+| Inference server not responding | `curl http://localhost:42069/v1/models` | `launchctl kickstart -k "gui/$(id -u)/com.hippo.omlx"`, ensure a model is loaded |
 | Socket not found | Daemon loaded? `launchctl list \| rg daemon` | `launchctl kickstart -k "gui/$(id -u)/com.hippo.daemon"` |
 | Multiple components fail | Inspect `hippo doctor` failures and component logs | Restart only implicated services, then rerun the failing diagnostic |
 
@@ -213,7 +213,7 @@ After a repair, rerun the diagnostic that failed. Use `hippo doctor` for overall
 1. Everything at once: `hippo doctor`
 2. Daemon: `hippo status`
 3. Brain health: `curl -s http://localhost:9175/health`
-4. Inference server: `curl -s http://localhost:42069/v1/models | jq '.data[].id'`  (`:1234` for LM Studio)
+4. Inference server: `curl -s http://localhost:42069/v1/models | jq '.data[].id'`
 5. Recent enrichment: `tail -10 ~/.local/share/hippo/brain.stderr.log | rg enriched`
 6. OTEL collector: `curl -s http://localhost:13133/`
 7. Grafana: `curl -s http://localhost:3030/api/health` (unauthenticated liveness; anonymous `/api/search` 404s on this stack, so list dashboards from the UI)

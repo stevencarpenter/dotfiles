@@ -143,7 +143,7 @@ esc = 'mode main'
 # 2: Browser (Firefox)
 # 3: IDE (IntelliJ)
 # 4: Slack
-# 5: AI (Claude, Codex, LM Studio)
+# 5: AI (Claude, Codex)
 # 6: Editor (Cursor)
 # 7: Notes (Obsidian)
 # 8: Comms (Mail, Calendar, Messages)
@@ -193,10 +193,6 @@ run = 'move-node-to-workspace 5'
 
 [[on-window-detected]]
 if.app-id = 'com.openai.codex'
-run = 'move-node-to-workspace 5'
-
-[[on-window-detected]]
-if.app-id = 'ai.elementlabs.lmstudio'
 run = 'move-node-to-workspace 5'
 
 [[on-window-detected]]

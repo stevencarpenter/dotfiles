@@ -1029,13 +1029,6 @@ def _build_targets(home: Path) -> list[SyncTarget]:
             override_key="junie",
         ),
         SyncTarget(
-            name="lmstudio",
-            destination=home / ".lmstudio" / "mcp.json",
-            transform=transform_to_mcpservers_format,
-            template_key="lmstudio",
-            override_key="lmstudio",
-        ),
-        SyncTarget(
             # pi-mcp-adapter reads this shared config.
             # Keep the output filename distinct from sync inputs in this directory.
             # See test_pi_target_does_not_collide_with_master_config.

@@ -259,7 +259,6 @@ class TestRunSyncWithMachineConfig:
             (".cursor/mcp.json", "mcpServers"),
             ("Library/Application Support/Code/User/mcp.json", "servers"),
             (".junie/mcp/mcp.json", "mcpServers"),
-            (".lmstudio/mcp.json", "mcpServers"),
         ]:
             payload = json.loads((temp_home / relative_path).read_text())
             assert "extra" in payload[container], (

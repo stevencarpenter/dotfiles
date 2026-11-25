@@ -26,7 +26,6 @@ def test_full_sync_workflow_all_targets(
         ".cursor/mcp.json",
         "Library/Application Support/Code/User/mcp.json",
         ".junie/mcp/mcp.json",
-        ".lmstudio/mcp.json",
         ".config/mcp/mcp.json",
     ]
 
