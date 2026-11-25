@@ -57,6 +57,55 @@ source = "home/.config/hippo"
 directory = true
 
 [[resources]]
+id = "config-zsh-profile-d-local-llm-zsh"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/zsh/profile.d/local-llm.zsh"
+[resources.value]
+source = "home/.config/zsh/profile.d/local-llm.zsh"
+
+[[resources]]
+id = "config-dev-container-config-profiles-map"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/dev-container/config/profiles.map"
+[resources.value]
+source = "home/.config/dev-container/config/profiles.personal.map"
+
+# Instructions for the tools that only this identity has (hippo, codebase-memory, kaneo, railway).
+[[resources]]
+id = "claude-claude-d-30-personal-tools-md"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".claude/CLAUDE.d/30-personal-tools.md"
+[resources.value]
+source = "home/.claude/CLAUDE.d/30-personal-tools.md"
+
+[[resources]]
+id = "codex-agents-d-30-personal-tools-md"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".codex/AGENTS.d/30-personal-tools.md"
+[resources.value]
+source = "home/.codex/AGENTS.d/30-personal-tools.md"
+
+[[resources]]
+id = "pi-agent-agents-d-30-personal-tools-md"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".pi/agent/AGENTS.d/30-personal-tools.md"
+[resources.value]
+source = "home/.codex/AGENTS.d/30-personal-tools.md"
+
+[[resources]]
+id = "pi-agent-agents-d-15-pi-personal-md"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".pi/agent/AGENTS.d/15-pi-personal.md"
+[resources.value]
+source = "home/.pi/agent/AGENTS.d/15-pi-personal.md"
+
+[[resources]]
 id = "config-zsh-profile-d-tailscale-zsh"
 kind = "link"
 adapter = "fs-link/v1"
@@ -530,6 +579,14 @@ kind = "service"
 adapter = "omlx-app/v1"
 [resources.value]
 config = [".omlx/model_settings.json"]
+
+# The base leaves the Railway plugin off; the CLI is in Brewfile.personal and the
+# use-railway skill is linked above.
+[[overrides]]
+resource = "core.claude-settings"
+path = "/seed/enabledPlugins/railway@claude-plugins-official"
+value = true
+reason = "Railway is used on identity personal only."
 
 [[contributions]]
 resource = "core.claude-settings"

@@ -254,8 +254,13 @@ locations:
   (`omlx-model-settings/v1`), and declares the `omlx-app/v1` service; run
   `dfm sync --restart personal.omlx` after a model-settings change. It also links the identity files of shared capabilities: the
   Claude `settings.d` `allowWrite` fragment, jj, the MCP and skills overlays, the pinned skills,
-  the aerospace and sketchybar variants and the journal config. `Brewfile.personal` holds jj and
-  tailscale.
+  the aerospace and sketchybar variants and the journal config. It owns everything for local
+  models and personal services: the opencode provider override (with `"discover": true` for live
+  oMLX models), pi's `models.personal.json` and `omlx-discovery.ts`, the LM Studio PATH
+  (`profile.d/local-llm.zsh`), the `30-personal-tools.md` instruction fragments (hippo,
+  codebase-memory) and `15-pi-personal.md`, the dev-container `profiles.personal.map`, and the
+  override that turns the Railway Claude plugin on. `Brewfile.personal` holds jj, tailscale and
+  railway. The base must stay neutral: a base file never names this identity's tools.
 - token-auditor is **not capability-gated**: the `core` module installs it on every machine.
 
 `scripts/host-capability.sh <cap>` prints 1 or 0 from the profile (the one `dfm binding` names,

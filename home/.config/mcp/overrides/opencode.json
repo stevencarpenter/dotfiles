@@ -18,6 +18,7 @@
     "omlx": {
       "npm": "@ai-sdk/openai-compatible",
       "name": "oMLX (local)",
+      "discover": true,
       "options": {
         "baseURL": "http://localhost:42069/v1"
       },

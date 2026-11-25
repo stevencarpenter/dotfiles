@@ -13,7 +13,7 @@ from string import Template as StringTemplate
 from typing import Any
 
 from mcp_sync.codex_tui import apply_tui_settings, toml_string
-from mcp_sync.omlx import refresh_provider_models
+from mcp_sync.discovery import refresh_provider_models
 
 type JsonDict = dict[str, Any]
 type Transform = Callable[[JsonDict], JsonDict]
@@ -52,14 +52,14 @@ class SyncTarget:
         cleaned_overrides = _override_without_servers(overrides)
         if cleaned_overrides:
             config = deep_merge(config, cleaned_overrides)
-        # Refresh after the overrides: an identity can declare the provider block
-        # there instead of in the template. Drift/capture pass live=False so
-        # transient model lists never read as drift or get persisted into overrides.
-        if live:
-            try:
-                config = refresh_provider_models(config)
-            except Exception as exc:
-                log_info(f"omlx discovery failed ({exc}); keeping static fallback")
+        # Discover after the overrides: an identity declares its providers there.
+        # Drift/capture pass live=False so transient model lists never read as
+        # drift or get persisted into overrides; the markers are stripped either way.
+        try:
+            config = refresh_provider_models(config, live=live)
+        except Exception as exc:
+            log_info(f"model discovery failed ({exc}); keeping declared models")
+            config = refresh_provider_models(config, live=False)
         return _remove_retired_server_entries(config)
 
     def sync(self, master: JsonDict, home: Path | None = None) -> None:

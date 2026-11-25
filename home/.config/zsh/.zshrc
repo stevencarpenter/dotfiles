@@ -117,7 +117,6 @@ path=(
     $_mise_shim_path                        # mise shims (empty array if stale)
     ${HOMEBREW_PREFIX:-/opt/homebrew}/opt/libpq/bin(N-/)
     "/Applications/IntelliJ IDEA.app/Contents/MacOS"
-    $HOME/.lmstudio/bin
     $HOME/.amp/bin
     $HOME/go/bin
     $HOME/.bun/bin

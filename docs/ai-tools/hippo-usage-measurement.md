@@ -5,6 +5,10 @@ gained a rule requiring a `mcp__hippo__*` recall check after every new idea. Thi
 the baseline taken that day, the scheduled re-measures, and the data-source constraints that make
 the numbers comparable.
 
+The rule now lives in the personal fragments `home/.claude/CLAUDE.d/30-personal-tools.md` and
+`home/.codex/AGENTS.d/30-personal-tools.md`, which only the `personal` module links; its text is
+unchanged.
+
 ## Scheduled re-measures
 
 | Date | Purpose | Command |

@@ -4,6 +4,9 @@
 # brew services supervises tailscaled.
 brew "tailscale"
 
+# Railway CLI; the Railway Claude plugin and the use-railway skill are personal too.
+brew "railway"
+
 # Rust development tools as bottles, not `cargo install`: dfm sync's cargo updater rebuilt each
 # one from source. cargo-audit and cargo-deny are in the shared Brewfile.
 brew "cargo-about"  # 0.9.3

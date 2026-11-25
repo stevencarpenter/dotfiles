@@ -124,14 +124,33 @@ target = ".config/git"
 source = "home/.config/git"
 directory = true
 
+# dev-container: the shared parts. profiles.map holds machine paths, so an identity module
+# may link .config/dev-container/config/profiles.map.
 [[resources]]
-id = "config-dev-container"
+id = "config-dev-container-common"
 kind = "link"
 adapter = "fs-link/v1"
-target = ".config/dev-container"
+target = ".config/dev-container/common"
 [resources.value]
-source = "home/.config/dev-container"
+source = "home/.config/dev-container/common"
 directory = true
+
+[[resources]]
+id = "config-dev-container-profiles"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/dev-container/profiles"
+[resources.value]
+source = "home/.config/dev-container/profiles"
+directory = true
+
+[[resources]]
+id = "config-dev-container-dev-env-zsh"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/dev-container/dev-env.zsh"
+[resources.value]
+source = "home/.config/dev-container/dev-env.zsh"
 
 [[resources]]
 id = "config-nushell-config-nu"
@@ -197,13 +216,18 @@ target = ".claude/statusline-command.sh"
 [resources.value]
 source = "home/.claude/statusline-command.sh"
 
+# Claude CLAUDE.md: the shared body, then every fragment an identity module links into
+# .claude/CLAUDE.d, in byte order.
 [[resources]]
 id = "claude-claude-md"
-kind = "link"
-adapter = "fs-link/v1"
+kind = "assemble"
+adapter = "text-fragments/v1"
 target = ".claude/CLAUDE.md"
 [resources.value]
-source = "home/.claude/CLAUDE.md"
+body = "home/.claude/CLAUDE.md"
+fragments_dir = ".claude/CLAUDE.d"
+pattern = "*.md"
+separator = "\n"
 
 [[resources]]
 id = "claude-output-styles-ste-md"
@@ -361,7 +385,8 @@ source = "home/Library/LaunchAgents/org.carpenter.maxfiles.plist"
 
 # ---- assemblies (Codex and Pi AGENTS.md) ----
 # Body, then "\n" before each fragment, fragments in byte order. Fragments: the 20-output-policy.md links
-# above, plus 10-pi-runtime.md from the mcp module for pi.
+# above, plus 10-pi-runtime.md from the mcp module for pi. An identity module may link more
+# (30-* for its own tools).
 [[resources]]
 id = "codex-agents"
 kind = "assemble"
@@ -453,7 +478,7 @@ repo = "DietrichGebert/ponytail"
 "ponytail@ponytail" = true
 "pstack@cursor-plugins" = true
 "pyright-lsp@claude-plugins-official" = true
-"railway@claude-plugins-official" = true
+"railway@claude-plugins-official" = false
 "rust-analyzer-lsp@claude-plugins-official" = true
 "security-guidance@claude-plugins-official" = true
 "superpowers@claude-plugins-official" = false
@@ -512,8 +537,9 @@ type = "command"
 argv = ["${HOME}/.claude/hooks/agent-reap-session-end.sh"]
 timeout = 20
 
+# An identity module may turn on a plugin that the base leaves off.
 [resources.policy]
-defaults = []
+defaults = ["/seed/enabledPlugins/railway@claude-plugins-official"]
 extensions = ["/handlers"]
 
 # uv tools (DFM-25 C01). dfm installs token-auditor from its declared source, and the uv updater

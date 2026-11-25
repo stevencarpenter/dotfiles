@@ -86,6 +86,10 @@ module does. Fragment names use a `20-` prefix and must not repeat a base file n
 | Agent registry opt-outs | `.config/agents/machine/<identity>.json` | `scripts/install-agent-registry.sh` |
 | Claude settings | `.claude/settings.d/20-*.json`; `sandbox.filesystem.allowWrite` appends | `core.claude-settings` merge |
 | Codex and pi instructions | `.codex/AGENTS.d/20-*.md`, `.pi/agent/AGENTS.d/20-*.md` | `core.codex-agents`, `core.pi-agents` |
+| Claude instructions | `.claude/CLAUDE.d/*.md` (`personal` uses `30-`) | `core.claude-claude-md` |
+| Dev containers | `.config/dev-container/config/profiles.map` | the `dev-env` tool |
+| pi model providers | `.pi/agent/models.<identity>.json` | `scripts/sync-side-channels.sh` |
+| Claude plugins | override `/seed/enabledPlugins/railway@claude-plugins-official` | `core.claude-settings` |
 | Shell | `.config/zsh/profile.d/*.zsh` | `.zshrc` |
 | SSH | `.ssh/config.d/20-*.conf` | `home/.ssh/config` |
 | Git | `.config/external-overlays/git/extra.inc`, `work.inc` | `home/.config/git/config` |
