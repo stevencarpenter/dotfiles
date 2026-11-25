@@ -97,6 +97,7 @@ run_sync() {
     MOCK_AGENTS="$agents" \
     HOST_CAPABILITY_BIN="$fixture/bin/host-capability" \
     HOME="$run_root/home" \
+    CODEX_HOME="$run_root/home/.codex" \
     XDG_STATE_HOME="$run_root/state" \
     HOOKS_SYNC_BIN="$fixture/bin/hooks-sync" \
     PATH="${PATH_PREFIX:+$PATH_PREFIX:}$fixture/bin:/usr/bin:/bin" \
@@ -222,5 +223,34 @@ fi
 if ! rg -Fq 'is incomplete (tee exited 1)' "$fixture/tee-failed.stderr"; then
   echo 'sync did not explain the failing log writer' >&2; exit 1
 fi
+
+# The ponytail step reads the install from disk and runs no codex command when it is there;
+# without it, the step falls back to codex plugin list and adds the plugin.
+mkdir -p "$fixture/codex-bin"
+cat >"$fixture/codex-bin/codex" <<'EOF'
+#!/usr/bin/env bash
+printf 'codex %s\n' "$*" >>"$TEST_COMMAND_LOG"
+EOF
+chmod +x "$fixture/codex-bin/codex"
+mkdir -p "$fixture/pt-installed/home/.codex/plugins/cache/ponytail/ponytail/5.3.3"
+printf '[plugins."ponytail@ponytail"]\nenabled = true\n' >"$fixture/pt-installed/home/.codex/config.toml"
+PATH_PREFIX="$fixture/codex-bin" run_sync personal 1 pt-installed
+if rg -q '^codex ' "$fixture/pt-installed/commands.log"; then
+  echo 'the ponytail step ran codex although the plugin is installed' >&2; exit 1
+fi
+PATH_PREFIX="$fixture/codex-bin" run_sync personal 1 pt-missing
+if ! rg -Fxq 'codex plugin list' "$fixture/pt-missing/commands.log" ||
+  ! rg -Fxq 'codex plugin add ponytail@ponytail' "$fixture/pt-missing/commands.log"; then
+  echo 'the ponytail step did not list and add a missing plugin' >&2; exit 1
+fi
+# Either marker alone is not an install: the step asks codex.
+mkdir -p "$fixture/pt-config-only/home/.codex" "$fixture/pt-cache-only/home/.codex/plugins/cache/ponytail/ponytail/5.3.3"
+cp "$fixture/pt-installed/home/.codex/config.toml" "$fixture/pt-config-only/home/.codex/config.toml"
+for run in pt-config-only pt-cache-only; do
+  PATH_PREFIX="$fixture/codex-bin" run_sync personal 1 "$run"
+  if ! rg -Fxq 'codex plugin list' "$fixture/$run/commands.log"; then
+    echo "the ponytail step skipped codex with only one install marker ($run)" >&2; exit 1
+  fi
+done
 
 echo "side-channel sync honors the capability boundaries, runs every step and logs its output"
