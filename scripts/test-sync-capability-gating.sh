@@ -223,4 +223,24 @@ if ! rg -Fq 'is incomplete (tee exited 1)' "$fixture/tee-failed.stderr"; then
   echo 'sync did not explain the failing log writer' >&2; exit 1
 fi
 
+# The ponytail step reads the install from disk and runs no codex command when it is there;
+# without it, the step falls back to codex plugin list and adds the plugin.
+mkdir -p "$fixture/codex-bin"
+cat >"$fixture/codex-bin/codex" <<'EOF'
+#!/usr/bin/env bash
+printf 'codex %s\n' "$*" >>"$TEST_COMMAND_LOG"
+EOF
+chmod +x "$fixture/codex-bin/codex"
+mkdir -p "$fixture/pt-installed/home/.codex/plugins/cache/ponytail/ponytail/5.3.3"
+printf '[plugins."ponytail@ponytail"]\nenabled = true\n' >"$fixture/pt-installed/home/.codex/config.toml"
+PATH_PREFIX="$fixture/codex-bin" run_sync personal 1 pt-installed
+if rg -q '^codex ' "$fixture/pt-installed/commands.log"; then
+  echo 'the ponytail step ran codex although the plugin is installed' >&2; exit 1
+fi
+PATH_PREFIX="$fixture/codex-bin" run_sync personal 1 pt-missing
+if ! rg -Fxq 'codex plugin list' "$fixture/pt-missing/commands.log" ||
+  ! rg -Fxq 'codex plugin add ponytail@ponytail' "$fixture/pt-missing/commands.log"; then
+  echo 'the ponytail step did not list and add a missing plugin' >&2; exit 1
+fi
+
 echo "side-channel sync honors the capability boundaries, runs every step and logs its output"
