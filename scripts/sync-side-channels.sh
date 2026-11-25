@@ -42,8 +42,8 @@ ponytail_plugin() {
     return 0
   fi
   echo "==> Ensuring ponytail Codex plugin"
-  # `codex plugin list` can take 30 s or more, so first read the install from disk: an
-  # enabled-plugin entry in config.toml and a cached version under plugins/cache/<market>/<plugin>.
+  # `codex plugin list` can take 30 s or more, so first read the install from disk: a
+  # plugin entry in config.toml and a cached version under plugins/cache/<market>/<plugin>.
   local codex_home="${CODEX_HOME:-$HOME/.codex}"
   if grep -Fqx '[plugins."ponytail@ponytail"]' "$codex_home/config.toml" 2>/dev/null &&
     compgen -G "$codex_home/plugins/cache/ponytail/ponytail/*/" >/dev/null; then

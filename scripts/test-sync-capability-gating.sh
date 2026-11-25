@@ -242,5 +242,14 @@ if ! rg -Fxq 'codex plugin list' "$fixture/pt-missing/commands.log" ||
   ! rg -Fxq 'codex plugin add ponytail@ponytail' "$fixture/pt-missing/commands.log"; then
   echo 'the ponytail step did not list and add a missing plugin' >&2; exit 1
 fi
+# Either marker alone is not an install: the step asks codex.
+mkdir -p "$fixture/pt-config-only/home/.codex" "$fixture/pt-cache-only/home/.codex/plugins/cache/ponytail/ponytail/5.3.3"
+cp "$fixture/pt-installed/home/.codex/config.toml" "$fixture/pt-config-only/home/.codex/config.toml"
+for run in pt-config-only pt-cache-only; do
+  PATH_PREFIX="$fixture/codex-bin" run_sync personal 1 "$run"
+  if ! rg -Fxq 'codex plugin list' "$fixture/$run/commands.log"; then
+    echo "the ponytail step skipped codex with only one install marker ($run)" >&2; exit 1
+  fi
+done
 
 echo "side-channel sync honors the capability boundaries, runs every step and logs its output"
