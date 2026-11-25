@@ -37,7 +37,6 @@ brew "mactop"
 # required for formula-level `trusted` to take effect in Brewfile evaluation.
 brew "felixkratz/formulae/sketchybar", trusted: true
 brew "felixkratz/formulae/borders", trusted: true
-brew "railway"
 # Swift tooling.
 brew "swiftlint"
 brew "swiftformat"

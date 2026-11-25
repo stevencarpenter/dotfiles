@@ -33,7 +33,6 @@ uv run sync-mcp-configs --master /path/to/mcp-master.json --home /tmp/home
 - Cursor (xdg + legacy mirror)
 - VS Code (xdg + legacy mirror)
 - Junie
-- LM Studio
 - Codex CLI
 - Claude Code
 - OpenCode

@@ -108,7 +108,7 @@ These apps auto-float (won't tile): System Settings, 1Password, Raycast, Finder,
 | `2` | Browser  | Firefox Developer Edition |
 | `3` | IDE      | IntelliJ IDEA             |
 | `4` | Slack    | Slack                     |
-| `5` | AI       | Claude, Codex, LM Studio  |
+| `5` | AI       | Claude, Codex             |
 | `6` | Editor   | Cursor                    |
 | `7` | Notes    | Obsidian                  |
 | `8` | Comms    | Mail, Calendar, Messages  |

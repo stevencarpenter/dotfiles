@@ -295,22 +295,20 @@ def test_opencode_loads_shared_output_policy(temp_home):
     ]
 
 
-def test_opencode_refreshes_provider_declared_in_override(temp_home, monkeypatch):
-    """Live discovery reaches an omlx block that only the override declares."""
+def test_opencode_discovers_provider_declared_in_override(temp_home, monkeypatch):
+    """Live discovery reaches a provider block that only the override declares."""
     monkeypatch.setattr(
-        "mcp_sync.sync.refresh_provider_models",
-        lambda config: {
-            **config,
-            "provider": {"omlx": {"models": {"Live-Model": {"name": "Live-Model"}}}},
-        }
-        if "omlx" in config.get("provider", {})
-        else config,
+        "mcp_sync.discovery.discover_model_ids", lambda *a, **k: ["Live-Model"]
     )
     override_dir = temp_home / ".config" / "mcp" / "overrides"
     override_dir.mkdir(parents=True)
+    provider = {
+        "discover": True,
+        "options": {"baseURL": "http://local.invalid/v1"},
+        "models": {"Static": {"name": "s"}},
+    }
     (override_dir / "opencode.json").write_text(
-        json.dumps({"provider": {"omlx": {"models": {"Static": {"name": "s"}}}}}),
-        encoding="utf-8",
+        json.dumps({"provider": {"local": provider}}), encoding="utf-8"
     )
     target = SyncTarget(
         name="opencode",
@@ -321,8 +319,14 @@ def test_opencode_refreshes_provider_declared_in_override(temp_home, monkeypatch
     live = target.build({"servers": {}}, home=temp_home)
     captured = target.build({"servers": {}}, home=temp_home, live=False)
 
-    assert live["provider"]["omlx"]["models"] == {"Live-Model": {"name": "Live-Model"}}
-    assert captured["provider"]["omlx"]["models"] == {"Static": {"name": "s"}}
+    assert live["provider"]["local"]["models"] == {
+        "Static": {"name": "s"},
+        "Live-Model": {"name": "Live-Model"},
+    }
+    assert captured["provider"]["local"] == {
+        "options": {"baseURL": "http://local.invalid/v1"},
+        "models": {"Static": {"name": "s"}},
+    }
 
 
 def test_none_servers_handling():

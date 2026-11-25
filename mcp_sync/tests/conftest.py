@@ -29,7 +29,15 @@ def synthetic_templates(tmp_path, monkeypatch):
     )
     (directory / "opencode.base.json").write_text(
         json.dumps(
-            {"provider": {"omlx": {"models": {"Fixture-Model": {"name": "fixture"}}}}}
+            {
+                "provider": {
+                    "fixture": {
+                        "discover": True,
+                        "options": {"baseURL": "http://fixture.invalid/v1"},
+                        "models": {"Fixture-Model": {"name": "fixture"}},
+                    }
+                }
+            }
         ),
         encoding="utf-8",
     )
@@ -93,8 +101,8 @@ def master_config_file(temp_home, master_config):
 
 
 @pytest.fixture(autouse=True)
-def _stub_omlx_discovery(monkeypatch):
-    """Neutralize live oMLX discovery: integration runs stay hermetic.
+def _stub_model_discovery(monkeypatch):
+    """Neutralize live model discovery: integration runs stay hermetic.
 
     Stubbed at the transport layer so unit tests for the real
     ``discover_model_ids`` keep working by re-patching ``urlopen``.
@@ -103,7 +111,7 @@ def _stub_omlx_discovery(monkeypatch):
     def offline(*args: object, **kwargs: object) -> object:
         raise OSError("oMLX unreachable in tests")
 
-    monkeypatch.setattr("mcp_sync.omlx.urllib.request.urlopen", offline)
+    monkeypatch.setattr("mcp_sync.discovery.urllib.request.urlopen", offline)
 
 
 @pytest.fixture

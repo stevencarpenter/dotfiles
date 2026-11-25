@@ -14,17 +14,12 @@ Do not report the shared instructions as wrong; they are shared on purpose.
   `just mcp-sync`.
 - Adapter tools: `mcp` is a proxy. Call `mcp({ search: "..." })` to
   discover a tool and describe it before calling. Per-server tools are namespaced with
-  underscores, not hyphens: `mcp__codebase_memory_mcp`, `mcp__codegraph`,
-  `mcp__grafana`, `mcp__hippo`. Servers are lazy and only connect on first
+  underscores, not hyphens: `mcp__codegraph`, `mcp__grafana`. Servers are lazy and only connect on first
   use, so the tool-priority rules in the shared instructions apply here as
   written.
-- `mcp__idea__*` and `mcp__railway__*` do not exist in pi. They
-  are Claude Code plugin-supplied, not `mcp_sync`-managed, so they are
-  absent from `~/.config/mcp/mcp.json`. Use the CLI directly (`rg`,
-  `gh-axi`, `git`, `jj`, `railway`) in their place.
-- `mcp__kaneo` requires an interactive OAuth grant (`/mcp-auth kaneo`) that
-  does not survive into a fresh machine. If a kaneo call fails to connect,
-  say so rather than falling back to a guess.
+- `mcp__idea__*` does not exist in pi. It is Claude Code plugin-supplied,
+  not `mcp_sync`-managed, so it is absent from `~/.config/mcp/mcp.json`.
+  Use the CLI directly (`rg`, `gh-axi`, `git`) in its place.
 - Skills live in `~/.pi/agent/skills/` (same SKILL.md format as Claude).
   Check `/skill:name` before starting a task, exactly as the shared
   instructions require for skills.

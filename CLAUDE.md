@@ -195,8 +195,8 @@ The sync tool reads `home/.config/mcp/mcp-master.json` and generates tool-specif
 - **Merge order**: base template + master + machine overlay + per-tool overrides. Later values
   override earlier values.
   `sync.py` implements the overrides layer. Each target reads `~/.config/mcp/overrides/<key>.json`
-  at sync time. The `personal` module links `overrides/opencode.json` (the LM Studio and oMLX
-  providers); no other override file is managed in the repository.
+  at sync time. The `personal` module links `overrides/opencode.json` (the oMLX
+  provider); no other override file is managed in the repository.
 
 `dfm sync` runs the sync through its `side-channels` updater, which runs `scripts/hooks-sync.sh`.
 That script selects the overlay for this host's identity (`~/.config/mcp/machine/<identity>.json`)
@@ -254,8 +254,12 @@ locations:
   (`omlx-model-settings/v1`), and declares the `omlx-app/v1` service; run
   `dfm sync --restart personal.omlx` after a model-settings change. It also links the identity files of shared capabilities: the
   Claude `settings.d` `allowWrite` fragment, jj, the MCP and skills overlays, the pinned skills,
-  the aerospace and sketchybar variants and the journal config. `Brewfile.personal` holds jj and
-  tailscale.
+  the aerospace and sketchybar variants and the journal config. It owns everything for local
+  models and personal services: the opencode provider override (with `"discover": true` for live
+  oMLX models), pi's `models.personal.json` and `omlx-discovery.ts`, the `30-personal-tools.md` instruction fragments (hippo,
+  codebase-memory) and `15-pi-personal.md`, the dev-container `profiles.personal.map`, and the
+  override that turns the Railway Claude plugin on. `Brewfile.personal` holds jj, tailscale and
+  railway. The base must stay neutral: a base file never names this identity's tools.
 - token-auditor is **not capability-gated**: the `core` module installs it on every machine.
 
 `scripts/host-capability.sh <cap>` prints 1 or 0 from the profile (the one `dfm binding` names,

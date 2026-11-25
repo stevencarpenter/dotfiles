@@ -1,23 +1,9 @@
 {
   "provider": {
-    "lmstudio": {
-      "npm": "@ai-sdk/openai-compatible",
-      "name": "LM Studio (local)",
-      "options": {
-        "baseURL": "http://localhost:1234/v1"
-      },
-      "models": {
-        "qwen/qwen3-coder-next": {
-          "name": "qwen3-coder-next"
-        },
-        "nvidia/nemotron-3-super": {
-          "name": "nemotron-3-super"
-        }
-      }
-    },
     "omlx": {
       "npm": "@ai-sdk/openai-compatible",
       "name": "oMLX (local)",
+      "discover": true,
       "options": {
         "baseURL": "http://localhost:42069/v1"
       },

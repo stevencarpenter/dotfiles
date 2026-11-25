@@ -82,17 +82,17 @@ def test_capture_changed_field_round_trips(
 ):
     """A tweaked field on a managed server replays through the override."""
     run_sync(home=temp_home)
-    lmstudio_path = temp_home / ".lmstudio" / "mcp.json"
-    config = _read_json(lmstudio_path)
+    junie_path = temp_home / ".junie" / "mcp" / "mcp.json"
+    config = _read_json(junie_path)
     config["mcpServers"]["memory"]["args"] = ["--fast"]
-    _write_json(lmstudio_path, config)
+    _write_json(junie_path, config)
 
     master = load_master_config(master_config_file)
-    result = capture_target("lmstudio", master, temp_home)
+    result = capture_target("junie", master, temp_home)
 
     assert result.verified
     run_sync(home=temp_home)
-    assert _read_json(lmstudio_path)["mcpServers"]["memory"]["args"] == ["--fast"]
+    assert _read_json(junie_path)["mcpServers"]["memory"]["args"] == ["--fast"]
 
 
 def test_capture_deleted_server_becomes_enabled_false(
