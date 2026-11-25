@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Sync steps that dfm has no resource for yet: hooks-sync (MCP client configs, then the skills
-# fan-out), the gh-axi skill and the Codex ponytail plugin. dfm sync runs this script through
+# fan-out), the gh-axi skill, the personal pi models.json merge and the Codex ponytail plugin. dfm sync runs this script through
 # `just sync-side-channels` as its side-channels updater: detached, with no terminal and a
 # cleared environment. dfm shows none of the output, so all of it also goes to the log below.
 # Every step runs even when an earlier one failed. The script exits 1 when a step failed.
@@ -11,6 +11,8 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 npx_bin="${NPX_BIN:-npx}"
 capability_bin="${HOST_CAPABILITY_BIN:-$repo_root/scripts/host-capability.sh}"
 hooks_sync_bin="${HOOKS_SYNC_BIN:-$repo_root/scripts/hooks-sync.sh}"
+jq_bin="${JQ_BIN:-jq}"
+pi_dir="${PI_AGENT_DIR:-$HOME/.pi/agent}"
 log_dir="${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles"
 log="$log_dir/side-channels.log"
 
@@ -53,6 +55,31 @@ ponytail_plugin() {
   return 0
 }
 
+# Pi reads only ~/.pi/agent/models.json and has no override layer. On identity personal, write
+# that file from the shared home/.pi/agent/models.json with models.personal.json (linked by the
+# personal module) deep-merged over it. The write replaces the file, so a stale link into the
+# checkout is replaced and the tracked shared file is never written. Other identities: no-op.
+pi_models() {
+  [ "$("$capability_bin" --identity)" = "personal" ] || return 0
+  local shared="$repo_root/home/.pi/agent/models.json" personal="$pi_dir/models.personal.json"
+  local target="$pi_dir/models.json" tmp
+  if [ ! -f "$personal" ]; then
+    echo "error: $personal is missing; run dfm sync to link it" >&2
+    return 1
+  fi
+  if ! command -v "$jq_bin" >/dev/null 2>&1; then
+    echo "error: jq not found; cannot write $target" >&2
+    return 1
+  fi
+  echo "==> Writing $target (shared providers + models.personal.json)"
+  tmp="$(mktemp "$pi_dir/.models.json.XXXXXX")" || return 1
+  if ! "$jq_bin" -s '.[0] * .[1]' "$shared" "$personal" >"$tmp"; then
+    rm -f "$tmp"
+    return 1
+  fi
+  chmod 644 "$tmp" && mv -f "$tmp" "$target"
+}
+
 # timed <name> <command...>: run one step and log its wall time, so a slow step shows in the log.
 timed() {
   local name="$1" start=$SECONDS rc=0
@@ -67,6 +94,7 @@ main() {
   failed=""
   timed hooks-sync hooks_sync || failed="$failed hooks-sync"
   timed gh-axi gh_axi_skill || failed="$failed gh-axi"
+  timed pi-models pi_models || failed="$failed pi-models"
   timed ponytail ponytail_plugin
   if [ -n "$failed" ]; then
     echo "side-channels: failed steps:$failed; full output in $log" >&2

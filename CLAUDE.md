@@ -115,7 +115,8 @@ adoption or takeover needs `--allow-adopt <operation-id>`. A restart needs `--re
 After its scopes, `dfm sync` runs the profile's `updaters` in order. `lefthook` wires the git hooks,
 and `side-channels` runs last: it runs `just sync-side-channels` in the checkout (detached, no
 terminal). That recipe exists only for dfm. It runs `scripts/sync-side-channels.sh`: `hooks-sync.sh`
-(MCP client configs, then the skills fan-out), the gh-axi skill and the ponytail Codex plugin.
+(MCP client configs, then the skills fan-out), the gh-axi skill, the personal pi `models.json` merge
+and the ponytail Codex plugin.
 dfm shows only a `current` or `failed` row, so the script writes its full output to
 `~/.local/state/dotfiles/side-channels.log`.
 
@@ -194,7 +195,8 @@ The sync tool reads `home/.config/mcp/mcp-master.json` and generates tool-specif
 - **Merge order**: base template + master + machine overlay + per-tool overrides. Later values
   override earlier values.
   `sync.py` implements the overrides layer. Each target reads `~/.config/mcp/overrides/<key>.json`
-  at sync time. No override files are managed in the repository.
+  at sync time. The `personal` module links `overrides/opencode.json` (the LM Studio and oMLX
+  providers); no other override file is managed in the repository.
 
 `dfm sync` runs the sync through its `side-channels` updater, which runs `scripts/hooks-sync.sh`.
 That script selects the overlay for this host's identity (`~/.config/mcp/machine/<identity>.json`)

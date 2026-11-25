@@ -123,6 +123,51 @@ target = ".config/mcp/machine/personal.json"
 [resources.value]
 source = "home/.config/mcp/machine/personal.json"
 
+# Local model providers (LM Studio, oMLX) and OpenRouter exist on this identity only.
+# mcp_sync deep-merges the opencode override after the template. Pi has no override layer, so
+# scripts/sync-side-channels.sh writes ~/.pi/agent/models.json from the shared
+# home/.pi/agent/models.json plus models.personal.json. omlx-discovery.ts replaces the static
+# omlx list when the oMLX server answers.
+[[resources]]
+id = "config-mcp-overrides-opencode-json"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".config/mcp/overrides/opencode.json"
+[resources.value]
+source = "home/.config/mcp/overrides/opencode.json"
+
+[[resources]]
+id = "pi-agent-models-personal-json"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".pi/agent/models.personal.json"
+[resources.value]
+source = "home/.pi/agent/models.personal.json"
+
+[[resources]]
+id = "pi-agent-extensions-omlx-discovery-ts"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".pi/agent/extensions/omlx-discovery.ts"
+[resources.value]
+source = "home/.pi/agent/extensions/omlx-discovery.ts"
+
+[[resources]]
+id = "pi-agent-extensions-package-json"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".pi/agent/extensions/package.json"
+[resources.value]
+source = "home/.pi/agent/extensions/package.json"
+
+[[resources]]
+id = "pi-agent-extensions-package-lock-json"
+kind = "link"
+adapter = "fs-link/v1"
+target = ".pi/agent/extensions/package-lock.json"
+[resources.value]
+source = "home/.pi/agent/extensions/package-lock.json"
+
 # Skills overlay and pinned skill links for this identity.
 [[resources]]
 id = "config-skills-machine-personal-json"
