@@ -295,6 +295,36 @@ def test_opencode_loads_shared_output_policy(temp_home):
     ]
 
 
+def test_opencode_refreshes_provider_declared_in_override(temp_home, monkeypatch):
+    """Live discovery reaches an omlx block that only the override declares."""
+    monkeypatch.setattr(
+        "mcp_sync.sync.refresh_provider_models",
+        lambda config: {
+            **config,
+            "provider": {"omlx": {"models": {"Live-Model": {"name": "Live-Model"}}}},
+        }
+        if "omlx" in config.get("provider", {})
+        else config,
+    )
+    override_dir = temp_home / ".config" / "mcp" / "overrides"
+    override_dir.mkdir(parents=True)
+    (override_dir / "opencode.json").write_text(
+        json.dumps({"provider": {"omlx": {"models": {"Static": {"name": "s"}}}}}),
+        encoding="utf-8",
+    )
+    target = SyncTarget(
+        name="opencode",
+        destination=temp_home / ".config" / "opencode" / "opencode.json",
+        transform=transform_to_opencode_format,
+    )
+
+    live = target.build({"servers": {}}, home=temp_home)
+    captured = target.build({"servers": {}}, home=temp_home, live=False)
+
+    assert live["provider"]["omlx"]["models"] == {"Live-Model": {"name": "Live-Model"}}
+    assert captured["provider"]["omlx"]["models"] == {"Static": {"name": "s"}}
+
+
 def test_none_servers_handling():
     """Test handling when servers is None."""
     config = {"servers": None}

@@ -2,44 +2,6 @@
   "$schema": "https://opencode.ai/config.json",
   "instructions": ["${HOME}/.config/agents/output-policy.md"],
   "plugin": ["@dietrichgebert/ponytail"],
-  "provider": {
-    "lmstudio": {
-      "npm": "@ai-sdk/openai-compatible",
-      "name": "LM Studio (local)",
-      "options": {
-        "baseURL": "http://localhost:1234/v1"
-      },
-      "models": {
-        "qwen/qwen3-coder-next": {
-          "name": "qwen3-coder-next"
-        },
-        "nvidia/nemotron-3-super": {
-          "name": "nemotron-3-super"
-        }
-      }
-    },
-    "omlx": {
-      "npm": "@ai-sdk/openai-compatible",
-      "name": "oMLX (local)",
-      "options": {
-        "baseURL": "http://localhost:42069/v1"
-      },
-      "models": {
-        "Qwen3.8-Flash-Next-MLX-4bit": {
-          "name": "Qwen3.8 Flash Next"
-        },
-        "Qwen3.6-35B-A3B-Uncensored-Heretic-MLX-8bit": {
-          "name": "Qwen3.6 35B Heretic"
-        },
-        "Ornith-1.5-35B-A3B-MLX-8bit": {
-          "name": "Ornith 1.5 35B"
-        },
-        "GLM-5.3-Flash-MLX-oQ2-MTP": {
-          "name": "GLM 5.3 Flash"
-        }
-      }
-    }
-  },
   "permission": {
     "bash": {
       "*": "allow",

@@ -90,7 +90,8 @@ run_sync() {
   local agents="$2"
   local run_name="${3:-$identity}"
   local run_root="$fixture/$run_name"
-  mkdir -p "$run_root/home"
+  mkdir -p "$run_root/home/.pi/agent"
+  printf '%s\n' '{"providers": {"fixture": {"apiKey": "fixture"}}}' >"$run_root/home/.pi/agent/models.personal.json"
   : >"$run_root/commands.log"
   TEST_COMMAND_LOG="$run_root/commands.log" \
     MOCK_IDENTITY="$identity" \
@@ -133,6 +134,24 @@ if rg -q '^git ' "$fixture/personal/commands.log"; then
   echo "personal sync ran git, but no side channel clones a repo" >&2
   exit 1
 fi
+# Pi has no override layer: every identity gets a real models.json from the shared file, with
+# models.<identity>.json merged over it when present. A stale link into the checkout is
+# replaced, never written through.
+pi_target="$fixture/personal/home/.pi/agent/models.json"
+if [ -L "$pi_target" ] || ! jq -e '.providers.fixture.apiKey == "fixture"' "$pi_target" >/dev/null; then
+  echo "personal sync did not merge models.personal.json into pi models.json" >&2; exit 1
+fi
+shared_before="$(cat "$repo_root/home/.pi/agent/models.json")"
+ln -sf "$repo_root/home/.pi/agent/models.json" "$pi_target"
+run_sync personal 1 personal
+if [ -L "$pi_target" ] || [ "$(cat "$repo_root/home/.pi/agent/models.json")" != "$shared_before" ]; then
+  echo "pi models merge wrote through a link into the checkout" >&2; exit 1
+fi
+# The fixture home also holds models.personal.json; identity work must not read it.
+if ! cmp -s "$fixture/work/home/.pi/agent/models.json" "$repo_root/home/.pi/agent/models.json"; then
+  echo "work sync did not write the shared pi models.json unchanged" >&2; exit 1
+fi
+
 # dfm owns these now: the op-template/v1 secrets (no op-render, no op signin), the tpm and
 # agent-registry git-checkout/v1 resources with the checkouts updater, and the agents updater.
 for run in personal work; do
