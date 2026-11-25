@@ -97,6 +97,7 @@ run_sync() {
     MOCK_AGENTS="$agents" \
     HOST_CAPABILITY_BIN="$fixture/bin/host-capability" \
     HOME="$run_root/home" \
+    CODEX_HOME="$run_root/home/.codex" \
     XDG_STATE_HOME="$run_root/state" \
     HOOKS_SYNC_BIN="$fixture/bin/hooks-sync" \
     PATH="${PATH_PREFIX:+$PATH_PREFIX:}$fixture/bin:/usr/bin:/bin" \
