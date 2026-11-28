@@ -34,6 +34,15 @@
         "get_task_relations"
       ]
     },
+    "cloudflare": {
+      "type": "http",
+      "url": "https://mcp.cloudflare.com/mcp",
+      "autoApprove": [
+        "whoami",
+        "search",
+        "docs"
+      ]
+    },
     "hippo": {
       "type": "stdio",
       "command": "uv",
